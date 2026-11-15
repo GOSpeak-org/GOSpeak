@@ -1,5 +1,6 @@
-import { Outlet, createFileRoute, useLocation } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { KeepAliveOutlet } from "@/components/common/keepAliveOutlet";
+import { MANAGE_KEEP_ALIVE_PAGES } from "@/components/manage/manageKeepAlive";
 import { denyAccess } from "@/utils/accessDenied";
 import { hasManageAccess } from "@/utils/permissions";
 
@@ -16,27 +17,14 @@ export const Route = createFileRoute("/(app)/manage")({
 });
 
 function ManageLayout() {
-	const location = useLocation();
-	const scrollRef = useRef<HTMLDivElement>(null);
-
-	// 子页切换时只滚内部容器，避免整页重挂 + window 滚顶叠加跳闪
-	// biome-ignore lint/correctness/useExhaustiveDependencies: location.pathname 为有意触发器（子页切换即滚顶）
-	useEffect(() => {
-		if (scrollRef.current) {
-			scrollRef.current.scrollTop = 0;
-			scrollRef.current.scrollLeft = 0;
-		}
-	}, [location.pathname]);
-
 	return (
 		<div className="manage-shell bg-muted flex h-full w-full min-h-0 min-w-0 flex-col">
 			{/* 管理导航由外层布局统一渲染（桌面 DynamicRender / 移动端 ManageNavMobile），
 			    此处不要再放一份，否则左侧会出现两列重复菜单。 */}
-			<div
-				ref={scrollRef}
-				className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden"
-			>
-				<Outlet />
+			{/* 静态子页常驻（筛选/页码/滚动位置保留），动态域详情仍由 Outlet 兜底；
+			    每个常驻页有自己的滚动容器，不再共用一个容器来回滚顶。 */}
+			<div className="relative min-h-0 w-full flex-1">
+				<KeepAliveOutlet pages={MANAGE_KEEP_ALIVE_PAGES} />
 			</div>
 		</div>
 	);
