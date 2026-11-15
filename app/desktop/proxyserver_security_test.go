@@ -47,7 +47,7 @@ func newSecurityMainProxy(s *proxyServer) *httputil.ReverseProxy {
 		Director:       s.directMain,
 		ModifyResponse: s.modifyMainResponse,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 }
 

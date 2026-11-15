@@ -23,11 +23,13 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -37,6 +39,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -49,6 +52,12 @@ var embeddedDist embed.FS
 type proxyServer struct {
 	mu     sync.RWMutex
 	target *url.URL
+
+	// port is the loopback port, reported by /healthz and the watchdog.
+	port int
+
+	errMu             sync.Mutex
+	lastUpstreamError string
 
 	dist      fs.FS
 	mainProxy *httputil.ReverseProxy
@@ -159,6 +168,8 @@ func (s *proxyServer) handler() http.Handler {
 	mux.HandleFunc("/ws", s.handleProxied)
 	// SFU / signaling worker nodes reached through us with the session cookie.
 	mux.HandleFunc("/wsworker", s.handleWorker)
+	// Liveness only: answered by this process without touching the backend.
+	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/", s.serveDist)
 	return mux
 }
@@ -186,13 +197,14 @@ func startProxyServer() (*proxyServer, string, error) {
 		Director:       s.directMain,
 		ModifyResponse: s.modifyMainResponse,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 
 	listener, port, err := listenLoopback(proxyPortDir())
 	if err != nil {
 		return nil, "", err
 	}
+	s.port = port
 	srv := &http.Server{
 		Handler:           s.handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -491,7 +503,7 @@ func (s *proxyServer) workerFor(u *url.URL) *httputil.ReverseProxy {
 		},
 		ModifyResponse: stripWorkerCookies,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 	s.workerProxy[key] = p
 	s.workerOrder = append(s.workerOrder, key)
@@ -509,9 +521,11 @@ func stripWorkerCookies(resp *http.Response) error {
 // proxyErrorHandler answers an unreachable backend with the API's unified error
 // envelope instead of ReverseProxy's bare 502 text, so the page's API client
 // can tell "server is down" apart from a server-side error and show its own
-// message (code 6002 = sfu/proxy transport error).
-func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("[GOSpeak] loopback proxy: %s %s -> %v", r.Method, r.URL.Path, err)
+// message (code 6002 = sfu/proxy transport error). The classified cause is kept
+// for /healthz and the crash report.
+func (s *proxyServer) proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	s.recordUpstreamError(err)
+	log.Printf("[GOSpeak] loopback proxy: %s %s -> %v (%s)", r.Method, r.URL.Path, err, s.UpstreamError())
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusBadGateway)
@@ -520,6 +534,68 @@ func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		"msg":  "backend unreachable",
 		"data": nil,
 	})
+}
+
+// handleHealthz reports liveness only. It never reaches the backend: no target
+// configured is still a healthy process.
+func (s *proxyServer) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	s.mu.RLock()
+	target := ""
+	if s.target != nil {
+		target = s.target.String()
+	}
+	s.mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":                  true,
+		"port":                s.port,
+		"target":              target,
+		"last_upstream_error": s.UpstreamError(),
+	})
+}
+
+// UpstreamError returns the class of the last backend failure: "" | dns | tls |
+// timeout | refused | other.
+func (s *proxyServer) UpstreamError() string {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.lastUpstreamError
+}
+
+func (s *proxyServer) recordUpstreamError(err error) {
+	kind := classifyProxyError(err)
+	if kind == "" {
+		return
+	}
+	s.errMu.Lock()
+	s.lastUpstreamError = kind
+	s.errMu.Unlock()
+}
+
+func classifyProxyError(err error) string {
+	if err == nil {
+		return ""
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return "dns"
+	}
+	var verifyErr *tls.CertificateVerificationError
+	if errors.As(err, &verifyErr) {
+		return "tls"
+	}
+	if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+		return "timeout"
+	}
+	if strings.Contains(err.Error(), "connection refused") {
+		return "refused"
+	}
+	return "other"
 }
 
 // modifyMainResponse rewrites backend cookies for the loopback origin and, on

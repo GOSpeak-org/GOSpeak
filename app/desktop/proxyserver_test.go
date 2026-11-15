@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -47,7 +50,7 @@ func newTestReverseProxy(s *proxyServer) *httputil.ReverseProxy {
 		Director:       s.directMain,
 		ModifyResponse: fixCookies,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 }
 
@@ -421,5 +424,59 @@ func TestProxyRoundTripperDowngradesOnlyUpgrades(t *testing.T) {
 	plain := &http.Request{Header: http.Header{"Accept": {"application/json"}}}
 	if isUpgradeRequest(plain) {
 		t.Fatal("a plain API request must not be treated as a protocol upgrade")
+	}
+}
+
+func TestClassifyProxyError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"nil", nil, ""},
+		{"dns", &net.DNSError{Err: "no such host", Name: "x"}, "dns"},
+		{"timeout", context.DeadlineExceeded, "timeout"},
+		{"refused", errors.New("dial tcp 127.0.0.1:8998: connect: connection refused"), "refused"},
+		{"other", errors.New("boom"), "other"},
+	}
+	for _, tc := range cases {
+		if got := classifyProxyError(tc.err); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestHealthzReportsLivenessWithoutTarget(t *testing.T) {
+	s := &proxyServer{assets: newAssetCache(), transport: newProxyRoundTripper(), port: 47000}
+	rec := httptest.NewRecorder()
+	s.handleHealthz(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var body struct {
+		OK     bool   `json:"ok"`
+		Port   int    `json:"port"`
+		Target string `json:"target"`
+		Last   string `json:"last_upstream_error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !body.OK || body.Port != 47000 || body.Target != "" || body.Last != "" {
+		t.Fatalf("unexpected body: %+v", body)
+	}
+}
+
+func TestProxyErrorHandlerRecordsUpstreamError(t *testing.T) {
+	s := &proxyServer{assets: newAssetCache(), transport: newProxyRoundTripper()}
+	rec := httptest.NewRecorder()
+	s.proxyErrorHandler(rec, httptest.NewRequest(http.MethodGet, "/api/v1/x", nil), errors.New("dial tcp: connect: connection refused"))
+
+	if got := s.UpstreamError(); got != "refused" {
+		t.Fatalf("UpstreamError() = %q, want refused", got)
+	}
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502", rec.Code)
 	}
 }
