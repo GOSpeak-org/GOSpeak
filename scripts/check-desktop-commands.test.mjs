@@ -4,6 +4,7 @@ import test from "node:test";
 import {
 	checkCommands,
 	extractGoBindings,
+	extractScriptCommands,
 	extractTsCommands,
 } from "./check-desktop-commands.mjs";
 
@@ -60,6 +61,21 @@ test("extracts command names from the TypeScript SDK", () => {
 	assert.deepEqual([...commands].sort(), [
 		"ServerConfig.GetBaseURL",
 		"Window.Minimize",
+	]);
+});
+
+test("extracts command names from preload scripts", () => {
+	const commands = extractScriptCommands([
+		{
+			path: "app/desktop/preload_clipboard.js",
+			source:
+				'runtime.call("Clipboard.ReadText"); runtime.call("Clipboard.WriteText", text);',
+		},
+	]);
+
+	assert.deepEqual([...commands].sort(), [
+		"Clipboard.ReadText",
+		"Clipboard.WriteText",
 	]);
 });
 

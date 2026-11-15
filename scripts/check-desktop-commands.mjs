@@ -53,6 +53,22 @@ export function extractTsCommands(files) {
 	return commands;
 }
 
+/**
+ * 从宿主注入页面的 preload 脚本里取出 `runtime.call("X.Y", ...)` 的命令名，
+ * 这些调用不经过 TS SDK，但同样必须与 Go 绑定一致。
+ */
+export function extractScriptCommands(files) {
+	const commands = new Set();
+	for (const file of files) {
+		for (const m of file.source.matchAll(
+			/\.call\(\s*"([A-Z]\w*\.[A-Z]\w*)"/g,
+		)) {
+			commands.add(m[1]);
+		}
+	}
+	return commands;
+}
+
 /** 双向比对，返回两侧的差集。只有 missing 会让校验失败。 */
 export function checkCommands({ bindings, commands }) {
 	const missing = [...commands].filter((c) => !bindings.has(c)).sort();
@@ -78,9 +94,21 @@ function tsFiles(dir) {
 		}));
 }
 
+function preloadFiles(dir) {
+	return readdirSync(dir)
+		.filter((f) => f.startsWith("preload_") && f.endsWith(".js"))
+		.map((f) => ({
+			path: join(dir, f),
+			source: readFileSync(join(dir, f), "utf8"),
+		}));
+}
+
 export function checkRepo(root = ".") {
 	const bindings = extractGoBindings(goFiles(join(root, DESKTOP_DIR)));
-	const commands = extractTsCommands(tsFiles(join(root, TS_DIR)));
+	const commands = new Set([
+		...extractTsCommands(tsFiles(join(root, TS_DIR))),
+		...extractScriptCommands(preloadFiles(join(root, DESKTOP_DIR))),
+	]);
 	return { bindings, commands, ...checkCommands({ bindings, commands }) };
 }
 

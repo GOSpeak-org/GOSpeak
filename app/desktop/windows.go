@@ -72,8 +72,12 @@ func openMainWindow() {
 		// so loading does not flash another color.
 		BackgroundColor: "light-dark(#f8f8f8, #17181b)",
 		// Lets the loopback page call bound Go methods (server config, overlay,
-		// capabilities). Verify the field name against the mygo version in use.
-		Page: mygo.PageOptions{TrustedOrigins: originOf(base)},
+		// capabilities). PreloadScript routes navigator.clipboard through the host
+		// so WebView2 never shows its own clipboard permission prompt.
+		Page: mygo.PageOptions{
+			TrustedOrigins: originOf(base),
+			PreloadScript:  clipboardPreloadScript,
+		},
 		// First-launch size; StateKey's remembered bounds (position, size,
 		// maximized, full screen) override it and fall back to a visible
 		// position when the saved display is gone.

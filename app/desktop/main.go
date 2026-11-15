@@ -57,6 +57,7 @@ func main() {
 	mygo.Bind(AutoStart{})
 	mygo.Bind(DeepLink{})
 	mygo.Bind(Dialog{})
+	mygo.Bind(Clipboard{})
 	mygo.Bind(Updater{})
 	mygo.Bind(Overlay{})
 	mygo.Bind(ServerConfig{})
