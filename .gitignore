@@ -141,5 +141,7 @@ app/server/internal/webui/dist/*
 app/server/docs/swagger.json
 app/server/docs/swagger.yaml
 
-# 本地 agent 记忆（workbuddy）
+# agent
 .workbuddy/
+.claude/
+.zcode/
