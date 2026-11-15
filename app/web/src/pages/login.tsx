@@ -18,7 +18,7 @@ import PasswordInput from "@/components/common/passwordInput";
 import ServerUrlField from "@/components/common/serverUrlField";
 import ProviderIcon from "@/components/oauth/ProviderIcon";
 import { useUserStore } from "@/stores/userStore";
-import { inDesktop } from "@gospeak/desktop";
+import { createServerConfig, inDesktop } from "@gospeak/desktop";
 import { depth, useAuthParallax } from "@/hooks/useAuthParallax";
 import ForcePasswordChangeModal from "@/pages/login/components/ForcePasswordChangeModal";
 import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
@@ -60,9 +60,23 @@ function LoginPage() {
 	const [showChangeModal, setShowChangeModal] = useState(false);
 	const [oauthLoading, setOauthLoading] = useState(false);
 
+	// 桌面端首次进入时服务器地址还是空的：没有任何可请求的后端，
+	// 不能先打一轮必然失败的接口（OAuth 列表、会话校验都不发）。
+	const [serverReady, setServerReady] = useState(() =>
+		inDesktop() ? createServerConfig().getBaseUrlSync().trim() !== "" : true,
+	);
+	useEffect(() => {
+		if (!inDesktop()) return;
+		void createServerConfig()
+			.getBaseUrl()
+			.then((url) => setServerReady(url.trim() !== ""))
+			.catch(() => {});
+	}, []);
+
 	const { data: oauthProviders } = useQuery({
 		queryKey: ["oauth-providers"],
 		queryFn: getEnabledProviders,
+		enabled: serverReady,
 	});
 
 	const [username, setUsername] = useState("");
@@ -136,7 +150,7 @@ function LoginPage() {
 		e?.stopPropagation();
 		setTouched({ username: true, password: true });
 		if (!username.trim() || !password) return;
-		if (submitting) return;
+		if (submitting || !serverReady) return;
 		setSubmitting(true);
 		try {
 			const data = await loginApi({
@@ -280,7 +294,7 @@ function LoginPage() {
 											type="submit"
 											size="lg"
 											className="mt-4 w-full"
-											disabled={submitting}
+											disabled={submitting || !serverReady}
 										>
 											{submitting ? "登录中..." : "登录"}
 										</Button>

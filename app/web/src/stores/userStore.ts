@@ -1,3 +1,4 @@
+import { createServerConfig, inDesktop } from "@gospeak/desktop";
 import { create } from "zustand";
 import { getProfile, logout as logoutApi } from "@/api/auth";
 import {
@@ -30,6 +31,19 @@ interface UserState {
 	logout: () => Promise<void>;
 	ensureSession: () => Promise<boolean>;
 	recordSessionExpiry: (expiresIn: number | null | undefined) => void;
+}
+
+/**
+ * 桌面端没填服务器地址时没有可请求的后端，直接判定无会话、不发请求。
+ * 浏览器端页面 origin 就是后端，永远为 true。
+ */
+async function hasServerTarget(): Promise<boolean> {
+	if (!inDesktop()) return true;
+	try {
+		return (await createServerConfig().getBaseUrl()).trim() !== "";
+	} catch {
+		return createServerConfig().getBaseUrlSync().trim() !== "";
+	}
 }
 
 let ensureSessionPromise: Promise<boolean> | null = null;
@@ -110,6 +124,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 	ensureSession: () => {
 		if (ensureSessionPromise) return ensureSessionPromise;
 		const attempt = (async () => {
+			if (!(await hasServerTarget())) return false;
 			try {
 				sessionExpiresAt = readSessionExpiry();
 				const { user } = get();
