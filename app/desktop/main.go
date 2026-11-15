@@ -87,6 +87,7 @@ func main() {
 			// keeps /api and /ws same-origin, so no loopback proxy is needed.
 			if _, err := ensureProxyStarted(); err != nil {
 				log.Printf("[GOSpeak] loopback proxy failed to start: %v", err)
+				reportFatal("本地回环代理启动失败。", err.Error())
 			}
 			startupMark("loopback proxy listening on %s", proxyLoopbackURL)
 		}

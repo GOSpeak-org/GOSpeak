@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/egoist/mygo"
 )
@@ -39,16 +41,35 @@ func loadServerConfig() {
 	if err != nil {
 		return
 	}
-	data, err := os.ReadFile(filepath.Join(dir, serverConfigFileName))
+	path := filepath.Join(dir, serverConfigFileName)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return // no config yet
 	}
 	var cfg serverConfigFile
-	if json.Unmarshal(data, &cfg) == nil {
-		serverConfigMu.Lock()
-		serverBaseURL = strings.TrimSpace(cfg.BaseURL)
-		serverConfigMu.Unlock()
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		backup, _ := backupCorruptConfig(path)
+		log.Printf("[GOSpeak] server config is corrupt, backed up to %s", backup)
+		return
 	}
+	if err := validateBaseURL(cfg.BaseURL); err != nil {
+		backup, _ := backupCorruptConfig(path)
+		log.Printf("[GOSpeak] server config is invalid (%v), backed up to %s", err, backup)
+		return
+	}
+	serverConfigMu.Lock()
+	serverBaseURL = strings.TrimSpace(cfg.BaseURL)
+	serverConfigMu.Unlock()
+}
+
+// backupCorruptConfig moves a damaged config aside so the next launch starts
+// clean while the old file stays available for diagnosis.
+func backupCorruptConfig(path string) (string, error) {
+	backup := fmt.Sprintf("%s.corrupt-%d", path, time.Now().Unix())
+	if err := os.Rename(path, backup); err != nil {
+		return "", err
+	}
+	return backup, nil
 }
 
 // currentBaseURL returns the in-memory configured base URL ("" when unset).
