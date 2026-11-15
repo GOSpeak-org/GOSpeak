@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -29,14 +31,39 @@ var startupT0 = time.Now()
 
 func startupDebug() bool { return os.Getenv("GOSPEAK_STARTUP_DEBUG") == "1" }
 
+// startupTrace is the file the timeline also goes to while tracing: a packaged
+// Windows app is a GUI subsystem binary, so stderr reaches no console and the
+// only way to read the numbers is a file in the user data directory.
+var startupTrace struct {
+	sync.Mutex
+	opened bool
+	file   *os.File
+}
+
 // startupMark logs elapsed time since process start. No-op unless tracing is on.
 func startupMark(format string, args ...any) {
 	if !startupDebug() {
 		return
 	}
-	log.Printf("[startup] +%-8s %s",
+	line := fmt.Sprintf("[startup] +%-8s %s",
 		time.Since(startupT0).Round(100*time.Microsecond),
 		fmt.Sprintf(format, args...))
+	log.Print(line)
+	startupTrace.Lock()
+	defer startupTrace.Unlock()
+	if !startupTrace.opened {
+		startupTrace.opened = true
+		if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
+			f, ferr := os.OpenFile(filepath.Join(dir, "startup.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+			if ferr == nil {
+				startupTrace.file = f
+				_, _ = fmt.Fprintf(f, "version=%s commit=%s\n", version, commit)
+			}
+		}
+	}
+	if startupTrace.file != nil {
+		_, _ = fmt.Fprintln(startupTrace.file, line)
+	}
 }
 
 // startupProbeFrontend polls the page until React has mounted something under
