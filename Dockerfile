@@ -24,6 +24,8 @@ ARG COMMIT=unknown
 COPY app/server/go.mod app/server/go.sum ./
 RUN go mod download
 COPY app/server/ ./
+# VERSION 是版本权威来源；未传 build-arg 时运行期回退读取该文件
+COPY VERSION ./
 # 将前端产物同步到 go:embed 目录，打进二进制
 COPY --from=web-builder /src/app/web/dist/ ./internal/webui/dist/
 RUN CGO_ENABLED=0 go build -ldflags="-s -w -X 'GOSpeak/internal/buildinfo.Version=${VERSION}' -X 'GOSpeak/internal/buildinfo.Commit=${COMMIT}'" -o /gospeak .
@@ -37,6 +39,7 @@ RUN apk add --no-cache ca-certificates tzdata wget \
 WORKDIR /app
 
 COPY --from=go-builder /gospeak /app/gospeak
+COPY --from=go-builder /build/VERSION /app/VERSION
 
 RUN mkdir -p /app/db /app/logs /app/uploads /app/nats \
     && chown -R app:app /app

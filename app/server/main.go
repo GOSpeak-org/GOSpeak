@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"GOSpeak/cmd"
+	"GOSpeak/internal/buildinfo"
 	"GOSpeak/internal/logger"
 )
 
@@ -37,6 +38,9 @@ func main() {
 
 	// 完整配置驱动初始化在 server 启动时完成；此处仅保证入口可用
 	_ = logger.Init(logger.Options{Level: "info", Format: "text", Output: "stdout"})
+
+	// 未通过 ldflags 注入版本时，以仓库根 VERSION 文件为准。
+	buildinfo.ResolveVersion()
 
 	if err := cmd.RootCmd.Execute(); err != nil {
 		_, err := fmt.Fprintln(os.Stderr, err)
