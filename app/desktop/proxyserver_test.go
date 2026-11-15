@@ -37,7 +37,7 @@ func testDist() fstest.MapFS {
 }
 
 func newServeTestServer() *proxyServer {
-	return &proxyServer{dist: testDist(), assets: newAssetCache(), transport: proxyTransport()}
+	return &proxyServer{dist: testDist(), assets: newAssetCache(), transport: newProxyRoundTripper()}
 }
 
 // newTestReverseProxy builds the same proxy wiring as startProxyServer without
@@ -186,7 +186,7 @@ func TestProxyWithoutTargetReturnsConfiguredJSONError(t *testing.T) {
 }
 
 func TestProxyErrorHandlerReturnsUnifiedEnvelope(t *testing.T) {
-	s := &proxyServer{assets: newAssetCache(), transport: proxyTransport()}
+	s := &proxyServer{assets: newAssetCache(), transport: newProxyRoundTripper()}
 	s.mainProxy = newTestReverseProxy(s)
 	// Port 1 is privileged and (in practice) closed: the dial fails fast.
 	s.setProxyTarget("http://127.0.0.1:1")
@@ -294,7 +294,7 @@ func TestEmbeddedDistEndToEnd(t *testing.T) {
 // SPA deep link, a hashed chunk, and the API prefix with no backend configured.
 func TestHandlerServesRealDistOverHTTP(t *testing.T) {
 	sub := requireBuiltDist(t)
-	s := &proxyServer{dist: sub, assets: newAssetCache(), transport: proxyTransport()}
+	s := &proxyServer{dist: sub, assets: newAssetCache(), transport: newProxyRoundTripper()}
 	s.mainProxy = newTestReverseProxy(s)
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
@@ -402,5 +402,24 @@ func TestProxyTransportKeepsHTTP11ForWebSockets(t *testing.T) {
 	}
 	if tr.TLSNextProto == nil || len(tr.TLSNextProto) != 0 {
 		t.Fatal("TLSNextProto must be an empty non-nil map so TLS backends never negotiate HTTP/2")
+	}
+}
+
+func TestProxyRoundTripperDowngradesOnlyUpgrades(t *testing.T) {
+	rt := newProxyRoundTripper()
+	if rt.http2 == nil || !rt.http2.ForceAttemptHTTP2 || rt.http2.TLSNextProto != nil {
+		t.Fatal("non-upgrade traffic must keep HTTP/2: API calls should not be forced onto HTTP/1.1")
+	}
+
+	upgrade := &http.Request{Header: http.Header{
+		"Connection": {"Upgrade"},
+		"Upgrade":    {"websocket"},
+	}}
+	if !isUpgradeRequest(upgrade) {
+		t.Fatal("a WebSocket handshake must route to the HTTP/1.1 transport")
+	}
+	plain := &http.Request{Header: http.Header{"Accept": {"application/json"}}}
+	if isUpgradeRequest(plain) {
+		t.Fatal("a plain API request must not be treated as a protocol upgrade")
 	}
 }

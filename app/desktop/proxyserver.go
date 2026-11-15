@@ -53,8 +53,9 @@ type proxyServer struct {
 	dist      fs.FS
 	mainProxy *httputil.ReverseProxy
 	// transport is shared by the main and worker proxies so idle connections to
-	// the backend (and to SFU nodes) are reused across both.
-	transport *http.Transport
+	// the backend (and to SFU nodes) are reused across both. It routes upgrade
+	// requests over HTTP/1.1 and everything else over HTTP/2.
+	transport http.RoundTripper
 
 	// assets caches the embedded dist in memory: a page reload re-reads nothing
 	// from disk, and gzip is computed once per file (see assetCache).
@@ -91,8 +92,8 @@ func proxyTransport() *http.Transport {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		// 只走 HTTP/1.1：WebSocket 握手带 Connection/Upgrade，Go 的 HTTP/2
-		// 客户端直接拒绝这类头；TLS 后端一旦用 ALPN 协商到 h2，/ws 与
-		// /wsworker 的升级就变成 502，前端只会无限重连。
+		// 客户端直接拒绝这类头。proxyRoundTripper 只把升级请求交给这里，
+		// 普通 API 仍走 h2。
 		ForceAttemptHTTP2:     false,
 		TLSNextProto:          map[string]func(string, *tls.Conn) http.RoundTripper{},
 		MaxIdleConns:          64,
@@ -101,6 +102,47 @@ func proxyTransport() *http.Transport {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: time.Second,
 	}
+}
+
+// proxyHTTP2Transport carries the traffic that is not a protocol upgrade:
+// ordinary API/upload/RTC requests keep HTTP/2 multiplexing when the backend
+// speaks it.
+func proxyHTTP2Transport() *http.Transport {
+	tr := proxyTransport()
+	tr.ForceAttemptHTTP2 = true
+	tr.TLSNextProto = nil // let crypto/tls negotiate h2 again
+	return tr
+}
+
+// proxyRoundTripper downgrades a request to HTTP/1.1 only when it needs to be
+// one: a WebSocket (or any Connection: Upgrade) handshake cannot travel over
+// HTTP/2 with Go's client, while everything else benefits from h2. This is the
+// automatic downgrade — no configuration, and a backend that negotiates h2 no
+// longer turns /ws and /wsworker into 502.
+type proxyRoundTripper struct {
+	http11 *http.Transport
+	http2  *http.Transport
+}
+
+func newProxyRoundTripper() *proxyRoundTripper {
+	return &proxyRoundTripper{
+		http11: proxyTransport(),
+		http2:  proxyHTTP2Transport(),
+	}
+}
+
+func (t *proxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if isUpgradeRequest(req) {
+		return t.http11.RoundTrip(req)
+	}
+	return t.http2.RoundTrip(req)
+}
+
+// isUpgradeRequest reports whether a request asks for a protocol switch.
+// ReverseProxy sets these headers on the outbound request before RoundTrip.
+func isUpgradeRequest(req *http.Request) bool {
+	return req.Header.Get("Upgrade") != "" ||
+		strings.EqualFold(req.Header.Get("Connection"), "upgrade")
 }
 
 // handler wires the loopback routes: proxied API/WS prefixes first, static
@@ -132,7 +174,7 @@ func startProxyServer() (*proxyServer, string, error) {
 	s := &proxyServer{
 		dist:        sub,
 		assets:      newAssetCache(),
-		transport:   proxyTransport(),
+		transport:   newProxyRoundTripper(),
 		workerProxy: map[string]*httputil.ReverseProxy{},
 		workerHosts: &workerHostAllowlist{},
 	}

@@ -36,7 +36,7 @@ func newSecurityTestServer(allow func() []string) *proxyServer {
 	return &proxyServer{
 		dist:               securityTestDist(),
 		assets:             newAssetCache(),
-		transport:          proxyTransport(),
+		transport:          newProxyRoundTripper(),
 		workerProxy:        map[string]*httputil.ReverseProxy{},
 		allowedWorkerHosts: allow,
 	}
