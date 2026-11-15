@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import net from "node:net";
+import { readFileSync } from "node:fs";
 import { visualizer } from "rollup-plugin-visualizer";
 
 function findAvailablePort(startPort: number): Promise<number> {
@@ -37,6 +38,11 @@ export default defineConfig(async ({ mode }) => {
     define: {
       __GOSPEAK_TARGET__: JSON.stringify(gospeakTarget),
       __GOSPEAK_DESKTOP__: String(gospeakTarget === "desktop"),
+      // 导出日志的版本头用；与 package.json 的 version 同步。
+      __APP_VERSION__: JSON.stringify(
+        JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"))
+          .version,
+      ),
     },
     base,
     plugins: [

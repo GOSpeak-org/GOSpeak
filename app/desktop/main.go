@@ -61,6 +61,7 @@ func main() {
 	mygo.Bind(Updater{})
 	mygo.Bind(Overlay{})
 	mygo.Bind(ServerConfig{})
+	mygo.Bind(ClientLog{})
 	startupMark("services bound")
 
 	// Deep links (gospeak://invite/d/<CODE>) must be wired before Run so the
@@ -70,6 +71,10 @@ func main() {
 
 	mygo.App.WhenReady(func() {
 		startupMark("app ready")
+		// Open the host log file before anything can fail, so a crash during
+		// startup still leaves a report behind.
+		initHostLog()
+		startupMark("host log ready")
 		// Load the persisted backend base URL before any window opens.
 		loadServerConfig()
 		startupMark("server config loaded")
@@ -87,6 +92,10 @@ func main() {
 		openMainWindow()
 		startupMark("main window created (page load started)")
 		startupProbeFrontend(mainWindow)
+		watchMainWindowFailures()
+		if p := mainWindow.Page(); p != nil {
+			watchDownloads(p)
+		}
 
 		// Dock / taskbar icon when running from source (a packaged bundle
 		// already carries resources/icon.png).
@@ -107,8 +116,12 @@ func main() {
 		startupMark("lifecycle wired")
 	})
 
+	// A panic on the main goroutine must not take the process down silently:
+	// report it into the native crash window instead.
+	defer recoverToCrashWindow()
 	if err := mygo.App.Run(); err != nil {
-		log.Fatal(err)
+		log.Printf("[GOSpeak] app run failed: %v", err)
+		reportFatal("宿主主循环异常退出。", err.Error())
 	}
 	startupMark("app exited")
 }

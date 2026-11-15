@@ -6,6 +6,9 @@ import { RouteErrorComponent } from "@/components/common/errorBoundary";
 import { SkeletonPage } from "@/components/common/Skeletons";
 import { requestAudioPermission } from "@/hooks/media";
 import { initTheme } from "@/stores/themeStore";
+import { installClientLog } from "@/utils/clientLog";
+import { installDesktopLogSink } from "@/utils/clientLogDesktop";
+import { installFatalWatcher } from "@/utils/clientLogFatal";
 import { installGlobalErrorHandlers } from "@/utils/errorReport";
 import { loadPublicBaseUrl } from "@/utils/publicBaseUrl";
 import { routeTree } from "./routeTree.gen";
@@ -68,10 +71,24 @@ void requestAudioPermission();
 // 桌面端分享链接要用后端服务器地址而不是回环 origin，先预热缓存再渲染。
 void loadPublicBaseUrl();
 
+// 客户端日志：必须在错误边界之前装上，否则启动阶段的报错会丢。
+// 桌面端额外注册宿主 sink（崩溃后原生窗口读的是宿主那份）。
+const uninstallDesktopLogSink = installDesktopLogSink();
+const uninstallClientLog = installClientLog();
+
 // 错误边界捕获不到事件回调 / Promise 里的错误，由全局监听补齐上报
 const uninstallGlobalErrorHandlers = installGlobalErrorHandlers();
+
+// 白屏 / 错误风暴判定：判定成立时由宿主打开原生崩溃窗口
+const uninstallFatalWatcher = installFatalWatcher();
+
 if (import.meta.hot) {
-	import.meta.hot.dispose(uninstallGlobalErrorHandlers);
+	import.meta.hot.dispose(() => {
+		uninstallFatalWatcher();
+		uninstallGlobalErrorHandlers();
+		uninstallClientLog();
+		uninstallDesktopLogSink();
+	});
 }
 
 const appEl = document.getElementById("app");

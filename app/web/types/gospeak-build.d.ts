@@ -8,3 +8,5 @@
  */
 declare const __GOSPEAK_TARGET__: "web" | "desktop";
 declare const __GOSPEAK_DESKTOP__: boolean;
+/** 前端版本号（取自 app/web/package.json），导出日志时写进报告头。 */
+declare const __APP_VERSION__: string;

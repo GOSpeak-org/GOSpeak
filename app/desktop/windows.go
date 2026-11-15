@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/egoist/mygo"
 )
@@ -76,7 +79,7 @@ func openMainWindow() {
 		// so WebView2 never shows its own clipboard permission prompt.
 		Page: mygo.PageOptions{
 			TrustedOrigins: originOf(base),
-			PreloadScript:  clipboardPreloadScript,
+			PreloadScript:  pagePreloadScript,
 		},
 		// First-launch size; StateKey's remembered bounds (position, size,
 		// maximized, full screen) override it and fall back to a visible
@@ -91,6 +94,52 @@ func openMainWindow() {
 	if p := mainWindow.Page(); p != nil {
 		p.OnPageTitleUpdated(func(e *mygo.TitleEvent) { e.PreventDefault() })
 	}
+}
+
+// watchDownloads records where the page's downloads land and reports the
+// outcome. The page exports its log through a Blob download on both platforms
+// (see app/web utils/exportLog); MyGo already saves it to the Downloads
+// directory under the page's suggested name, numbering a duplicate, so this
+// only tells the user where it went.
+func watchDownloads(p *mygo.Page) {
+	p.OnDownloadDone(func(d *mygo.Download) {
+		if d.Err != nil {
+			logHostError("download", d.Err)
+			return
+		}
+		appendHostEntry(ClientLogEntry{
+			ID:      fmt.Sprintf("download-%d", time.Now().UnixNano()),
+			TS:      time.Now().UnixMilli(),
+			Level:   "info",
+			Scope:   "download",
+			Message: "saved " + d.Path,
+		})
+		n := mygo.NewNotification(mygo.NotificationOptions{
+			Title: "GOSpeak",
+			Body:  "日志已保存到 " + filepath.Base(d.Path),
+		})
+		_ = n.Show()
+	})
+}
+
+// watchMainWindowFailures turns a failed load of the app shell into a native
+// crash window. A base-URL switch or a manual reload that fails lands here too,
+// which is intended: without the page the client has no UI left.
+func watchMainWindowFailures() {
+	if mainWindow == nil {
+		return
+	}
+	p := mainWindow.Page()
+	if p == nil {
+		return
+	}
+	p.OnDidFailLoad(func(err *mygo.LoadError) {
+		if !isFatalLoadFailure(err.URL, appPageBase(), err.Code) {
+			return
+		}
+		logHostError("page.load", err)
+		reportFatal(fatalLoadReason(err.URL, err.Code, err.Description), err.Error())
+	})
 }
 
 // reloadAllWindows reloads the pages in place after a base-URL switch. The

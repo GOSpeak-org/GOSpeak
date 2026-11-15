@@ -84,11 +84,18 @@ export {
 	type ServerConfig,
 } from "./capabilities/server";
 
+export {
+	createClientLog,
+	type ClientLog,
+	type HostLogEntry,
+} from "./capabilities/clientlog";
+
 import { createWindowControls } from "./capabilities/window";
 import { createSystemTray } from "./capabilities/tray";
 import { createAutoStart } from "./capabilities/autostart";
 import { createUpdater } from "./capabilities/updater";
 import { createOverlay } from "./capabilities/overlay";
+import { createClientLog } from "./capabilities/clientlog";
 import { isDesktop } from "./runtime";
 
 /**
@@ -106,6 +113,7 @@ export function createDesktop() {
 		autostart: createAutoStart(),
 		updater: createUpdater(),
 		overlay: createOverlay(),
+		clientLog: createClientLog(),
 	};
 }
 
