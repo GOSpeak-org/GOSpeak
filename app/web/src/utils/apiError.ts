@@ -12,3 +12,10 @@ export function apiErrorCode(error: unknown): number | undefined {
 	return (error as { response?: { data?: { code?: number } } })?.response?.data
 		?.code;
 }
+
+/** 本地代理返回 6002：后端不可达，与普通 5xx 分开提示。 */
+export function unreachableMessage(error: unknown): string | null {
+	return apiErrorCode(error) === 6002
+		? "无法连接到服务器，请检查地址或网络"
+		: null;
+}
