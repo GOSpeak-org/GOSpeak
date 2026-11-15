@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -66,5 +67,68 @@ func TestDecidePortChangeNotifiesAndReloads(t *testing.T) {
 	act = s.decide(supervisorEvent{kind: eventProxyRestarted, oldPort: 47000, newPort: 47000}, now)
 	if !act.ReloadPage || act.Notify != "" {
 		t.Fatalf("same port must only reload: %+v", act)
+	}
+}
+
+type fakePage struct{ reloads int }
+
+func (f *fakePage) Reload() { f.reloads++ }
+
+type fakeProxy struct {
+	probeErr error
+	restarts int
+	oldPort  int
+	newPort  int
+}
+
+func (f *fakeProxy) Probe() error { return f.probeErr }
+func (f *fakeProxy) Restart() (int, int, error) {
+	f.restarts++
+	return f.oldPort, f.newPort, nil
+}
+
+type fakeHost struct {
+	reports int
+	notes   []string
+}
+
+func (f *fakeHost) Report(string, string)        { f.reports++ }
+func (f *fakeHost) Notify(_ string, body string) { f.notes = append(f.notes, body) }
+
+func TestSupervisorRestartsProxyOnTwoProbeFailures(t *testing.T) {
+	page := &fakePage{}
+	proxy := &fakeProxy{probeErr: errors.New("down"), oldPort: 47000, newPort: 47001}
+	host := &fakeHost{}
+	sup := newSupervisor(page, proxy, host)
+
+	sup.handle(supervisorEvent{kind: eventProxyProbeFailed})
+	sup.handle(supervisorEvent{kind: eventProxyProbeFailed})
+	sup.waitPending()
+
+	if proxy.restarts != 1 {
+		t.Fatalf("restarts = %d, want 1", proxy.restarts)
+	}
+	if page.reloads != 1 {
+		t.Fatalf("reloads = %d, want 1", page.reloads)
+	}
+	if len(host.notes) != 1 {
+		t.Fatalf("notes = %v, want one port-change notice", host.notes)
+	}
+}
+
+func TestSupervisorReportsAfterBudget(t *testing.T) {
+	page := &fakePage{}
+	host := &fakeHost{}
+	sup := newSupervisor(page, &fakeProxy{}, host)
+
+	for i := 0; i < maxRestarts+1; i++ {
+		sup.handle(supervisorEvent{kind: eventPageRenderGone, reason: "gone"})
+		sup.waitPending()
+	}
+	if host.reports != 1 {
+		t.Fatalf("reports = %d, want 1", host.reports)
+	}
+	if page.reloads != maxRestarts {
+		t.Fatalf("reloads = %d, want %d", page.reloads, maxRestarts)
 	}
 }
