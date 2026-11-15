@@ -39,3 +39,30 @@ select:-webkit-autofill {
 :root[data-mygo-window-inactive] .app-titlebar {
 	color: var(--faint-foreground);
 }
+
+/* 滚动条统一：macOS 默认是覆盖式且不占布局宽度，Windows / Linux 的经典滚动条
+   宽 14~17px、带轨道与箭头，一出现就挤压内容并露出系统风格。这里统一切成
+   透明轨道 + 主题色滑块，两个方向一致；Radix ScrollArea 的 viewport 自带
+   [data-radix-scroll-area-viewport] 规则，优先级高于这里的 * 选择器。 */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--border);
+	border: 2px solid transparent;
+	border-radius: var(--radius-full);
+	background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--muted-foreground);
+	background-clip: padding-box;
+}
