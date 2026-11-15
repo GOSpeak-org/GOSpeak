@@ -24,12 +24,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"crypto/tls"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"mime"
 	"net"
 	"net/http"
@@ -88,7 +90,11 @@ func proxyTransport() *http.Transport {
 			Timeout:   10 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		ForceAttemptHTTP2:     true,
+		// 只走 HTTP/1.1：WebSocket 握手带 Connection/Upgrade，Go 的 HTTP/2
+		// 客户端直接拒绝这类头；TLS 后端一旦用 ALPN 协商到 h2，/ws 与
+		// /wsworker 的升级就变成 502，前端只会无限重连。
+		ForceAttemptHTTP2:     false,
+		TLSNextProto:          map[string]func(string, *tls.Conn) http.RoundTripper{},
 		MaxIdleConns:          64,
 		MaxIdleConnsPerHost:   16,
 		IdleConnTimeout:       90 * time.Second,
@@ -463,6 +469,7 @@ func stripWorkerCookies(resp *http.Response) error {
 // can tell "server is down" apart from a server-side error and show its own
 // message (code 6002 = sfu/proxy transport error).
 func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	log.Printf("[GOSpeak] loopback proxy: %s %s -> %v", r.Method, r.URL.Path, err)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusBadGateway)

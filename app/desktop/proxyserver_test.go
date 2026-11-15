@@ -394,3 +394,13 @@ func TestAcceptsGzip(t *testing.T) {
 		}
 	}
 }
+
+func TestProxyTransportKeepsHTTP11ForWebSockets(t *testing.T) {
+	tr := proxyTransport()
+	if tr.ForceAttemptHTTP2 {
+		t.Fatal("ForceAttemptHTTP2 must stay off: Go's HTTP/2 client rejects the Connection/Upgrade headers of a WebSocket handshake")
+	}
+	if tr.TLSNextProto == nil || len(tr.TLSNextProto) != 0 {
+		t.Fatal("TLSNextProto must be an empty non-nil map so TLS backends never negotiate HTTP/2")
+	}
+}
