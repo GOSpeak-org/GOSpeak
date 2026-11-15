@@ -115,7 +115,7 @@ func (r *DomainRepository) ListMembers(domainUUID string) ([]model.DomainMemberI
 	var members []model.DomainMemberInfo
 	err := r.db.Raw(`
 		SELECT dm.id, dm.domain_uuid, dm.user_uuid, dm.nickname, dm.role_name, dm.joined_at,
-	       u.name, u.display_name
+	       u.name, u.display_name, u.avatar
 	FROM domain_members dm
 	LEFT JOIN users u ON u.uuid = dm.user_uuid
 	WHERE dm.domain_uuid = ?

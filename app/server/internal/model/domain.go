@@ -56,6 +56,7 @@ type DomainMemberInfo struct {
 	JoinedAt    time.Time `json:"joined_at"`
 	Name        string    `json:"name"`
 	DisplayName string    `json:"display_name"`
+	Avatar      string    `json:"avatar"`
 }
 
 // DomainDetail 我的语音域批量详情视图，附带成员数与房间数。
