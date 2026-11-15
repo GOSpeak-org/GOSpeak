@@ -132,3 +132,16 @@ func TestSupervisorReportsAfterBudget(t *testing.T) {
 		t.Fatalf("reloads = %d, want %d", page.reloads, maxRestarts)
 	}
 }
+
+func TestPageEventForLoadError(t *testing.T) {
+	app := "http://127.0.0.1:47000"
+
+	// 102 = ERR_CONNECTION_REFUSED（-3 是取消，不算崩溃，见 isFatalLoadFailure）
+	ev, ok := pageEventForLoadError(app+"/", app, 102)
+	if !ok || ev.kind != eventPageLoadFailed {
+		t.Fatalf("app shell failure must map to a page event: %+v %v", ev, ok)
+	}
+	if _, ok := pageEventForLoadError(app+"/uploads/x.png", app, 102); ok {
+		t.Fatal("a non-shell URL must not count as a page failure")
+	}
+}

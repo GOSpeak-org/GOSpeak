@@ -23,6 +23,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/egoist/mygo"
@@ -91,6 +92,9 @@ func main() {
 		}
 		openMainWindow()
 		startupMark("main window created (page load started)")
+		appSupervisor = newSupervisor(loopbackPageOps{}, loopbackProxyOps{}, &nativeHostOps{})
+		go appSupervisor.Run(context.Background())
+		startupMark("supervisor started")
 		startupProbeFrontend(mainWindow)
 		watchMainWindowFailures()
 		if p := mainWindow.Page(); p != nil {

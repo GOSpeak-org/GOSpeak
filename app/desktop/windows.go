@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -134,12 +135,30 @@ func watchMainWindowFailures() {
 		return
 	}
 	p.OnDidFailLoad(func(err *mygo.LoadError) {
-		if !isFatalLoadFailure(err.URL, appPageBase(), err.Code) {
+		ev, ok := pageEventForLoadError(err.URL, appPageBase(), err.Code)
+		if !ok {
 			return
 		}
 		logHostError("page.load", err)
+		if appSupervisor != nil {
+			appSupervisor.post(ev)
+			return
+		}
 		reportFatal(fatalLoadReason(err.URL, err.Code, err.Description), err.Error())
 	})
+	p.OnRenderProcessGone(func(reason string) {
+		log.Printf("[GOSpeak] renderer process gone: %s", reason)
+		if appSupervisor != nil {
+			appSupervisor.post(supervisorEvent{kind: eventPageRenderGone, reason: reason})
+		}
+	})
+}
+
+func pageEventForLoadError(loadURL, appBase string, code int) (supervisorEvent, bool) {
+	if !isFatalLoadFailure(loadURL, appBase, code) {
+		return supervisorEvent{}, false
+	}
+	return supervisorEvent{kind: eventPageLoadFailed, reason: loadURL}, true
 }
 
 // reloadAllWindows reloads the pages in place after a base-URL switch. The
