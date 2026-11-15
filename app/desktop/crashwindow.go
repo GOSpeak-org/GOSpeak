@@ -79,7 +79,7 @@ func reportFatal(reason, detail string) {
 	log.Printf("[GOSpeak] fatal: %s", reason)
 
 	// A crash must not be swallowed by the tray: let the app be closable again.
-	quitting.Store(false)
+	quitting.endQuit()
 
 	mygo.App.WhenReady(func() {
 		crashWinMu.Lock()
@@ -103,7 +103,7 @@ func reportFatal(reason, detail string) {
 
 		// Closing the crash window quits: the app is in an unrecoverable state.
 		w.OnClose(func(*mygo.CloseEvent) {
-			quitting.Store(true)
+			quitting.beginQuit()
 		})
 		w.OnClosed(func() {
 			mygo.App.Quit()
@@ -231,6 +231,6 @@ func invalidateCrashWindow() {
 
 // restartApp relaunches the process; the crash state resets with it.
 func restartApp() {
-	quitting.Store(true)
+	quitting.beginQuit()
 	mygo.App.Relaunch()
 }

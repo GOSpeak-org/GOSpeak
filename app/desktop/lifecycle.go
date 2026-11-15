@@ -6,10 +6,22 @@ import (
 	"github.com/egoist/mygo"
 )
 
-// quitting is set when the user picked "quit" (tray menu, Cmd+Q, app menu).
-// Until then, closing the main window hides it and the process keeps running
-// in the tray.
-var quitting atomic.Bool
+// quitPermission distinguishes quitting the app from closing its window.
+// Native quit reaches OnBeforeQuit on every platform, before MyGo asks any
+// window to close. Until then, closing the main window hides it to the tray.
+type quitPermission struct {
+	active atomic.Bool
+}
+
+func newQuitPermission() *quitPermission { return &quitPermission{} }
+
+func (p *quitPermission) beginQuit() { p.active.Store(true) }
+
+func (p *quitPermission) endQuit() { p.active.Store(false) }
+
+func (p *quitPermission) hidesWindowClose() bool { return !p.active.Load() }
+
+var quitting = newQuitPermission()
 
 // showMainWindow brings the main window back from the tray, restoring it when
 // minimized, and gives it focus.
@@ -59,13 +71,18 @@ func initLifecycle() {
 	// Closing the last window must not quit: the tray keeps the app alive.
 	mygo.App.OnWindowAllClosed(func() {})
 
+	// MyGo fires this for Cmd+Q, Dock Quit, the app menu and system logout on
+	// every platform. It runs before any window close, so window handlers can
+	// tell a real quit from the user merely closing the window to the tray.
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { quitting.beginQuit() })
+
 	// Overlay configuration writes are debounced (overlay.go); quitting must
 	// flush a change made right before the user closed the app.
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { flushOverlayConfig() })
 
 	if mainWindow != nil {
 		mainWindow.OnClose(func(e *mygo.CloseEvent) {
-			if quitting.Load() {
+			if !quitting.hidesWindowClose() {
 				return
 			}
 			e.PreventDefault()
@@ -85,8 +102,8 @@ func initLifecycle() {
 	mygo.App.OnSecondInstance(func([]string, string) { showMainWindow() })
 }
 
-// requestQuit lets the close handler through and quits the app.
+// requestQuit starts the normal application quit sequence. OnBeforeQuit marks
+// the quit before MyGo closes windows, so the tray close handler lets it through.
 func requestQuit() {
-	quitting.Store(true)
 	mygo.App.Quit()
 }
