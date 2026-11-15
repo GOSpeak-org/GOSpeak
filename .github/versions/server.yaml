@@ -10,28 +10,29 @@
 #
 # 同步约束（release.yml 的 version-check 会校验）：根 VERSION 与根 package.json
 # 的 version 必须与本文件一致。
-version: "1.0.2"
+version: "1.0.3"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时由 scripts/build-changelog.mjs 按 conventional commits 生成，
 # 基线只取本组件的历史 tag。
 notes: |
-  GOSpeak 1.0.2 —— 事件协议单一来源、架构清理与命名约定统一。
-
-  ## 新增
-  - WS 事件协议单一事实源：internal/protocol 统一声明事件名/方向/ACK/payload，
-    生成器产出前端类型，内存比对 + pre-push + CI 三道防线防漂移
-  - WS payload 全量结构化（房间/成员/消息/私聊/公告/内部事件），字段统一 snake_case
-  - 新增简化版 docker compose（app + LiveKit 单机部署）
-  - 文档全量对齐：权限种子、事件表、API 参考、配置变量
+  GOSpeak 1.0.3 —— 全项目 review 必修项与安全加固。
 
   ## 修复
-  - 私聊推送 payload 双重序列化导致前端收不到对象的缺陷
-  - 列表类 API 响应缺字段时前端兜底默认值，不再白屏
-  - 集成测试稳定性：SQLite 并发写竞态（WAL）与权限断言修正
+  - 会话参与者 last_message_id 列宽改为 36 并纳入自动迁移，
+    36 位消息 UUID 不再被 MySQL/Postgres 截断
+  - 语音房进房被中断时 client 的 TDZ ReferenceError 掩盖真实进房错误
+  - 私聊在 WS 离线时改走 HTTP 兜底，失败回滚乐观消息并提示，
+    不再永久卡在「发送中」
+  - 本地存储首次「测试连接」不再误报 STORAGE_ERROR
 
-  ## 重构（无行为变更）
-  - 架构清理：鉴权读取统一 accessor、SFU 能力收敛主接口、
-    service→signal 事件化、死流索引子系统删除、Unit-of-Work 消除 gorm 直穿、
-    Set 后置装配收敛为构造参数
-  - 数据兼容路径全量退役（明文密码迁移/legacy KV 映射/JTI 兜底/Identity 假字段）
+  ## 安全加固
+  - JWT 黑名单查询失败改为 fail-closed；密钥年龄读取失败跳过本轮轮换，
+    避免历史密钥被快速挤出
+  - OAuth 出站仅允许 https（回环地址例外），拨号前拒绝链路本地地址与
+    云元数据地址，Exchange 统一带超时
+  - 本地存储写入按声明大小封顶并清理半成品；
+    S3 预签名将 ContentLength 纳入签名，超量上传被对象存储拒绝
+  - WS handler 增加 panic 隔离；uploads 静态服务按 EvalSymlinks 解析后的
+    真实路径校验，关闭软链穿越
+  - 存储配置保存前判断是否已加密，防止二次加密
