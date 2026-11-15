@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: docker-${{ github.event_name == 'workflow_call' && inputs.release_tag || github.ref }}
+  group: docker-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -56,10 +56,12 @@ jobs:
     name: Publish Image
     # tag push 直接触发；workflow_call 由 version-bump 在 bot 打 tag 后显式调用
     # （GITHUB_TOKEN 推送的 tag 不会派生本 workflow，见 version-bump.yml 头部说明）。
+    # 注意：reusable workflow 内 github.event_name / github.ref 属于调用方上下文，
+    # 被调用时是调用方的事件（如 push + refs/heads/release），永远不会是 workflow_call，
+    # 因此这里只按 ref 类型与 inputs.release_tag 判断。
     if: >-
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/gospeak-server-v')) ||
-      (github.event_name == 'workflow_call' && startsWith(inputs.release_tag, 'gospeak-server-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(inputs.release_tag, 'gospeak-server-v'))
+      (github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/gospeak-server-v')) ||
+      startsWith(inputs.release_tag, 'gospeak-server-v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,18 +70,21 @@ jobs:
       - name: Resolve release ref
         id: ref
         # tag push 用触发 ref；call/dispatch 用显式输入的 tag 名。
+        # 不能用 github.event_name 判断：reusable workflow 里它是调用方的事件名。
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          else
+          if [ -n "${{ inputs.release_tag }}" ]; then
             echo "tag=${{ inputs.release_tag }}" >> "$GITHUB_OUTPUT"
-            echo "sha=" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.ref.outputs.tag }}
+      - name: Resolve commit
+        id: commit
+        # 统一在 checkout 后解析，tag push 与显式调用两条路径都能拿到正确 commit。
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Check release version
         env:
           RELEASE_TAG: ${{ steps.ref.outputs.tag }}
@@ -124,4 +129,4 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
-            COMMIT=${{ steps.ref.outputs.sha }}
+            COMMIT=${{ steps.commit.outputs.sha }}
