@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import AppToaster from "@/components/common/appToaster";
 import { RouteErrorComponent } from "@/components/common/errorBoundary";
+import { SkeletonPage } from "@/components/common/Skeletons";
 import { requestAudioPermission } from "@/hooks/media";
 import { initTheme } from "@/stores/themeStore";
 import { installGlobalErrorHandlers } from "@/utils/errorReport";
@@ -23,6 +24,12 @@ const router = createRouter({
 	routeTree,
 	context: { queryClient },
 	defaultPreload: "intent",
+	// 路由 beforeLoad（会话校验、我的域）与按路由拆分的 chunk 都要等网络；
+	// 没有 pending 组件时整段等待就是一片纯白。给等待一个骨架 + 最短展示时间，
+	// 避免「登录后先白一下」再突然出内容。
+	defaultPendingComponent: SkeletonPage,
+	defaultPendingMs: 100,
+	defaultPendingMinMs: 250,
 	// 所有路由的默认错误 UI；loader 抛错时 invalidate 才会重新发起请求
 	defaultErrorComponent: (props) => (
 		<RouteErrorComponent {...props} onRetry={() => void router.invalidate()} />

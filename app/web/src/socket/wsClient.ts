@@ -211,7 +211,10 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 			pendingAcks.clear();
 
 			// Auto-reconnect with exponential backoff + jitter, capped at 15s.
-			if (shouldReconnect && currentUrl) {
+			// currentUrl 可能为空（没有 VITE_SOCKET_URL 时直接连当前 origin 的 /ws），
+			// 不能把它当作「是否该重连」的开关；主动断开由 disconnect() 置
+			// shouldReconnect=false 兜住。
+			if (shouldReconnect) {
 				const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000);
 				const jitter = Math.random() * 300;
 				reconnectAttempts += 1;
@@ -245,7 +248,7 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 	}
 
 	async function reconnectWithEndpoint() {
-		if (!shouldReconnect || !currentUrl) return;
+		if (!shouldReconnect) return;
 		const endpoint = await refreshEndpointSafe();
 		if (!shouldReconnect) return;
 		const nextUrl = endpoint?.url || currentUrl;

@@ -4,6 +4,7 @@ import {
 	createFileRoute,
 	redirect,
 	useNavigate,
+	useRouter,
 } from "@tanstack/react-router";
 import { CircleX, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -42,8 +43,17 @@ function resolveLoginRedirect(): string {
 
 function LoginPage() {
 	const navigate = useNavigate();
+	const router = useRouter();
 	const shellRef = useRef<HTMLDivElement>(null);
 	useAuthParallax(shellRef);
+
+	// 登录成功后先预取目标路由的 chunk 与 beforeLoad，再跳转：首次进入 (app)
+	// 外壳要等会话校验 + 我的域请求 + 布局 chunk，串起来就是那段白屏。
+	function goToApp() {
+		const target = resolveLoginRedirect();
+		void router.preloadRoute({ to: target });
+		navigate({ to: target });
+	}
 
 	const [banned, setBanned] = useState(false);
 	const [showForgotModal, setShowForgotModal] = useState(false);
@@ -76,7 +86,7 @@ function LoginPage() {
 					return;
 				}
 				showLoginSuccessToast();
-				navigate({ to: resolveLoginRedirect() });
+				goToApp();
 			} catch (e) {
 				await useUserStore.getState().clearAuth();
 				const code = (e as { response?: { data?: { code?: number } } })
@@ -140,7 +150,7 @@ function LoginPage() {
 			}
 			await useUserStore.getState().login(data.user, data.expires_in);
 			showLoginSuccessToast();
-			navigate({ to: resolveLoginRedirect() });
+			goToApp();
 		} catch (err: any) {
 			if (err?.response?.data?.code === 1015) {
 				setBanned(true);
@@ -381,7 +391,7 @@ function LoginPage() {
 					await useUserStore.getState().login(result.user, result.expires_in);
 					setShowChangeModal(false);
 					showLoginSuccessToast();
-					navigate({ to: resolveLoginRedirect() });
+					goToApp();
 				}}
 			/>
 		</div>
