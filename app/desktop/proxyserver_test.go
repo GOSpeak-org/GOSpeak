@@ -12,7 +12,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
+	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -478,5 +480,26 @@ func TestProxyErrorHandlerRecordsUpstreamError(t *testing.T) {
 	}
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+}
+
+func TestProbeLoopbackHealthyServer(t *testing.T) {
+	s := &proxyServer{dist: testDist(), assets: newAssetCache(), transport: newProxyRoundTripper()}
+	s.port = 1
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", s.handleHealthz)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	u, _ := url.Parse(srv.URL)
+	port, _ := strconv.Atoi(u.Port())
+	if err := probeLoopback(port); err != nil {
+		t.Fatalf("probe healthy server: %v", err)
+	}
+}
+
+func TestProbeLoopbackClosedPort(t *testing.T) {
+	if err := probeLoopback(1); err == nil {
+		t.Fatal("expected an error probing a closed port")
 	}
 }

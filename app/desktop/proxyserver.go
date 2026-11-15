@@ -54,7 +54,9 @@ type proxyServer struct {
 	target *url.URL
 
 	// port is the loopback port, reported by /healthz and the watchdog.
-	port int
+	port     int
+	listener net.Listener
+	srv      *http.Server
 
 	errMu             sync.Mutex
 	lastUpstreamError string
@@ -205,14 +207,15 @@ func startProxyServer() (*proxyServer, string, error) {
 		return nil, "", err
 	}
 	s.port = port
-	srv := &http.Server{
+	s.listener = listener
+	s.srv = &http.Server{
 		Handler:           s.handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-	go func() {
+	go func(srv *http.Server) {
 		_ = srv.Serve(listener)
-	}()
+	}(s.srv)
 	// Pre-compress the frontend while the window is still being created, so the
 	// first page load never waits on gzip. With build-time .gz sidecars (the
 	// packaged app) this only warms the in-memory cache.
@@ -948,4 +951,58 @@ func ensureProxyStarted() (string, error) {
 	// Apply the persisted base URL (if any) loaded by loadServerConfig.
 	loopbackProxy.setProxyTarget(currentBaseURL())
 	return proxyLoopbackURL, nil
+}
+
+func proxyPort() int {
+	if loopbackProxy == nil {
+		return 0
+	}
+	return loopbackProxy.port
+}
+
+// probeLoopback checks the local proxy from the host side. It never goes to the
+// backend: /healthz is answered by this process.
+func probeLoopback(port int) error {
+	if port == 0 {
+		return errors.New("proxy: not listening")
+	}
+	client := &http.Client{
+		Transport: &http.Transport{Proxy: nil},
+		Timeout:   2 * time.Second,
+	}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", port))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("healthz: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// restart closes the listener and serves again, preferring the saved port. The
+// target and the in-memory asset cache stay as they are.
+func (s *proxyServer) restart() (oldPort, newPort int, err error) {
+	oldPort = s.port
+	if s.srv != nil {
+		_ = s.srv.Close()
+	}
+	if s.listener != nil {
+		_ = s.listener.Close()
+	}
+	ln, port, lerr := listenLoopback(proxyPortDir())
+	if lerr != nil {
+		return oldPort, 0, lerr
+	}
+	s.listener = ln
+	s.port = port
+	s.srv = &http.Server{
+		Handler:           s.handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	go func(srv *http.Server) { _ = srv.Serve(ln) }(s.srv)
+	proxyLoopbackURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+	return oldPort, port, nil
 }
