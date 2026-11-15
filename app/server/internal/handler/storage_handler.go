@@ -76,8 +76,11 @@ func (h *StorageHandler) PresignUpload(c *gin.Context) {
 		return
 	}
 
-	// 文件大小校验
+	// 文件大小校验：MaxFileSize 未配置时与 ConfirmUpload/Upload 保持一致，按 5MB 兜底。
 	maxBytes := int64(cfg.MaxFileSize) * 1024 * 1024
+	if cfg.MaxFileSize <= 0 {
+		maxBytes = 5 * 1024 * 1024
+	}
 	if req.FileSize > maxBytes {
 		pkg.Fail(c, pkg.STORAGE_FILE_TOO_LARGE)
 		return
@@ -101,7 +104,9 @@ func (h *StorageHandler) PresignUpload(c *gin.Context) {
 	objectKey := generateObjectKey(storageKeyPrefix(cfg), req.Category, req.FileName, userUUID)
 
 	// 获取预签名 URL
-	result, err := h.storageService.PresignUpload(objectKey, contentType, maxBytes)
+	// 用客户端声明的文件大小签名 ContentLength：多传字节会被 S3 拒绝，
+	// 声明值已在上面按 MaxFileSize 校验。
+	result, err := h.storageService.PresignUpload(objectKey, contentType, req.FileSize)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return

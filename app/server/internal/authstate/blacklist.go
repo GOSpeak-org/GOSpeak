@@ -69,16 +69,17 @@ func IsBlacklistedErr(jti string) (bool, error) {
 	return isMemoryBlacklisted(jti), nil
 }
 
-// IsBlacklisted reports whether jti is revoked and treats storage errors as
-// not blacklisted (fail-open, same as the pre-migration behavior).
+// IsBlacklisted reports whether jti is revoked. Storage errors are treated as
+// blacklisted (fail-closed): a revoked token must not be accepted just because
+// the revocation store is temporarily unavailable.
 func IsBlacklisted(jti string) bool {
 	if jti == "" {
 		return false
 	}
 	ok, err := IsBlacklistedErr(jti)
 	if err != nil {
-		logger.WithComponent("AuthKV").Warnf("IsBlacklisted backend error, treating as not blacklisted (fail-open): %v", err)
-		return false
+		logger.WithComponent("AuthKV").Warnf("IsBlacklisted backend error, treating as blacklisted (fail-closed): %v", err)
+		return true
 	}
 	return ok
 }

@@ -12,9 +12,9 @@ type PresignedResult struct {
 // Provider 存储提供者接口
 type Provider interface {
 	// PresignUpload 生成预签名上传 URL
-	// key: 对象键, contentType: MIME类型, maxSize: 最大字节数
-	// S3 模式返回带 UploadURL 的直传地址；本地模式仅返回 ObjectKey，需走中转上传
-	PresignUpload(key string, contentType string, maxSize int64) (*PresignedResult, error)
+	// key: 对象键, contentType: MIME类型, size: 预期上传字节数
+	// size 会被 S3 写进签名的 ContentLength，客户端实际上传字节数必须与之一致
+	PresignUpload(key string, contentType string, size int64) (*PresignedResult, error)
 
 	// UploadFromReader 从 reader 读取数据上传（本地模式用）
 	UploadFromReader(key string, reader io.Reader, size int64, contentType string) (publicURL string, err error)

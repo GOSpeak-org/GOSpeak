@@ -9,8 +9,8 @@ import (
 
 	nhooyrws "nhooyr.io/websocket"
 
-	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/logger"
+	"GOSpeak/internal/pkg"
 )
 
 // ConnState 表示服务端 WS 客户端的连接生命周期状态。
@@ -162,8 +162,19 @@ func (c *Client) StartReadLoop(handler func(ClientMessenger, Message)) {
 		if msg.Event == "" {
 			continue
 		}
-		handler(c, msg)
+		c.handleMessage(handler, msg)
 	}
+}
+
+// handleMessage 隔离单个 handler 的 panic：记录后关闭连接，避免整个读循环/连接悬空。
+func (c *Client) handleMessage(handler func(ClientMessenger, Message), msg Message) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.WithComponent("WS").Errorf("[ws] handler panic client=%s event=%s: %v", c.id, msg.Event, r)
+			c.Close()
+		}
+	}()
+	handler(c, msg)
 }
 
 func (c *Client) writeLoop() {

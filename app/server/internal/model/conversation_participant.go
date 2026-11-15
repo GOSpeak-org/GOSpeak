@@ -9,7 +9,7 @@ type ConversationParticipant struct {
 	ConversationID     string     `gorm:"primaryKey;size:32" json:"conversation_id"`
 	IdentityA          string     `gorm:"size:64;not null;index:idx_conv_part_a" json:"identity_a"`
 	IdentityB          string     `gorm:"size:64;not null;index:idx_conv_part_b" json:"identity_b"`
-	LastMessageID      *string    `gorm:"size:26" json:"last_message_id"`
+	LastMessageID      *string    `gorm:"size:36" json:"last_message_id"`
 	LastContent        string     `gorm:"size:200" json:"last_content"`
 	LastSenderIdentity string     `gorm:"size:64" json:"last_sender_identity"`
 	LastMessageAt      *time.Time `json:"last_message_at"`

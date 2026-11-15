@@ -74,7 +74,13 @@ func ShouldRotateKey() bool {
 		return false
 	}
 	createdAt, ok, err := b.GetCreatedAt()
-	if err != nil || !ok {
+	if err != nil {
+		// 后端故障时不要每分钟轮换：重复轮换会挤掉历史键、踢掉在线会话。
+		logger.WithComponent("AuthKV").WithError(err).Warn("read JWT key age failed, skip rotation this round")
+		return false
+	}
+	if !ok {
+		// 尚无创建时间（首次启动），交给 GetSigningKey 写入后再判断。
 		return true
 	}
 	return time.Now().Unix()-createdAt >= int64(keyTTL().Seconds())

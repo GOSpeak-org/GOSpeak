@@ -2,11 +2,11 @@ package signal
 
 import (
 	"GOSpeak/internal/bus"
-	"GOSpeak/internal/protocol"
+	"GOSpeak/internal/logger"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/sfu"
 	"GOSpeak/internal/ws"
-	"GOSpeak/internal/logger"
 	"errors"
 	"time"
 )
@@ -143,17 +143,12 @@ func (h *Hub) clearLocalRoomsForSFUSwitch() {
 	}
 	var cleanups []cleanupItem
 	var roomsToDelete []string
-	var streamsToDelete []string
 
 	h.mu.Lock()
 	for roomName, room := range h.rooms {
 		for sid, m := range room.Members {
 			identity := m.Identity
-			stream := m.Stream
 			cleanups = append(cleanups, cleanupItem{room: roomName, identity: identity})
-			if stream != "" {
-				streamsToDelete = append(streamsToDelete, stream)
-			}
 			roomDelMember(room, sid)
 			delete(room.Speaking, identity)
 			delete(room.MicMuted, identity)
@@ -173,7 +168,6 @@ func (h *Hub) clearLocalRoomsForSFUSwitch() {
 	}
 	h.mu.Unlock()
 
-	_ = streamsToDelete
 	for _, roomName := range roomsToDelete {
 		h.syncRoomToStore(roomName)
 	}

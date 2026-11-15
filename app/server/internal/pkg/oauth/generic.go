@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -33,7 +32,7 @@ func (g *GenericProvider) GetAuthURL(state string) string {
 }
 
 func (g *GenericProvider) ExchangeToken(code string) (string, error) {
-	token, err := g.cfg.toOAuth2Config().Exchange(context.Background(), code)
+	token, err := exchangeOAuthCode(g.cfg, code)
 	if err != nil {
 		return "", err
 	}
@@ -81,9 +80,17 @@ func (g *GenericProvider) GetUserInfo(accessToken string) (*UserInfo, error) {
 		}
 	}
 
+	uidRaw, ok := raw[uidKey]
+	if !ok || uidRaw == nil {
+		return nil, fmt.Errorf("oauth: user info missing uid field %q", uidKey)
+	}
+	uid := toString(uidRaw)
+	if uid == "" {
+		return nil, fmt.Errorf("oauth: user info has empty uid field %q", uidKey)
+	}
 	return &UserInfo{
 		Provider:    g.name,
-		ProviderUID: toString(raw[uidKey]),
+		ProviderUID: uid,
 		Username:    toString(raw[usernameKey]),
 		Avatar:      toString(raw[avatarKey]),
 		Email:       toString(raw[emailKey]),

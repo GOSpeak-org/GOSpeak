@@ -150,16 +150,17 @@ func (s *StorageService) TestConnectionFromDTO(req UpdateStorageConfigRequest) e
 	}
 
 	var p storage.Provider
+	var initErr error
 	switch cfg.ProviderType {
 	case "s3":
-		p, err = storage.NewS3Provider(cfg)
+		p, initErr = storage.NewS3Provider(cfg)
 	case "local":
 		p = storage.NewLocalProvider(s.localDir(), "", cfg.PublicBaseURL)
 	default:
 		return pkg.NewAppError(pkg.INVALID_PARAMS, "provider_type must be s3 or local")
 	}
-	if err != nil {
-		return pkg.NewAppError(pkg.STORAGE_ERROR, "init s3 provider failed: "+err.Error())
+	if initErr != nil {
+		return pkg.NewAppError(pkg.STORAGE_ERROR, "init s3 provider failed: "+initErr.Error())
 	}
 	if err := p.TestConnection(); err != nil {
 		return pkg.NewAppError(pkg.STORAGE_ERROR, err.Error())
@@ -194,13 +195,13 @@ func (s *StorageService) ReloadProvider() (storage.Provider, error) {
 	return p, nil
 }
 
-// PresignUpload 获取预签名上传 URL
-func (s *StorageService) PresignUpload(key, contentType string, maxSize int64) (*storage.PresignedResult, error) {
+// PresignUpload 获取预签名上传 URL；size 同时作为 S3 签名的 ContentLength。
+func (s *StorageService) PresignUpload(key, contentType string, size int64) (*storage.PresignedResult, error) {
 	p, err := s.GetProvider()
 	if err != nil {
 		return nil, err
 	}
-	return p.PresignUpload(key, contentType, maxSize)
+	return p.PresignUpload(key, contentType, size)
 }
 
 // UploadFromReader 从 reader 上传文件
