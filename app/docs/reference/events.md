@@ -118,7 +118,7 @@ ws(s)://你的域名/ws
 ## 常见问题
 
 **界面持续显示「已断开」**
-反向代理未放行 WebSocket 升级（`Upgrade` / `Connection` 头）。见 [反代与 HTTPS](/deploy/nginx)。
+反向代理未放行 WebSocket 升级（`Upgrade` / `Connection` 头）。见 [反代与 HTTPS](/deploy/reverse-proxy)。
 
 **连接建立但收不到事件**
 令牌已过期。WebSocket 连接建立后不会自动刷新令牌，需要重连。

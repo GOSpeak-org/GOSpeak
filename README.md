@@ -54,8 +54,8 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 从 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
 
 ```bash
-chmod +x gospeak-server-v1.0.0-linux-amd64
-./gospeak-server-v1.0.0-linux-amd64 server -e prod
+chmod +x gospeak-server-v1.0.3-linux-amd64
+./gospeak-server-v1.0.3-linux-amd64 server -e prod
 ```
 
 浏览器打开 `http://<host>:8998`。首次启动自动创建管理员账号，用户名 `admin`，默认密码 `admin123`，生产环境请立即修改。
@@ -98,7 +98,9 @@ cd deploy
 docker compose up -d --build
 ```
 
-不传 `--domain`。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。Nginx 配置示例见 [app/docs/deploy/nginx.md](app/docs/deploy/nginx.md)。
+不传 `--domain`。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。
+
+内置入口是 Caddy（`deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [app/docs/deploy/reverse-proxy.md](app/docs/deploy/reverse-proxy.md)。
 
 ### 局域网
 

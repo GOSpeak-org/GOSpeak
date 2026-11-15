@@ -297,5 +297,5 @@ docker run -d ... gospeak:latest  # 同 5.2 step 4
 - Agent 指南: `AGENTS.md`
 - 一键编排方案: `deploy/docker-compose.yml`
 - 权威部署入口: `deploy/DEPLOY.md`
-- 反代与 HTTPS: `deploy/Caddyfile` + `app/docs/deploy/nginx.md`
+- 反代与 HTTPS: `deploy/Caddyfile` + `app/docs/deploy/reverse-proxy.md`
 - 服务成熟度: `docs/sfu-provider-maturity.md`

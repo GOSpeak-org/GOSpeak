@@ -274,4 +274,4 @@ curl -s http://localhost:8998/readyz
 ## 下一步
 
 - [监控](/deploy/monitoring) — 提前发现问题
-- [反代与 HTTPS](/deploy/nginx) — 反代相关的问题
+- [反代与 HTTPS](/deploy/reverse-proxy) — 反代相关的问题

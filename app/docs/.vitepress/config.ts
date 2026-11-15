@@ -68,7 +68,7 @@ export default defineConfig({
         {
           text: '运维',
           items: [
-            { text: '反代与 HTTPS', link: '/deploy/nginx' },
+            { text: '反代与 HTTPS', link: '/deploy/reverse-proxy' },
             { text: '数据库', link: '/deploy/database' },
             { text: '监控', link: '/deploy/monitoring' },
             { text: '故障排查', link: '/deploy/troubleshooting' },

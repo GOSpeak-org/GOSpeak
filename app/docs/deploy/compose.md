@@ -275,6 +275,6 @@ Caddy 或反向代理先启动，应用尚未就绪。等待片刻，或通过 `
 
 ## 下一步
 
-- [反代与 HTTPS](/deploy/nginx) — 内置 Caddy 与已有反代
+- [反代与 HTTPS](/deploy/reverse-proxy) — 内置 Caddy 与已有反代
 - [监控](/deploy/monitoring) — 可观测档位的使用方法
 - [故障排查](/deploy/troubleshooting) — 按症状索引
