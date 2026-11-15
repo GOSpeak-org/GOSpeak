@@ -81,6 +81,19 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ steps.ref.outputs.tag }}
+      - name: Use pipeline Dockerfile from the triggering ref
+        # 发布 tag 锁定的是应用源码；Dockerfile 属于构建流水线，跟随触发本次
+        # workflow 的分支/commit。这样修复镜像构建（例如避开 QEMU 慢路径）
+        # 不必重新打版本 tag，也能用新流水线补发旧镜像。
+        env:
+          TRIGGER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if git fetch --depth=1 origin "$TRIGGER_SHA"; then
+            git show FETCH_HEAD:Dockerfile > Dockerfile
+          else
+            echo "::warning::could not read Dockerfile from $TRIGGER_SHA; using the release tag's copy"
+          fi
       - name: Resolve commit
         id: commit
         # 统一在 checkout 后解析，tag push 与显式调用两条路径都能拿到正确 commit。

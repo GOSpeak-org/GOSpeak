@@ -1,5 +1,7 @@
 # ── Stage 1: Frontend SPA ────────────────────────────────────────────────
-FROM node:22-alpine AS web-builder
+# 固定在构建机平台上执行：多架构构建时 arm64 目标若在这里跑 pnpm install，
+# 整个依赖安装会被 QEMU 拖到一小时以上（1.0.3 镜像即卡在这一步）。
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web-builder
 WORKDIR /src
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
@@ -16,8 +18,10 @@ COPY packages/sfu-client packages/sfu-client
 RUN pnpm --filter @gospeak/web build
 
 # ── Stage 2: Go backend (embed frontend) ─────────────────────────────────
-FROM golang:1.26-alpine AS go-builder
+# 同样在构建机平台上执行，用 GOARCH 交叉编译；纯 Go、CGO 关闭，无需模拟。
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go-builder
 WORKDIR /build
+ARG TARGETARCH
 ARG VERSION=dev
 ARG COMMIT=unknown
 
@@ -28,7 +32,7 @@ COPY app/server/ ./
 COPY VERSION ./
 # 将前端产物同步到 go:embed 目录，打进二进制
 COPY --from=web-builder /src/app/web/dist/ ./internal/webui/dist/
-RUN CGO_ENABLED=0 go build -ldflags="-s -w -X 'GOSpeak/internal/buildinfo.Version=${VERSION}' -X 'GOSpeak/internal/buildinfo.Commit=${COMMIT}'" -o /gospeak .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -ldflags="-s -w -X 'GOSpeak/internal/buildinfo.Version=${VERSION}' -X 'GOSpeak/internal/buildinfo.Commit=${COMMIT}'" -o /gospeak .
 
 # ── Stage 3: Production ──────────────────────────────────────────────────
 FROM alpine:3.21
