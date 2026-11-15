@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -87,21 +88,88 @@ const (
 	maxOAuthBody     = 2 << 20 // 2 MiB
 )
 
-var oauthHTTPClient = &http.Client{Timeout: oauthHTTPTimeout}
+var oauthHTTPClient = &http.Client{
+	Timeout: oauthHTTPTimeout,
+	Transport: &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           safeOAuthDialContext,
+		TLSHandshakeTimeout:   oauthHTTPTimeout,
+		ResponseHeaderTimeout: oauthHTTPTimeout,
+	},
+}
 
-// safeOAuthURL 仅允许 http/https 且必须携带 host，防止 SSRF 类出站请求。
+// exchangeOAuthCode 兑换 access_token。oauth2 默认忽略 http.Client 超时，
+// 必须显式传入带 deadline 的 context，避免慢端点永久占住请求 goroutine。
+func exchangeOAuthCode(cfg *ProviderConfig, code string) (*oauth2.Token, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), oauthHTTPTimeout)
+	defer cancel()
+	// oauth2 默认用 http.DefaultClient；注入带 SSRF 防护的 client 并保留 deadline。
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, oauthHTTPClient)
+	return cfg.toOAuth2Config().Exchange(ctx, code)
+}
+
+// isLoopbackHost 判断 host 是否本地回环（开发环境的自建 OAuth 允许明文 http）。
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// blockedIP 拒绝云元数据/链路本地等 SSRF 高价值目标。
+// 保留 RFC1918 私网访问：自建 OAuth（内网 GitLab 等）是受支持的部署方式。
+func blockedIP(ip net.IP) bool {
+	if ip == nil || ip.IsUnspecified() || ip.IsMulticast() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	// 阿里云元数据服务使用 100.100.100.200，落在 CGNAT 段。
+	if ip.Equal(net.IPv4(100, 100, 100, 200)) {
+		return true
+	}
+	// AWS IMDSv6 使用 ULA 地址，不属于链路本地但同样敏感。
+	return ip.Equal(net.ParseIP("fd00:ec2::254"))
+}
+
+// safeOAuthDialContext 在建立连接前校验解析出的目标 IP，覆盖 DNS rebinding 与重定向。
+func safeOAuthDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, fmt.Errorf("oauth: invalid address %q", addr)
+	}
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	if len(ips) == 0 {
+		return nil, fmt.Errorf("oauth: no address for host %q", host)
+	}
+	for _, resolved := range ips {
+		if blockedIP(resolved.IP) {
+			return nil, fmt.Errorf("oauth: blocked destination %s", resolved.IP)
+		}
+	}
+	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
+	return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+}
+
+// safeOAuthURL 限制出站地址：https 必填（本地回环可用 http），且 host 不得为空。
 func safeOAuthURL(raw string) (string, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return "", fmt.Errorf("oauth: invalid url: %w", err)
 	}
-	switch u.Scheme {
-	case "https", "http":
-	default:
-		return "", fmt.Errorf("oauth: unsupported scheme %q", u.Scheme)
-	}
 	if u.Host == "" {
 		return "", fmt.Errorf("oauth: empty host")
+	}
+	switch u.Scheme {
+	case "https":
+	case "http":
+		if !isLoopbackHost(u.Hostname()) {
+			return "", fmt.Errorf("oauth: http is only allowed for loopback hosts")
+		}
+	default:
+		return "", fmt.Errorf("oauth: unsupported scheme %q", u.Scheme)
 	}
 	return u.String(), nil
 }
@@ -172,7 +240,7 @@ func (g *GitHubProvider) GetAuthURL(state string) string {
 }
 
 func (g *GitHubProvider) ExchangeToken(code string) (string, error) {
-	token, err := g.cfg.toOAuth2Config().Exchange(context.Background(), code)
+	token, err := exchangeOAuthCode(g.cfg, code)
 	if err != nil {
 		return "", err
 	}
@@ -214,7 +282,7 @@ func (gp *GoogleProvider) GetAuthURL(state string) string {
 }
 
 func (gp *GoogleProvider) ExchangeToken(code string) (string, error) {
-	token, err := gp.cfg.toOAuth2Config().Exchange(context.Background(), code)
+	token, err := exchangeOAuthCode(gp.cfg, code)
 	if err != nil {
 		return "", err
 	}
@@ -256,7 +324,7 @@ func (q *QQProvider) GetAuthURL(state string) string {
 }
 
 func (q *QQProvider) ExchangeToken(code string) (string, error) {
-	token, err := q.cfg.toOAuth2Config().Exchange(context.Background(), code)
+	token, err := exchangeOAuthCode(q.cfg, code)
 	if err != nil {
 		return "", err
 	}

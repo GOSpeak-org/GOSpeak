@@ -27,7 +27,7 @@ func NewLocalProvider(basePath string, urlPrefix string, publicBaseURL string) *
 }
 
 // PresignUpload 本地模式无预签名直传，返回 object_key 供前端走中转上传（/storage/upload）。
-func (p *LocalProvider) PresignUpload(key string, contentType string, maxSize int64) (*PresignedResult, error) {
+func (p *LocalProvider) PresignUpload(key string, contentType string, size int64) (*PresignedResult, error) {
 	return &PresignedResult{ObjectKey: key}, nil
 }
 
@@ -76,8 +76,19 @@ func (p *LocalProvider) UploadFromReader(key string, reader io.Reader, size int6
 	}
 	defer f.Close()
 
-	if _, err := io.Copy(f, reader); err != nil {
+	// 即使上层已做大小校验，也在 provider 层封顶，避免任何调用方传入无界 reader。
+	src := io.Reader(reader)
+	if size > 0 {
+		src = io.LimitReader(reader, size)
+	}
+	written, err := io.Copy(f, src)
+	if err != nil {
+		_ = os.Remove(fullPath)
 		return "", fmt.Errorf("write file failed: %w", err)
+	}
+	if size > 0 && written != size {
+		_ = os.Remove(fullPath)
+		return "", fmt.Errorf("upload truncated: wrote %d of %d bytes", written, size)
 	}
 
 	return p.GetPublicURL(key), nil

@@ -45,15 +45,15 @@ func (r *StorageConfigRepository) GetConfig() (*model.StorageConfig, error) {
 // SaveConfig 保存存储配置（upsert ID=1）
 func (r *StorageConfigRepository) SaveConfig(cfg *model.StorageConfig) error {
 	cfg.ID = 1
-	// 加密 AccessKey 和 SecretKey
-	if cfg.AccessKey != "" {
+	// 加密 AccessKey 和 SecretKey；已有密文不得二次加密，否则无法解密。
+	if cfg.AccessKey != "" && !isEncryptedSecret(cfg.AccessKey) {
 		encrypted, err := storage.EncryptSecret(cfg.AccessKey)
 		if err != nil {
 			return err
 		}
 		cfg.AccessKey = encrypted
 	}
-	if cfg.SecretKey != "" {
+	if cfg.SecretKey != "" && !isEncryptedSecret(cfg.SecretKey) {
 		encrypted, err := storage.EncryptSecret(cfg.SecretKey)
 		if err != nil {
 			return err
@@ -61,4 +61,13 @@ func (r *StorageConfigRepository) SaveConfig(cfg *model.StorageConfig) error {
 		cfg.SecretKey = encrypted
 	}
 	return r.db.Save(cfg).Error
+}
+
+// isEncryptedSecret 通过尝试解密判断是否已是密文（AES-GCM 密文误判概率可忽略）。
+func isEncryptedSecret(value string) bool {
+	if value == "" {
+		return false
+	}
+	_, err := storage.DecryptSecret(value)
+	return err == nil
 }

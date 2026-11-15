@@ -103,12 +103,16 @@ func (p *S3Provider) TestConnection() error {
 	return nil
 }
 
-// PresignUpload 生成预签名 PUT URL
-func (p *S3Provider) PresignUpload(key string, contentType string, maxSize int64) (*PresignedResult, error) {
+// PresignUpload 生成预签名 PUT URL。size 写入签名 ContentLength，
+// 客户端上传多余字节会因签名不匹配被 S3 拒绝，避免绕过 MaxFileSize。
+func (p *S3Provider) PresignUpload(key string, contentType string, size int64) (*PresignedResult, error) {
 	putInput := &s3.PutObjectInput{
 		Bucket:      aws.String(p.bucket),
 		Key:         aws.String(key),
 		ContentType: aws.String(contentType),
+	}
+	if size > 0 {
+		putInput.ContentLength = aws.Int64(size)
 	}
 
 	ctx, cancel := s3Ctx()

@@ -253,6 +253,7 @@ func autoMigrate() error {
 		&model.Message{},
 		&model.MessageReaction{},
 		&model.MessageMention{},
+		&model.ConversationParticipant{},
 		&model.Domain{},
 		&model.DomainMember{},
 		&model.DomainRole{},

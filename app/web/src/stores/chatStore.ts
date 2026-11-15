@@ -6,6 +6,7 @@ import {
 	listConversations,
 	markConversationRead,
 	type PrivateMessageDTO,
+	sendDirectMessage,
 } from "@/api/conversation";
 import { listMessages } from "@/api/message";
 import { EVENTS } from "@/socket/events";
@@ -850,45 +851,70 @@ function sendDirect(convID: string, content: string) {
 		};
 	});
 
+	const removeOptimistic = () => {
+		useChatStore.setState((prev) => {
+			const existing = prev.pmMessages[convID] || [];
+			return {
+				pmMessages: {
+					...prev.pmMessages,
+					[convID]: existing.filter((m) => m.client_nonce !== clientNonce),
+				},
+			};
+		});
+	};
+
 	const socket = socketStore.getSocket();
-	if (socket?.isConnected()) {
-		const markFailed = () => {
-			pmPendingNonces.set(clientNonce, "failed");
-			setTimeout(() => {
-				if (pmPendingNonces.get(clientNonce) === "failed") {
-					useChatStore.setState((prev) => {
-						const existing = prev.pmMessages[convID] || [];
-						return {
-							pmMessages: {
-								...prev.pmMessages,
-								[convID]: existing.filter(
-									(m) => m.client_nonce !== clientNonce,
-								),
-							},
-						};
-					});
-					pmPendingNonces.delete(clientNonce);
-				}
-			}, 15000);
-		};
-		void socket
-			.emitAck(EVENTS.PRIVATE_SEND, {
-				target_identity: targetIdentity,
-				content,
-				client_nonce: clientNonce,
-			})
-			.then((resp: any) => {
-				// 服务端错误走 reject（ACK error 通道），由 catch markFailed。
-				const dto = resp as PrivateMessageDTO;
-				if (!dto?.conversation_id) {
-					markFailed();
-					return;
-				}
-				pmPendingNonces.set(clientNonce, "sent");
+	if (!socket?.isConnected()) {
+		// WS 离线时走 HTTP 兜底：既不清空用户输入，也不让乐观消息永久停在 UI。
+		void sendDirectMessage({
+			target_identity: targetIdentity,
+			content,
+			client_nonce: clientNonce,
+		})
+			.then((dto) => {
 				acceptPrivateMessage(dto);
 			})
-			.catch(markFailed);
+			.catch((err: unknown) => {
+				pmPendingNonces.delete(clientNonce);
+				removeOptimistic();
+				toast.error(localizedApiMessage(err, "消息发送失败，请检查网络"));
+			});
+		return;
 	}
+	const markFailed = () => {
+		pmPendingNonces.set(clientNonce, "failed");
+		setTimeout(() => {
+			if (pmPendingNonces.get(clientNonce) === "failed") {
+				useChatStore.setState((prev) => {
+					const existing = prev.pmMessages[convID] || [];
+					return {
+						pmMessages: {
+							...prev.pmMessages,
+							[convID]: existing.filter((m) => m.client_nonce !== clientNonce),
+						},
+					};
+				});
+				pmPendingNonces.delete(clientNonce);
+			}
+		}, 15000);
+	};
+	void socket
+		.emitAck(EVENTS.PRIVATE_SEND, {
+			target_identity: targetIdentity,
+			content,
+			client_nonce: clientNonce,
+		})
+		.then((resp: any) => {
+			// 服务端错误走 reject（ACK error 通道），由 catch markFailed。
+			const dto = resp as PrivateMessageDTO;
+			if (!dto?.conversation_id) {
+				markFailed();
+				return;
+			}
+			pmPendingNonces.set(clientNonce, "sent");
+			acceptPrivateMessage(dto);
+		})
+		.catch(markFailed);
 }
 
 async function startConversation(identity: string) {

@@ -228,13 +228,28 @@ func serveSPA(r *gin.Engine, cfg *config.Config) {
 func serveUploads(c *gin.Context, uploadDir string) {
 	clean := filepath.Clean("/" + strings.TrimPrefix(c.Param("filepath"), "/"))
 	full := filepath.Join(uploadDir, strings.TrimPrefix(clean, "/"))
-	abs, err := filepath.Abs(full)
+	// ServeFile 会跟随符号链接，必须按解析后的真实路径做归属校验，否则可借软链越出 uploadDir。
+	abs, err := filepath.EvalSymlinks(full)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	base, err := filepath.EvalSymlinks(uploadDir)
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	absBase, err := filepath.Abs(base)
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-	base, err := filepath.Abs(uploadDir)
-	if err != nil || (abs != base && !strings.HasPrefix(abs, base+string(filepath.Separator))) {
+	abs, err = filepath.Abs(abs)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if abs != absBase && !strings.HasPrefix(abs, absBase+string(filepath.Separator)) {
 		c.Status(http.StatusNotFound)
 		return
 	}

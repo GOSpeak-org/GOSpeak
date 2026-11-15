@@ -180,7 +180,8 @@ async function executeVoiceJoin(
 	const previousRoom = deps.getCurrentRoom?.() ?? null;
 
 	onPhase("loading_sfu");
-	const client = await raceAbort(
+	let client: SFUClient | undefined;
+	client = await raceAbort(
 		loadClient(provider, {
 			...audioOptions,
 			socket,
@@ -188,12 +189,15 @@ async function executeVoiceJoin(
 		signal,
 	);
 	throwIfAborted(signal);
+	// 上面的 await 可能被 abort 打断，catch 里 client 尚未赋值（TDZ），
+	// 因此用显式可空变量 + 局部活引用，abort 路径不触碰未初始化的 client。
+	const activeClient = client;
 
 	// abort 时拆掉已创建 client，避免媒体会话孤儿。
 	try {
 		onPhase("joining_media");
 		await raceAbort(
-			client.joinRoom({
+			activeClient.joinRoom({
 				token: token.token,
 				serverUrl: adapter.resolveConnectTarget(token),
 				identity: token.identity,
@@ -205,10 +209,10 @@ async function executeVoiceJoin(
 		);
 		throwIfAborted(signal);
 
-		setupAudio(client);
+		setupAudio(activeClient);
 
 		// media 已通：先挂 client，再切 phase。
-		onClientReady?.(client, provider);
+		onClientReady?.(activeClient, provider);
 		throwIfAborted(signal);
 
 		const joinSignal = async () => {
@@ -239,7 +243,7 @@ async function executeVoiceJoin(
 			);
 			throwIfAborted(signal);
 
-			await adapter.afterMediaJoin?.(client, token, ack ?? {});
+			await adapter.afterMediaJoin?.(activeClient, token, ack ?? {});
 		};
 
 		const signalMode = adapter.signalJoinMode ?? "await";
@@ -267,19 +271,21 @@ async function executeVoiceJoin(
 					// phase 置为 failed（error: null），用户看不到任何原因。
 					toastActionError(err, "语音信令连接失败，请重新进入房间");
 					onPhase("failed");
-					await client.leaveRoom().catch(() => {});
-					await client.destroy().catch(() => {});
+					await activeClient.leaveRoom().catch(() => {});
+					await activeClient.destroy().catch(() => {});
 				});
-			return { client, provider };
+			return { client: activeClient, provider };
 		}
 
 		// await：完整 signal 后才返回（LiveKit 等）。
 		onPhase("joining_signal");
 		await joinSignal();
-		return { client, provider };
+		return { client: activeClient, provider };
 	} catch (err) {
-		await client.leaveRoom().catch(() => {});
-		await client.destroy().catch(() => {});
+		if (client) {
+			await client.leaveRoom().catch(() => {});
+			await client.destroy().catch(() => {});
+		}
 		throw err;
 	}
 }
