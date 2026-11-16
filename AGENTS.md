@@ -215,8 +215,15 @@ pnpm gen:protocol   # 重新生成前端协议类型
 | `app/server/internal/{bus,authstate,jobs,notify,metrics,audit}/AGENTS.md` | 事件总线、认证状态、后台任务、通知、指标、审计 |
 | `app/server/internal/{sfu,sfu/factory,sfu/providers,sfu/providers/livekit}/AGENTS.md` | SFU 抽象、工厂与解析、provider 实现 |
 | `app/server/internal/{storage,livekitproxy,webui}/AGENTS.md` | 对象存储、LiveKit 同源反代、内嵌前端 |
+| `app/web/AGENTS.md` | 前端包：命令、构建期常量、路由生成、代理、产物 |
+| `app/web/src/AGENTS.md` | 源码目录职责、约定与易错点 |
 | `app/web/docs/AGENTS.md` / `app/web/scripts/AGENTS.md` | 前端技术栈与约定、构建辅助脚本 |
+| `app/desktop/AGENTS.md` | 桌面宿主：启动链、回环反代、自愈、桥接、构建 |
+| `app/docs/AGENTS.md` | VitePress 文档站结构与维护约定 |
 | `packages/{components,sfu-client,desktop}/AGENTS.md` | 组件库、媒体会话客户端、桌面能力 SDK |
+| `test/AGENTS.md` | API 集成测试套件与约定 |
+| `deploy/AGENTS.md` | 部署档位、配置单一来源与一致性校验 |
+| `scripts/AGENTS.md` | 工程门禁与发布脚本 |
 | `agent_test_logs/AGENTS.md` | 测试记录规范 |
 
 ---
