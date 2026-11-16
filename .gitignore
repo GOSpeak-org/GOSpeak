@@ -69,8 +69,9 @@ app/server/logs/
 app/server/gin.log
 *.log
 
-# Go 编译产物
-gospeak
+# Go 编译产物（锚定根/服务端输出，避免误伤 Android Java 包名 dev/gospeak）
+/gospeak
+app/server/gospeak
 *.exe
 *.exe~
 *.dll

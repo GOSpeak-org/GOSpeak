@@ -17,6 +17,14 @@
 			"dependsOn": ["^build"],
 			"outputs": ["dist/**"]
 		},
+		"build:mobile": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/mobile/**"]
+		},
+		"cap:sync": {
+			"dependsOn": ["^build"],
+			"cache": false
+		},
 		"dev": {
 			"cache": false,
 			"persistent": true,
