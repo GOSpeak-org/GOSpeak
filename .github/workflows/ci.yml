@@ -199,6 +199,13 @@ jobs:
         run: pnpm --filter @gospeak/mobile sync
       - name: Build Android (assembleDebug)
         run: cd app/mobile/android && ./gradlew assembleDebug --no-daemon
+      - name: Upload Android debug APK
+        # 放在 iOS 步骤之前：iOS 失败时 APK 仍然上传成功，可直接下载验证。
+        uses: actions/upload-artifact@v7
+        with:
+          name: gospeak-android-debug
+          path: app/mobile/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
       - name: Build iOS (simulator, unsigned)
         # iOS 工程走 SPM（App/CapApp-SPM/Package.swift），没有 CocoaPods 的
         # .xcworkspace，因此必须用 -project 而不是 -workspace。
