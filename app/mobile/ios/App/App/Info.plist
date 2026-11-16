@@ -8,6 +8,13 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>GOSpeak 需要使用麦克风进行游戏语音通话。</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- 只放行本地网络：dev 模式连局域网 http://<开发机IP>:3000 需要它，
+		     不使用 NSAllowsArbitraryLoads，避免放宽对公网明文流量的限制。 -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
