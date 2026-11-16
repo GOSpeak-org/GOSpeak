@@ -88,7 +88,7 @@ jobs:
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
               needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
-        run: pnpm exec biome ci --files-ignore-unknown=true ./app/web ./packages ./scripts ./test ./app/desktop
+        run: pnpm exec biome ci --files-ignore-unknown=true ./app/web ./packages ./scripts ./test ./app/desktop ./app/mobile
       - name: UI token guard (圆角 / 字号 / 文字层级 / 图标尺寸)
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
@@ -113,6 +113,13 @@ jobs:
         run: |
           node --test scripts/check-desktop-commands.test.mjs
           node scripts/check-desktop-commands.mjs
+      - name: Mobile bridge contract (plugin methods ↔ native)
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
+              needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
+        run: |
+          node --test scripts/check-mobile-bridge.test.mjs
+          node scripts/check-mobile-bridge.mjs
       - name: Deploy config guard (env 与 livekit.yaml 一致性)
         # 防止把 LiveKit 密钥硬编码回 livekit.yaml，或让 .env 与注入表达式脱节。
         # 校验逻辑单一来源在 deploy/init.sh --check，本地可直接复跑。

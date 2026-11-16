@@ -35,11 +35,13 @@ app/
 ├── server/          Go 后端（入口 main.go → cmd/root.go → server/gin.go 依赖注入）
 ├── web/             React 前端（@gospeak/web）
 ├── desktop/         Go + MyGo 桌面宿主
+├── mobile/          Capacitor 原生壳（加载 web 的 mobile 目标产物）
 └── docs/            VitePress 文档站
 packages/
 ├── components/      通用 UI 组件库（Radix + 主题 token）
 ├── sfu-client/      前端 SFU 客户端抽象
-└── desktop/         桌面能力 SDK（含条件编译与 Web 降级）
+├── desktop/         桌面能力 SDK（含条件编译与 Web 降级）
+└── mobile-capabilities/ 移动能力 SDK（Capacitor 插件 + Web 降级）
 test/                API 集成测试（Vitest，自动拉起临时 server）
 deploy/              docker-compose / Caddyfile / LiveKit 配置
 docs/                设计、运维与评审档案
@@ -138,14 +140,14 @@ WS 事件协议只有一个定义处：`app/server/internal/protocol`。
 
 ### 4.4 桌面条件编译边界
 
-同一个前端代码库产出 Web 与桌面两个目标，靠编译期常量裁剪。
+同一个前端代码库产出 Web、桌面与移动三个目标，靠编译期常量裁剪。
 
-- **目标由 `GOSPEAK_TARGET`（`web` | `desktop`）决定**，Vite 在 `app/web/vite.config.ts` 注入 `__GOSPEAK_TARGET__`，两个 `globals.d.ts` 声明该常量。
+- **目标由 `GOSPEAK_TARGET`（`web` | `desktop` | `mobile`）决定**，Vite 在 `app/web/vite.config.ts` 注入 `__GOSPEAK_TARGET__` / `__GOSPEAK_DESKTOP__` / `__GOSPEAK_MOBILE__`，`@gospeak/desktop` 与 `@gospeak/mobile-capabilities` 各自定义布告常量。
 - **判定用 `inDesktop()`**（来自 `@gospeak/desktop`）：**禁止在业务代码新增裸 `isDesktop()` 调用点**。`isDesktop()` 仅限 SDK 内部 `capabilities/*` 的浏览器降级实现使用。
 - **桌面独享模块**在 Web 构建中被摇树剔除；因此改 `app/desktop/` 或 `packages/desktop/` 后必须跑一次桌面构建验证，`tsc --noEmit` 会完整检查死分支。
 - **桥接命令契约**：MyGo 以 `"<Struct>.<Method>"` 绑定方法，TS SDK 必须逐字一致；`scripts/check-desktop-commands.mjs` 在 CI 与 pre-push 拦截拼写漂移。
 - **桌面能力必须有 Web 降级**：新增能力在 `packages/desktop/src/capabilities/` 里同时提供 native 与 fallback。
-- 构建命令：`pnpm --filter @gospeak/web build:desktop` / `dev:desktop`。
+- 构建命令：`pnpm --filter @gospeak/web build:desktop` / `dev:desktop`；移动目标为 `build:mobile` / `dev:mobile`，由 `app/mobile`（Capacitor）装载，平台判定用 `inMobile()`（`@gospeak/mobile-capabilities`）。
 
 ### 4.5 Git / 文档卫生
 
@@ -225,6 +227,7 @@ pnpm gen:protocol   # 重新生成前端协议类型
 | `deploy/AGENTS.md` | 部署档位、配置单一来源与一致性校验 |
 | `scripts/AGENTS.md` | 工程门禁与发布脚本 |
 | `agent_test_logs/AGENTS.md` | 测试记录规范 |
+| `app/mobile/AGENTS.md` / `packages/mobile-capabilities/AGENTS.md` | 移动壳、移动能力 SDK |
 
 ---
 

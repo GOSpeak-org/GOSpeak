@@ -14,6 +14,8 @@
 			"packages/sfu-client/**/*.{ts,tsx,json,jsonc,css}",
 			"packages/desktop/**/*.{ts,tsx,json,jsonc}",
 			"app/desktop/*.{ts,json,jsonc}",
+			"packages/mobile-capabilities/**/*.{ts,tsx,json,jsonc,css}",
+			"app/mobile/*.{ts,json,jsonc}",
 			"scripts/**/*.{js,mjs}",
 			"test/**/*.ts",
 			"!app/web/src/routeTree.gen.ts",
