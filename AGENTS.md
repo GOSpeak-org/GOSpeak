@@ -208,11 +208,15 @@ pnpm gen:protocol   # 重新生成前端协议类型
 
 | 位置 | 内容 |
 |------|------|
-| `app/server/AGENTS.md` | 服务端入口、目录、启动与环境要点 |
-| `app/server/internal/{handler,service,repository,model,middleware,router,pkg,logger,signal,bus}/AGENTS.md` | 各层开发约定 |
-| `app/server/internal/sfu/providers/livekit/AGENTS.md` | LiveKit 接入 |
-| `app/web/docs/AGENTS.md` | 前端技术栈、目录、模式与约定 |
-| `app/web/scripts/AGENTS.md` | 前端构建辅助脚本 |
+| `app/server/AGENTS.md` | 服务端入口、目录、启动与配置加载 |
+| `app/server/internal/{handler,service,repository,model,middleware,router}/AGENTS.md` | 分层职责与约定 |
+| `app/server/internal/{pkg,logger,config,buildinfo,permcode,policy}/AGENTS.md` | 公共能力、配置、版本、权限码、策略 |
+| `app/server/internal/{protocol,genprotocol,ws,signal}/AGENTS.md` | 事件协议单一事实源、生成器、WS 基础设施、信令 Hub |
+| `app/server/internal/{bus,authstate,jobs,notify,metrics,audit}/AGENTS.md` | 事件总线、认证状态、后台任务、通知、指标、审计 |
+| `app/server/internal/{sfu,sfu/factory,sfu/providers,sfu/providers/livekit}/AGENTS.md` | SFU 抽象、工厂与解析、provider 实现 |
+| `app/server/internal/{storage,livekitproxy,webui}/AGENTS.md` | 对象存储、LiveKit 同源反代、内嵌前端 |
+| `app/web/docs/AGENTS.md` / `app/web/scripts/AGENTS.md` | 前端技术栈与约定、构建辅助脚本 |
+| `packages/{components,sfu-client,desktop}/AGENTS.md` | 组件库、媒体会话客户端、桌面能力 SDK |
 | `agent_test_logs/AGENTS.md` | 测试记录规范 |
 
 ---

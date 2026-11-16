@@ -6,7 +6,7 @@ LiveKit 服务封装，负责与 LiveKit WebRTC 服务通信。
 
 | 文件 | 职责 |
 |------|------|
-| client.go | LiveKit 客户端服务：生成 Token、管理房间、查询参与者 |
+| client.go | LiveKit 客户端服务：生成 Token、管理房间、查询参与者；`NewService(cfg) *Service`，`Close()` 供 factory 热切换时释放（当前无连接句柄，直接返回 nil） |
 
 ## 环境变量
 

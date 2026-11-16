@@ -3,8 +3,8 @@ import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkRadiusTokens } from "./check-radius-tokens.mjs";
 
-// UI token 护栏。规范写在 packages/components/src/theme.css 与
-// docs/review/ui-review-2026-11-08.md，这里防止它被新代码绕开。
+// UI token 护栏。规范唯一来源是 packages/components/src/theme.css
+// （见其文件头的暗色派生规则与文字三档），这里防止它被新代码绕开。
 //
 // 拦住 5 类回退：
 //   1. 任意圆角        rounded-[6px]                 → 用 rounded-sm/md/lg/xl/2xl
