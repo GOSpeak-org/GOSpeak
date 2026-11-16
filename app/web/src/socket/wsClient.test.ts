@@ -135,6 +135,7 @@ describe("wsClient", () => {
 		expect(client.getState()).toBe("connecting");
 
 		const ws = MockWebSocket.instances[0];
+		ws.readyState = MockWebSocket.OPEN;
 		ws.onopen?.();
 		expect(client.getState()).toBe("open");
 		expect(transitions).toContainEqual(["new", "connecting"]);
@@ -145,6 +146,38 @@ describe("wsClient", () => {
 		expect(transitions).toContainEqual(["closing", "closed"]);
 	});
 
+	it("rejects emitAck until the transport readyState is OPEN", async () => {
+		const { createWSClient } = await import("./wsClient");
+		const client = createWSClient();
+		client.connect("ws://example.test/ws");
+		const ws = MockWebSocket.instances[0];
+
+		await expect(client.emitAck("room:create", {})).rejects.toThrow(
+			"socket not connected",
+		);
+
+		const early = client.emitAck("room:create", {});
+		ws.onopen?.();
+		expect(client.getState()).toBe("open");
+		expect(ws.readyState).toBe(MockWebSocket.CONNECTING);
+		await expect(early).rejects.toThrow("socket not connected");
+
+		ws.readyState = MockWebSocket.OPEN;
+		const sent = client.emitAck("room:create", {});
+		ws.onmessage?.(
+			new MessageEvent("message", {
+				data: JSON.stringify({
+					event: "room:created",
+					id: "1",
+					data: { ok: true },
+				}),
+			}),
+		);
+		await expect(sent).resolves.toEqual({ ok: true });
+
+		client.disconnect();
+	});
+
 	it("allows closed state to reconnect but rejects backward transitions", async () => {
 		const { createWSClient } = await import("./wsClient");
 		const client = createWSClient();
@@ -153,6 +186,7 @@ describe("wsClient", () => {
 
 		client.connect("ws://example.test/ws");
 		const first = MockWebSocket.instances[0];
+		first.readyState = MockWebSocket.OPEN;
 		first.onopen?.();
 		first.onclose?.({ reason: "network lost" } as CloseEvent);
 		expect(client.getState()).toBe("closed");
@@ -160,6 +194,7 @@ describe("wsClient", () => {
 		client.connect("ws://example.test/ws");
 		expect(client.getState()).toBe("connecting");
 		const second = MockWebSocket.instances[1];
+		second.readyState = MockWebSocket.OPEN;
 		second.onopen?.();
 		expect(client.getState()).toBe("open");
 

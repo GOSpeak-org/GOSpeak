@@ -50,17 +50,6 @@ vi.mock("@/components/room/services/loadSfuClient", () => ({
 	preloadSfuClient: vi.fn(),
 }));
 
-vi.mock("@/socket/events", () => ({ EVENTS: { ROOM_LEAVE: "room:leave" } }));
-
-vi.mock("@/socket/roomState", () => ({
-	addCreatedRoom: vi.fn((prev) => prev),
-	applyMemberJoined: vi.fn((prev) => prev),
-	applyMemberLeft: vi.fn((prev) => prev),
-	applyMemberUpdated: vi.fn((prev) => prev),
-	mergeRoomUpdated: vi.fn((prev) => prev),
-	upsertRoomMembersFromAck: vi.fn((prev) => prev),
-}));
-
 vi.mock("@/stores/chatStore", () => ({
 	chatStore: { handlePrivateNew: vi.fn() },
 }));
@@ -84,7 +73,42 @@ vi.mock("@/stores/domainStore", () => ({
 	default: { state: { currentDomainUUID: null } },
 }));
 
+import { EVENTS } from "@/socket/events";
+import type { MemberInfo, RoomInfo } from "@/socket/types";
 import { socketStore, useSocketStore } from "./socketStore";
+
+const SERVER_EVENT_BINDINGS = 17;
+
+const serverEventHandler = (event: string) => {
+	const calls = mockAdapter.onServerEvent.mock.calls as unknown as Array<
+		[string, (data: unknown) => void]
+	>;
+	return calls.find(([name]) => name === event)?.[1];
+};
+
+const room = (overrides: Partial<RoomInfo> = {}): RoomInfo => ({
+	id: 1,
+	uuid: "room-uuid",
+	name: "lobby",
+	domain_uuid: "domain-a",
+	has_password: false,
+	limit: 0,
+	members: [],
+	count: 0,
+	...overrides,
+});
+
+const member = (overrides: Partial<MemberInfo> = {}): MemberInfo => ({
+	id: "u-1",
+	identity: "alice-1",
+	name: "alice",
+	display_name: "Alice",
+	avatar: "",
+	is_muted: false,
+	is_mic_muted: false,
+	joined_at: 1,
+	...overrides,
+});
 
 const onConnectedCb = mockAdapter.onConnected.mock.calls[0]?.[0] as
 	| (() => void)
@@ -109,7 +133,9 @@ describe("socketStore worker routing", () => {
 		expect(url).toBe("wss://worker-a.example");
 		expect(mockAdapter.connect).toHaveBeenCalledWith("wss://worker-a.example");
 		expect(mockTabLock.claim).toHaveBeenCalledTimes(1);
-		expect(mockAdapter.onServerEvent.mock.calls.length).toBeGreaterThan(0);
+		expect(mockAdapter.onServerEvent.mock.calls).toHaveLength(
+			SERVER_EVENT_BINDINGS,
+		);
 	});
 
 	it("connectToWorker rejects when another tab owns the lock", async () => {
@@ -125,7 +151,7 @@ describe("socketStore worker routing", () => {
 	it("connectToWorker binds server events only once", async () => {
 		await socketStore.connectToWorker("wss://worker-a.example");
 		const boundCount = mockAdapter.onServerEvent.mock.calls.length;
-		expect(boundCount).toBeGreaterThan(0);
+		expect(boundCount).toBe(SERVER_EVENT_BINDINGS);
 
 		onConnectedCb?.();
 		await socketStore.connectToWorker("wss://worker-b.example");
@@ -181,5 +207,57 @@ describe("socketStore worker routing", () => {
 		socketStore.clearCurrentRoom();
 		expect(useSocketStore.getState().currentRoom).toBeNull();
 		expect(useSocketStore.getState().rejoinIntent).toBeNull();
+	});
+
+	it("merges a room:updated event through the real reducer into rooms", async () => {
+		await socketStore.connectToWorker("wss://worker-a.example");
+		const handler = serverEventHandler(EVENTS.ROOM_UPDATED);
+		expect(handler).toBeTypeOf("function");
+
+		const bob = member({ id: "u-2", identity: "bob-1", name: "bob" });
+		useSocketStore.setState({ rooms: [room({ count: 1 })] });
+		handler?.({
+			name: "lobby",
+			domain_uuid: "domain-a",
+			has_password: true,
+			members: [bob],
+			count: 2,
+		});
+
+		const rooms = useSocketStore.getState().rooms;
+		expect(rooms).toHaveLength(1);
+		expect(rooms[0].has_password).toBe(true);
+		expect(rooms[0].count).toBe(2);
+		expect(rooms[0].members).toEqual([bob]);
+	});
+
+	it("increments the room count through the real member:joined reducer", async () => {
+		await socketStore.connectToWorker("wss://worker-a.example");
+		const handler = serverEventHandler(EVENTS.MEMBER_JOINED);
+
+		useSocketStore.setState({ rooms: [room({ count: 1 })] });
+		handler?.({
+			room: "lobby",
+			domain_uuid: "domain-a",
+			identity: "bob-1",
+			id: "u-2",
+		});
+
+		expect(useSocketStore.getState().rooms[0].count).toBe(2);
+	});
+
+	it("replaces the room list and clears roomsLoading on room:list:result", async () => {
+		await socketStore.connectToWorker("wss://worker-a.example");
+		const handler = serverEventHandler(EVENTS.ROOM_LIST_RESULT);
+
+		useSocketStore.setState({ rooms: [], roomsLoading: true });
+		handler?.({
+			rooms: [room({ name: "a" }), room({ name: "b", uuid: "room-b" })],
+			count: 2,
+		});
+
+		const state = useSocketStore.getState();
+		expect(state.rooms.map((r) => r.name)).toEqual(["a", "b"]);
+		expect(state.roomsLoading).toBe(false);
 	});
 });

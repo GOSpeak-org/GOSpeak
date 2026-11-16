@@ -38,9 +38,14 @@ describe("toastActionError", () => {
 	});
 
 	it("respects the __toastShown mark", () => {
-		expect(
-			toastActionError({ isAxiosError: true, __toastShown: true }),
-		).toBeDefined();
+		const marked = { isAxiosError: true, __toastShown: true };
+		expect(toastActionError(marked)).toBe("操作失败");
+		expect(toastActionError(marked, "加入失败")).toBe("加入失败");
+		expect(toastMock.error).not.toHaveBeenCalled();
+	});
+
+	it("treats a marked axios error without a body message as already toasted", () => {
+		expect(toastActionError(axiosError(500), "删除失败")).toBe("删除失败");
 		expect(toastMock.error).not.toHaveBeenCalled();
 	});
 
