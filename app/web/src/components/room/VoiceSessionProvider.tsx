@@ -31,6 +31,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 	useMobileSessionBridge({
 		isJoined: session.isJoined,
 		currentRoom: session.currentRoom,
+		phase: session.phase,
 		handleManualLeave: session.handleManualLeave,
 	});
 

@@ -14,15 +14,19 @@ import { useEffect, useMemo } from "react";
 import { socketStore } from "@/stores/socketStore";
 import { useVoiceChatActions } from "@/stores/voiceChatStore";
 
+import type { VoicePhase } from "../session/voiceSessionTypes";
+
 interface MobileSessionBridgeInput {
 	isJoined: boolean;
 	currentRoom: string | null;
+	phase: VoicePhase;
 	handleManualLeave: () => void | Promise<void>;
 }
 
 export function useMobileSessionBridge({
 	isJoined,
 	currentRoom,
+	phase,
 	handleManualLeave,
 }: MobileSessionBridgeInput): void {
 	const mobile = useMemo(() => createMobile(), []);
@@ -79,4 +83,25 @@ export function useMobileSessionBridge({
 			if (socketStore.selectedRoomInfo()) void audioSession.activate();
 		});
 	}, [mobile]);
+
+	useEffect(() => {
+		if (!inMobile()) return;
+		const { localNotification } = mobile;
+		return socketStore.onRoomKicked(() => {
+			void localNotification.notify({
+				id: 2001,
+				title: "GOSpeak",
+				body: "你已被移出房间",
+			});
+		});
+	}, [mobile]);
+
+	useEffect(() => {
+		if (!inMobile() || phase !== "failed") return;
+		void mobile.localNotification.notify({
+			id: 2002,
+			title: "语音连接已断开",
+			body: "返回房间可重新连接",
+		});
+	}, [mobile, phase]);
 }

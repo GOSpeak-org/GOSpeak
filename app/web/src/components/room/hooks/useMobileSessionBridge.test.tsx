@@ -9,6 +9,11 @@ const m = vi.hoisted(() => ({
 	clear: vi.fn(async () => {}),
 	onAction: vi.fn((_handler: (action: string) => void) => () => {}),
 	onStateChange: vi.fn((_handler: (state: string) => void) => () => {}),
+	notify: vi.fn(
+		async (_options: { id: number; title: string; body: string }) => {},
+	),
+	cancel: vi.fn(async (_id: number) => {}),
+	onRoomKicked: vi.fn((_handler: () => void) => () => {}),
 	setIsInputMute: vi.fn((_value: boolean) => {}),
 	connected: vi.fn(() => true),
 	connect: vi.fn(() => {}),
@@ -25,6 +30,7 @@ vi.mock("@gospeak/mobile-capabilities", () => ({
 			onAction: m.onAction,
 		},
 		lifecycle: { onStateChange: m.onStateChange },
+		localNotification: { notify: m.notify, cancel: m.cancel },
 	}),
 }));
 
@@ -33,6 +39,7 @@ vi.mock("@/stores/socketStore", () => ({
 		connected: m.connected,
 		connect: m.connect,
 		selectedRoomInfo: m.selectedRoomInfo,
+		onRoomKicked: m.onRoomKicked,
 	},
 }));
 
@@ -43,6 +50,7 @@ vi.mock("@/stores/voiceChatStore", () => ({
 const baseInput = {
 	isJoined: false,
 	currentRoom: null as string | null,
+	phase: "idle" as const,
 	handleManualLeave: () => {},
 };
 
@@ -102,5 +110,25 @@ describe("useMobileSessionBridge", () => {
 		act(() => handler("active"));
 		expect(m.connect).toHaveBeenCalledTimes(1);
 		expect(m.activate).toHaveBeenCalledTimes(1);
+	});
+
+	it("notifies locally when kicked from a room", () => {
+		renderHook(() => useMobileSessionBridge(baseInput));
+		const handler = m.onRoomKicked.mock.calls[0]?.[0] as () => void;
+		act(() => handler());
+		expect(m.notify).toHaveBeenCalledWith({
+			id: 2001,
+			title: "GOSpeak",
+			body: "你已被移出房间",
+		});
+	});
+
+	it("notifies locally when the voice session fails", () => {
+		renderHook(() => useMobileSessionBridge({ ...baseInput, phase: "failed" }));
+		expect(m.notify).toHaveBeenCalledWith({
+			id: 2002,
+			title: "语音连接已断开",
+			body: "返回房间可重新连接",
+		});
 	});
 });
