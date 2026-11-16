@@ -52,6 +52,7 @@ jobs:
               - 'app/desktop/go.sum'
             js:
               - 'app/web/**'
+              - 'app/mobile/**'
               - 'app/desktop/mygo.config.ts'
               - 'app/desktop/package.json'
               - 'packages/**'
@@ -167,12 +168,41 @@ jobs:
       - uses: ./.github/actions/pnpm-install
       - name: Build JS
         run: pnpm turbo run build --filter=@gospeak/web
+      - name: Build mobile web bundle
+        run: pnpm turbo run build:mobile --filter=@gospeak/web
       - name: Upload web dist
         uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: app/web/dist
           retention-days: 3
+
+  build-mobile:
+    name: Build Mobile (Capacitor)
+    needs: changes
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
+          needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
+    # 首次接入原生编译，先不阻塞合并；CI 实跑通过一次后移除 continue-on-error 并纳入 gate。
+    continue-on-error: true
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/pnpm-install
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Sync native projects
+        run: pnpm --filter @gospeak/mobile sync
+      - name: Build Android (assembleDebug)
+        run: cd app/mobile/android && ./gradlew assembleDebug --no-daemon
+      - name: Build iOS (simulator, unsigned)
+        run: |
+          xcodebuild -workspace app/mobile/ios/App/App.xcworkspace \
+            -scheme App -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath /tmp/gospeak-ios-derived \
+            CODE_SIGNING_ALLOWED=NO build
 
   build-server:
     name: Build Server (Go)
@@ -279,9 +309,6 @@ jobs:
           CI: "true"
         run: pnpm --filter @gospeak/components --filter @gospeak/desktop --filter @gospeak/sfu-client --filter @gospeak/mobile-capabilities test
       - name: Package tests (mobile target)
-        # 临时：mobile 能力仍在开发中，条件编译分支的测试尚未全绿。
-        # 先自动运行但不阻塞合并，待 mobile 完全开发完成后移除 continue-on-error。
-        continue-on-error: true
         env:
           CI: "true"
           GOSPEAK_TARGET: mobile
