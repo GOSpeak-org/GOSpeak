@@ -9,6 +9,7 @@ describe("createMobile", () => {
 			"audioSession",
 			"deepLink",
 			"lifecycle",
+			"localNotification",
 			"mediaControl",
 			"push",
 			"runtime",

@@ -51,6 +51,12 @@ export type { DeepLink } from "./capabilities/deeplink";
 export { createLifecycle, isAppState } from "./capabilities/lifecycle";
 export type { AppState, Lifecycle } from "./capabilities/lifecycle";
 
+export { createLocalNotification } from "./capabilities/local-notification";
+export type {
+	LocalNotification,
+	LocalNotificationOptions,
+} from "./capabilities/local-notification";
+
 import { BUILD_TARGET } from "./conditional";
 import { createAudioSession } from "./capabilities/audio-session";
 import { createAudioRoute } from "./capabilities/audio-route";
@@ -58,6 +64,7 @@ import { createMediaControl } from "./capabilities/media-control";
 import { createPush } from "./capabilities/push";
 import { createDeepLink } from "./capabilities/deeplink";
 import { createLifecycle } from "./capabilities/lifecycle";
+import { createLocalNotification } from "./capabilities/local-notification";
 
 export function createMobile() {
 	return {
@@ -68,6 +75,7 @@ export function createMobile() {
 		push: createPush(),
 		deepLink: createDeepLink(),
 		lifecycle: createLifecycle(),
+		localNotification: createLocalNotification(),
 	};
 }
 
