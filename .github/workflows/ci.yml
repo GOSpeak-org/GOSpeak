@@ -192,7 +192,9 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
+          # 用 17 会在 :capacitor-android:compileDebugJavaWithJavac 报 invalid source release。
+          java-version: '21'
       - name: Sync native projects
         run: pnpm --filter @gospeak/mobile sync
       - name: Build Android (assembleDebug)
