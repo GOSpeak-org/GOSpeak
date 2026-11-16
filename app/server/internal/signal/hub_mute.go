@@ -1,10 +1,10 @@
 package signal
 
 import (
-	"GOSpeak/internal/protocol"
-	"GOSpeak/internal/pkg"
-	"GOSpeak/internal/sfu"
 	"GOSpeak/internal/logger"
+	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
+	"GOSpeak/internal/sfu"
 	"errors"
 )
 
@@ -201,7 +201,6 @@ func (h *Hub) roomsForIdentity(identity string) []string {
 	}
 	return rooms
 }
-
 
 // identityForUserID resolves username from userStore by numeric user id.
 func (h *Hub) identityForUserID(userID uint) string {

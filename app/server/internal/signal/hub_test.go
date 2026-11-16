@@ -12,8 +12,8 @@ import (
 
 	"GOSpeak/internal/bus"
 	"GOSpeak/internal/model"
-	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/ws"
 )
 
