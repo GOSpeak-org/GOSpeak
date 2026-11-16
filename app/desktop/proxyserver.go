@@ -165,7 +165,6 @@ func (s *proxyServer) handler() http.Handler {
 	// LiveKit 信令同源反代：后端下发的 serverUrl 是 ws://127.0.0.1:<port>/livekit，
 	// 由这里转给用户配置的后端（后端再转发到内部 LiveKit）。
 	mux.HandleFunc("/livekit/", s.handleProxied)
-	mux.HandleFunc("/rtc/v1/", s.handleProxied)
 	// Signal socket (page resolves ws://127.0.0.1:<port>/ws as same origin).
 	mux.HandleFunc("/ws", s.handleProxied)
 	// SFU / signaling worker nodes reached through us with the session cookie.

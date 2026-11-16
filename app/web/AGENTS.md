@@ -30,7 +30,7 @@ pnpm test             # vitest run
 
 ## 代理（开发）
 
-`/api/v1`、`/ws`、`/uploads` → `localhost:8998`。另有一条 `/rtc/v1` → `1985` 是 SRS 时代的残留，当前应用不使用，**不要基于它写新代码**。
+`/api/v1`、`/ws`、`/uploads` → `localhost:8998`。LiveKit 信令不走 Vite 代理：后端下发的 serverUrl 是绝对地址（`ws://localhost:8998/livekit`），浏览器直连后端，由 `internal/livekitproxy` 同源转发到 LiveKit。
 
 ## 构建产物
 
