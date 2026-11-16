@@ -22,6 +22,9 @@ export type { BuildTarget } from "./conditional";
 
 export { getPlugin, listenPlugin, pluginMethod } from "./bridge";
 
+export { createBackButton } from "./capabilities/back-button";
+export type { BackButton } from "./capabilities/back-button";
+
 export { createAudioSession } from "./capabilities/audio-session";
 export type { AudioSession } from "./capabilities/audio-session";
 
@@ -58,6 +61,7 @@ export type {
 } from "./capabilities/local-notification";
 
 import { BUILD_TARGET } from "./conditional";
+import { createBackButton } from "./capabilities/back-button";
 import { createAudioSession } from "./capabilities/audio-session";
 import { createAudioRoute } from "./capabilities/audio-route";
 import { createMediaControl } from "./capabilities/media-control";
@@ -69,6 +73,7 @@ import { createLocalNotification } from "./capabilities/local-notification";
 export function createMobile() {
 	return {
 		runtime: BUILD_TARGET,
+		backButton: createBackButton(),
 		audioSession: createAudioSession(),
 		audioRoute: createAudioRoute(),
 		mediaControl: createMediaControl(),

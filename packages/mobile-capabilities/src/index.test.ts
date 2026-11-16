@@ -7,6 +7,7 @@ describe("createMobile", () => {
 		expect(Object.keys(mobile).sort()).toEqual([
 			"audioRoute",
 			"audioSession",
+			"backButton",
 			"deepLink",
 			"lifecycle",
 			"localNotification",

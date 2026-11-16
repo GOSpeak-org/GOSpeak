@@ -8,7 +8,7 @@
 |------|------|
 | `conditional.ts` | `BUILD_TARGET` `MOBILE_BUILD` `WEB_BUILD` `inMobile()` `assertMobile` `ifMobile` `importMobile` |
 | `bridge.ts` | `pluginMethod` / `getPlugin` / `listenPlugin`，动态加载 `@capacitor/core` |
-| `capabilities/*` | audio-session / audio-route / media-control / push / deeplink / lifecycle / local-notification |
+| `capabilities/*` | audio-session / audio-route / media-control / push / deeplink / lifecycle / local-notification / back-button |
 | `index.ts` | 具名导出 + `createMobile()` 聚合对象 |
 
 ## 条件编译
@@ -29,3 +29,4 @@
 - 降级必须**无副作用且可调用**，不要抛异常让调用方崩；失败要有明确返回值或 `console.warn`。
 - `local-notification` 是设备本地通知（被踢/断连等本地事件），首次排期前会申请系统通知权限；**不能替代服务端推送**，离线时别人邀请你仍需要 APNs/FCM 服务端链路。
 - `media-control` 的 Android 通知带 静音 / 挂断 按钮，点击经 `action` 事件回传；iOS 侧沿用系统媒体控件，不单独建插件。
+- `back-button` 接管 Android 硬件返回键：注册监听后 Capacitor 不再自行回退/退出，由 `@gospeak/web` 的 `useMobileBackButton` 决定「有历史回退、无历史 minimize」，避免房间内误触直接杀进程。
