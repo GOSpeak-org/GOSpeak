@@ -200,9 +200,12 @@ jobs:
       - name: Build Android (assembleDebug)
         run: cd app/mobile/android && ./gradlew assembleDebug --no-daemon
       - name: Build iOS (simulator, unsigned)
+        # iOS 工程走 SPM（App/CapApp-SPM/Package.swift），没有 CocoaPods 的
+        # .xcworkspace，因此必须用 -project 而不是 -workspace。
         run: |
-          xcodebuild -workspace app/mobile/ios/App/App.xcworkspace \
-            -scheme App -configuration Debug -sdk iphonesimulator \
+          xcodebuild -project app/mobile/ios/App/App.xcodeproj \
+            -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath /tmp/gospeak-ios-derived \
             CODE_SIGNING_ALLOWED=NO build
 
