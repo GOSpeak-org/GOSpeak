@@ -19,7 +19,7 @@
 		},
 		"build:mobile": {
 			"dependsOn": ["^build"],
-			"outputs": ["dist/mobile/**"]
+			"outputs": ["dist-mobile/**"]
 		},
 		"cap:sync": {
 			"dependsOn": ["^build"],

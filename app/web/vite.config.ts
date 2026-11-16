@@ -158,7 +158,9 @@ export default defineConfig(async ({ mode }) => {
         : false,
     },
     build: {
-      outDir: gospeakTarget === "mobile" ? "dist/mobile" : "dist",
+      // 移动产物必须与 dist 平级：Vite 每次构建会清空 outDir，
+      // 若把 mobile 放进 dist/mobile，一次 web/desktop 构建就会把它删掉。
+      outDir: gospeakTarget === "mobile" ? "dist-mobile" : "dist",
       target: "es2022",
       cssMinify: isProduction ? "lightningcss" : false,
       minify: isProduction ? "esbuild" : false,

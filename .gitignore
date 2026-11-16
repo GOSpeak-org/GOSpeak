@@ -29,6 +29,9 @@ dist-ssr
 # 子包独立 lockfile（根 workspace 统一管理）
 app/web/pnpm-lock.yaml
 
+# 移动目标产物（与 dist 平级，避免被 web/desktop 构建清空）
+app/web/dist-mobile/
+
 # VitePress 构建缓存
 app/docs/.vitepress/cache/
 

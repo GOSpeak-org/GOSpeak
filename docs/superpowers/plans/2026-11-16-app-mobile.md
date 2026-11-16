@@ -63,7 +63,7 @@
 
 | 文件 | 改动 |
 |---|---|
-| `app/web/vite.config.ts:31-46` | 目标解析加 `mobile`，注入 `__GOSPEAK_MOBILE__`，mobile 输出 `dist/mobile` |
+| `app/web/vite.config.ts:31-46` | 目标解析加 `mobile`，注入 `__GOSPEAK_MOBILE__`，mobile 输出 `dist-mobile` |
 | `app/web/package.json` | 加 `build:mobile` / `dev:mobile` |
 | `app/web/types/gospeak-build.d.ts:9-10` | 目标类型加 `"mobile"`，声明 `__GOSPEAK_MOBILE__` |
 | `packages/desktop/src/globals.d.ts:11` | 目标类型加 `"mobile"`（保持两处副本一致） |
@@ -425,7 +425,7 @@ git commit -m "feat(mobile): add capacitor plugin bridge layer"
 - Modify: `packages/desktop/src/conditional.ts:19`
 
 **Interfaces:**
-- Produces: `GOSPEAK_TARGET=mobile` 构建产出 `app/web/dist/mobile`；注入 `__GOSPEAK_MOBILE__`
+- Produces: `GOSPEAK_TARGET=mobile` 构建产出 `app/web/dist-mobile`；注入 `__GOSPEAK_MOBILE__`
 
 - [ ] **Step 1: 扩展 vite 目标解析**
 
@@ -461,7 +461,7 @@ git commit -m "feat(mobile): add capacitor plugin bridge layer"
 在 `build` 配置块（第 156 行 `build: {`）内、`target` 之前插入：
 
 ```ts
-      outDir: gospeakTarget === "mobile" ? "dist/mobile" : "dist",
+      outDir: gospeakTarget === "mobile" ? "dist-mobile" : "dist",
 ```
 
 - [ ] **Step 4: 让 dev 监听新包源码**
@@ -529,7 +529,7 @@ Expected: 三条命令全部成功
 - [ ] **Step 8: 验证 mobile 构建**
 
 Run: `pnpm --filter @gospeak/web build:mobile`
-Expected: 成功，产物在 `app/web/dist/mobile`，含 `index.html`
+Expected: 成功，产物在 `app/web/dist-mobile`，含 `index.html`
 
 - [ ] **Step 9: 提交**
 
@@ -549,7 +549,7 @@ git commit -m "feat(web): add mobile build target"
 - Modify: `turbo.json`
 
 **Interfaces:**
-- Consumes: Task 3 的 `app/web/dist/mobile`
+- Consumes: Task 3 的 `app/web/dist-mobile`
 - Produces: 可 `cap sync` 的原生工程
 
 - [ ] **Step 1: 建壳包**
@@ -607,7 +607,7 @@ const devUrl = process.env.GOSPEAK_MOBILE_DEV_URL;
 const config: CapacitorConfig = {
 	appId: "dev.gospeak.mobile",
 	appName: "GOSpeak",
-	webDir: "../web/dist/mobile",
+	webDir: "../web/dist-mobile",
 	server: devUrl ? { url: devUrl, cleartext: true } : undefined,
 	ios: {
 		contentInset: "always",
@@ -692,7 +692,7 @@ Expected: 生成 `app/mobile/ios/App/App.xcodeproj` 与 `app/mobile/android/app/
 ```json
 		"build:mobile": {
 			"dependsOn": ["^build"],
-			"outputs": ["dist/mobile/**"]
+			"outputs": ["dist-mobile/**"]
 		},
 		"cap:sync": {
 			"dependsOn": ["^build"],
@@ -2477,11 +2477,11 @@ GOSPEAK_TARGET=mobile 时 Vite 注入 __GOSPEAK_MOBILE__=true。
 ```markdown
 # app/mobile — 移动宿主（Capacitor）
 
-Capacitor 8 原生壳。**不自带前端**：加载 app/web 的 mobile 目标产物（GOSPEAK_TARGET=mobile → app/web/dist/mobile）。
+Capacitor 8 原生壳。**不自带前端**：加载 app/web 的 mobile 目标产物（GOSPEAK_TARGET=mobile → app/web/dist-mobile）。
 
 ## 构建链
 
-1. pnpm --filter @gospeak/web build:mobile 产出 app/web/dist/mobile。
+1. pnpm --filter @gospeak/web build:mobile 产出 app/web/dist-mobile。
 2. cap sync 把产物拷进 ios/、android/ 并安装原生插件。
 3. dev：设 GOSPEAK_MOBILE_DEV_URL=http://<局域网IP>:3000 走真机热重载；release：加载内嵌 bundle。
 

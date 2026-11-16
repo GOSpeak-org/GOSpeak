@@ -67,10 +67,10 @@ packages/
 
 ### 3.2 构建命令与产物
 
-- `app/web`：新增 `build:mobile` = `GOSPEAK_TARGET=mobile vite build && tsc`，产物 `dist/mobile/`；`dev:mobile` = `GOSPEAK_TARGET=mobile vite`。
+- `app/web`：新增 `build:mobile` = `GOSPEAK_TARGET=mobile vite build && tsc`，产物 `dist-mobile/`；`dev:mobile` = `GOSPEAK_TARGET=mobile vite`。
 - `turbo.json`：新增 `build:mobile` / `cap:sync` 任务（依赖 `^build`）。
 - `app/mobile`：
-  - `cap sync` 把 `dist/mobile` 拷入 `ios/`、`android/` 并安装原生插件。
+  - `cap sync` 把 `dist-mobile` 拷入 `ios/`、`android/` 并安装原生插件。
   - dev：Capacitor `server.url` 指向局域网内 Vite `dev:mobile` 地址（真机同网段热重载）。
   - release：加载内嵌 bundle（Capacitor 默认行为，与桌面 `webui/dist` 内嵌同构）。
 - `GOSPEAK_TARGET` 仍由 Vite 注入，构建产物目标分离，与桌面 `build:desktop` 互不干扰。
@@ -110,7 +110,7 @@ packages/
 
 ## 5. 数据流与关键路径
 
-- **启动**：原生壳加载 `dist/mobile` → Web 应用按 `__GOSPEAK_TARGET__=mobile` 折叠桌面分支 → `main.tsx` 注入 QueryClient/Router → Capabilities 初始化（AudioSession 等）。
+- **启动**：原生壳加载 `dist-mobile` → Web 应用按 `__GOSPEAK_TARGET__=mobile` 折叠桌面分支 → `main.tsx` 注入 QueryClient/Router → Capabilities 初始化（AudioSession 等）。
 - **语音会话**：用户加入房间 → 能力层 activate AudioSession → `@gospeak/sfu-client` joinRoom（JS LiveKit，复用 Web 全部逻辑）→ media-session 原生控件同步 → 锁屏可控制。
 - **后台/前台**：`appStateChange` → 后台时保持 LiveKit 会话（依赖 PoC 验证）；回前台做健康检查和必要重连。
 - **深链入会**：`gospeak://invite/d/<CODE>` → `appUrlOpen` → 复用 `useDeepLinkNavigation` 导航到邀请落地页。

@@ -13,7 +13,7 @@ const devUrl = process.env.GOSPEAK_MOBILE_DEV_URL;
 const config: CapacitorConfig = {
 	appId: "dev.gospeak.mobile",
 	appName: "GOSpeak",
-	webDir: "../web/dist/mobile",
+	webDir: "../web/dist-mobile",
 	server: devUrl ? { url: devUrl, cleartext: true } : undefined,
 	ios: {
 		scheme: "gospeak",
