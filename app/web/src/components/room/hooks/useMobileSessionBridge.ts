@@ -12,7 +12,10 @@ import {
 } from "@gospeak/mobile-capabilities";
 import { useEffect, useMemo } from "react";
 import { socketStore } from "@/stores/socketStore";
-import { useVoiceChatActions } from "@/stores/voiceChatStore";
+import {
+	useVoiceChatActions,
+	useVoiceChatStore,
+} from "@/stores/voiceChatStore";
 
 import type { VoicePhase } from "../session/voiceSessionTypes";
 
@@ -31,6 +34,7 @@ export function useMobileSessionBridge({
 }: MobileSessionBridgeInput): void {
 	const mobile = useMemo(() => createMobile(), []);
 	const { setIsInputMute } = useVoiceChatActions();
+	const isInputMute = useVoiceChatStore((s) => s.isInputMute);
 
 	// 只跟随加入态：切房不重建音频会话，避免锁屏播放被打断
 	useEffect(() => {
@@ -50,11 +54,12 @@ export function useMobileSessionBridge({
 		void mediaControl.setMetadata({
 			title: currentRoom,
 			subtitle: "GOSpeak 语音房间",
+			muted: isInputMute,
 		});
 		return () => {
 			void mediaControl.clear();
 		};
-	}, [mobile, isJoined, currentRoom]);
+	}, [mobile, isJoined, currentRoom, isInputMute]);
 
 	useEffect(() => {
 		if (!inMobile()) return;

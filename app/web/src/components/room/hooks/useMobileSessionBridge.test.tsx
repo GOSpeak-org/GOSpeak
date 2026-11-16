@@ -45,6 +45,8 @@ vi.mock("@/stores/socketStore", () => ({
 
 vi.mock("@/stores/voiceChatStore", () => ({
 	useVoiceChatActions: () => ({ setIsInputMute: m.setIsInputMute }),
+	useVoiceChatStore: (selector: (state: { isInputMute: boolean }) => unknown) =>
+		selector({ isInputMute: false }),
 }));
 
 const baseInput = {
@@ -84,6 +86,7 @@ describe("useMobileSessionBridge", () => {
 		expect(m.setMetadata).toHaveBeenCalledWith({
 			title: "lobby",
 			subtitle: "GOSpeak 语音房间",
+			muted: false,
 		});
 	});
 

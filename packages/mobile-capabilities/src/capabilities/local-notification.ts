@@ -15,6 +15,7 @@ export interface LocalNotificationOptions {
 }
 
 interface LocalNotificationsPlugin {
+	requestPermissions(): Promise<{ display?: string }>;
 	schedule(options: {
 		notifications: LocalNotificationOptions[];
 	}): Promise<void>;
@@ -27,6 +28,24 @@ export interface LocalNotification {
 }
 
 export function createLocalNotification(): LocalNotification {
+	let permissionPromise: Promise<unknown> | null = null;
+
+	const ensurePermission = async () => {
+		if (!permissionPromise) {
+			permissionPromise = getPlugin<LocalNotificationsPlugin>(
+				"LocalNotifications",
+			)
+				.then((plugin) => plugin.requestPermissions())
+				.catch((error) => {
+					console.warn(
+						"[gospeak/mobile] LocalNotifications.requestPermissions failed",
+						error,
+					);
+				});
+		}
+		await permissionPromise;
+	};
+
 	return {
 		async notify(options) {
 			if (!__GOSPEAK_MOBILE__) {
@@ -43,6 +62,7 @@ export function createLocalNotification(): LocalNotification {
 				return;
 			}
 			try {
+				await ensurePermission();
 				const plugin =
 					await getPlugin<LocalNotificationsPlugin>("LocalNotifications");
 				await plugin.schedule({

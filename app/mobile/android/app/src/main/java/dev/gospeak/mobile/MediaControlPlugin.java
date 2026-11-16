@@ -3,7 +3,11 @@ package dev.gospeak.mobile;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
@@ -20,6 +24,43 @@ public class MediaControlPlugin extends Plugin {
     private static final String CHANNEL_ID = "gospeak_voice";
     private static final int NOTIFICATION_ID = 1001;
 
+    private static final String ACTION_MUTE = "dev.gospeak.mobile.action.MUTE";
+    private static final String ACTION_UNMUTE = "dev.gospeak.mobile.action.UNMUTE";
+    private static final String ACTION_HANGUP = "dev.gospeak.mobile.action.HANGUP";
+
+    private final BroadcastReceiver actionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context receivedContext, Intent intent) {
+            String action = intent.getAction();
+            String value;
+            if (ACTION_MUTE.equals(action)) {
+                value = "mute";
+            } else if (ACTION_UNMUTE.equals(action)) {
+                value = "unmute";
+            } else if (ACTION_HANGUP.equals(action)) {
+                value = "hangup";
+            } else {
+                return;
+            }
+            JSObject data = new JSObject();
+            data.put("action", value);
+            notifyListeners("action", data);
+        }
+    };
+
+    @Override
+    public void load() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_MUTE);
+        filter.addAction(ACTION_UNMUTE);
+        filter.addAction(ACTION_HANGUP);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            context.registerReceiver(actionReceiver, filter);
+        }
+    }
+
     @PluginMethod
     public void setMetadata(PluginCall call) {
         String title = call.getString("title");
@@ -30,6 +71,8 @@ public class MediaControlPlugin extends Plugin {
         if (subtitle == null) {
             subtitle = "";
         }
+        Boolean rawMuted = call.getBoolean("muted");
+        boolean muted = Boolean.TRUE.equals(rawMuted);
         ensureChannel();
         Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(title)
@@ -37,6 +80,16 @@ public class MediaControlPlugin extends Plugin {
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(new NotificationCompat.Action(
+                android.R.drawable.ic_btn_speak_now,
+                muted ? "取消静音" : "静音",
+                actionIntent(muted ? ACTION_UNMUTE : ACTION_MUTE, 1)
+            ))
+            .addAction(new NotificationCompat.Action(
+                android.R.drawable.ic_menu_call,
+                "挂断",
+                actionIntent(ACTION_HANGUP, 2)
+            ))
             .build();
         notificationManager().notify(NOTIFICATION_ID, notification);
         call.resolve();
@@ -58,6 +111,15 @@ public class MediaControlPlugin extends Plugin {
         data.put("action", action);
         notifyListeners("action", data);
         call.resolve();
+    }
+
+    private PendingIntent actionIntent(String action, int requestCode) {
+        Intent intent = new Intent(action).setPackage(context.getPackageName());
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return PendingIntent.getBroadcast(context, requestCode, intent, flags);
     }
 
     private NotificationManager notificationManager() {

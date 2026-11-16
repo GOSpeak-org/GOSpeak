@@ -27,4 +27,5 @@
 
 - 新增能力：`capabilities/<name>.ts` 导出 `create<Name>()`，内部同时实现 native 与 fallback，并在 `index.ts` 导出（加入 `createMobile()`）。
 - 降级必须**无副作用且可调用**，不要抛异常让调用方崩；失败要有明确返回值或 `console.warn`。
-- `local-notification` 是设备本地通知（被踢/断连等本地事件），**不能替代服务端推送**；离线时别人邀请你仍需要 APNs/FCM 服务端链路。
+- `local-notification` 是设备本地通知（被踢/断连等本地事件），首次排期前会申请系统通知权限；**不能替代服务端推送**，离线时别人邀请你仍需要 APNs/FCM 服务端链路。
+- `media-control` 的 Android 通知带 静音 / 挂断 按钮，点击经 `action` 事件回传；iOS 侧沿用系统媒体控件，不单独建插件。
