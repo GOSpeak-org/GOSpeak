@@ -33,6 +33,12 @@ func (p *guardProvider) deletedRooms() []string {
 	return append([]string(nil), p.deleted...)
 }
 
+func (p *guardProvider) setRooms(rooms ...sfu.RoomSummary) {
+	p.mu.Lock()
+	p.rooms = rooms
+	p.mu.Unlock()
+}
+
 func (p *guardProvider) ProviderName() string { return "guard" }
 func (p *guardProvider) Capabilities() sfu.Capabilities {
 	if p.caps != nil {

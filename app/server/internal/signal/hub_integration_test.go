@@ -153,25 +153,33 @@ func TestRoomLifecycle_MultipleRooms(t *testing.T) {
 	if _, err := hub.OnRoomJoin(user1, `{"room":"room-1","identity":"user1"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	hub.OnRoomJoinSFU(user1, `{"room":"room-1","identity":"user1"}`)
+	if _, err := hub.OnRoomJoinSFU(user1, `{"room":"room-1","identity":"user1"}`); err != nil {
+		t.Fatalf("OnRoomJoinSFU: %v", err)
+	}
 
 	user2 := newAuthedMockClient("socket-2", "user2")
 	if _, err := hub.OnRoomJoin(user2, `{"room":"room-2","identity":"user2"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	hub.OnRoomJoinSFU(user2, `{"room":"room-2","identity":"user2"}`)
+	if _, err := hub.OnRoomJoinSFU(user2, `{"room":"room-2","identity":"user2"}`); err != nil {
+		t.Fatalf("OnRoomJoinSFU: %v", err)
+	}
 
 	user3 := newAuthedMockClient("socket-3", "user3")
 	if _, err := hub.OnRoomJoin(user3, `{"room":"room-1","identity":"user3"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	hub.OnRoomJoinSFU(user3, `{"room":"room-1","identity":"user3"}`)
+	if _, err := hub.OnRoomJoinSFU(user3, `{"room":"room-1","identity":"user3"}`); err != nil {
+		t.Fatalf("OnRoomJoinSFU: %v", err)
+	}
 
 	user4 := newAuthedMockClient("socket-4", "user4")
 	if _, err := hub.OnRoomJoin(user4, `{"room":"room-3","identity":"user4"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	hub.OnRoomJoinSFU(user4, `{"room":"room-3","identity":"user4"}`)
+	if _, err := hub.OnRoomJoinSFU(user4, `{"room":"room-3","identity":"user4"}`); err != nil {
+		t.Fatalf("OnRoomJoinSFU: %v", err)
+	}
 
 	if len(hub.rooms) != 3 {
 		t.Errorf("expected 3 rooms, got %d", len(hub.rooms))
@@ -216,6 +224,10 @@ func TestRoomLifecycle_RejoinAfterLeave(t *testing.T) {
 	if _, err := hub.OnRoomJoinSFU(user, `{"room":"test-room","identity":"alice"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	// 直接写入一个确定的旧 JoinedAt，避免依赖墙钟精度保证重进时间戳不同。
+	hub.mu.Lock()
+	hub.rooms["test-room"].Members["socket-1"].JoinedAt = 1000
+	hub.mu.Unlock()
 	room1 := hub.rooms["test-room"]
 	joinedAt1 := room1.Members["socket-1"].JoinedAt
 
@@ -228,9 +240,6 @@ func TestRoomLifecycle_RejoinAfterLeave(t *testing.T) {
 	if _, exists := hub.rooms["test-room"]; exists {
 		t.Fatal("room should be deleted after last member leaves")
 	}
-
-	// Brief sleep to ensure different timestamp
-	time.Sleep(time.Millisecond)
 
 	// Rejoin + SFU confirm — creates new room instance
 	if _, err := hub.OnRoomJoin(user, `{"room":"test-room","identity":"alice"}`); err != nil {
@@ -247,8 +256,8 @@ func TestRoomLifecycle_RejoinAfterLeave(t *testing.T) {
 	if _, exists := room2.Members["socket-1"]; !exists {
 		t.Fatal("user should be back in room")
 	}
-	if joinedAt1 == room2.Members["socket-1"].JoinedAt {
-		t.Fatal("expected new JoinedAt timestamp on rejoin")
+	if rejoinedAt := room2.Members["socket-1"].JoinedAt; rejoinedAt <= joinedAt1 {
+		t.Fatalf("expected new JoinedAt after rejoin, got %d (previous %d)", rejoinedAt, joinedAt1)
 	}
 }
 
@@ -264,11 +273,15 @@ func TestRoomLifecycle_SameUserSwitchesVoiceRooms(t *testing.T) {
 	if _, err := hub.OnRoomJoin(user, `{"room":"room-1","identity":"alice"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	hub.OnRoomJoinSFU(user, `{"room":"room-1","identity":"alice"}`)
+	if _, err := hub.OnRoomJoinSFU(user, `{"room":"room-1","identity":"alice"}`); err != nil {
+		t.Fatalf("OnRoomJoinSFU: %v", err)
+	}
 	if _, err := hub.OnRoomJoin(user, `{"room":"room-2","identity":"alice"}`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	hub.OnRoomJoinSFU(user, `{"room":"room-2","identity":"alice"}`)
+	if _, err := hub.OnRoomJoinSFU(user, `{"room":"room-2","identity":"alice"}`); err != nil {
+		t.Fatalf("OnRoomJoinSFU: %v", err)
+	}
 
 	if _, exists := hub.rooms["room-1"]; exists {
 		t.Fatal("room-1 should be removed after switching to room-2")

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 )
 
 type protoClient struct {
@@ -28,7 +29,7 @@ func (c *protoClient) Close() {}
 func TestProtocol_Dispatch_AckResponse(t *testing.T) {
 	reg := newPermissiveRegistry()
 	var called bool
-	reg.HandleAck("room:join", func(c ClientMessenger, data string) (string, error) {
+	reg.HandleAck(protocol.EventRoomJoin, func(c ClientMessenger, data string) (string, error) {
 		called = true
 		return `{"ok":true}`, nil
 	})
@@ -36,25 +37,39 @@ func TestProtocol_Dispatch_AckResponse(t *testing.T) {
 	pc := &protoClient{id: "c1"}
 	reg.Dispatch(pc, Message{
 		ID:    "req-1",
-		Event: "room:join",
+		Event: protocol.EventRoomJoin,
 		Data:  []byte(`{"room":"lobby"}`),
 	})
 
 	if !called {
 		t.Fatal("handler should be called")
 	}
-	if len(pc.acks) == 0 {
-		t.Fatal("expected ACK response")
+	if len(pc.acks) != 1 {
+		t.Fatalf("expected exactly one ACK, got %d", len(pc.acks))
+	}
+	ackMap, ok := pc.acks[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected ack map, got %T", pc.acks[0])
+	}
+	if ackMap["id"] != "req-1" {
+		t.Fatalf("ack id = %v, want req-1", ackMap["id"])
+	}
+	if ackMap["event"] != protocol.EventRoomJoin {
+		t.Fatalf("ack event = %v, want %s", ackMap["event"], protocol.EventRoomJoin)
+	}
+	data, ok := ackMap["data"].(string)
+	if !ok || data != `{"ok":true}` {
+		t.Fatalf("ack data = %v, want handler result", ackMap["data"])
 	}
 }
 
 func TestProtocol_Dispatch_NoAck(t *testing.T) {
 	reg := newPermissiveRegistry()
-	reg.Handle("room:updated", func(c ClientMessenger, data string) {})
+	reg.Handle(protocol.EventRoomUpdated, func(c ClientMessenger, data string) {})
 
 	pc := &protoClient{id: "c1"}
 	reg.Dispatch(pc, Message{
-		Event: "room:updated",
+		Event: protocol.EventRoomUpdated,
 		Data:  []byte(`{"room":"lobby"}`),
 	})
 
@@ -65,19 +80,32 @@ func TestProtocol_Dispatch_NoAck(t *testing.T) {
 
 func TestProtocol_Dispatch_ErrorAck(t *testing.T) {
 	reg := newPermissiveRegistry()
-	reg.HandleAck("room:create", func(c ClientMessenger, data string) (string, error) {
+	reg.HandleAck(protocol.EventRoomCreate, func(c ClientMessenger, data string) (string, error) {
 		return "", &pkg.AppError{Code: pkg.ALREADY_EXISTS, Message: "room already exists"}
 	})
 
 	pc := &protoClient{id: "c1"}
 	reg.Dispatch(pc, Message{
 		ID:    "req-1",
-		Event: "room:create",
+		Event: protocol.EventRoomCreate,
 		Data:  []byte(`{"room":"lobby"}`),
 	})
 
-	if len(pc.errAcks) == 0 {
-		t.Fatal("expected error ACK for failed operation")
+	if len(pc.errAcks) != 1 {
+		t.Fatalf("expected exactly one error ACK for failed operation, got %d", len(pc.errAcks))
+	}
+	errMap, ok := pc.errAcks[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected error ack map, got %T", pc.errAcks[0])
+	}
+	if errMap["id"] != "req-1" || errMap["event"] != protocol.EventRoomCreate {
+		t.Fatalf("error ack correlation: id=%v event=%v", errMap["id"], errMap["event"])
+	}
+	if errMap["code"] != int(pkg.ALREADY_EXISTS) {
+		t.Fatalf("error ack code = %v, want %d", errMap["code"], int(pkg.ALREADY_EXISTS))
+	}
+	if errMap["message"] != "room already exists" {
+		t.Fatalf("error ack message = %v, want room already exists", errMap["message"])
 	}
 }
 
@@ -113,44 +141,66 @@ func TestProtocol_Dispatch_NullData(t *testing.T) {
 }
 
 func TestProtocol_MessageFormat(t *testing.T) {
-	msg := Message{ID: "req-1", Event: "room:join", Data: []byte(`{"room":"lobby"}`)}
+	msg := Message{ID: "req-1", Event: protocol.EventRoomJoin, Data: []byte(`{"room":"lobby"}`)}
 	data, err := json.Marshal(msg)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
 	}
 	var decoded map[string]interface{}
-	json.Unmarshal(data, &decoded)
-	if decoded["id"] != "req-1" || decoded["event"] != "room:join" || decoded["data"] == nil {
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if decoded["id"] != "req-1" || decoded["event"] != protocol.EventRoomJoin || decoded["data"] == nil {
 		t.Fatal("message JSON format mismatch")
 	}
 }
 
 func TestProtocol_ACKFormat(t *testing.T) {
-	ack := ACK{ID: "req-1", Event: "room:joined", Data: map[string]interface{}{"members": []string{"alice"}}}
+	ack := ACK{ID: "req-1", Event: protocol.EventRoomCreated, Data: map[string]interface{}{"members": []string{"alice"}}}
 	data, err := json.Marshal(ack)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
 	}
 	var decoded map[string]interface{}
-	json.Unmarshal(data, &decoded)
-	if decoded["id"] != "req-1" || decoded["event"] != "room:joined" {
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if decoded["id"] != "req-1" || decoded["event"] != protocol.EventRoomCreated {
 		t.Fatal("ACK JSON format mismatch")
+	}
+	dataObj, ok := decoded["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected ACK data object, got %T", decoded["data"])
+	}
+	members, ok := dataObj["members"].([]interface{})
+	if !ok || len(members) != 1 || members[0] != "alice" {
+		t.Fatalf("ACK data mismatch: %v", dataObj)
 	}
 }
 
 func TestProtocol_ACKErrorFormat(t *testing.T) {
-	errAck := ACK{ID: "req-1", Event: "room:create", Error: &ACKError{Code: 3002, Message: "room already exists"}}
+	errAck := ACK{ID: "req-1", Event: protocol.EventRoomCreate, Error: &ACKError{Code: int(pkg.ALREADY_EXISTS), Message: "room already exists"}}
 	data, err := json.Marshal(errAck)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
 	}
 	var decoded map[string]interface{}
-	json.Unmarshal(data, &decoded)
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
 	errObj, ok := decoded["error"].(map[string]interface{})
 	if !ok {
-		t.Fatal("expected error field in ACK")
+		t.Fatalf("expected error field in ACK, got %T", decoded["error"])
 	}
-	if int(errObj["code"].(float64)) != 3002 {
-		t.Fatalf("expected code 3002, got %v", errObj["code"])
+	code, ok := errObj["code"].(float64)
+	if !ok {
+		t.Fatalf("error code is %T, want number", errObj["code"])
+	}
+	if int(code) != int(pkg.ALREADY_EXISTS) {
+		t.Fatalf("expected code %d, got %v", int(pkg.ALREADY_EXISTS), errObj["code"])
+	}
+	message, ok := errObj["message"].(string)
+	if !ok || message != "room already exists" {
+		t.Fatalf("expected message %q, got %v", "room already exists", errObj["message"])
 	}
 }

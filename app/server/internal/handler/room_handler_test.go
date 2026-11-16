@@ -173,6 +173,13 @@ func TestRoomHandler_Create_PersistsDomainUUID(t *testing.T) {
 	if data["domain_uuid"] != "domain-a" {
 		t.Fatalf("expected domain_uuid domain-a, got %v", data["domain_uuid"])
 	}
+	var persisted model.Room
+	if err := db.Where("domain_uuid = ? AND name = ?", "domain-a", "lobby").First(&persisted).Error; err != nil {
+		t.Fatalf("expected room persisted under domain-a: %v", err)
+	}
+	if persisted.DomainUUID != "domain-a" {
+		t.Fatalf("expected persisted domain_uuid domain-a, got %q", persisted.DomainUUID)
+	}
 }
 
 func TestRoomHandler_List_NoDomainUUID_OnlyPlatformRooms(t *testing.T) {

@@ -67,11 +67,6 @@ func TestHub_BroadcastRoomList_LocalOnly(t *testing.T) {
 	}
 }
 
-type clearingHubBus struct {
-	captureBus
-	hub *Hub
-}
-
 func TestHub_HandleRemoteEvent_ClearsLocalRooms(t *testing.T) {
 	hub := NewHub(nil, nil, nil, nil)
 	hub.mu.Lock()
@@ -95,17 +90,34 @@ func TestHub_HandleRemoteEvent_ClearsLocalRooms(t *testing.T) {
 func TestHub_ClearLocalRoomsForSFUSwitch_BroadcastsKnownDomains(t *testing.T) {
 	hub := NewHub(nil, nil, nil, nil)
 	hub.fanout = newMockBroadcaster()
+	fanout := hub.fanout.(*mockBroadcaster)
+	fanout.rooms["dom-a:lobby"] = map[string]bool{"socket-1": true}
+	fanout.clients["socket-1"] = newMockClient("socket-1")
 	hub.mu.Lock()
 	hub.clientDomains["socket-1"] = "domain-a"
+	hub.rooms["dom-a:lobby"] = &Room{
+		Name:     "dom-a:lobby",
+		Members:  map[string]*MemberInfo{"socket-1": {ID: "socket-1", Identity: "alice"}},
+		MicMuted: map[string]bool{},
+		Speaking: map[string]bool{},
+	}
 	hub.mu.Unlock()
 
 	hub.clearLocalRoomsForSFUSwitch()
 
-	fanout := hub.fanout.(*mockBroadcaster)
 	if len(fanout.roomCasts["__domain:domain-a"][EventRoomListResult]) != 1 {
 		t.Fatal("expected SFU switch to broadcast room list to domain scope")
 	}
 	if len(fanout.roomCasts["__platform"][EventRoomListResult]) != 0 {
 		t.Fatal("SFU switch must not only broadcast platform scope")
+	}
+	if !fanout.didLeave("socket-1", "dom-a:lobby") {
+		t.Fatal("expected SFU switch to leave socket-1 from dom-a:lobby")
+	}
+	if len(fanout.forEach) != 1 || fanout.forEach[0] != "dom-a:lobby" {
+		t.Fatalf("ForEach rooms = %v, want [dom-a:lobby]", fanout.forEach)
+	}
+	if len(fanout.visited) != 1 || fanout.visited[0] != "socket-1" {
+		t.Fatalf("ForEach visited = %v, want [socket-1]", fanout.visited)
 	}
 }

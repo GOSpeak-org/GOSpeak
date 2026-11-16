@@ -47,9 +47,20 @@ func TestDomainWS_DifferentDomains_SameRoomName(t *testing.T) {
 	if !existsB {
 		t.Fatal("missing domain-b:lobby")
 	}
-	// Cannot create duplicate within same domain
 	hub.OnRoomCreate(connA, `{"room":"lobby","domain_uuid":"domain-a"}`)
-	// Should have received error (silently ignored in OnRoomCreate mock check)
+	created, ok := connA.lastEvent(EventRoomCreated).(map[string]interface{})
+	if !ok {
+		t.Fatal("expected room:created event for duplicate create")
+	}
+	if created["error"] != "room already exists" {
+		t.Fatalf("duplicate create must report error, got %#v", created)
+	}
+	hub.mu.RLock()
+	total := len(hub.rooms)
+	hub.mu.RUnlock()
+	if total != 2 {
+		t.Fatalf("duplicate create must not add a room, got %d rooms", total)
+	}
 }
 
 func TestDomainWS_PlatformRoom_BackwardCompat(t *testing.T) {
@@ -120,23 +131,6 @@ func TestDomainWS_Kick_CrossDomainIsolation(t *testing.T) {
 	}
 	if roomB == nil || len(roomB.Members) == 0 {
 		t.Fatal("domain-b:lobby should still have user-b")
-	}
-}
-
-func TestDomainWS_TransferOwnership_NoTokenInvalidation(t *testing.T) {
-	hub := newTestHub()
-
-	conn := newAuthedMockClient("sock-1", "user-1")
-
-	// Create a room
-	hub.OnRoomCreate(conn, `{"room":"lobby","domain_uuid":"domain-a"}`)
-
-	hub.mu.RLock()
-	room, exists := hub.rooms["domain-a:lobby"]
-	hub.mu.RUnlock()
-
-	if !exists || room == nil {
-		t.Fatal("room should exist unaffected by ownership transfer")
 	}
 }
 

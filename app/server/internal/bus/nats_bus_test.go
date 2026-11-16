@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"GOSpeak/internal/protocol"
+
 	"github.com/nats-io/nats.go"
 )
 
@@ -107,7 +109,7 @@ func TestNATSBus_FanoutToPeerSkipsSelf(t *testing.T) {
 	}
 	defer b2.Close()
 
-	if err := b1.PublishRoom(context.Background(), "r1", "member:joined", map[string]string{"id": "x"}); err != nil {
+	if err := b1.PublishRoom(context.Background(), "r1", protocol.EventMemberJoined, map[string]string{"id": "x"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,7 +164,7 @@ func TestNATSBus_PublishNamespace(t *testing.T) {
 	}
 	defer b2.Close()
 
-	if err := b1.PublishNamespace(context.Background(), "user:muted", map[string]any{"user_id": float64(1)}); err != nil {
+	if err := b1.PublishNamespace(context.Background(), protocol.EventUserMuted, map[string]any{"user_id": float64(1)}); err != nil {
 		t.Fatal(err)
 	}
 	waitUntil(t, 2*time.Second, func() bool {
@@ -175,10 +177,10 @@ func TestNATSBus_PublishNamespace(t *testing.T) {
 	d2.mu.Lock()
 	defer d1.mu.Unlock()
 	defer d2.mu.Unlock()
-	if len(d1.namespace) != 1 || d1.namespace[0] != "user:muted" {
+	if len(d1.namespace) != 1 || d1.namespace[0] != protocol.EventUserMuted {
 		t.Fatalf("local namespace = %v", d1.namespace)
 	}
-	if len(d2.namespace) != 1 || d2.namespace[0] != "user:muted" {
+	if len(d2.namespace) != 1 || d2.namespace[0] != protocol.EventUserMuted {
 		t.Fatalf("peer namespace = %v", d2.namespace)
 	}
 	pm, ok := d2.payloads[0].(map[string]interface{})
@@ -287,7 +289,7 @@ func TestNATSBus_PublishDisconnectedReturnsErrorAndCountsDrop(t *testing.T) {
 	if got := b.DroppedPublishCount(); got != 1 {
 		t.Fatalf("drop count = %d, want 1", got)
 	}
-	if err := b.PublishNamespace(context.Background(), "user:muted", map[string]string{}); err == nil {
+	if err := b.PublishNamespace(context.Background(), protocol.EventUserMuted, map[string]string{}); err == nil {
 		t.Fatal("namespace publish while disconnected should return error")
 	}
 	if got := b.DroppedPublishCount(); got != 2 {
@@ -326,7 +328,7 @@ func TestNATSBus_OnMessageEnqueues(t *testing.T) {
 	}})
 
 	// 同步触发 onMessage 路径，异步 worker 应消费
-	env, _ := NewEnvelope("test-b", "room", "r1", "room:kick", map[string]interface{}{"x": 1})
+	env, _ := NewEnvelope("test-b", "room", "r1", protocol.EventRoomKick, map[string]interface{}{"x": 1})
 	raw, _ := json.Marshal(env)
 	returned := make(chan struct{})
 	go func() {
@@ -350,7 +352,7 @@ func TestNATSBus_OnMessageEnqueues(t *testing.T) {
 	if gotRoom != "r1" {
 		t.Fatalf("room = %q, want r1", gotRoom)
 	}
-	if gotEvent != "room:kick" {
+	if gotEvent != protocol.EventRoomKick {
 		t.Fatalf("event = %q, want room:kick", gotEvent)
 	}
 	dm, ok := gotData.(map[string]interface{})
@@ -401,7 +403,7 @@ func TestNATSBus_PublishHonorsContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	// 本地投递仍应执行，NATS publish 已取消时立即返回错误
-	err = b1.PublishRoom(ctx, "r1", "room:kick", map[string]interface{}{"x": 1})
+	err = b1.PublishRoom(ctx, "r1", protocol.EventRoomKick, map[string]interface{}{"x": 1})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("publish error = %v, want context.Canceled", err)
 	}
@@ -448,7 +450,7 @@ func TestNATSBus_PendingOverflowCounts(t *testing.T) {
 			InstanceID: "inst-a",
 			Scope:      "room",
 			Room:       "r1",
-			Event:      "room:updated",
+			Event:      protocol.EventRoomUpdated,
 		})
 	}
 	if got := b.DroppedPublishCount(); got != 5 {

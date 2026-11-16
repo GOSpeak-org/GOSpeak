@@ -340,8 +340,8 @@ func TestOnRoomJoin_NewMuteDuringResidueClearRemutes(t *testing.T) {
 	if targets := prov.muteTargets(); len(targets) != 1 || targets[0] != "dom-a:lobby\x00alice" {
 		t.Fatalf("expected re-mute for new mute, got %v", targets)
 	}
-	if ttl := prov.lastTTL(); ttl < 50 || ttl > 60 {
-		t.Fatalf("expected remaining TTL near 60s, got %d", ttl)
+	if ttl := prov.lastTTL(); ttl != 59 && ttl != 60 {
+		t.Fatalf("expected truncation of a 60s mute to 59 or 60, got %d", ttl)
 	}
 	if hub.fanout.(*mockBroadcaster).didJoin(conn.ID(), "dom-a:lobby") {
 		t.Fatal("muted recheck must not reach fanout join")

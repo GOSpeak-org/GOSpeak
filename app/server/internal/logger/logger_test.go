@@ -21,9 +21,6 @@ func TestInitJSONAndLevel(t *testing.T) {
 
 	WithComponent("Test").WithField("k", "v").Info("hello")
 	line := buf.String()
-	if !strings.Contains(line, `"component":"Test"`) && !strings.Contains(line, `"component": "Test"`) {
-		// logrus JSON may or may not have spaces depending version; parse instead
-	}
 	var m map[string]interface{}
 	if err := json.Unmarshal([]byte(strings.TrimSpace(line)), &m); err != nil {
 		t.Fatalf("json: %v line=%q", err, line)

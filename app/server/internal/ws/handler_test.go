@@ -99,11 +99,21 @@ func TestHandlerRegistry_Dispatch_PanicRecover(t *testing.T) {
 	tc := &testClient{id: "c1"}
 	r.Dispatch(tc, Message{ID: "req-1", Event: "event:panic", Data: []byte(`{}`)})
 
-	if len(tc.emitted) == 0 {
-		t.Fatal("expected error ACK after panic")
+	if len(tc.emitted) != 1 {
+		t.Fatalf("expected exactly one error ACK after panic, got %d", len(tc.emitted))
 	}
-	if _, ok := tc.emitted[0].(errAck); !ok {
-		t.Fatal("expected errAck struct after panic")
+	ea, ok := tc.emitted[0].(errAck)
+	if !ok {
+		t.Fatalf("expected errAck struct after panic, got %T", tc.emitted[0])
+	}
+	if ea.code != 5001 {
+		t.Fatalf("panic ACK code = %d, want 5001", ea.code)
+	}
+	if ea.msg != "internal server error" {
+		t.Fatalf("panic ACK message = %q, want %q", ea.msg, "internal server error")
+	}
+	if ea.id != "req-1" || ea.event != "event:panic" {
+		t.Fatalf("panic ACK correlation: id=%q event=%q", ea.id, ea.event)
 	}
 }
 

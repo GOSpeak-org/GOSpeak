@@ -1,9 +1,13 @@
 package ws
 
 import (
+	"encoding/json"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
+
+	"GOSpeak/internal/protocol"
 )
 
 func TestFanout_Add_Remove(t *testing.T) {
@@ -47,7 +51,7 @@ func TestFanout_BroadcastToRoom(t *testing.T) {
 	f.Join("room-x", "c1")
 	f.Join("room-x", "c2")
 
-	f.BroadcastToRoom("room-x", "event:test", "hello")
+	f.BroadcastToRoom("room-x", protocol.EventRoomUpdated, "hello")
 
 	// c1 and c2 should have received the message in their writeCh
 	select {
@@ -69,7 +73,7 @@ func TestFanout_BroadcastToNamespace(t *testing.T) {
 	f.Add(c1)
 	f.Add(c2)
 
-	f.BroadcastToNamespace("event:global", "payload")
+	f.BroadcastToNamespace(protocol.EventRoomCreated, "payload")
 
 	select {
 	case <-c1.writeCh:
@@ -93,7 +97,7 @@ func TestFanout_BroadcastManyClients(t *testing.T) {
 		f.Join("room-x", id)
 	}
 
-	f.BroadcastToRoom("room-x", "event:test", "hello")
+	f.BroadcastToRoom("room-x", protocol.EventRoomUpdated, "hello")
 
 	for i := 0; i < n; i++ {
 		select {
@@ -147,11 +151,41 @@ func TestFanout_DroppedCount(t *testing.T) {
 	c2 := NewTestClient("c2", nil)
 	f.Add(c1)
 	f.Add(c2)
-	atomic.AddUint64(&c1.dropped, 2)
-	atomic.AddUint64(&c2.dropped, 3)
 
-	if got := f.DroppedCount(); got != 5 {
-		t.Fatalf("expected dropped count 5, got %d", got)
+	fill := func(c *Client) {
+		for i := 0; i < cap(c.writeCh); i++ {
+			if ok := c.Send(map[string]int{"fill": i}); !ok {
+				t.Fatalf("%s: fill send %d unexpectedly failed", c.ID(), i)
+			}
+		}
+	}
+	fill(c1)
+	fill(c2)
+
+	dropped := make([]bool, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		dropped[0] = !c1.Send(map[string]string{"overflow": "c1"})
+	}()
+	go func() {
+		defer wg.Done()
+		dropped[1] = !c2.Send(map[string]string{"overflow": "c2"})
+	}()
+	wg.Wait()
+
+	if !dropped[0] || !dropped[1] {
+		t.Fatalf("expected both overflowing sends to be dropped, c1=%v c2=%v", dropped[0], dropped[1])
+	}
+	if got := c1.DroppedCount(); got != 1 {
+		t.Fatalf("c1 DroppedCount = %d, want 1", got)
+	}
+	if got := c2.DroppedCount(); got != 1 {
+		t.Fatalf("c2 DroppedCount = %d, want 1", got)
+	}
+	if got := f.DroppedCount(); got != 2 {
+		t.Fatalf("expected fanout dropped count 2, got %d", got)
 	}
 }
 
@@ -225,33 +259,62 @@ func TestFanout_Remove_ReturnsOnlyNonEmptyRooms(t *testing.T) {
 func TestFanout_ConcurrentAccess(t *testing.T) {
 	f := NewFanout()
 
-	// Add clients concurrently
+	ids := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		id := string(rune('a' + i))
-		c := NewTestClient(id, nil)
-		f.Add(c)
-		f.Join("room-concurrent", id)
+		ids[i] = string(rune('a' + i))
+		f.Add(NewTestClient(ids[i], nil))
+		f.Join("room-concurrent", ids[i])
 	}
 
-	// Broadcast concurrently (should not race)
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(3)
 	go func() {
-		f.BroadcastToRoom("room-concurrent", "event:test", "data")
-		close(done)
+		defer wg.Done()
+		f.BroadcastToRoom("room-concurrent", protocol.EventRoomUpdated, map[string]string{"data": "data"})
 	}()
 	go func() {
-		f.BroadcastToNamespace("event:other", "data")
+		defer wg.Done()
+		f.BroadcastToNamespace(protocol.EventRoomCreated, map[string]string{"data": "data"})
 	}()
 	go func() {
+		defer wg.Done()
 		f.ForEach("room-concurrent", func(cm ClientMessenger) bool { return true })
 	}()
+	wg.Wait()
 
-	<-done
-	// Test passes if no data race (use -race flag)
+	for _, id := range ids {
+		c, ok := f.clients[id]
+		if !ok {
+			t.Fatalf("client %s missing after concurrent access", id)
+		}
+		if got := len(c.writeCh); got != 2 {
+			t.Fatalf("client %s queued %d messages, want 2", id, got)
+		}
+	}
 }
 
 func newTestClient(id string) *Client {
 	return NewTestClient(id, nil)
+}
+
+type countingPayload struct {
+	marshals int32
+}
+
+func (p *countingPayload) MarshalJSON() ([]byte, error) {
+	atomic.AddInt32(&p.marshals, 1)
+	return []byte(`{"k":"v"}`), nil
+}
+
+func receiveOne(t *testing.T, c *Client) []byte {
+	t.Helper()
+	select {
+	case data := <-c.writeCh:
+		return data
+	default:
+		t.Fatalf("client %s did not receive broadcast", c.ID())
+		return nil
+	}
 }
 
 func TestBroadcastToRoom_MarshalsOnce(t *testing.T) {
@@ -263,17 +326,28 @@ func TestBroadcastToRoom_MarshalsOnce(t *testing.T) {
 	f.Join("r1", "c1")
 	f.Join("r1", "c2")
 
-	f.BroadcastToRoom("r1", "evt", map[string]interface{}{"k": "v"})
-	// 单次广播应只序列化一次并投递给房间内所有成员（sendAll 保证单条 marshal）。
-	select {
-	case <-c1.writeCh:
-	default:
-		t.Fatal("expected c1 to receive broadcast")
+	payload := &countingPayload{}
+	f.BroadcastToRoom("r1", protocol.EventRoomUpdated, payload)
+
+	if got := atomic.LoadInt32(&payload.marshals); got != 1 {
+		t.Fatalf("broadcast must marshal the payload exactly once, got %d", got)
 	}
-	select {
-	case <-c2.writeCh:
-	default:
-		t.Fatal("expected c2 to receive broadcast")
+
+	first := receiveOne(t, c1)
+	second := receiveOne(t, c2)
+	if string(first) != string(second) {
+		t.Fatalf("room members received different bytes: %q vs %q", first, second)
+	}
+
+	var envelope struct {
+		Event string          `json:"event"`
+		Data  json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(first, &envelope); err != nil {
+		t.Fatalf("unmarshal broadcast envelope: %v", err)
+	}
+	if envelope.Event != protocol.EventRoomUpdated || string(envelope.Data) != `{"k":"v"}` {
+		t.Fatalf("unexpected envelope event=%q data=%s", envelope.Event, envelope.Data)
 	}
 }
 

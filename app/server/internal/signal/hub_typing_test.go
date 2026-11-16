@@ -10,6 +10,10 @@ import (
 
 const typingRoomKey = "domain-a:lobby"
 
+func typingStateKey(domainUUID, room, identity string) string {
+	return roomKey(domainUUID, room) + ":" + identity
+}
+
 func newTypingTestHub(mute *mockMuteStore) (*Hub, *mockBroadcaster) {
 	hub := NewHub(nil, mute, nil, nil)
 	fanout := newMockBroadcaster()
@@ -57,9 +61,14 @@ func TestHub_OnTyping_HeartbeatRenewsAfterInterval(t *testing.T) {
 	conn := newAuthedMockClient("sock-1", "alice")
 
 	hub.OnTyping(conn, typingStartFrame)
-	// 模拟 2s 节流窗口过去：直接把该条目的 lastSent 往前拨
+	stateKey := typingStateKey("domain-a", "lobby", "alice")
 	hub.typingMu.Lock()
-	hub.typing[typingRoomKey+":alice"].lastSent = time.Now().Add(-3 * time.Second)
+	entry, ok := hub.typing[stateKey]
+	if !ok {
+		hub.typingMu.Unlock()
+		t.Fatalf("expected typing state entry %q, got %v", stateKey, hub.typing)
+	}
+	entry.lastSent = time.Now().Add(-3 * time.Second)
 	hub.typingMu.Unlock()
 
 	hub.OnTyping(conn, typingStartFrame)

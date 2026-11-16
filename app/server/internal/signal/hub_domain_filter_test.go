@@ -7,8 +7,9 @@ import (
 
 	"GOSpeak/internal/bus"
 	"GOSpeak/internal/model"
-	"GOSpeak/internal/protocol"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 )
 
 func TestHub_OnRoomList_FiltersDomainUUID(t *testing.T) {
@@ -94,27 +95,27 @@ func TestHub_DomainEventPayloadsIncludeDomainUUID(t *testing.T) {
 	hub.OnRoomJoinSFU(conn, `{"room":"lobby","domain_uuid":"domain-a","identity":"alice"}`)
 	fanout := hub.fanout.(*mockBroadcaster)
 
-	assertDomainPayload(t, fanout.roomCasts["domain-a:lobby"][EventMemberJoined][0], "domain-a")
+	assertDomainPayload(t, roomCastAt(t, fanout, "domain-a:lobby", EventMemberJoined), "domain-a")
 
 	hub.OnMemberMicState(conn, `{"room":"lobby","domain_uuid":"domain-a","identity":"alice","is_mic_muted":true}`)
-	assertDomainPayload(t, fanout.roomCasts["domain-a:lobby"][EventMemberUpdated][0], "domain-a")
+	assertDomainPayload(t, roomCastAt(t, fanout, "domain-a:lobby", EventMemberUpdated), "domain-a")
 
 	hub.OnMemberSpeaking(conn, `{"room":"lobby","domain_uuid":"domain-a","identity":"alice","speaking":true}`)
-	assertDomainPayload(t, fanout.roomCasts["domain-a:lobby"][EventRoomActiveSpeakers][0], "domain-a")
+	assertDomainPayload(t, roomCastAt(t, fanout, "domain-a:lobby", EventRoomActiveSpeakers), "domain-a")
 
 	hub.OnRoomLeave(conn, `{"room":"lobby","domain_uuid":"domain-a"}`)
 	left, ok := conn.lastEvent(EventRoomLeft).(protocol.RoomLeftPayload)
 	if !ok || left.DomainUUID != "domain-a" {
 		t.Fatalf("expected room:left to carry domain_uuid, got %#v", left)
 	}
-	assertDomainPayload(t, fanout.roomCasts["domain-a:lobby"][EventMemberLeft][0], "domain-a")
+	assertDomainPayload(t, roomCastAt(t, fanout, "domain-a:lobby", EventMemberLeft), "domain-a")
 
 	users := &mockUserStore{users: map[string]*model.User{
 		"bot_helper": {Name: "bot_helper", Role: "user"},
 		"alice":      {Name: "alice", Role: "user"},
 	}}
 	perms := &mockPermChecker{rolePerms: map[string]map[string]bool{
-		"user": {"signal:kick": true},
+		"user": {permcode.PermSignalKick: true},
 	}}
 	kickHub := NewHub(nil, nil, users, perms)
 	kickHub.fanout = newMockBroadcaster()
@@ -125,12 +126,21 @@ func TestHub_DomainEventPayloadsIncludeDomainUUID(t *testing.T) {
 	bot := &mockClient{id: "bot-socket", claims: &pkg.Claims{
 		Username:    "bot_helper",
 		Role:        "user",
-		Permissions: []string{"signal:kick"},
+		Permissions: []string{permcode.PermSignalKick},
 	}}
 	kickHub.OnRoomKick(bot, `{"room":"lobby","domain_uuid":"domain-a","target_identity":"alice"}`)
 	kickFanout := kickHub.fanout.(*mockBroadcaster)
-	assertDomainPayload(t, kickFanout.roomCasts["domain-a:lobby"][EventRoomKicked][0], "domain-a")
-	assertDomainPayload(t, kickFanout.roomCasts["domain-a:lobby"][EventMemberLeft][0], "domain-a")
+	assertDomainPayload(t, roomCastAt(t, kickFanout, "domain-a:lobby", EventRoomKicked), "domain-a")
+	assertDomainPayload(t, roomCastAt(t, kickFanout, "domain-a:lobby", EventMemberLeft), "domain-a")
+}
+
+func roomCastAt(t *testing.T, fanout *mockBroadcaster, room, event string) interface{} {
+	t.Helper()
+	casts := fanout.roomCasts[room][event]
+	if len(casts) == 0 {
+		t.Fatalf("expected %s broadcast in room %s, got none", event, room)
+	}
+	return casts[0]
 }
 
 func assertDomainPayload(t *testing.T, payload interface{}, want string) {

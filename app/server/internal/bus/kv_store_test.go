@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"GOSpeak/internal/pkg"
+
 	"github.com/nats-io/nats.go"
 )
 
@@ -42,9 +44,9 @@ func TestSanitizeKeyRoundTripNonASCII(t *testing.T) {
 	}
 	// legacy 有损映射（空格/冒号 → 下划线）已退役：ASCII 房间名同样走可逆编码。
 	for in := range map[string]struct{}{
-		"domain:lobby": {},
-		"a b":          {},
-		"ws:user-uuid": {},
+		pkg.RoomKey("domain", "lobby"): {},
+		"a b":                          {},
+		"ws:user-uuid":                 {},
 	} {
 		enc := sanitizeKey(in)
 		if !strings.HasPrefix(enc, encodedKeyPrefix) {

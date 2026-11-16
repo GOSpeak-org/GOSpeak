@@ -130,13 +130,24 @@ func addRoomMember(h *Hub, room, sid, identity string) {
 // 宽限期内不应立即移除媒体 participant，逾期才移除。
 func TestDisconnectGrace_DelaysRemoval(t *testing.T) {
 	p := &graceProvider{}
-	h := newGraceHub(40*time.Millisecond, p)
+	h := newGraceHub(DefaultDisconnectGracePeriod, p)
 
 	h.scheduleDisconnectCleanup(disconnectCleanup{room: "meeting-room", identity: "alice"})
 
 	if got := p.removedSnapshot(); len(got) != 0 {
 		t.Fatalf("participant removed before grace elapsed: %v", got)
 	}
+	key := pendingCleanupKey("meeting-room", "alice")
+	h.cleanupMu.Lock()
+	pc := h.pendingCleanups[key]
+	h.cleanupMu.Unlock()
+	if pc == nil {
+		t.Fatal("expected cleanup to be pending during grace window")
+	}
+	// 手动触发到期清理，避免用固定 sleep 猜测宽限期时序。
+	pc.timer.Stop()
+	h.runPendingCleanup(key, pc)
+
 	if !waitUntil(t, time.Second, func() bool { return len(p.removedSnapshot()) == 1 }) {
 		t.Fatalf("participant not removed after grace: %v", p.removedSnapshot())
 	}

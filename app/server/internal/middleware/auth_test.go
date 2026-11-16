@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
 
 	"github.com/gin-gonic/gin"
@@ -83,11 +84,11 @@ func TestRequireOwnerOrPermissionAllowsMatchingOwner(t *testing.T) {
 
 func TestPermissionGranted_FallsBackToRoleChecker(t *testing.T) {
 	checker := testPermissionChecker{allowed: true}
-	if !PermissionGranted(nil, "admin", "signal:kick", checker) {
+	if !PermissionGranted(nil, "admin", permcode.PermSignalKick, checker) {
 		t.Fatal("role checker fallback should grant")
 	}
 	deny := testPermissionChecker{allowed: false}
-	if PermissionGranted(&pkg.Claims{Role: "user"}, "user", "signal:kick", deny) {
+	if PermissionGranted(&pkg.Claims{Role: "user"}, "user", permcode.PermSignalKick, deny) {
 		t.Fatal("role without permission should deny")
 	}
 }

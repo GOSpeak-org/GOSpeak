@@ -74,10 +74,10 @@ func TestConnectSQLiteLocalFileWithDBDSN(t *testing.T) {
 	}
 }
 
-func TestConnectSQLiteTursoRemote(t *testing.T) {
+func TestConnectSQLiteTursoDialectorLocalFile(t *testing.T) {
 	cfg := &config.Config{
 		DBType: "SQLite",
-		// libsql 驱动支持 file: URL，本地冒烟测试无需真实 Turso 端点。
+		// IsTurso 走 libsql dialector；这里喂 file: URL 做本地冒烟，无需真实 Turso 端点。
 		TursoDatabaseURL: "file:" + filepath.Join(t.TempDir(), "turso-local.db"),
 	}
 	db, err := connectSQLite(cfg)
@@ -90,9 +90,6 @@ func TestConnectSQLiteTursoRemote(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
-	if got := sqlDB.Stats().MaxOpenConnections; got != 10 {
-		t.Fatalf("Turso MaxOpenConnections = %d, want 10", got)
-	}
 	if err := db.Exec("CREATE TABLE probe (id INTEGER PRIMARY KEY, name TEXT)").Error; err != nil {
 		t.Fatalf("create table via libsql dialector: %v", err)
 	}

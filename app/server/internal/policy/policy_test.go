@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 )
 
 // ban 角色必须在 roleCache 未初始化时也能拦住（旧 BanCheck 在此场景 fail-open）。
@@ -70,7 +71,7 @@ func TestEvaluate_ActionAndDomainDoNotChangeDecision(t *testing.T) {
 	e := NewEngine()
 	sub := Subject{UserUUID: "u1", Username: "alice", Role: "user"}
 	base := e.Evaluate(sub, ActionWSConnect, "")
-	for _, action := range []Action{ActionWSConnect, "message:send", "private:send", "typing"} {
+	for _, action := range []Action{ActionWSConnect, Action(protocol.EventMessageSend), Action(protocol.EventPrivateSend), Action(protocol.EventTyping)} {
 		for _, domain := range []string{"", "dom-1", "dom-2"} {
 			if got := e.Evaluate(sub, action, domain); got != base {
 				t.Errorf("Evaluate(%q, %q) = %+v, want %+v", action, domain, got, base)

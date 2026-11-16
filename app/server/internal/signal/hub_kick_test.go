@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"GOSpeak/internal/model"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
 )
 
@@ -103,7 +104,7 @@ func TestOnRoomKick_BotWithoutPermissionDenied(t *testing.T) {
 	bot := &mockClient{id: "bot-socket", claims: &pkg.Claims{
 		Username:    "bot_helper",
 		Role:        "user",
-		Permissions: []string{"mute:manage"}, // 无 kick
+		Permissions: []string{permcode.PermMuteManage}, // 无 kick
 	}}
 
 	hub.OnRoomKick(bot, `{"room":"room-1","target_identity":"alice"}`)
@@ -129,7 +130,7 @@ func TestOnRoomKick_BotCannotKickAdmin(t *testing.T) {
 	bot := &mockClient{id: "bot-socket", claims: &pkg.Claims{
 		Username:    "bot_helper",
 		Role:        "user",
-		Permissions: []string{"signal:kick"},
+		Permissions: []string{permcode.PermSignalKick},
 	}}
 
 	hub.OnRoomKick(bot, `{"room":"room-1","target_identity":"root"}`)
@@ -145,7 +146,7 @@ func TestOnRoomKick_HumanAdminCanKickAdmin(t *testing.T) {
 		"admin2": {Name: "admin2", Role: "admin"},
 	}}
 	perms := &mockPermChecker{rolePerms: map[string]map[string]bool{
-		"admin": {"signal:kick": true},
+		"admin": {permcode.PermSignalKick: true},
 	}}
 	hub := NewHub(nil, nil, users, perms)
 	hub.fanout = newMockBroadcaster()
@@ -166,7 +167,7 @@ func TestOnRoomKick_HumanAdminCanKickAdmin(t *testing.T) {
 
 func TestOnRoomKick_ClearsTargetConnSlot(t *testing.T) {
 	perms := &mockPermChecker{rolePerms: map[string]map[string]bool{
-		"admin": {"signal:kick": true},
+		"admin": {permcode.PermSignalKick: true},
 	}}
 	hub := NewHub(nil, nil, nil, perms)
 	hub.fanout = newMockBroadcaster()

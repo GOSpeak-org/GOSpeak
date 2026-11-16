@@ -38,6 +38,13 @@ func TestDomainHandler_Update_OwnerSuccess(t *testing.T) {
 	if code := intCode(resp["code"]); code != 0 {
 		t.Fatalf("expected code 0, got %d: %s", code, resp["msg"])
 	}
+	var reloaded model.Domain
+	if err := db.Where("uuid = ?", g.UUID).First(&reloaded).Error; err != nil {
+		t.Fatalf("reload domain: %v", err)
+	}
+	if reloaded.Name != "Updated" {
+		t.Fatalf("expected persisted name %q, got %q", "Updated", reloaded.Name)
+	}
 }
 
 func TestDomainHandler_Delete_CallsHook(t *testing.T) {
@@ -81,5 +88,23 @@ func TestDomainHandler_Kick_AdminSuccess(t *testing.T) {
 	resp := parseDomainResp(t, w.Body.String())
 	if code := intCode(resp["code"]); code != 0 {
 		t.Fatalf("expected code 0, got %d: %s", code, resp["msg"])
+	}
+	var kicked int64
+	if err := db.Model(&model.DomainMember{}).
+		Where("domain_uuid = ? AND user_uuid = ?", g.UUID, "member-2").
+		Count(&kicked).Error; err != nil {
+		t.Fatalf("count kicked member: %v", err)
+	}
+	if kicked != 0 {
+		t.Fatalf("expected member-2 removed from domain, still %d rows", kicked)
+	}
+	var admin int64
+	if err := db.Model(&model.DomainMember{}).
+		Where("domain_uuid = ? AND user_uuid = ?", g.UUID, "admin-1").
+		Count(&admin).Error; err != nil {
+		t.Fatalf("count admin member: %v", err)
+	}
+	if admin != 1 {
+		t.Fatalf("expected admin-1 to remain a member, got %d rows", admin)
 	}
 }

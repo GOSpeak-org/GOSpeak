@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -158,6 +159,8 @@ type mockBroadcaster struct {
 	rooms      map[string]map[string]bool
 	joined     map[string]map[string]bool // clientID -> rooms joined
 	left       map[string]map[string]bool // clientID -> rooms left
+	forEach    []string                   // rooms passed to ForEach
+	visited    []string                   // clientIDs delivered to ForEach callbacks
 }
 
 func newMockBroadcaster() *mockBroadcaster {
@@ -221,7 +224,22 @@ func (m *mockBroadcaster) BroadcastToRoom(room, event string, data interface{}) 
 }
 
 func (m *mockBroadcaster) ForEach(room string, fn func(ws.ClientMessenger) bool) {
-	// No-op in tests
+	m.forEach = append(m.forEach, room)
+	ids := make([]string, 0, len(m.rooms[room]))
+	for id := range m.rooms[room] {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		conn := m.clients[id]
+		if conn == nil {
+			continue
+		}
+		m.visited = append(m.visited, id)
+		if !fn(conn) {
+			return
+		}
+	}
 }
 
 func (m *mockBroadcaster) RoomExists(room string) bool {
@@ -240,20 +258,6 @@ func (m *mockBroadcaster) CloseAll() {
 	}
 	for _, c := range targets {
 		c.Close()
-	}
-}
-
-func TestMockBroadcaster_CloseAll(t *testing.T) {
-	mb := newMockBroadcaster()
-	c1 := newMockClient("c1")
-	c2 := newMockClient("c2")
-	mb.clients[c1.ID()] = c1
-	mb.clients[c2.ID()] = c2
-
-	mb.CloseAll()
-
-	if !c1.isClosed() || !c2.isClosed() {
-		t.Fatal("expected all registered clients to be closed")
 	}
 }
 
@@ -790,11 +794,18 @@ func TestHub_GetSFURooms(t *testing.T) {
 
 	rooms := hub.GetSFURooms()
 	if len(rooms) != 2 {
-		t.Errorf("expected 2 rooms, got %d", len(rooms))
+		t.Fatalf("expected 2 rooms, got %d", len(rooms))
 	}
 
-	if rooms[0].Count > 0 && rooms[0].Name == "room-1" && rooms[0].Count != 1 {
-		t.Errorf("expected room-1 to have 1 member, got %d", rooms[0].Count)
+	byName := make(map[string]RoomInfo, len(rooms))
+	for _, room := range rooms {
+		byName[room.Name] = room
+	}
+	if got := byName["room-1"].Count; got != 1 {
+		t.Errorf("expected room-1 to have 1 member, got %d", got)
+	}
+	if got := byName["room-2"].Count; got != 0 {
+		t.Errorf("expected room-2 to have 0 members, got %d", got)
 	}
 }
 

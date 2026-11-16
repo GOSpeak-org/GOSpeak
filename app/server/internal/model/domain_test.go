@@ -25,13 +25,6 @@ func TestDomain_BeforeCreate_PreservesExistingUUID(t *testing.T) {
 	}
 }
 
-func TestDomainMember_BeforeCreate(t *testing.T) {
-	m := &DomainMember{}
-	if m.ID != 0 {
-		t.Fatal("expected ID=0 for new DomainMember")
-	}
-}
-
 func TestDomain_TableName(t *testing.T) {
 	g := &Domain{}
 	if got := g.TableName(); got != "domains" {

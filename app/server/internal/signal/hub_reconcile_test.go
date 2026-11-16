@@ -52,9 +52,9 @@ func TestReconcileEmptyRooms_ResetsTrackingWhenRoomRefills(t *testing.T) {
 	h := reconcileHub(provider, nil)
 
 	h.reconcileEmptyRooms(func() int64 { return 0 })
-	provider.rooms = []sfu.RoomSummary{{Name: "lobby", MemberCount: 1}}
+	provider.setRooms(sfu.RoomSummary{Name: "lobby", MemberCount: 1})
 	h.reconcileEmptyRooms(func() int64 { return graceMS + 1 })
-	provider.rooms = []sfu.RoomSummary{{Name: "lobby", MemberCount: 0}}
+	provider.setRooms(sfu.RoomSummary{Name: "lobby", MemberCount: 0})
 	h.reconcileEmptyRooms(func() int64 { return graceMS + 2 })
 	if len(provider.deletedRooms()) != 0 {
 		t.Fatalf("refill must reset the grace window, got premature delete %v", provider.deletedRooms())
@@ -159,9 +159,32 @@ func TestStartEmptyRoomReconciler_RunsAndStops(t *testing.T) {
 func TestStartEmptyRoomReconciler_Idempotent(t *testing.T) {
 	provider := &guardProvider{}
 	h := reconcileHub(provider, nil)
+	const interval = 20 * time.Millisecond
 
-	stop1 := h.StartEmptyRoomReconciler(10 * time.Millisecond)
-	stop2 := h.StartEmptyRoomReconciler(10 * time.Millisecond)
-	stop1()
+	stop1 := h.StartEmptyRoomReconciler(interval)
+	stop2 := h.StartEmptyRoomReconciler(interval)
+	waitForReconcileTicks(t, provider, 1)
+
+	before := provider.listCallCount()
+	windowStart := time.Now()
+	time.Sleep(200 * time.Millisecond)
+	elapsed := time.Since(windowStart)
+	ticked := provider.listCallCount() - before
+	if ticked < 1 {
+		t.Fatalf("reconciler stopped ticking after duplicate Start: %d ticks", ticked)
+	}
+	if maxTicks := int64(elapsed/interval) + 4; ticked > maxTicks {
+		t.Fatalf("duplicate Start spawned a second goroutine: %d ticks in %s, want at most %d", ticked, elapsed, maxTicks)
+	}
+
 	stop2()
+	afterStop2 := provider.listCallCount()
+	waitForReconcileTicks(t, provider, afterStop2+1)
+
+	stop1()
+	afterStop := provider.listCallCount()
+	waitReconcileStable(t, provider, interval)
+	if provider.listCallCount() != afterStop {
+		t.Fatal("reconciler kept ticking after stop")
+	}
 }

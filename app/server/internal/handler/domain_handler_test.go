@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"GOSpeak/internal/model"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/repository"
 	"GOSpeak/internal/service"
 
@@ -194,6 +195,19 @@ func TestDomainHandler_Get_Success(t *testing.T) {
 	if code := intCode(resp["code"]); code != 0 {
 		t.Fatalf("expected code 0, got %d: %s", code, resp["msg"])
 	}
+	data, ok := resp["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected data object, got %#v", resp["data"])
+	}
+	if data["uuid"] != g.UUID {
+		t.Fatalf("expected uuid %q, got %v", g.UUID, data["uuid"])
+	}
+	if data["name"] != "Test Domain" {
+		t.Fatalf("expected name %q, got %v", "Test Domain", data["name"])
+	}
+	if data["owner_uuid"] != "owner-1" {
+		t.Fatalf("expected owner_uuid %q, got %v", "owner-1", data["owner_uuid"])
+	}
 }
 
 func TestDomainHandler_Get_UsesContextDomainUUID(t *testing.T) {
@@ -234,12 +248,23 @@ func TestDomainHandler_Leave_Success(t *testing.T) {
 	if err := db.Create(g).Error; err != nil {
 		t.Fatalf("seed domain: %v", err)
 	}
-	db.Create(&model.DomainMember{DomainUUID: g.UUID, UserUUID: "member-1", RoleName: "member"})
+	if err := db.Create(&model.DomainMember{DomainUUID: g.UUID, UserUUID: "member-1", RoleName: "member"}).Error; err != nil {
+		t.Fatalf("seed member: %v", err)
+	}
 
 	w := postDomainJSON(t, router, "/api/v1/domain/leave", `{"domain_uuid":"`+g.UUID+`"}`, map[string]string{"X-User-UUID": "member-1"})
 	resp := parseDomainResp(t, w.Body.String())
 	if code := intCode(resp["code"]); code != 0 {
 		t.Fatalf("expected code 0, got %d: %s", code, resp["msg"])
+	}
+	var count int64
+	if err := db.Model(&model.DomainMember{}).
+		Where("domain_uuid = ? AND user_uuid = ?", g.UUID, "member-1").
+		Count(&count).Error; err != nil {
+		t.Fatalf("count membership: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected member-1 to leave domain, still %d membership rows", count)
 	}
 }
 
@@ -299,6 +324,13 @@ func TestDomainHandler_Delete_OwnerSuccess(t *testing.T) {
 	resp := parseDomainResp(t, w.Body.String())
 	if code := intCode(resp["code"]); code != 0 {
 		t.Fatalf("expected code 0, got %d: %s", code, resp["msg"])
+	}
+	var count int64
+	if err := db.Model(&model.Domain{}).Where("uuid = ?", g.UUID).Count(&count).Error; err != nil {
+		t.Fatalf("count domain: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected domain %s deleted, still present", g.UUID)
 	}
 }
 
@@ -470,10 +502,21 @@ func TestDomainHandler_RoleManagement_OwnerSuccess(t *testing.T) {
 	}
 
 	resp = postDomainJSON(t, router, "/api/v1/domain/roles/create",
-		`{"domain_uuid":"`+domain.UUID+`","name":"moderator","permissions":["room:read"]}`,
+		`{"domain_uuid":"`+domain.UUID+`","name":"moderator","permissions":["`+permcode.PermRoomRead+`"]}`,
 		map[string]string{"X-User-UUID": "owner-1"})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("create role: got %d, body %s", resp.Code, resp.Body.String())
+	}
+	roleRepo := repository.NewDomainRoleRepository(db)
+	if _, err := roleRepo.GetRole(domain.UUID, "moderator"); err != nil {
+		t.Fatalf("expected moderator role persisted: %v", err)
+	}
+	perms, err := roleRepo.GetRolePermissions(domain.UUID, "moderator")
+	if err != nil {
+		t.Fatalf("load moderator permissions: %v", err)
+	}
+	if len(perms) != 1 || perms[0] != model.PermRoomRead {
+		t.Fatalf("expected moderator permissions [%s], got %v", model.PermRoomRead, perms)
 	}
 
 	resp = postDomainJSON(t, router, "/api/v1/domain/members/update-role",
@@ -481,6 +524,13 @@ func TestDomainHandler_RoleManagement_OwnerSuccess(t *testing.T) {
 		map[string]string{"X-User-UUID": "owner-1"})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("update member role: got %d, body %s", resp.Code, resp.Body.String())
+	}
+	var member model.DomainMember
+	if err := db.Where("domain_uuid = ? AND user_uuid = ?", domain.UUID, "member-1").First(&member).Error; err != nil {
+		t.Fatalf("reload member: %v", err)
+	}
+	if member.RoleName != "moderator" {
+		t.Fatalf("expected member-1 role %q, got %q", "moderator", member.RoleName)
 	}
 }
 
@@ -543,6 +593,33 @@ func TestDomainHandler_MyPermissions(t *testing.T) {
 	}
 	if body["code"].(float64) != 0 {
 		t.Fatalf("expected code 0, got %v", body["code"])
+	}
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected data object, got %#v", body["data"])
+	}
+	if data["role_name"] != model.DomainRoleOwner {
+		t.Fatalf("expected role_name %q, got %v", model.DomainRoleOwner, data["role_name"])
+	}
+	raw, ok := data["permissions"].([]interface{})
+	if !ok {
+		t.Fatalf("expected permissions array, got %#v", data["permissions"])
+	}
+	if len(raw) != len(model.AssignableDomainPermissions) {
+		t.Fatalf("expected %d permissions, got %d: %v", len(model.AssignableDomainPermissions), len(raw), raw)
+	}
+	got := make(map[string]bool, len(raw))
+	for _, item := range raw {
+		code, ok := item.(string)
+		if !ok {
+			t.Fatalf("expected permission code string, got %#v", item)
+		}
+		got[code] = true
+	}
+	for _, want := range model.AssignableDomainPermissions {
+		if !got[want] {
+			t.Fatalf("expected permission %q in response, got %v", want, raw)
+		}
 	}
 }
 
@@ -635,7 +712,7 @@ func TestDomainHandler_RoleManagement_AdminPermissionsAreFixed(t *testing.T) {
 
 	for _, roleName := range []string{model.DomainRoleAdmin, model.DomainRoleOwner} {
 		resp := postDomainJSON(t, router, "/api/v1/domain/roles/update",
-			`{"domain_uuid":"`+domain.UUID+`","role_name":"`+roleName+`","permissions":["room:read"]}`,
+			`{"domain_uuid":"`+domain.UUID+`","role_name":"`+roleName+`","permissions":["`+permcode.PermRoomRead+`"]}`,
 			map[string]string{"X-User-UUID": "owner-1"})
 		if resp.Code != http.StatusForbidden {
 			t.Fatalf("update %s: expected 403, got %d body %s", roleName, resp.Code, resp.Body.String())

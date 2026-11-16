@@ -1,6 +1,10 @@
 package bus
 
-import "testing"
+import (
+	"testing"
+
+	"GOSpeak/internal/protocol"
+)
 
 func TestNATSBus_PendingQueueCap(t *testing.T) {
 	b := &NATSBus{}
@@ -9,7 +13,7 @@ func TestNATSBus_PendingQueueCap(t *testing.T) {
 			InstanceID: "inst-a",
 			Scope:      "room",
 			Room:       "r1",
-			Event:      "room:updated",
+			Event:      protocol.EventRoomUpdated,
 		})
 	}
 	if len(b.pending) != maxPendingPublish {

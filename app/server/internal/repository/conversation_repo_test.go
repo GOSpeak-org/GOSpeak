@@ -13,7 +13,8 @@ import (
 
 func newTestConversationRepo(t *testing.T) *ConversationRepository {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file:conversation_test?mode=memory&cache=shared"), &gorm.Config{})
+	dsn := fmt.Sprintf("file:conversation_test_%d?mode=memory&cache=shared", time.Now().UnixNano())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,9 +26,40 @@ func newTestConversationRepo(t *testing.T) *ConversationRepository {
 
 func TestConversationListCursor(t *testing.T) {
 	repo := newTestConversationRepo(t)
-	_, _, err := repo.ListByIdentityCursor("alice", "", 20)
+	base := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	seed := []*model.ConversationParticipant{
+		{ConversationID: "conv-old", IdentityA: "alice", IdentityB: "bob", CreatedAt: base},
+		{ConversationID: "conv-new", IdentityA: "alice", IdentityB: "carol", CreatedAt: base.Add(time.Minute)},
+		{ConversationID: "conv-other", IdentityA: "bob", IdentityB: "carol", CreatedAt: base.Add(2 * time.Minute)},
+	}
+	for _, cp := range seed {
+		if err := repo.Upsert(cp); err != nil {
+			t.Fatalf("upsert %s: %v", cp.ConversationID, err)
+		}
+	}
+
+	page, hasMore, err := repo.ListByIdentityCursor("alice", "", 1)
 	if err != nil {
-		t.Fatalf("ListByIdentityCursor: %v", err)
+		t.Fatalf("first page: %v", err)
+	}
+	if len(page) != 1 || page[0].ConversationID != "conv-new" || !hasMore {
+		t.Fatalf("first page = %v hasMore=%v, want [conv-new] with more", page, hasMore)
+	}
+
+	page, hasMore, err = repo.ListByIdentityCursor("alice", "conv-new", 1)
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	if len(page) != 1 || page[0].ConversationID != "conv-old" || hasMore {
+		t.Fatalf("second page = %v hasMore=%v, want [conv-old] without more", page, hasMore)
+	}
+
+	page, hasMore, err = repo.ListByIdentityCursor("alice", "conv-old", 1)
+	if err != nil {
+		t.Fatalf("third page: %v", err)
+	}
+	if len(page) != 0 || hasMore {
+		t.Fatalf("third page = %v hasMore=%v, want empty without more", page, hasMore)
 	}
 }
 
