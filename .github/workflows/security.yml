@@ -54,7 +54,7 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Dependency graph disabled, skipping dependency review"
           fi
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: moderate
