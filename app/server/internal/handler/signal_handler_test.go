@@ -537,6 +537,27 @@ func TestListParticipants_MissingRoom(t *testing.T) {
 	}
 }
 
+func TestListParticipants_SFUError(t *testing.T) {
+	sfu := &mockSFU{
+		listParticipants: func(room string) ([]sfu.ParticipantSummary, error) {
+			return nil, errors.New("livekit unavailable")
+		},
+	}
+	r := setupRouter(sfu)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/participants?room=test-room", nil)
+	r.ServeHTTP(w, req)
+
+	resp := parseResp(t, w.Body.String())
+	if resp.Code != pkg.INTERNAL_ERROR {
+		t.Fatalf("expected INTERNAL_ERROR, got %d", resp.Code)
+	}
+	if resp.Data != nil {
+		t.Fatalf("SFU failure must not be disguised as an empty participant list, got %v", resp.Data)
+	}
+}
+
 // ─── LivekitWebhook Tests ───
 
 func TestLivekitWebhook_Success(t *testing.T) {

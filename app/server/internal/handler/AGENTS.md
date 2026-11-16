@@ -24,7 +24,7 @@ HTTP 请求处理层：参数绑定与校验、调用 service、按统一格式�
 ## signal_handler 要点
 
 - `LivekitWebhook`：先验签（失败 → `TOKEN_WRONG`；未配置 → `SFU_NOT_CONFIGURED`），再投递到 jobs；签名校验不可省略。
-- **已知缺陷（勿照抄）**：`ListParticipants` 在上游 SFU 出错时直接返回空数组（`pkg.Success(c, []interface{}{})`），把故障伪装成「房间无人」。新增类似查询接口应走 `pkg.HandleError(c, err)`，不要复制这个模式。
+- `ListParticipants` 与 `ListRooms` 一样：上游 SFU 出错时走 `pkg.HandleError(c, err)`，不得把故障伪装成「房间无人」的空数组。回归测试见 `signal_handler_test.go` 的 `TestListParticipants_SFUError`。
 
 ## 测试
 
