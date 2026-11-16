@@ -375,6 +375,8 @@ jobs:
         run: node scripts/check-version.mjs . "" server
       - name: Version consistency (desktop)
         run: node scripts/check-version.mjs . "" desktop
+      - name: Version consistency (mobile)
+        run: node scripts/check-version.mjs . "" mobile
 
   desktop-go:
     name: Desktop Host (Go)

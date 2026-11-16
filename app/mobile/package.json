@@ -6,9 +6,10 @@
 	"type": "module",
 	"scripts": {
 		"build:web": "pnpm --filter @gospeak/web build:mobile",
-		"sync": "pnpm run build:web && cap sync",
-		"sync:ios": "pnpm run build:web && cap sync ios",
-		"sync:android": "pnpm run build:web && cap sync android",
+		"version:sync": "node ../../scripts/mobile-version.mjs",
+		"sync": "pnpm run version:sync && pnpm run build:web && cap sync",
+		"sync:ios": "pnpm run version:sync && pnpm run build:web && cap sync ios",
+		"sync:android": "pnpm run version:sync && pnpm run build:web && cap sync android",
 		"open:ios": "cap open ios",
 		"open:android": "cap open android",
 		"run:ios": "pnpm run sync:ios && cap run ios",

@@ -17,7 +17,9 @@
 //                 version 必须与 yaml 一致；发布 tag
 //                 （gospeak-desktop-v<version>）必须与 yaml 一致。
 //   mobile  源：.github/versions/mobile.yaml
-//           校验：app/mobile/package.json 的 version 必须与 yaml 一致。
+//           校验：app/mobile/package.json、Android build.gradle 的 versionName /
+//                 versionCode、iOS pbxproj 的 MARKETING_VERSION /
+//                 CURRENT_PROJECT_VERSION 都必须与 yaml 一致；
 //                 release-naming.mjs 未定义 mobile tag 前缀，不做 tag 推断。
 //
 // mygo.config.ts 是版本号的第三份副本（它决定 .app / dmg / 安装包的文件名），
@@ -28,6 +30,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+import { androidVersionCode } from "./mobile-version.mjs";
 import { parseReleaseTag, tagPrefix } from "./release-naming.mjs";
 
 const SEMVER_PATTERN =
@@ -143,6 +146,13 @@ function checkDesktop(rootDir, declared, issues) {
 	}
 }
 
+function readVersionFromText(path, pattern, source) {
+	const raw = readFileSync(path, "utf8");
+	const match = pattern.exec(raw);
+	if (!match) throw new Error(`${source} not found in ${path}`);
+	return match[1];
+}
+
 function checkMobile(rootDir, declared, issues) {
 	const packageVersion = parseVersion(
 		readJson(`${rootDir}/app/mobile/package.json`).version,
@@ -151,6 +161,53 @@ function checkMobile(rootDir, declared, issues) {
 	if (packageVersion !== declared) {
 		issues.push(
 			`app/mobile/package.json version ${packageVersion} does not match .github/versions/mobile.yaml ${declared}`,
+		);
+	}
+
+	const gradlePath = `${rootDir}/app/mobile/android/app/build.gradle`;
+	const versionName = parseVersion(
+		readVersionFromText(gradlePath, /versionName\s+"([^"]+)"/, "versionName"),
+		"android/app/build.gradle versionName",
+	);
+	if (versionName !== declared) {
+		issues.push(
+			`app/mobile/android/app/build.gradle versionName ${versionName} does not match .github/versions/mobile.yaml ${declared}`,
+		);
+	}
+	const versionCode = readVersionFromText(
+		gradlePath,
+		/versionCode\s+(\d+)/,
+		"versionCode",
+	);
+	const expectedCode = String(androidVersionCode(declared));
+	if (versionCode !== expectedCode) {
+		issues.push(
+			`app/mobile/android/app/build.gradle versionCode ${versionCode} does not match expected ${expectedCode} for ${declared}`,
+		);
+	}
+
+	const pbxPath = `${rootDir}/app/mobile/ios/App/App.xcodeproj/project.pbxproj`;
+	const marketing = parseVersion(
+		readVersionFromText(
+			pbxPath,
+			/MARKETING_VERSION = ([^;]+);/,
+			"MARKETING_VERSION",
+		),
+		"ios pbxproj MARKETING_VERSION",
+	);
+	if (marketing !== declared) {
+		issues.push(
+			`ios pbxproj MARKETING_VERSION ${marketing} does not match .github/versions/mobile.yaml ${declared}`,
+		);
+	}
+	const projectVersion = readVersionFromText(
+		pbxPath,
+		/CURRENT_PROJECT_VERSION = ([^;]+);/,
+		"CURRENT_PROJECT_VERSION",
+	);
+	if (projectVersion !== expectedCode) {
+		issues.push(
+			`ios pbxproj CURRENT_PROJECT_VERSION ${projectVersion} does not match expected ${expectedCode} for ${declared}`,
 		);
 	}
 }
