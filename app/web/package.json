@@ -8,6 +8,8 @@
     "build": "vite build && tsc",
     "build:desktop": "GOSPEAK_TARGET=desktop vite build && tsc",
     "dev:desktop": "GOSPEAK_TARGET=desktop vite",
+    "build:mobile": "GOSPEAK_TARGET=mobile vite build && tsc",
+    "dev:mobile": "GOSPEAK_TARGET=mobile vite",
     "typecheck": "tsr generate && tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
