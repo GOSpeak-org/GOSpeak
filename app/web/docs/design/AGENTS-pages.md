@@ -13,7 +13,6 @@ pages/
 ├── __root.tsx                     # 根路由（createRootRouteWithContext，全局 context + errorComponent）
 ├── login.tsx                      # 登录页（平铺文件）
 ├── register.tsx                   # 注册页
-├── guest.tsx                      # 访客页
 ├── (app)/                         # 需要登录的路由组（不生成 URL 段）
 │   ├── route.tsx                  # 布局路由：beforeLoad 守卫 + Layout + 页面级 PageErrorBoundary
 │   ├── index.tsx                  # 首页（redirect 到 /discover）

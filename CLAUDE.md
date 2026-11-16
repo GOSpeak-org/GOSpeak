@@ -147,7 +147,7 @@ pnpm format      # biome format -r
 - NATS 固定内嵌运行（不支持 `NATS_URL`）；JWT 黑名单/密钥轮换走 NATS KV
 - `STORAGE_ENCRYPT_KEY` 生产必设 (64 位 hex)
 
-配置加载优先级：`GOSPEAK_ENV_FILE`（显式）> 工作目录 `.env.<env>` / `.env`（本地开发可选）> 仓库根 `deploy/.env`（统一配置，compose 与应用共用）。仓库不提交任何 `.env*` 文件，样例见 `deploy/.env.example`。
+配置加载优先级：进程环境变量（已设置则不覆盖）> `GOSPEAK_ENV_FILE`（显式）> 工作目录 `.env.<env>` / `.env`（本地开发可选）> 仓库根 `deploy/.env`（统一配置，compose 与应用共用）。文件按此顺序逐个读取，仅填充尚未设置的键（非「首个命中即停」）。仓库不提交任何 `.env*` 文件，样例见 `deploy/.env.example`。
 
 ---
 

@@ -132,7 +132,6 @@ middleware.RequireOwnerOrPermission("room_owner", permcode.PermRoomUpdate)
 | POST | `/api/v1/auth/register` | 注册 |
 | POST | `/api/v1/auth/refresh_token` | 刷新 Token |
 | POST | `/api/v1/auth/reset_password` | 重置密码 |
-| POST | `/api/v1/auth/guest` | 访客签发 |
 | POST | `/api/v1/signal/webhook` | LiveKit Webhook |
 | GET | `/api/v1/oauth/login/:provider` | OAuth 登录 |
 | GET | `/api/v1/oauth/callback/:provider` | OAuth 回调 |
@@ -205,6 +204,83 @@ middleware.RequireOwnerOrPermission("room_owner", permcode.PermRoomUpdate)
 | DELETE | `/api/v1/oauth/admin/providers/:id` | `oauth:manage` | 删除 Provider |
 | **审计** | | | |
 | POST | `/api/v1/audit/list` | `audit:read` | 审计日志查询 |
+
+### 5.3 其余已注册路由（当前摘要表未覆盖，以代码为准）
+
+> 下表补全 §5.1/§5.2 未列出的已注册端点；精确鉴权以 `internal/router/router.go` 与各 `routes/*/routes.go` 为准。✅ = 需 JWT，公开项已在上表列出。
+
+**邀请与入域审核**
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/v1/invite/preview` | 公开 | 邀请码预览（限流 20 次/小时） |
+| POST | `/api/v1/invite/register` | 公开 | 凭邀请码内联注册（限流 20 次/小时） |
+| POST | `/api/v1/invite/join` | JWT | 通过邀请码加入域 |
+| POST | `/api/v1/invite/my-request` | JWT | 我的加入申请 |
+| POST | `/api/v1/invite/cancel-request` | JWT | 取消加入申请 |
+| POST | `/api/v1/domain/invites/list` | `domain:invite:manage` | 域邀请码列表 |
+| POST | `/api/v1/domain/invites/create` | `domain:invite:manage` | 创建邀请码 |
+| POST | `/api/v1/domain/invites/disable` | `domain:invite:manage` | 禁用邀请码 |
+| POST | `/api/v1/domain/invites/redemptions` | `domain:invite:manage` | 使用记录 |
+| POST | `/api/v1/domain/join-requests/list` | `domain:member:review` | 加入申请列表 |
+| POST | `/api/v1/domain/join-requests/review` | `domain:member:review` | 审核加入申请 |
+| POST | `/api/v1/domain/join-approval/config` | `domain:manage` | 入域审批配置 |
+
+**域（完整）**
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/v1/domain/create` | `domain:create` | 创建域 |
+| POST | `/api/v1/domain/get` | JWT + 域成员 | 域详情 |
+| POST | `/api/v1/domain/list` | `domain:read` | 域列表 |
+| POST | `/api/v1/domain/list-public` | JWT | 公开域列表 |
+| POST | `/api/v1/domain/my-domains` | JWT | 我加入的域 |
+| POST | `/api/v1/domain/update` | JWT + 域成员 | 更新域 |
+| POST | `/api/v1/domain/delete` | JWT + 域成员 | 删除域 |
+| POST | `/api/v1/domain/leave` | JWT + 域成员 | 退出域 |
+| POST | `/api/v1/domain/kick` | JWT + 域成员 | 移出成员 |
+| POST | `/api/v1/domain/members` | JWT + 域成员 | 成员列表 |
+| POST | `/api/v1/domain/roles/list` | JWT + 域成员 | 域角色列表 |
+| POST | `/api/v1/domain/roles/create` | JWT + 域成员 | 创建域角色 |
+| POST | `/api/v1/domain/roles/update` | JWT + 域成员 | 更新域角色 |
+| POST | `/api/v1/domain/roles/delete` | JWT + 域成员 | 删除域角色 |
+| POST | `/api/v1/domain/members/update-role` | JWT + 域成员 | 更新成员角色 |
+| POST | `/api/v1/domain/my-permissions` | JWT + 域成员 | 我的域权限 |
+
+**用户 / 用户组 / 消息 / 存储 / 会话**
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET/POST | `/api/v1/user/preset-avatars` | JWT | 预置头像列表 / 设置 |
+| POST | `/api/v1/user-group/list` | JWT | 用户组列表 |
+| POST | `/api/v1/user-group/create` | JWT | 创建用户组 |
+| POST | `/api/v1/user-group/update` | JWT | 更新用户组 |
+| POST | `/api/v1/user-group/delete` | JWT | 删除用户组 |
+| POST | `/api/v1/room/messages/list` | `message:read`（域内） | 历史消息 |
+| POST | `/api/v1/room/messages/search` | `message:read`（域内） | 搜索消息 |
+| POST | `/api/v1/room/messages/react` | `message:send`（域内） | 表情反应 |
+| POST | `/api/v1/storage/test-config` | `storage:read` | 测试存储连通性 |
+| POST | `/api/v1/conversation/list` | JWT | 会话列表 |
+| POST | `/api/v1/conversation/messages` | JWT | 会话消息 |
+| POST | `/api/v1/conversation/mark-read` | JWT | 标记已读 |
+| POST | `/api/v1/conversation/send` | JWT | 发送消息 |
+
+**公告 / 系统**
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/v1/announcement/list` | JWT | 公告列表 |
+| POST | `/api/v1/announcement/unread-count` | JWT | 未读公告数 |
+| POST | `/api/v1/announcement/mark-read` | JWT | 标记已读 |
+| POST | `/api/v1/announcement/admin/list` | `announcement:manage` | 管理端公告列表 |
+| POST | `/api/v1/announcement/admin/create` | `announcement:manage` | 创建公告 |
+| POST | `/api/v1/announcement/admin/update` | `announcement:manage` | 修改公告 |
+| POST | `/api/v1/announcement/admin/delete` | `announcement:manage` | 删除公告 |
+| GET | `/api/v1/system/stream` | admin 角色 | 服务状态流 SSE |
+| GET | `/api/v1/system/update/current` | admin 角色 | 当前版本 |
+| GET | `/api/v1/system/update/check` | admin 角色 | 检查更新 |
+
+非 `/api/v1` 全局路由：`GET /ping`、`GET /readyz`、`GET /uploads/*filepath`、`GET /swagger/*any` 均为公开；`GET /metrics` 在设置 `METRICS_TOKEN` 后需令牌。
 
 ---
 

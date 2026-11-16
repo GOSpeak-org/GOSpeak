@@ -10,7 +10,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | 本地开发 `pnpm dev:server` | 启动时自动向上查找仓库根的 `deploy/.env` |
 | 直接跑二进制 `server -e prod` | 同上；也可用 `GOSPEAK_ENV_FILE=/path/to/env` 显式指定 |
 
-不需要再维护 `app/server/.env`、`.env.dev`、`.env.prod`——这些已废弃。
+默认只需维护 `deploy/.env`；本地仍可在工作目录放 `.env.<env>` / `.env` 覆盖 `deploy/.env`（优先级见下）。
 
 ## 必填项
 
@@ -33,10 +33,10 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `DB_PATH` | `db/app.db` | SQLite 文件位置，其他类型忽略 |
 | `DB_WAL` | `false` | SQLite 开启 WAL 模式，提升并发读性能，建议开启 |
 | `DB_HOST` | — | 非 SQLite 必填 |
-| `DB_PORT` | — | PostgreSQL 为 5432，MySQL 为 3306 |
-| `DB_USER` | — | 数据库用户 |
+| `DB_PORT` | — | 空则按 `DB_TYPE` 回退：PostgreSQL 5432 / MySQL 3306 |
+| `DB_USER` | — | 空则按 `DB_TYPE` 回退：postgres / root |
 | `DB_PASSWORD` | — | 数据库密码 |
-| `DB_DSN` | — | 自定义完整连接串，设置后覆盖上述各项 |
+| `DB_DSN` | — | 自定义完整连接串；优先于 `DB_PATH`，但 `TURSO_DATABASE_URL` 优先于本项 |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | — | Turso (libSQL) 远程库；URL 优先于 `DB_DSN` |
 
 表结构由 GORM 自动迁移，启动时自动建表、加字段，无需手动执行 SQL。
@@ -51,7 +51,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `LIVEKIT_KEY` | — | 见上 |
 | `LIVEKIT_SECRET` | — | 见上 |
 
-亦可在管理后台「SFU 管理」中修改，修改后存入数据库并覆盖环境变量，适用于无需重启的场景。
+亦可在管理后台「SFU 管理」中修改存入数据库；但非空的 `LIVEKIT_HOST` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` 环境变量优先，数据库值仅在对应 env 留空时生效。
 
 ## 存储
 
@@ -95,8 +95,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `APP_ENV` | — | `dev` / `prod`，影响日志与安全默认值 |
 | `CORS_ORIGIN` | `*` | 允许的跨域来源，生产建议填前端域名 |
 | `STATIC_DIR` | — | 用外部目录的前端文件覆盖二进制内嵌的那份 |
-| `GIN_MODE` | — | Gin 模式（空 = 默认 debug，prod 强制 release） |
-| `CORS_ORIGIN` | `*` | （上行已列） |
+| `GIN_MODE` | — | 空：prod = release / dev = debug；显式设置则覆盖 |
 | `WS_ALLOWED_ORIGINS` | — | WebSocket 来源白名单（空 = 同源） |
 | `TRUSTED_PROXIES` | — | 信任的代理 IP/CIDR（逗号分隔），用于 ClientIP 解析 |
 | `TLS_CERT` / `TLS_KEY` | — | 同时配置时直跑 HTTPS + HTTP/2 |
@@ -112,10 +111,10 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `LOG_LEVEL` | — | `debug` / `info` / `warn` / `error` |
+| `LOG_LEVEL` | 空（dev=debug / prod=info） | `trace` / `debug` / `info` / `warn` / `warning` / `error` / `fatal` / `panic` |
 | `LOG_FORMAT` | — | `json` 便于日志系统采集，`text` 便于人看 |
-| `LOG_OUTPUT` | `stdout` | `stdout` 或 `file` |
-| `LOG_FILE` | `logs/app.log` | `LOG_OUTPUT=file` 时的路径 |
+| `LOG_OUTPUT` | 空（等效 stdout） | `stdout` / `stderr` / `file` / `both` |
+| `LOG_FILE` | 空（file/both 时等效 `logs/app.log`） | `LOG_OUTPUT=file/both` 时的日志路径 |
 | `LOG_CALLER` | `false` | 日志里带文件名和行号 |
 
 ## 事件总线
@@ -124,17 +123,18 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `NATS_SUBJECT_PREFIX` | `gospeak` | 主题与 KV 桶的前缀，多实例共用一个 NATS 时才需要区分 |
+| `NATS_SUBJECT_PREFIX` | `gospeak` | 主题与 KV 桶的前缀（内嵌 NATS 为单实例，通常保持默认） |
 | `NATS_CONNECT_TIMEOUT` | `2s` | 连接超时 |
 | `NATS_NAME` | — | 实例名（空 = 主机名-pid 自动生成） |
 | `NATS_EMBEDDED_PORT` | — | 内嵌 NATS 端口（空 = 随机） |
 | `NATS_WAL_PATH` | — | 断线事件磁盘 WAL 路径（空 = 禁用） |
+| `NATS_STORE_DIR` | 空（回退 DB 同级 `nats/`） | 内嵌 NATS JetStream 数据目录，承载 JWT 签名密钥/黑名单/refresh-family；compose 部署设为 `/app/nats` 独立卷 |
 
 ## 令牌
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
-| `JWT_KEY` | `default-secret` | HMAC 签名密钥（无共享后端时使用，生产必改） |
+| `JWT_KEY` | `default-secret` | HMAC 签名密钥；生产禁止空值或 `default-secret`（启动校验拦截） |
 | `JWT_KEY_TTL` | `24h` | 签名密钥轮换周期（NATS KV 可用时） |
 | `JWT_ACCESS_TTL` | `15m` | access token 有效期（登录响应 `expires_in` 同源） |
 | `JWT_REFRESH_TTL` | `168h` | refresh token 有效期 |
@@ -199,11 +199,11 @@ LIVEKIT_SECRET="xxxxxxxx"
 
 - Docker 部署：`docker compose up -d` 重建容器以读取新环境变量，仅 `restart` 无效
 - 二进制运行：须重启进程
-- 管理后台修改的 SFU / 存储配置存于数据库，优先级高于环境变量；恢复环境变量配置需在后台清除
+- SFU 后台配置存 DB，但非空 env 优先（`LIVEKIT_*` 非空时 DB 仅作回退）；存储后台配置（DB）优先于 env
 
 ## 下一步
 
-- [域与频道](/guide/domains) — 建域、建频道、访客开关
+- [域、频道与邀请](/guide/domains) — 建域、建频道、邀请码与入域审核
 - [权限](/guide/permissions) — 权限体系
 - [文件存储](/guide/storage) — 上传文件存储
 - [部署到服务器](/deploy/) — 生产环境配置建议

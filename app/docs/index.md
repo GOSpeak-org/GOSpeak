@@ -69,7 +69,7 @@ hero:
   <div class="why-card">
     <span class="why-num">02</span>
     <h3>策略自由</h3>
-    <p>语音路由、权限、禁言与访客能力都按自己的社群规则来配置。</p>
+    <p>语音路由、权限、禁言与入域审核都按自己的社群规则来配置。</p>
   </div>
   <div class="why-card">
     <span class="why-num">03</span>
@@ -139,7 +139,7 @@ hero:
 </div>
 
 <p class="feature-chips">
-  <span>同源 LiveKit 反代</span><span>域多租户</span><span>访客访问体系</span><span>RBAC 权限</span><span>OAuth2 登录</span><span>邮件验证</span><span>对象存储</span><span>审计日志</span>
+  <span>同源 LiveKit 反代</span><span>域多租户</span><span>邀请码与入域审核</span><span>RBAC 权限</span><span>OAuth2 登录</span><span>邮件验证</span><span>对象存储</span><span>审计日志</span>
 </p>
 
 <ClientDownload />

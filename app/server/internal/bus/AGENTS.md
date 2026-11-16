@@ -18,8 +18,8 @@
 
 `InitConfig` 字段：`Prefix` / `Name` / `ConnectTimeout` / `EmbeddedPort`（<=0 随机）/ `StoreDir`（空则临时目录）/ `Deliverer` / `RemoteHook` / `WALPath`。
 
-- `StoreDir` 非空时 JetStream 跨重启保留 KV（签名密钥、黑名单）；由 `config.NATStoreDirPath()` 提供。
-- `cleanup` 必须在进程退出时调用：先 Close bus，再 Shutdown 内嵌服务。
+- `StoreDir` 非空时 JetStream 跨重启保留 KV（签名密钥、黑名单）；生产装配由 `config.NATStoreDirPath()` 提供（显式 `NATS_STORE_DIR` 优先，否则回退 DB 同级 `nats/` 目录），compose 以 `gospeak-nats` 卷挂载保证跨容器重建留存。仅测试/未配置场景才会落临时目录（`MkdirTemp` + Shutdown 清理）。
+- `cleanup` 必须在进程退出时调用：先 Close bus，再 Shutdown 内嵌服务；持久化 StoreDir 不会被 Shutdown 删除。
 - 内嵌总线**不做选主**，也不做写面 fence（单实例架构）。
 
 ## 约束

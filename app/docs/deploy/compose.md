@@ -28,7 +28,7 @@ docker compose down
 | `livekit` | LiveKit 语音服务 | 使用内置语音服务时 |
 | `edge` | 内置 Caddy 入口 | 拥有域名、由 Caddy 自动签发 HTTPS 证书时 |
 | `postgres` | PostgreSQL | 用户规模增长后替换 SQLite |
-| `rustfs` | RustFS 对象存储 | 需要 CDN 或多实例部署时 |
+| `rustfs` | RustFS 对象存储 | 需要对象存储或 CDN 加速图片时 |
 | `observability` | Prometheus + Grafana + Loki + Alertmanager | 需要监控时 |
 
 ### 组合建议

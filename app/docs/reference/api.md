@@ -66,7 +66,6 @@ Authorization: Bearer <access_token>
 | POST | `/auth/change_password` | 是 | 修改密码 |
 | POST | `/auth/first_change_password` | 是 | 首次登录强制改密 |
 | POST | `/auth/logout` | 是 | 登出（令牌加入黑名单） |
-| POST | `/auth/guest` | 否 | 以邀请码换取访客身份（限流 60 次/小时） |
 
 登录请求：
 
@@ -120,13 +119,13 @@ Authorization: Bearer <access_token>
 |------|------|------|------|
 | POST | `/room/messages/list` | `message:read` | 历史消息（游标分页） |
 | POST | `/room/messages/search` | `message:read` | 搜索 |
-| POST | `/room/messages/react` | — | 添加表情反应 |
+| POST | `/room/messages/react` | `message:send` | 添加表情反应 |
 
 ## 私聊
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/conversation/list` | 会话列表 |
+| POST | `/conversation/list` | 会话列表 |
 | POST | `/conversation/messages` | 消息列表 |
 | POST | `/conversation/send` | 发送消息 |
 | POST | `/conversation/mark-read` | 标记已读 |
@@ -142,14 +141,11 @@ Authorization: Bearer <access_token>
 | POST | `/domain/my-domains` | 登录 | 已加入的域 |
 | POST | `/domain/update` | 域成员 | 修改设置 |
 | POST | `/domain/delete` | 域成员 | 删除 |
-| POST | `/domain/join` | 登录 | 加入 |
 | POST | `/domain/leave` | 域成员 | 退出 |
 | POST | `/domain/kick` | 域成员 | 移出成员 |
 | POST | `/domain/members` | 域成员 | 成员列表 |
 | POST | `/domain/members/update-role` | 域成员 | 更新成员角色 |
 | POST | `/domain/my-permissions` | 域成员 | 我的域权限 |
-| POST | `/domain/preview` | 是 | 预览（查询邀请码对应的域） |
-| POST | `/domain/reset-invite` | 域成员 | 重置邀请码 |
 
 ### 域角色
 
@@ -160,16 +156,23 @@ Authorization: Bearer <access_token>
 | POST | `/domain/roles/update` | 修改角色 |
 | POST | `/domain/roles/delete` | 删除角色 |
 
-### 访客
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/domain/guest/config` | 读取/写入访客开关 |
-| POST | `/domain/guest/ban` | 封禁访客 |
-| POST | `/domain/guest/unban` | 解封 |
-| POST | `/domain/guest/ban-list` | 封禁列表 |
-| POST | `/domain/guest/cleanup` | 清理过期访客 |
-| POST | `/auth/guest/renew` | 续期访客身份 |
+## 邀请与审核
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/invite/preview` | 否 | 邀请码预览（公开，限流 20 次/小时） |
+| POST | `/invite/register` | 否 | 凭邀请码内联注册（公开，限流 20 次/小时） |
+| POST | `/invite/join` | 登录 | 通过邀请码加入域 |
+| POST | `/invite/my-request` | 登录 | 我的加入申请 |
+| POST | `/invite/cancel-request` | 登录 | 取消加入申请 |
+| POST | `/domain/invites/list` | `domain:invite:manage` | 域邀请码列表 |
+| POST | `/domain/invites/create` | `domain:invite:manage` | 创建域邀请码 |
+| POST | `/domain/invites/disable` | `domain:invite:manage` | 禁用域邀请码 |
+| POST | `/domain/invites/redemptions` | `domain:invite:manage` | 邀请码使用记录 |
+| POST | `/domain/join-requests/list` | `domain:member:review` | 加入申请列表 |
+| POST | `/domain/join-requests/review` | `domain:member:review` | 审核加入申请 |
+| POST | `/domain/join-approval/config` | `domain:manage` | 入域审批配置 |
 
 ## 角色与权限
 
@@ -254,12 +257,27 @@ Authorization: Bearer <access_token>
 | POST | `/user-group/update` | 更新 |
 | POST | `/user-group/delete` | 删除 |
 
+
+## 公告
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/announcement/list` | 登录 | 公告列表（域成员/平台管理员） |
+| POST | `/announcement/unread-count` | 登录 | 未读公告数 |
+| POST | `/announcement/mark-read` | 登录 | 标记已读 |
+| POST | `/announcement/admin/list` | `announcement:manage` | 管理端公告列表 |
+| POST | `/announcement/admin/create` | `announcement:manage` | 创建公告 |
+| POST | `/announcement/admin/update` | `announcement:manage` | 修改公告 |
+| POST | `/announcement/admin/delete` | `announcement:manage` | 删除公告 |
+
 ## 审计与系统
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
 | POST | `/audit/list` | `audit:read` | 审计日志 |
 | GET | `/system/stream` | admin 角色 | 服务状态流（SSE） |
+| GET | `/system/update/current` | admin 角色 | 当前版本 |
+| GET | `/system/update/check` | admin 角色 | 检查更新 |
 
 ## 健康检查
 

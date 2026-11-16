@@ -6,10 +6,13 @@
 
 | 方法 | 路径 | 说明 | 需鉴权 |
 |------|------|------|--------|
-| POST | `/api/v1/signal/token` | 获取 SFU 加入 Token（LiveKit） | ❌ |
-| POST | `/api/v1/signal/signal` | 信令中转 | ❌ |
-| GET | `/api/v1/signal/rooms` | SFU 房间列表（LiveKit） | ❌ |
-| GET | `/api/v1/signal/participants` | 房间参与者列表 | ❌ |
+| POST | `/api/v1/signal/webhook` | LiveKit Webhook 回调 | ❌ |
+| GET | `/api/v1/signal/rooms` | SFU 房间列表（LiveKit） | ✅ |
+| GET | `/api/v1/signal/participants` | 房间参与者列表 | ✅ |
+| POST | `/api/v1/signal/token` | 获取 SFU 加入 Token（LiveKit） | ✅ |
+| GET | `/api/v1/signal/ws-endpoint` | 获取 WebSocket 信令端点 | ✅ |
+
+> WebRTC offer/answer/ICE 信令已改由 `/ws` 原生 WebSocket 承载，不再有 HTTP `/signal/signal` 中转端点。
 
 ---
 
@@ -54,45 +57,6 @@
   "code": 2001,
   "msg": "参数错误详情",
   "data": null
-}
-```
-
----
-
-## POST /api/v1/signal/signal
-
-中转 WebRTC 信令消息（offer/answer/ICE candidate）
-
-### Request Body
-
-```json
-{
-  "type": "offer",
-  "room": "my-room",
-  "identity": "user-123",
-  "data": {}
-}
-```
-
-**字段说明:**
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| type | string | ✅ | 信令类型 (offer/answer/ice_candidate) |
-| room | string | ❌ | 房间名称 |
-| identity | string | ❌ | 用户身份标识 |
-| data | object | ❌ | 信令数据 |
-
-### Response (200)
-
-```json
-{
-  "code": 0,
-  "msg": "success",
-  "data": {
-    "type": "offer",
-    "room": "my-room"
-  }
 }
 ```
 
