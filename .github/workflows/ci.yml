@@ -135,7 +135,7 @@ jobs:
       - uses: ./.github/actions/go-build-cache
         with:
           go-sum-path: app/server/go.sum
-          cache-prefix: server
+          cache-prefix: server-lint
       - name: Vet
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
@@ -192,7 +192,7 @@ jobs:
       - uses: ./.github/actions/go-build-cache
         with:
           go-sum-path: app/server/go.sum
-          cache-prefix: server
+          cache-prefix: server-build
       - name: Download web dist
         uses: actions/download-artifact@v8
         with:
@@ -229,7 +229,7 @@ jobs:
       - uses: ./.github/actions/go-build-cache
         with:
           go-sum-path: app/server/go.sum
-          cache-prefix: server
+          cache-prefix: server-test
       - name: Protocol gen-diff
         working-directory: app/server
         run: |
@@ -240,6 +240,12 @@ jobs:
         env:
           CGO_ENABLED: 0
         run: go test ./... -count=1
+      - name: Test (race)
+        # 并发敏感包必须过 -race：测试侧 mock 的非原子计数曾长期掩盖竞争。
+        working-directory: app/server
+        env:
+          CGO_ENABLED: 1
+        run: go test -race ./internal/signal/... ./internal/ws/... ./internal/bus/... -count=1
 
   test-web:
     name: Test Web (Vitest)
@@ -271,7 +277,18 @@ jobs:
       - name: Package unit tests
         env:
           CI: "true"
-        run: pnpm --filter @gospeak/components --filter @gospeak/desktop --filter @gospeak/sfu-client test
+        run: pnpm --filter @gospeak/components --filter @gospeak/desktop --filter @gospeak/sfu-client --filter @gospeak/mobile-capabilities test
+      - name: Package tests (mobile target)
+        # 条件编译分支只在对应目标下存在：web 目标全绿不代表 mobile 分支正确。
+        env:
+          CI: "true"
+          GOSPEAK_TARGET: mobile
+        run: pnpm --filter @gospeak/mobile-capabilities --filter @gospeak/desktop test
+      - name: Package tests (desktop target)
+        env:
+          CI: "true"
+          GOSPEAK_TARGET: desktop
+        run: pnpm --filter @gospeak/desktop --filter @gospeak/mobile-capabilities test
 
   test-scripts:
     name: Test CI Scripts (node --test)
@@ -335,9 +352,20 @@ jobs:
       - name: Vet
         working-directory: app/desktop
         run: go vet ./...
-      # 桌面端的 go test 依赖真实前端产物（proxyserver 的测试会校验 gzip 与
-      # 完整 index.html），占位文件不满足。这里只做编译期门禁；完整测试在
-      # 本地或发布前用真实构建产物跑。
+      - uses: ./.github/actions/pnpm-install
+      - name: Build web (desktop target)
+        run: pnpm --filter @gospeak/web build:desktop
+      - name: Seed embed from build
+        # proxyserver 测试校验真实 gzip 与完整 index.html，占位文件不满足，
+        # 因此这里用真实桌面目标产物覆盖占位。
+        run: |
+          rm -rf app/desktop/webui/dist
+          mkdir -p app/desktop/webui/dist
+          cp -R app/web/dist/. app/desktop/webui/dist/
+          test -f app/desktop/webui/dist/index.html
+      - name: Test
+        working-directory: app/desktop
+        run: go test ./... -count=1
 
   workflow-lint:
     name: Workflow Lint (actionlint)
