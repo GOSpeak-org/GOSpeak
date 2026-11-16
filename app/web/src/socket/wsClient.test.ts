@@ -169,4 +169,62 @@ describe("wsClient", () => {
 		expect(client.getState()).toBe("closed");
 		expect(transitions).not.toContainEqual(["closed", "closing"]);
 	});
+
+	it("holds reconnection while the browser is offline and resumes the moment it is back", async () => {
+		const { createWSClient } = await import("./wsClient");
+		let online = false;
+		const refreshEndpoint = vi.fn().mockResolvedValue({});
+		const client = createWSClient({ refreshEndpoint, isOnline: () => online });
+
+		client.connect("ws://example.test/ws");
+		MockWebSocket.instances[0].onclose?.({ reason: "offline" } as CloseEvent);
+
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(MockWebSocket.instances).toHaveLength(1);
+
+		online = true;
+		window.dispatchEvent(new Event("online"));
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(MockWebSocket.instances).toHaveLength(2);
+
+		client.disconnect();
+	});
+
+	it("cancels a pending backoff timer when the browser goes offline", async () => {
+		const { createWSClient } = await import("./wsClient");
+		let online = true;
+		const client = createWSClient({ isOnline: () => online });
+
+		client.connect("ws://example.test/ws");
+		MockWebSocket.instances[0].onclose?.({
+			reason: "network lost",
+		} as CloseEvent);
+
+		online = false;
+		window.dispatchEvent(new Event("offline"));
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(MockWebSocket.instances).toHaveLength(1);
+
+		online = true;
+		window.dispatchEvent(new Event("online"));
+		await vi.advanceTimersByTimeAsync(0);
+		expect(MockWebSocket.instances).toHaveLength(2);
+
+		client.disconnect();
+	});
+
+	it("does not reconnect after an explicit disconnect even if the network returns", async () => {
+		const { createWSClient } = await import("./wsClient");
+		let online = true;
+		const client = createWSClient({ isOnline: () => online });
+
+		client.connect("ws://example.test/ws");
+		client.disconnect();
+
+		online = true;
+		window.dispatchEvent(new Event("online"));
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(MockWebSocket.instances).toHaveLength(1);
+	});
 });

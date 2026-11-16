@@ -1139,6 +1139,7 @@ zustand store（`useSocketStore` hook + `socketStore` 命令式门面），管�
 
 - 握手鉴权由 HttpOnly access cookie 自动携带；子协议只传协议名 `["gospeak"]`，不携带 token
 - Auto-reconnect with exponential backoff + jitter
+- 浏览器离线（`navigator.onLine=false`）期间不排程重连，等 `online` 事件回来立刻重连并归零退避
 - Two emit modes: `emitFireAndForget` (no ack) and `emitAck` (returns Promise, 10s timeout)
 - Server push events: `onServerEvent(event, cb)` returns unsubscribe function
 
