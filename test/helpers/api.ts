@@ -24,6 +24,7 @@ export interface ApiResult<T = unknown> {
 	msg: string | null;
 	data: T | null;
 	raw: string;
+	path: string;
 }
 
 export interface ApiOptions {
@@ -64,6 +65,37 @@ export function getBaseURL(): string {
 
 export function unique(prefix = "item"): string {
 	return `${prefix}_${Date.now().toString(36)}_${randomBytes(4).toString("hex")}`;
+}
+
+/**
+ * 有界轮询直到 predicate 成立，用于「写后读」。
+ * WS 写入经 jobs 异步落库（chat.persist / chat.mutate），立即回读可能读到旧快照。
+ * 首条 chat job 在冷启动 server 上实测约 4s（之后为毫秒级），
+ * 因此默认给 10s 预算（< vitest testTimeout 30s）。
+ * 超时仍不成立才判失败，错误里带最后一次探针值与标签。
+ */
+export async function waitFor<T>(
+	probe: () => Promise<T>,
+	predicate: (value: T) => boolean,
+	options: { label?: string; timeoutMs?: number; intervalMs?: number } = {},
+): Promise<T> {
+	const timeoutMs = options.timeoutMs ?? 10_000;
+	const intervalMs = options.intervalMs ?? 50;
+	const deadline = Date.now() + timeoutMs;
+	let value = await probe();
+	while (!predicate(value)) {
+		if (Date.now() >= deadline) {
+			const label = options.label ? ` (${options.label})` : "";
+			throw new Error(
+				`waitFor timed out after ${timeoutMs}ms${label}; last=${JSON.stringify(value)}`,
+			);
+		}
+		await new Promise((resolvePromise) =>
+			setTimeout(resolvePromise, intervalMs),
+		);
+		value = await probe();
+	}
+	return value;
 }
 
 function randomClientIP(): string {
@@ -112,14 +144,25 @@ export async function api<T = unknown>(
 		msg: parsed?.msg ?? null,
 		data: parsed?.data ?? null,
 		raw,
+		path,
 	};
 }
 
+/**
+ * 断言统一响应外壳的成功四段：status(2xx) / code(0) / msg("success") / data。
+ * data 由调用方按接口契约继续断言（写接口的 data 合法为 null），这里同时返回它。
+ * 失败信息带 path + status + code + msg + 原始 body，便于定位。
+ */
 export function assertSuccess<T = unknown>(result: ApiResult<T>): T {
+	const context = `path=${result.path} status=${result.status} code=${result.code} msg=${result.msg} body=${result.raw}`;
+	if (result.status < 200 || result.status >= 300) {
+		throw new Error(`expected 2xx status, got ${context}`);
+	}
 	if (result.code !== 0) {
-		throw new Error(
-			`expected success, got code=${result.code} msg=${result.msg} body=${result.raw}`,
-		);
+		throw new Error(`expected success code=0, got ${context}`);
+	}
+	if (result.msg !== "success") {
+		throw new Error(`expected success msg, got ${context}`);
 	}
 	return result.data as T;
 }
@@ -146,15 +189,25 @@ export async function registerUser(
 	return { ...data, username, password };
 }
 
-let cachedAdminToken: string | undefined;
+/**
+ * 种子管理员凭据：与 server 启动种子一致，可用环境变量覆盖。
+ * 凭据只在这里定义一处，测试文件不要重复硬编码。
+ */
+const ADMIN_USERNAME = process.env.GOSPEAK_TEST_ADMIN_USERNAME ?? "admin";
+const ADMIN_PASSWORD = process.env.GOSPEAK_TEST_ADMIN_PASSWORD ?? "admin123";
 
+/** 用种子管理员账号登录，供需要断言凭据本身可用的用例复用。 */
+export async function loginAdmin(): Promise<AuthData> {
+	return login(ADMIN_USERNAME, ADMIN_PASSWORD);
+}
+
+/**
+ * 取管理员 token：每次调用都重新登录，不做模块级缓存。
+ * 缓存会让任一用例登出/改密后污染后续用例（用例之间必须互相独立）。
+ */
 export async function getAdminToken(): Promise<string> {
-	if (cachedAdminToken) {
-		return cachedAdminToken;
-	}
-	const data = await login("admin", "admin123");
-	cachedAdminToken = data.access_token;
-	return cachedAdminToken;
+	const data = await loginAdmin();
+	return data.access_token;
 }
 
 export async function createDomain(

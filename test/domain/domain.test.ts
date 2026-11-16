@@ -12,6 +12,18 @@ import {
 	updateDomainMemberRole,
 } from "../helpers";
 
+/** 域成员 UUID 列表（owner 视角读成员表，用于写操作回读）。 */
+async function memberUUIDs(
+	token: string,
+	domainUUID: string,
+): Promise<string[]> {
+	const result = await api<{ members: Array<{ user_uuid: string }> }>(
+		"/api/v1/domain/members",
+		{ token, body: { domain_uuid: domainUUID } },
+	);
+	return assertSuccess(result).members.map((item) => item.user_uuid);
+}
+
 describe("domain module", () => {
 	it("creates and reads a domain as its owner", async () => {
 		const owner = await registerUser("domain");
@@ -39,30 +51,33 @@ describe("domain module", () => {
 		expect(joined.status).toBe("joined");
 		expect(joined.domain.uuid).toBe(domain.uuid);
 
-		const members = await api<{
-			members: Array<{ user_uuid: string; role_name: string }>;
-		}>("/api/v1/domain/members", {
-			token: owner.access_token,
-			body: { domain_uuid: domain.uuid },
-		});
-		expect(members.code).toBe(0);
-		expect(
-			members.data?.members.some((item) => item.user_uuid === member.user.uuid),
-		).toBe(true);
+		expect(await memberUUIDs(owner.access_token, domain.uuid)).toContain(
+			member.user.uuid,
+		);
 
 		const kicked = await api("/api/v1/domain/kick", {
 			token: owner.access_token,
 			body: { domain_uuid: domain.uuid, user_uuid: member.user.uuid },
 		});
-		expect(kicked.code).toBe(0);
+		assertSuccess(kicked);
+		// 踢出后回读成员表：只断言 code=0 抓不到「没真删」。
+		expect(await memberUUIDs(owner.access_token, domain.uuid)).not.toContain(
+			member.user.uuid,
+		);
 
 		await joinViaInvite(member.access_token, code);
+		expect(await memberUUIDs(owner.access_token, domain.uuid)).toContain(
+			member.user.uuid,
+		);
 
 		const left = await api("/api/v1/domain/leave", {
 			token: member.access_token,
 			body: { domain_uuid: domain.uuid },
 		});
-		expect(left.code).toBe(0);
+		assertSuccess(left);
+		expect(await memberUUIDs(owner.access_token, domain.uuid)).not.toContain(
+			member.user.uuid,
+		);
 
 		const updated = await api<{ name: string }>("/api/v1/domain/update", {
 			token: owner.access_token,

@@ -9,6 +9,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	statSync,
 	writeFileSync,
@@ -99,6 +100,38 @@ async function waitForServer(state: ServerState): Promise<void> {
 	);
 }
 
+async function stopServer(
+	child: ChildProcessWithoutNullStreams,
+): Promise<void> {
+	if (child.exitCode === null) {
+		child.kill("SIGTERM");
+		await Promise.race([
+			new Promise<void>((resolvePromise) =>
+				child.once("exit", () => resolvePromise()),
+			),
+			sleep(8_000),
+		]);
+	}
+	if (child.exitCode === null) {
+		child.kill("SIGKILL");
+		await Promise.race([
+			new Promise<void>((resolvePromise) =>
+				child.once("exit", () => resolvePromise()),
+			),
+			sleep(2_000),
+		]);
+	}
+}
+
+/** 启动失败要把日志尾巴打出来：目录随后会被删掉，报错信息里的路径不再可读。 */
+function logTail(logFile: string, maxLines = 40): string {
+	if (!existsSync(logFile)) {
+		return "(no server log)";
+	}
+	const lines = readFileSync(logFile, "utf8").trimEnd().split("\n");
+	return lines.slice(-maxLines).join("\n");
+}
+
 export default async function setup(): Promise<() => Promise<void>> {
 	mkdirSync(runtimeDir, { recursive: true });
 
@@ -158,7 +191,9 @@ export default async function setup(): Promise<() => Promise<void>> {
 			// 使用明显的非凭据占位值，避免与任何部署密钥产生关联。
 			// 部署侧密钥一律由 deploy/.env 注入，见 deploy/livekit/livekit.yaml。
 			SFU_PROVIDER: "livekit",
-			LIVEKIT_HOST: "ws://localhost:7880",
+			// 明显不可达的假地址（.invalid 是 RFC 6761 保留域）：本套件不会真的拨号
+			// LiveKit，签名与进房 token 在本地生成；仅避免误连到本机 7880 上的真实服务。
+			LIVEKIT_HOST: "ws://livekit.invalid:7880",
 			LIVEKIT_KEY: "integration-test-key",
 			LIVEKIT_SECRET: "integration-test-secret",
 			GIN_MODE: "release",
@@ -176,28 +211,22 @@ export default async function setup(): Promise<() => Promise<void>> {
 	child.stderr.on("data", (chunk: Buffer) => appendFileSync(logFile, chunk));
 
 	const state: ServerState = { child, dir, port };
-	await waitForServer(state);
+	try {
+		await waitForServer(state);
+	} catch (error) {
+		// 启动失败不能留下孤儿进程/临时目录：先杀子进程，打印日志尾巴，再清理后重抛。
+		await stopServer(child);
+		console.error(
+			`[integration] server startup failed; last log lines from ${logFile}:\n${logTail(logFile)}`,
+		);
+		rmSync(dir, { recursive: true, force: true });
+		rmSync(serverInfoPath, { force: true });
+		throw error;
+	}
 	console.log(`[integration] server ready at http://127.0.0.1:${port}`);
 
 	return async () => {
-		if (child.exitCode === null) {
-			child.kill("SIGTERM");
-			await Promise.race([
-				new Promise<void>((resolvePromise) =>
-					child.once("exit", () => resolvePromise()),
-				),
-				sleep(8_000),
-			]);
-		}
-		if (child.exitCode === null) {
-			child.kill("SIGKILL");
-			await Promise.race([
-				new Promise<void>((resolvePromise) =>
-					child.once("exit", () => resolvePromise()),
-				),
-				sleep(2_000),
-			]);
-		}
+		await stopServer(child);
 		rmSync(dir, { recursive: true, force: true });
 		rmSync(serverInfoPath, { force: true });
 	};

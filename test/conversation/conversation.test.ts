@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { api, registerUser } from "../helpers";
+import { api, assertSuccess, registerUser, waitFor } from "../helpers";
+
+interface ConversationSummary {
+	conversation_id: string;
+	other_identity: string;
+	unread_count: number;
+}
+
+interface ConversationMessages {
+	messages: Array<{ content: string; author_id: string }>;
+}
 
 describe("conversation module", () => {
 	it("sends, lists, reads and marks private messages read", async () => {
@@ -14,47 +24,60 @@ describe("conversation module", () => {
 			token: sender.access_token,
 			body: { target_identity: receiver.username, content: "private hello" },
 		});
-		expect(sent.code).toBe(0);
-		const conversationId = sent.data?.conversation_id;
+		const sentData = assertSuccess(sent);
+		const conversationId = sentData.conversation_id;
 		expect(conversationId).toBeTruthy();
-		expect(sent.data?.target_identity).toBe(receiver.username);
+		expect(sentData.target_identity).toBe(receiver.username);
 
-		const receiverList = await api<
-			Array<{
-				conversation_id: string;
-				other_identity: string;
-				unread_count: number;
-			}>
-		>("/api/v1/conversation/list", { token: receiver.access_token, body: {} });
-		const conversation = receiverList.data?.find(
-			(item) => item.conversation_id === conversationId,
+		const listConversations = async (): Promise<ConversationSummary[]> =>
+			assertSuccess(
+				await api<ConversationSummary[]>("/api/v1/conversation/list", {
+					token: receiver.access_token,
+					body: {},
+				}),
+			);
+
+		// 私聊落库同样经 jobs 异步队列，立即回读可能拿到 unread_count=0 的旧快照。
+		const conversation = await waitFor(
+			async () =>
+				(await listConversations()).find(
+					(item) => item.conversation_id === conversationId,
+				),
+			(item) => item?.unread_count === 1,
+			{ label: "conversation unread_count after send" },
 		);
 		expect(conversation?.other_identity).toBe(sender.username);
 		expect(conversation?.unread_count).toBe(1);
 
-		const messages = await api<{
-			messages: Array<{ content: string; author_id: string }>;
-		}>("/api/v1/conversation/messages", {
-			token: receiver.access_token,
-			body: { conversation_id: conversationId },
-		});
-		expect(messages.code).toBe(0);
+		const messages = await waitFor(
+			async () =>
+				assertSuccess(
+					await api<ConversationMessages>("/api/v1/conversation/messages", {
+						token: receiver.access_token,
+						body: { conversation_id: conversationId },
+					}),
+				),
+			(data) => data.messages.some((item) => item.content === "private hello"),
+			{ label: "private message persisted" },
+		);
 		expect(
-			messages.data?.messages.some((item) => item.content === "private hello"),
+			messages.messages.some((item) => item.content === "private hello"),
 		).toBe(true);
 
 		const markedRead = await api("/api/v1/conversation/mark-read", {
 			token: receiver.access_token,
 			body: { conversation_id: conversationId },
 		});
-		expect(markedRead.code).toBe(0);
+		assertSuccess(markedRead);
 
-		const afterRead = await api<
-			Array<{ conversation_id: string; unread_count: number }>
-		>("/api/v1/conversation/list", { token: receiver.access_token, body: {} });
-		expect(
-			afterRead.data?.find((item) => item.conversation_id === conversationId)
-				?.unread_count,
-		).toBe(0);
+		const afterRead = await waitFor(
+			async () =>
+				(await listConversations()).find(
+					(item) => item.conversation_id === conversationId,
+				),
+			(item) => item?.unread_count === 0,
+			{ label: "conversation marked read" },
+		);
+		expect(afterRead?.unread_count).toBe(0);
 	});
 });

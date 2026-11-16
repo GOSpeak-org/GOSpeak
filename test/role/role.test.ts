@@ -64,6 +64,17 @@ describe("role and permission module", () => {
 			token: admin,
 			body: { id: role.id },
 		});
-		expect(deleted.code).toBe(0);
+		assertSuccess(deleted);
+
+		// 删除后回读列表：断言角色确实消失（而不只是接口回了 code=0）。
+		const afterDelete = await api<Array<{ id: number; name: string }>>(
+			"/api/v1/role/list",
+			{ token: admin },
+		);
+		const remaining = assertSuccess(afterDelete);
+		expect(remaining.some((item) => item.id === role.id)).toBe(false);
+		expect(remaining.some((item) => item.name === `${roleName}_updated`)).toBe(
+			false,
+		);
 	});
 });

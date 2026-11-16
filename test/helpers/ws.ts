@@ -42,7 +42,7 @@ function normalizeAck(msg: ServerMessage): WSAck {
 
 /**
  * 集成测试 WS 客户端：HttpOnly access cookie 鉴权 + 子协议 gospeak。
- * 服务端 WS 与 REST 同源（默认 8998）。
+ * WS 地址与 REST 同源，由 getBaseURL() 决定（http → ws，路径补 /ws）。
  */
 export class TestWSClient {
 	private ws: WebSocket;

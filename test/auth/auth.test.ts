@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { api, login, registerUser, unique } from "../helpers";
+import { api, loginAdmin, registerUser, unique } from "../helpers";
 
 describe("auth module", () => {
 	it("logs in with the seeded admin account", async () => {
-		const data = await login("admin", "admin123");
+		// 凭据只在 helpers/api.ts 定义一处（可用 GOSPEAK_TEST_ADMIN_* 覆盖）。
+		const data = await loginAdmin();
 		expect(data.access_token).toBeTruthy();
 		expect(data.user.role).toBe("admin");
 	});

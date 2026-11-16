@@ -5,6 +5,7 @@ import {
 	createDomain,
 	getAdminToken,
 	registerUser,
+	unique,
 } from "../helpers";
 
 interface AnnouncementDTO {
@@ -40,7 +41,7 @@ describe("announcement module", () => {
 	it("publishes, lists, counts and marks read", async () => {
 		const adminToken = await getAdminToken();
 		const user = await registerUser("ann");
-		const title = `集成公告_${Date.now()}`;
+		const title = unique("集成公告");
 		const created = await publish(adminToken, { title });
 		expect(created.uuid).toBeTruthy();
 
@@ -106,7 +107,7 @@ describe("announcement module", () => {
 			`ann_dom_${Date.now()}`,
 		);
 
-		const draftTitle = `草稿_${Date.now()}`;
+		const draftTitle = unique("草稿");
 		await publish(adminToken, { title: draftTitle, publish: false });
 		const ownerList = await api<{ items: AnnouncementDTO[] }>(
 			"/api/v1/announcement/list",
@@ -116,7 +117,7 @@ describe("announcement module", () => {
 			false,
 		);
 
-		const domainTitle = `域公告_${Date.now()}`;
+		const domainTitle = unique("域公告");
 		const created = await publish(owner.access_token, {
 			scope_type: "domain",
 			scope_id: domain.uuid,
@@ -151,7 +152,7 @@ describe("announcement module", () => {
 		const user = await registerUser("ann");
 		const ws = await connectWS(user.access_token);
 		try {
-			const title = `推送_${Date.now()}`;
+			const title = unique("推送");
 			const created = await publish(adminToken, { title });
 			const payload = (await ws.waitForEvent(
 				"announcement:new",
