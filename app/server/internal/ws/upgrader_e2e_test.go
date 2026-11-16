@@ -135,15 +135,8 @@ func TestUpgrader_E2E_Lifecycle(t *testing.T) {
 	// Close connection from client side to trigger server cleanup
 	conn.Close(nhooyrws.StatusNormalClosure, "test done")
 
-	// Allow server to process close frame and cleanup
-	time.Sleep(200 * time.Millisecond)
-
-	// After disconnect, client should be removed from fanout
-	if connectedID != "" && fanout.GetClient(connectedID) != nil {
-		t.Log("note: client still registered in fanout (may be race in fast test)")
-	}
-
-	// Verify OnDisconnect lifecycle hook fired
+	// Verify OnDisconnect lifecycle hook fired；事件到达即说明服务端已处理
+	// close frame 并完成清理，用可观察事件替代固定 sleep。
 	select {
 	case c := <-disconnected:
 		if !strings.HasPrefix(c.ID(), "e2e-uuid-") {
@@ -151,6 +144,11 @@ func TestUpgrader_E2E_Lifecycle(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for OnDisconnect")
+	}
+
+	// After disconnect, client should be removed from fanout
+	if connectedID != "" && fanout.GetClient(connectedID) != nil {
+		t.Log("note: client still registered in fanout (may be race in fast test)")
 	}
 }
 

@@ -108,19 +108,49 @@ func TestReconcileEmptyRooms_SkipsWhenCapabilityMissing(t *testing.T) {
 	}
 }
 
+func waitForReconcileTicks(t *testing.T, provider *guardProvider, min int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if provider.listCalls >= min {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("reconciler ticked %d times, want at least %d", provider.listCalls, min)
+}
+
+func waitReconcileStable(t *testing.T, provider *guardProvider, interval time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(interval * 12)
+	last := provider.listCalls
+	stableSince := time.Now()
+	for time.Now().Before(deadline) {
+		time.Sleep(interval)
+		now := provider.listCalls
+		if now != last {
+			last = now
+			stableSince = time.Now()
+		}
+		if time.Since(stableSince) >= interval*4 {
+			return
+		}
+	}
+}
+
 func TestStartEmptyRoomReconciler_RunsAndStops(t *testing.T) {
 	provider := &guardProvider{rooms: []sfu.RoomSummary{{Name: "orphan", MemberCount: 0}}}
 	h := reconcileHub(provider, nil)
 
 	stop := h.StartEmptyRoomReconciler(10 * time.Millisecond)
-	time.Sleep(35 * time.Millisecond)
+	waitForReconcileTicks(t, provider, 1)
 	stop()
 
 	if provider.listCalls == 0 {
 		t.Fatal("expected reconciler to tick")
 	}
 	after := provider.listCalls
-	time.Sleep(35 * time.Millisecond)
+	waitReconcileStable(t, provider, 10*time.Millisecond)
 	if provider.listCalls != after {
 		t.Fatal("reconciler kept ticking after stop")
 	}

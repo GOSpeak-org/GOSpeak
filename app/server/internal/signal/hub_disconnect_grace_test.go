@@ -74,6 +74,34 @@ func waitUntil(t *testing.T, timeout time.Duration, cond func() bool) bool {
 	return cond()
 }
 
+// waitGraceProbe 在同一 Hub 上挂一个必定触发的清理作为时钟探针：探针进入
+// removed 即说明宽限期已过，用可观察事件替代固定 sleep 的时长猜测。
+func waitGraceProbe(t *testing.T, h *Hub, p *graceProvider) {
+	t.Helper()
+	const room, identity = "__grace_probe__", "__probe__"
+	h.scheduleDisconnectCleanup(disconnectCleanup{room: room, identity: identity})
+	want := room + "/" + identity
+	if !waitUntil(t, 5*time.Second, func() bool {
+		for _, r := range p.removedSnapshot() {
+			if r == want {
+				return true
+			}
+		}
+		return false
+	}) {
+		t.Fatalf("grace probe %q never fired, removed=%v", want, p.removedSnapshot())
+	}
+}
+
+func removedContains(p *graceProvider, target string) bool {
+	for _, r := range p.removedSnapshot() {
+		if r == target {
+			return true
+		}
+	}
+	return false
+}
+
 func newGraceHub(grace time.Duration, provider *graceProvider) *Hub {
 	h := newTestHub()
 	h.SetSFU(provider)
@@ -125,9 +153,9 @@ func TestDisconnectGrace_CancelOnRejoin(t *testing.T) {
 	h.scheduleDisconnectCleanup(disconnectCleanup{room: "meeting-room", identity: "alice"})
 	h.cancelPendingCleanup("meeting-room", "alice")
 
-	time.Sleep(160 * time.Millisecond)
-	if got := p.removedSnapshot(); len(got) != 0 {
-		t.Fatalf("cancelled cleanup still removed participant: %v", got)
+	waitGraceProbe(t, h, p)
+	if removedContains(p, "meeting-room/alice") {
+		t.Fatalf("cancelled cleanup still removed participant: %v", p.removedSnapshot())
 	}
 }
 
@@ -139,9 +167,9 @@ func TestDisconnectGrace_SkipsWhenIdentityRejoined(t *testing.T) {
 	h.scheduleDisconnectCleanup(disconnectCleanup{room: "meeting-room", identity: "alice"})
 	addRoomMember(h, "meeting-room", "socket-new", "alice")
 
-	time.Sleep(140 * time.Millisecond)
-	if got := p.removedSnapshot(); len(got) != 0 {
-		t.Fatalf("rejoined identity should not be removed, got %v", got)
+	waitGraceProbe(t, h, p)
+	if removedContains(p, "meeting-room/alice") {
+		t.Fatalf("rejoined identity should not be removed, got %v", p.removedSnapshot())
 	}
 }
 
@@ -157,7 +185,7 @@ func TestDisconnectGrace_DoesNotDeleteRoomIfRefilled(t *testing.T) {
 	if !waitUntil(t, time.Second, func() bool { return len(p.removedSnapshot()) == 1 }) {
 		t.Fatalf("participant not removed after grace: %v", p.removedSnapshot())
 	}
-	time.Sleep(40 * time.Millisecond)
+	waitGraceProbe(t, h, p)
 	if got := p.deletedSnapshot(); len(got) != 0 {
 		t.Fatalf("room with live member must not be deleted, got %v", got)
 	}
@@ -186,9 +214,9 @@ func TestDisconnectGrace_OnRoomJoinCancels(t *testing.T) {
 		t.Fatalf("OnRoomJoin: %v", err)
 	}
 
-	time.Sleep(160 * time.Millisecond)
-	if got := p.removedSnapshot(); len(got) != 0 {
-		t.Fatalf("room:join during grace should cancel cleanup, got %v", got)
+	waitGraceProbe(t, h, p)
+	if removedContains(p, "meeting-room/alice") {
+		t.Fatalf("room:join during grace should cancel cleanup, got %v", p.removedSnapshot())
 	}
 }
 

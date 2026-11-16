@@ -136,8 +136,12 @@ export default async function setup(): Promise<() => Promise<void>> {
 	const logFile = join(dir, "server.log");
 	const child = spawn(bin, ["server", "-e", "test"], {
 		cwd: serverDir,
+		// 只透出运行 Go 二进制所需的最小环境：避免开发者的 GOSPEAK_ENV_FILE /
+		// 生产密钥类变量进入被测进程，保证集成测试可复现、与本地 shell 无关。
 		env: {
-			...process.env,
+			PATH: process.env.PATH ?? "",
+			HOME: process.env.HOME ?? "",
+			TMPDIR: process.env.TMPDIR ?? "",
 			APP_ENV: "test",
 			GOSPEAK_ROLE: "all",
 			SERVER_PORT: String(port),
@@ -150,12 +154,13 @@ export default async function setup(): Promise<() => Promise<void>> {
 			STATE_STORE: "auto",
 			NATS_EMBEDDED_PORT: "0",
 			NATS_CONNECT_TIMEOUT: "1s",
-			// 集成测试只校验配置/进房 token 接口，不拉起真实 LiveKit；占位值需与
-			// deploy/livekit/livekit.yaml 的 keys 保持一致
+			// 集成测试只校验配置/进房 token 接口，不拉起真实 LiveKit；
+			// 使用明显的非凭据占位值，避免与任何部署密钥产生关联。
+			// 部署侧密钥一律由 deploy/.env 注入，见 deploy/livekit/livekit.yaml。
 			SFU_PROVIDER: "livekit",
 			LIVEKIT_HOST: "ws://localhost:7880",
-			LIVEKIT_KEY: "API7ar5gCTyVkfY",
-			LIVEKIT_SECRET: "xtpW2PGUKPugyVzEvX4OaPaHtNGm5bRUmrIXe6NMIqb",
+			LIVEKIT_KEY: "integration-test-key",
+			LIVEKIT_SECRET: "integration-test-secret",
 			GIN_MODE: "release",
 			LOG_LEVEL: "warn",
 			STORAGE_TYPE: "local",

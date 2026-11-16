@@ -34,7 +34,7 @@ func TestStartMuteExpiryScanner_StopStopsScanning(t *testing.T) {
 	stop()
 	stop() // stop 必须幂等，重复调用不得 panic
 	atStop := calls.Load()
-	time.Sleep(80 * time.Millisecond)
+	waitCallsStable(t, &calls, 10*time.Millisecond)
 	if got := calls.Load(); got > atStop+1 {
 		t.Fatalf("scanner kept scanning after stop: before=%d after=%d", atStop, got)
 	}
@@ -49,7 +49,7 @@ func TestStartMuteExpiryScanner_CtxCancelStopsScanning(t *testing.T) {
 	waitForCalls(t, &calls, 2)
 	cancel()
 	atCancel := calls.Load()
-	time.Sleep(80 * time.Millisecond)
+	waitCallsStable(t, &calls, 10*time.Millisecond)
 	if got := calls.Load(); got > atCancel+1 {
 		t.Fatalf("scanner kept scanning after ctx cancel: before=%d after=%d", atCancel, got)
 	}
@@ -65,4 +65,24 @@ func waitForCalls(t *testing.T, calls *atomic.Int32, min int32) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("expected at least %d calls, got %d", min, calls.Load())
+}
+
+// waitCallsStable 等待计数器在连续 4 个扫描周期内不再增长，
+// 用「状态稳定」这一条件替代固定时长的 sleep。
+func waitCallsStable(t *testing.T, calls *atomic.Int32, interval time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(interval * 12)
+	last := calls.Load()
+	stableSince := time.Now()
+	for time.Now().Before(deadline) {
+		time.Sleep(interval)
+		now := calls.Load()
+		if now != last {
+			last = now
+			stableSince = time.Now()
+		}
+		if time.Since(stableSince) >= interval*4 {
+			return
+		}
+	}
 }

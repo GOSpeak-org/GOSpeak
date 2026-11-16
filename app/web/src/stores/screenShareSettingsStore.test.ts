@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getMock, setMock } = vi.hoisted(() => ({
 	getMock: vi.fn(),
@@ -18,13 +18,18 @@ async function loadStore() {
 }
 
 function flushDebounce() {
-	return new Promise((resolve) => setTimeout(resolve, 260));
+	vi.advanceTimersByTime(260);
 }
 
 describe("screenShareSettingsStore", () => {
 	beforeEach(() => {
+		vi.useFakeTimers();
 		getMock.mockReset();
 		setMock.mockClear();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it("falls back to the default quality when nothing is persisted", async () => {
@@ -55,7 +60,7 @@ describe("screenShareSettingsStore", () => {
 		ScreenShareSettingsStore.setQuality("480p");
 		expect(ScreenShareSettingsStore.state.quality).toBe("480p");
 
-		await flushDebounce();
+		flushDebounce();
 
 		expect(setMock).toHaveBeenCalledWith(STORAGE_KEY, { quality: "480p" });
 	});

@@ -417,13 +417,27 @@ func TestNATSBus_PublishHonorsContext(t *testing.T) {
 		t.Fatal("local delivery should still run before canceled publish")
 	}
 
-	// 取消的发布不应进入 NATS；短暂等待后直接断言 peer 未收到消息。
-	time.Sleep(150 * time.Millisecond)
+	// 用一条正常发布作为时钟探针：peer 收到它即说明 NATS 传递链已完成，
+	// 此时再断言被取消的消息没有到达，避免用固定 sleep 猜测时长。
+	if err := b1.PublishRoom(context.Background(), "r1", "room:probe", map[string]interface{}{"x": 2}); err != nil {
+		t.Fatalf("probe publish: %v", err)
+	}
+	waitUntil(t, 2*time.Second, func() bool {
+		d2.mu.Lock()
+		defer d2.mu.Unlock()
+		for _, e := range d2.roomEvents {
+			if e == "r1:room:probe" {
+				return true
+			}
+		}
+		return false
+	})
 	d2.mu.Lock()
-	n := len(d2.roomEvents)
-	d2.mu.Unlock()
-	if n != 0 {
-		t.Fatalf("peer deliver count = %d, want 0", n)
+	defer d2.mu.Unlock()
+	for _, e := range d2.roomEvents {
+		if e == "r1:room:kick" {
+			t.Fatalf("canceled publish reached peer: %v", d2.roomEvents)
+		}
 	}
 }
 
