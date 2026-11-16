@@ -7,12 +7,14 @@ import {
 	SelectValue,
 	toast,
 } from "@gospeak/components";
+import { inMobile, type AudioRouteKind } from "@gospeak/mobile-capabilities";
 import {
 	normalizeScreenShareQuality,
 	SCREEN_SHARE_QUALITY_ORDER,
 	SCREEN_SHARE_QUALITY_PRESETS,
 } from "@gospeak/sfu-client";
 import { useEffect, useRef, useState } from "react";
+import { useMobileAudioRoute } from "@/hooks/useMobileAudioRoute";
 import {
 	useAudioDeviceStore,
 	type AudioBitrate,
@@ -76,6 +78,7 @@ function AudioForm() {
 
 	const store = useAudioDeviceStore();
 	const screenShareQuality = useScreenShareSettingsStore((s) => s.quality);
+	const mobileRoute = useMobileAudioRoute();
 
 	function stopMicTest() {
 		if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -233,6 +236,31 @@ function AudioForm() {
 						</SelectContent>
 					</Select>
 				</Field>
+
+				{inMobile() && (
+					<Field
+						label="音频路由"
+						hint="在扬声器、听筒与蓝牙耳机之间切换；仅在移动端生效。"
+					>
+						<Select
+							value={mobileRoute.current}
+							onValueChange={(value) =>
+								void mobileRoute.select(value as AudioRouteKind)
+							}
+						>
+							<SelectTrigger>
+								<SelectValue placeholder="选择音频路由" />
+							</SelectTrigger>
+							<SelectContent>
+								{mobileRoute.options.map((option) => (
+									<SelectItem key={option.kind} value={option.kind}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</Field>
+				)}
 
 				<Toggle
 					label="设备变化时提醒"
