@@ -132,6 +132,10 @@ jobs:
           go-version-file: app/server/go.mod
           cache-dependency-path: app/server/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: server
       - name: Vet
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
@@ -185,6 +189,10 @@ jobs:
           go-version-file: app/server/go.mod
           cache-dependency-path: app/server/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: server
       - name: Download web dist
         uses: actions/download-artifact@v8
         with:
@@ -218,6 +226,10 @@ jobs:
           go-version-file: app/server/go.mod
           cache-dependency-path: app/server/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: server
       - name: Protocol gen-diff
         working-directory: app/server
         run: |
@@ -308,6 +320,10 @@ jobs:
           go-version-file: app/desktop/go.mod
           cache-dependency-path: app/desktop/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/desktop/go.sum
+          cache-prefix: desktop
       - name: Seed embed placeholder
         # proxyserver.go 用 //go:embed all:webui/dist 内嵌前端产物，而该目录
         # 由 mygo build 生成且被 gitignore。这里放一个占位文件，让 vet/test

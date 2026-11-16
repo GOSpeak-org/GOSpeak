@@ -1,0 +1,22 @@
+name: go build cache
+description: Cache Go build artifacts (GOCACHE) across runs. setup-go only caches modules, not compiled packages.
+inputs:
+  go-sum-path:
+    description: Path to go.sum used as cache key seed
+    required: true
+  cache-prefix:
+    description: Namespace to separate server/desktop build caches
+    required: true
+    default: server
+runs:
+  using: composite
+  steps:
+    - name: Restore Go build cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/go-build
+        # Go build cache is content-addressed: source changes add entries rather
+        # than reusing wrong artifacts, so key only needs the dependency set.
+        key: gocache-${{ inputs.cache-prefix }}-${{ runner.os }}-${{ hashFiles(inputs.go-sum-path) }}
+        restore-keys: |
+          gocache-${{ inputs.cache-prefix }}-${{ runner.os }}-
