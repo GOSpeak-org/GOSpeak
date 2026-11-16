@@ -15,13 +15,14 @@ export type { WSEndpointInfo };
  * 与浏览器行为一致。
  */
 function toSameOriginWorkerUrl(url: string): string {
-	if (!__GOSPEAK_DESKTOP__) return url;
-	if (
-		typeof window === "undefined" ||
-		window.location.hostname !== "127.0.0.1"
-	) {
-		return url;
+	if (typeof window === "undefined") return url;
+	if (__GOSPEAK_MOBILE__) {
+		// 移动端 WebView 由本地反代托管，worker 也必须走同源 /wsworker。
+		const proto = window.location.protocol === "https:" ? "wss" : "ws";
+		return `${proto}://${window.location.host}/wsworker?target=${encodeURIComponent(url)}`;
 	}
+	if (!__GOSPEAK_DESKTOP__) return url;
+	if (window.location.hostname !== "127.0.0.1") return url;
 	const proto = window.location.protocol === "https:" ? "wss" : "ws";
 	return `${proto}://${window.location.host}/wsworker?target=${encodeURIComponent(url)}`;
 }

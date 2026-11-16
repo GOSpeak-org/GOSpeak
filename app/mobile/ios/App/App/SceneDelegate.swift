@@ -24,6 +24,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 final class GospeakBridgeViewController: CAPBridgeViewController {
+    // Release builds have no server.url in the config: load from the port the
+    // native proxy actually bound. Dev builds keep their explicit Vite URL.
+    override func instanceDescriptor() -> InstanceDescriptor {
+        let descriptor = super.instanceDescriptor()
+        if descriptor.serverURL == nil || (descriptor.serverURL?.isEmpty ?? true) {
+            let port = LocalProxyServer.shared.port
+            if port > 0 {
+                descriptor.serverURL = "http://localhost:\(port)/"
+            }
+        }
+        return descriptor
+    }
+
     // capacitorDidLoad runs at the end of loadView(), after bridge exists but before loadWebView().
     override func capacitorDidLoad() {
         super.capacitorDidLoad()

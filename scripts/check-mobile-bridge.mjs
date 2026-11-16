@@ -309,7 +309,11 @@ function collectAndroid(root) {
 	};
 }
 
-const CUSTOM_PLUGINS = new Set(["AudioSession", "MediaControl"]);
+const CUSTOM_PLUGINS = new Set([
+	"AudioSession",
+	"MediaControl",
+	"ServerConfig",
+]);
 
 export function checkRepo(root = ".") {
 	const ts = new Set(

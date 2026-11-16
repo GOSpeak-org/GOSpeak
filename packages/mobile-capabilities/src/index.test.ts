@@ -15,6 +15,7 @@ describe("createMobile", () => {
 			"mediaControl",
 			"push",
 			"runtime",
+			"serverConfig",
 		]);
 	});
 

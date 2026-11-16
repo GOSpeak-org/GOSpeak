@@ -19,6 +19,10 @@ import ServerUrlField from "@/components/common/serverUrlField";
 import ProviderIcon from "@/components/oauth/ProviderIcon";
 import { useUserStore } from "@/stores/userStore";
 import { createServerConfig, inDesktop } from "@gospeak/desktop";
+import {
+	createServerConfig as createMobileServerConfig,
+	inMobile,
+} from "@gospeak/mobile-capabilities";
 import { depth, useAuthParallax } from "@/hooks/useAuthParallax";
 import ForcePasswordChangeModal from "@/pages/login/components/ForcePasswordChangeModal";
 import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
@@ -62,9 +66,12 @@ function LoginPage() {
 
 	// 桌面端首次进入时服务器地址还是空的：没有任何可请求的后端，
 	// 不能先打一轮必然失败的接口（OAuth 列表、会话校验都不发）。
-	const [serverReady, setServerReady] = useState(() =>
-		inDesktop() ? createServerConfig().getBaseUrlSync().trim() !== "" : true,
-	);
+	const [serverReady, setServerReady] = useState(() => {
+		if (inMobile())
+			return createMobileServerConfig().getBaseUrlSync().trim() !== "";
+		if (inDesktop()) return createServerConfig().getBaseUrlSync().trim() !== "";
+		return true;
+	});
 	useEffect(() => {
 		if (!inDesktop()) return;
 		void createServerConfig()
@@ -377,10 +384,10 @@ function LoginPage() {
 										</div>
 									)}
 
-									{/* 桌面端：登录前即可指定要连接的服务器（持久化，设置里也可改） */}
-									{inDesktop() && (
+									{/* 桌面端 / 移动端：登录前即可指定要连接的服务器 */}
+									{(inDesktop() || inMobile()) && (
 										<div className="border-foreground/10 mt-4 border-t pt-4">
-											<ServerUrlField />
+											<ServerUrlField mobile={!inDesktop()} />
 										</div>
 									)}
 								</div>

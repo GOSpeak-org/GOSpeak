@@ -14,7 +14,12 @@ const config: CapacitorConfig = {
 	appId: "dev.gospeak.mobile",
 	appName: "GOSpeak",
 	webDir: "../web/dist-mobile",
-	server: devUrl ? { url: devUrl, cleartext: true } : undefined,
+	// release 不写死端口：原生反代在 47900-47919 内挑一个可用端口并持久化，
+	// WebView 地址由原生层在启动时注入；dev 仍可直接加载局域网 Vite。
+	server: {
+		url: devUrl,
+		cleartext: true,
+	},
 	ios: {
 		scheme: "gospeak",
 		// 安全区内缩交给前端 CSS 的 env(safe-area-inset-*) 统一处理（app/web/src/assets/styles/global.css），

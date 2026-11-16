@@ -61,6 +61,8 @@ export { createLifecycle, isAppState } from "./capabilities/lifecycle";
 export type { AppState, Lifecycle } from "./capabilities/lifecycle";
 
 export { createLocalNotification } from "./capabilities/local-notification";
+export { createServerConfig, SERVER_BASE_URL_KEY } from "./capabilities/server";
+export type { ServerConfig } from "./capabilities/server";
 export type {
 	LocalNotification,
 	LocalNotificationOptions,
@@ -76,6 +78,7 @@ import { createDeepLink } from "./capabilities/deeplink";
 import { createKeyboard } from "./capabilities/keyboard";
 import { createLifecycle } from "./capabilities/lifecycle";
 import { createLocalNotification } from "./capabilities/local-notification";
+import { createServerConfig } from "./capabilities/server";
 
 export function createMobile() {
 	return {
@@ -89,6 +92,7 @@ export function createMobile() {
 		lifecycle: createLifecycle(),
 		keyboard: createKeyboard(),
 		localNotification: createLocalNotification(),
+		serverConfig: createServerConfig(),
 	};
 }
 

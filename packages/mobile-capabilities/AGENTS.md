@@ -8,7 +8,7 @@
 |------|------|
 | `conditional.ts` | `BUILD_TARGET` `MOBILE_BUILD` `WEB_BUILD` `inMobile()` `assertMobile` `ifMobile` `importMobile` |
 | `bridge.ts` | `pluginMethod` / `getPlugin` / `listenPlugin`，动态加载 `@capacitor/core` |
-| `capabilities/*` | audio-session / audio-route / media-control / push / deeplink / lifecycle / local-notification / back-button / keyboard |
+| `capabilities/*` | audio-session / audio-route / media-control / push / deeplink / lifecycle / local-notification / back-button / keyboard / server（本地反代目标） |
 | `index.ts` | 具名导出 + `createMobile()` 聚合对象 |
 
 ## 条件编译
