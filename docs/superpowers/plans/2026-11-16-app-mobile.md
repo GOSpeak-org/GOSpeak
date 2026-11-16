@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status**（2026-11-16 更新）：主体已交付。Task 1-4、6-12 已完成并合入；Task 5（真机后台 WebRTC 音频 PoC）按用户指示暂缓，Push 服务端链路暂缓。计划保留跟进，剩余项见文末「剩余工作」。
+>
+> 交付核验：能力包 web/mobile 两个 target 测试全绿；`check-mobile-bridge` 桥接门禁 7/7；`pnpm typecheck` 与 `pnpm lint` 全仓通过；web / desktop / mobile 三目标构建成功。
+
+
 **Goal:** 交付 `app/mobile`（Capacitor 原生壳）与 `packages/mobile-capabilities`（移动能力 SDK），复用现有 `app/web` React 源码产出可日常使用的 iOS/Android 语音客户端。
 
 **Architecture:** `app/web` 保持唯一 React 源码，新增 `GOSPEAK_TARGET=mobile` 构建目标产出移动 bundle；Capacitor 壳把该 bundle 装进原生工程。平台差异全部收敛到 `packages/mobile-capabilities`（模式对齐 `packages/desktop`），每个能力同时提供原生实现与 Web 降级，业务代码只经 `inMobile()` + 能力门面访问。
@@ -2569,3 +2574,15 @@ git commit -m "chore(mobile): add bridge contract guard and mobile docs"
 - Task 10 的「会话连续性」只提供生命周期钩子；真正的前台重连由既有 @gospeak/sfu-client 重连策略 + socketStore 承担，本计划不重复实现，避免与既有策略冲突。
 - MediaControlPlugin.emitAction 是给原生通知按钮回调用的桥；UI 侧按钮绑定留到后续迭代，MVP 先保证锁屏通知与事件通道存在。
 - iOS 的 media-control 未单建插件（MVP 以 Android 通知栏 + iOS 系统媒体控件为主），留到后续迭代。
+
+---
+
+## 剩余工作（计划保留跟进的原因）
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| Task 5 真机后台 WebRTC 音频 PoC | 暂缓（用户指示） | 混合方案是否成立的前提。执行方式见 Task 5；通过后按 spec 继续，不通过需回用户处重新决策（下沉原生媒体层或改路线）。 |
+| 服务端推送（APNs / FCM） | 暂缓（用户指示） | 后端当前没有 token 表与上报接口，客户端 `push` 能力仅保留 token 接收。需另出后端设计后接入。 |
+| 本地推送 | 已补齐 | 取代不了服务端推送：仅在 App 运行/刚切后台时有效，覆盖「被踢」「语音断连」。 |
+| CI 原生编译 job | 观察中 | `build-mobile` 已接入（macOS runner 编 iOS + Android），首次以 `continue-on-error` 上线；CI 实跑通过一次后移除该开关并纳入 `gate`。 |
+| iOS 锁屏自定义按钮 | 未做 | 沿用系统媒体控件；Android 已有 静音 / 挂断 按钮。 |
