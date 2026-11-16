@@ -13,8 +13,12 @@ import (
 // 再尽力对在线房间做媒体 hard/degraded mute，并在事件里标注 enforcement。
 func (h *Hub) BroadcastMute(userID uint, info *MuteInfo) {
 	ttlSeconds := 0
+	permanent := false
+	reason := ""
 	if info != nil {
-		if info.Permanent {
+		permanent = info.Permanent
+		reason = info.Reason
+		if permanent {
 			ttlSeconds = sfu.PermanentMuteTTLSeconds
 		} else if info.Duration > 0 {
 			ttlSeconds = int(info.Duration)
@@ -28,8 +32,8 @@ func (h *Hub) BroadcastMute(userID uint, info *MuteInfo) {
 	enforcement := h.enforceUserMediaMuteInRooms(identity, rooms, true, ttlSeconds)
 	data := map[string]interface{}{
 		"user_id":     userID,
-		"permanent":   info.Permanent,
-		"reason":      info.Reason,
+		"permanent":   permanent,
+		"reason":      reason,
 		"enforcement": enforcement,
 	}
 	if info != nil {
