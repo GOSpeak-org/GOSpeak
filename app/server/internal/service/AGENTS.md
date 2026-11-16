@@ -1,33 +1,29 @@
 # service 模块
 
-业务逻辑层，协调 repository 和外部服务完成核心业务。
+业务逻辑层：协调 repository 与外部抽象（SFU / AuthState / Bus / 存储 / 邮件），是唯一编写领域规则的地方。
 
-## 文件说明
+## 分组
 
-| 文件 | 职责 |
+| 领域 | 文件 |
 |------|------|
-| auth_service.go | 登录（bcrypt 比对）、注册（bcrypt 哈希）、Token 刷新、登出、改密、首次改密、重置密码、Token 版本管理 |
-| user_service.go | 资料、列表、增删改、角色更新 |
-| room_service.go | 房间 CRUD（密码校验、创建者记录）|
-| oauth_service.go | 授权 URL、回调（新用户注册/已有登录）、提供商配置 CRUD、通用 OAuth 流程 |
-| role_service.go | 角色管理 + 角色缓存 |
-| permission_service.go | 权限列表、角色权限读写、同步 |
-| mute_service.go | 禁言创建/取消/状态，发布 `user:muted`/`user:unmuted` 事件 |
-| storage_service.go | 本地/S3 上传、预签名、配置加解密 |
-| email_service.go / email_verification_service.go | 验证码发送/校验、冷却、尝试限制 |
-| email_config_service.go | 邮箱配置读取/更新 |
-| sfu_config_service.go | SFU 配置持久化、provider 切换、激活 provider 解析 |
-| sfu_service.go | SFU 动态 provider 解析与分发 |
-| conversation_service.go | 会话列表、消息历史、标记已读 |
-| domain_service.go | Domain CRUD、成员管理、邀请码校验 |
-| message_service.go | 消息发送/编辑/删除/表情回应 + 系统消息生成 |
+| 认证与用户 | `auth_service` `user_service` `user_group_service` `email_service` `email_verification_service` `oauth_service` |
+| 权限 | `casbin` `domain_casbin` `permission_service` `role_service` |
+| 域与邀请 | `domain_service` `invite_service` `invite_join_service` `join_request_service` `invite_code` |
+| 房间与信令 | `room_service` `sfu_service` `sfu_config_service` `mute_service` |
+| 消息 | `message_service` `message_history` `message_mutation` `message_jobs` `conversation_service` |
+| 其他 | `announcement_service` `storage_service` `system_update_service` `events` |
 
-## 业务语义
+## 约定
 
-- 禁言是**用户级禁言**，不是房间级静音。用户级禁言：允许收听，但不能发布本地音轨。
-- service 层只使用"禁言/仅收听"语义，不要表述为本地播放静音。
+- **返回 `*pkg.AppError`**（`pkg.NewAppError(code, msg)`）。历史代码中仍有少量 `fmt.Errorf` 返回，属遗留；新增代码必须用 AppError，不要继续扩散。
+- **不感知 HTTP**：禁止 import `gin`、禁止出现 `*gin.Context`。需要请求上下文时传 `context.Context`。
+- **跨表写入用事务**：邀请码兑换 + 入域等必须原子（见 repository `tx.go`）。
+- **领域规则写在这里**，不要固化进 repository 的 SQL，也不要在 handler 里判断。
+- **事件常量**：`events.go` 只是 `internal/protocol` 的别名，新代码直接引用 `protocol.EventXxx`，不要新增字符串字面量。
+- **异步任务**走 `internal/jobs`（聊天持久化 `ChatPersister`、禁言到期扫描），service 只暴露接口。
 
-## 依赖关系
+## 易错点
 
-service 依赖 repository 进行数据操作，通过 pkg 包处理错误和生成 Token。
-handler 层通过构造函数注入 service 实例。
+- 禁言是**用户级**语义：允许收听、禁止发布本地音轨；不存在房间级禁言。
+- SFU 只支持 LiveKit，`sfu_config_service` 对该约束是硬编码的；不要写「切换 provider」的新逻辑。
+- 改密/角色变更要让 `TokenVersion` 失效（旧 token 立即不可用）。

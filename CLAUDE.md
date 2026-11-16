@@ -13,7 +13,7 @@ GOSpeak 是基于 WebRTC 的实时音视频沟通平台。pnpm monorepo：Go 后
 | 后端 | Go 1.26 · Gin · GORM · cobra CLI |
 | 前端 | React 19 · TypeScript · @tanstack/react-router/query · zustand · Tailwind 4 · packages/components · rolldown-vite 7 · lucide-react · sonner · react-hook-form + zod |
 | 信令 | 原生 WebSocket (internal/ws，/ws) |
-| SFU | LiveKit — 抽象层动态解析 |
+| SFU | LiveKit（唯一后端；`sfu.Provider` 抽象保留） |
 | DB | SQLite(默认) / PostgreSQL / MySQL — GORM 自动迁移 |
 | 事件总线 | 内嵌 NATS KV — JWT 轮换 + Token 黑名单（固定 embedded）|
 | 存储 | local / S3(RustFS/R2) |
@@ -37,7 +37,7 @@ app/
 │   │   ├── repository/      # 数据访问层
 │   │   ├── service/         # 业务逻辑层
 │   │   ├── handler/         # HTTP 控制器 (Gin)
-│   │   ├── middleware/      # JWTAuth, RequireRole, CORS
+│   │   ├── middleware/      # JWTAuth, BanCheck, RequireRole/Permission, CORS
 │   │   ├── router/routes/  # 按模块分组路由
 │   │   ├── sfu/             # SFU Provider 抽象 + 工厂 + DynamicProvider
 │   │   │   └── providers/   # livekit 实现
@@ -70,7 +70,7 @@ docs/                # 设计/运维/历史档案
 ### 分层调用流
 
 ```
-Request → Router → Middleware(JWT+RBAC) → Handler → Service → Repository → DB
+Request → Router → Middleware(JWT+RBAC+Ban) → Handler → Service → Repository → DB
                                                     ↓         ↓
                                                    SFU      AuthState
                                                     ↓
@@ -95,7 +95,7 @@ pnpm dev          # = turbo run dev --filter=@gospeak/server --filter=@gospeak/w
 pnpm dev:all      # 全部 dev 任务（含 packages 的 tsc --watch）
 
 # 单独
-pnpm dev:server   # air 热重载，读 .env.dev
+pnpm dev:server   # air 热重载（配置加载见下方『环境变量』）
 pnpm dev:web      # vite
 
 # 桌面端（Go 1.27+，见 app/desktop/README.md）
@@ -129,10 +129,11 @@ pnpm format      # biome format -r
 
 ### 启动参数
 
-- `main.go server` — 默认 `prod` 环境
-- `main.go server -e dev` — 开发环境 (读 `.env.dev`)
+- `main.go server` — 未指定 `-e` 时默认 **dev**
+- `main.go server -e prod` — 生产环境
+- `main.go server -e dev` — 显式开发环境
 - `main.go version` — 版本号 (见 `VERSION`)
-- 启动时 `godotenv.Load()` 读当前目录 `.env`
+- 启动时由 `config.LoadEnvFiles()` 按优先级加载（见下）
 
 ---
 
@@ -146,7 +147,7 @@ pnpm format      # biome format -r
 - NATS 固定内嵌运行（不支持 `NATS_URL`）；JWT 黑名单/密钥轮换走 NATS KV
 - `STORAGE_ENCRYPT_KEY` 生产必设 (64 位 hex)
 
-文件: `.env.dev` / `.env.prod`（`app/server/` 下）
+配置加载优先级：`GOSPEAK_ENV_FILE`（显式）> 工作目录 `.env.<env>` / `.env`（本地开发可选）> 仓库根 `deploy/.env`（统一配置，compose 与应用共用）。仓库不提交任何 `.env*` 文件，样例见 `deploy/.env.example`。
 
 ---
 
@@ -158,7 +159,7 @@ pnpm format      # biome format -r
 { "code": 0, "msg": "success", "data": {} }
 ```
 
-错误时 `data` 恒 `null`。完整状态码表见 `AGENTS.md`（0 成功，1001-1014 认证，2001 参数，3001-3002 资源，5001 系统，6001-6002 SFU，7001-7004 OAuth）。
+错误时 `data` 恒 `null`。完整状态码定义见 `app/server/internal/pkg/errors.go`（0 成功，1xxx 认证，2xxx 参数，3xxx 资源，5xxx 系统，6xxx SFU，7xxx OAuth，8xxx 邮件，81xx 存储）。
 
 ### 错误处理范式
 
@@ -175,7 +176,7 @@ pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 
 ### 路由
 
-全部 `/api/v1/` 前缀。完整路由表见 `AGENTS.md`。认证路由在 `protected` 组下走 `middleware.JWTAuth()`。
+全部 `/api/v1/` 前缀。精确路由表见 `app/server/internal/router/routes/*/routes.go`。认证路由在 `protected` 组下走 `middleware.JWTAuth() + middleware.BanCheck()`。
 
 OpenAPI: `app/server/docs/swagger.yaml`，访问 `/swagger/*any`。
 
@@ -190,15 +191,17 @@ OpenAPI: `app/server/docs/swagger.yaml`，访问 `/swagger/*any`。
 
 当前仅支持 LiveKit。
 
-新增 SFU 后端步骤见 `AGENTS.md` §Adding a New SFU Backend。
+新增 SFU 后端的前置条件见根 `AGENTS.md` §5.3；当前 `SFU_PROVIDER` 固定为 `livekit`，不要新增第二后端。
 
 ---
 
 ## 代码规范
 
+仓库级开发范式约束（分层、协议、UI token、桌面边界、Git/文档）完整版见根 `AGENTS.md` §4；以下是速查。
+
 1. 代码中**不加注释**，除非复杂逻辑必须
 2. 代码中**不用 emoji**，仅文档可用
-3. Service 永远返回 `*AppError`，Handler 决定响应格式
+3. Service 返回 `*AppError`（存量有少量 `fmt.Errorf` 遗留；新增代码必须用 AppError），Handler 决定响应格式
 4. Go 文件 `snake_case`，类型 `PascalCase`
 5. import 分三组: 标准库 / 第三方 / 内部，空行分隔
 6. Handler 方法接 `*gin.Context`，无返回值
@@ -231,7 +234,7 @@ OpenAPI: `app/server/docs/swagger.yaml`，访问 `/swagger/*any`。
 
 ## 测试日志
 
-agent 测试需把结果 Markdown 存到 `agent_test_logs/`。命名 `{内容}-{时间}.md`。模板见 `AGENTS.md` §Test Logging。
+agent 测试需把结果 Markdown 存到 `agent_test_logs/`。命名 `{内容}-{时间}.md`。模板见 `agent_test_logs/AGENTS.md`。
 
 ---
 
@@ -239,5 +242,5 @@ agent 测试需把结果 Markdown 存到 `agent_test_logs/`。命名 `{内容}-{
 
 - 部署: `docs/deployment-guide.md`
 - 架构图: `ARCHITECTURE.md`
-- 完整 Agent 指南(含路由表/事件表/状态码): `AGENTS.md`
+- 完整 Agent 指南(含开发范式约束与单一事实源索引): `AGENTS.md`
 - SFU 成熟度: `docs/sfu-provider-maturity.md`

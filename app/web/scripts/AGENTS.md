@@ -62,6 +62,6 @@ for mid,meta in nm.items():
 
 `vite.config.ts` 的 `manualChunks` 已按 `vendor`（react / react-dom）、`router`（@tanstack/react-router）、`ui`（@radix-ui/ / clsx / sonner / lucide-react）分组，可据此核对各分包体积。
 
-## 历史说明（已归档，非当前约束）
+## 已移除的插件（不可恢复）
 
-`cui-icons-plugin.mjs` 及配套的 `cui-solid-icons` tree-shake 插件已随 React 19 迁移移除：`cui-solid` / `cui-solid-icons` 依赖已删除，`vite.config.ts` 中不再注册该插件。此段仅为历史说明，**不应再视为当前构建约束**，当前不应实现 `cui-icons-plugin` 相关逻辑。当前图标统一使用 `lucide-react`，由打包器原生 tree-shake，无需专用图标插件；原文档中针对 `cui-solid-icons` 的 export 块重写、`buildStart` 扫描与树摇验证逻辑均不再适用。
+`cui-icons-plugin.mjs` 与 `cui-solid-icons` 已随 React 19 迁移删除，`vite.config.ts` 不再注册。**不要重新引入**；图标统一用 `lucide-react`，交给打包器原生 tree-shake。

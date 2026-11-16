@@ -1,32 +1,32 @@
 # model 模块
 
-数据模型定义层，定义数据库表结构与 JSON 序列化规则。所有模型在 `repository/db.go` 的 `AutoMigrate` 中注册，服务启动时自动建表。
+GORM 实体定义与表结构。迁移在 `internal/repository/db_migrations.go` 的 `AutoMigrate` 中注册，启动时自动建表。
 
 ## 文件说明
 
-| 文件 | 职责 |
+| 领域 | 文件 |
 |------|------|
-| user.go | 用户模型：UUIDv4、Name、DisplayName、Avatar、Email、EmailVerified、IsBot、Password(`json:"-"`)...（`IsBot` 已废弃，Bot 模块已移除）
-| room.go | 房间模型：UUIDv4、Name、Password、Description、Limit、AudioOnly、AllowAudience、CreatedBy |
-| user_group.go | 用户分组模型：UserID、GroupName |
-| role.go | 角色模型（种子：admin/user/ban）+ 角色缓存与校验 |
-| permission.go | Permission（权限定义）+ RolePermission（角色-权限关联）|
-| mute.go | 禁言记录（用户级，全局生效，支持永久/限时）|
-| oauth_provider.go | OAuth 提供商配置（端点、密钥、字段映射、Enabled）|
-| oauth_account.go | 第三方账号绑定（user_id、provider、provider_uid）|
-| email_config.go | 邮箱 SMTP 配置 |
-| email_verification_code.go | 邮箱验证码（场景、哈希、冷却、尝试次数）|
-| storage_config.go | 对象存储配置（local/s3）|
-| sfu_config.go | 每个 SFU provider 一行配置 + 当前激活 provider |
-| domain.go | Domain 语音服务器：UUID、名称、Owner、邀请码、公开/私有 |
-| message.go | 房间消息：文本/系统消息、编辑历史、回复关联 |
-| message_mention.go | 消息 @提及：按用户聚合未读 |
-| message_reaction.go | 消息表情回应：用户-消息-表情 唯一约束 |
-| conversation_participant.go | 会话参与者：用户-会话关联、最后阅读时间 |
+| 用户与权限 | `user.go` `role.go` `permission.go` `user_group.go` `audit_log.go` |
+| 域（语音服务器） | `domain.go` `domain_role.go` `domain_invite.go` `domain_join_request.go` |
+| 房间与消息 | `room.go` `message.go` `message_mention.go` `message_reaction.go` `conversation_participant.go` |
+| 禁言 | `mute.go` |
+| 邮箱 | `email_config.go` `email_verification_code.go` |
+| OAuth | `oauth_account.go` `oauth_provider.go` |
+| 配置 | `sfu_config.go` `storage_config.go` |
+| 公告 | `announcement.go` |
 
-## 共同特征
+## 当前事实（易误解处）
 
-- 使用 GORM ORM 映射
-- UUID 字段使用 UUIDv4 生成（User / Room / Mute / Domain / Message）
-- 敏感字段（Password、AccessToken、RefreshToken、SecretKey、EmailCodeSecret、CodeHash）使用 `json:"-"` 不序列化
-- 密码/密钥写入加密存储、读取解密（StorageConfig、EmailConfig）
+- `Domain` 只有 `UUID / Name / IconURL / Description / OwnerUUID / IsPublic / RequireJoinApproval`。**没有 `InviteCode`，也没有 `AllowGuest` / `Guest*` 系列字段**（访客体系已删除）。
+- `DomainRole` 的系统角色只有 `owner` / `admin` / `member` 三个，**没有 `guest`**。
+- 邀请是独立实体：`DomainInvite` + `DomainInviteRedemption`（自包含签名串，不存明文码）。
+- 入域审核是独立实体：`DomainJoinRequest`（`status=pending/approved/rejected`）。
+- `User` 无 `IsGuest`（列已通过迁移删除）；有 `TokenVersion`（改密后旧 token 失效）。
+- `Room.DomainUUID` 非空，房间必属某域。
+
+## 约定
+
+- 新增模型必须同步在 `db_migrations.go` 注册，否则不会建表。
+- 需要删列/删表时写幂等迁移并加测试（参考既有 `db_migrations_legacy_test.go`）。
+- JSON tag 默认 snake_case；模型文件命名为 `snake_case.go`。
+- 角色与权限的种子数据在 `model/permission.go` 的 `DefaultPermissions` / `DefaultRolePermissions`。

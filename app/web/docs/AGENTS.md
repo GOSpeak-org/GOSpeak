@@ -2,7 +2,7 @@
 
 ## Overview
 
-GOSpeak 前端客户端：React 19 + TypeScript 的单页应用，提供语音房间、Domain 工作区、文字频道、访客访问与管理后台。HTTP 走 `/api/v1`，信令走 `/ws` 原生 WebSocket，媒体会话由 `@gospeak/sfu-client` 接入 LiveKit。
+GOSpeak 前端客户端：React 19 + TypeScript 的单页应用，提供语音房间、Domain 工作区、文字频道、邀请/入域审核与管理后台。HTTP 走 `/api/v1`，信令走 `/ws` 原生 WebSocket，媒体会话由 `@gospeak/sfu-client` 接入 LiveKit。
 
 > 前端已从 SolidJS 全量迁移到 React 19，迁移暂存目录 `src/_solid-legacy/` 已随迁移完成清空删除，仓库内不再保留旧代码。整体仓库说明见根 `AGENTS.md`。
 
@@ -16,7 +16,7 @@ GOSpeak 前端客户端：React 19 + TypeScript 的单页应用，提供语音�
 - **UI Library**: workspace 包 `@gospeak/components`（Radix 无头组件：Button / Card / Dialog / Input / Avatar / Toaster）
 - **Icons / Toast**: `lucide-react` / sonner（品牌图标用 `components/oauth/ProviderIcon.tsx`）
 - **Forms**: react-hook-form + zod
-- **Realtime**: 原生 WebSocket + `@gospeak/sfu-client` 多 Provider 抽象
+- **Realtime**: 原生 WebSocket + `@gospeak/sfu-client`（当前仅 LiveKit 实现）
 - **Lint/Format**: Biome（tab 缩进、LF、双引号）
 - **Test**: vitest 4 + `@testing-library/react`（jsdom）
 - **Build**: rolldown-vite 7 + `@vitejs/plugin-react` + `@tanstack/router-plugin/vite` + `@tailwindcss/vite`
@@ -80,13 +80,14 @@ src/
 
 ### Realtime Architecture
 - **WebSocket**: 房间管理（创建/加入/离开/列表）+ 成员同步 + 事件推送；握手鉴权由 HttpOnly access cookie 自动携带
-- **SFU client layer**: 统一页面侧媒体会话生命周期，按运行时 provider 动态加载对应客户端
+- **SFU client layer**: 统一页面侧媒体会话生命周期；服务端 `SFU_PROVIDER` 固定为 livekit，页面不感知具体 provider
 - **Current state**: `socketStore` 管理房间状态；`VoiceSessionProvider` 常驻持有语音会话，切换文字频道不断音
 
 ### SFU Provider rules
 - 页面组件避免直接依赖任一 provider SDK 类型，统一走 `@gospeak/sfu-client`
 - 管理能力由服务端 capabilities 下发，UI 按 capability-based 降级
 - `@gospeak/sfu-client` 语义上是「媒体会话客户端」，不要扩展成管理动作或本地播放控制抽象
+- 仓库只有 LiveKit 一个实现（`packages/sfu-client/src/livekit-client.ts`），不要恢复「多 provider 运行时切换」叙事
 
 ### Mute semantics
 - `静音` = 本地对远端音轨静音，只影响当前客户端播放
@@ -100,12 +101,20 @@ src/
 - 异步错误用 `useErrorHandler()` 重抛到最近的边界；`window.error` / `unhandledrejection` 由 `installGlobalErrorHandlers()` 兜底上报
 - 统一上报入口 `src/utils/errorReport.ts`，导出 `normalizeError` / `registerErrorReporter`（可接 Sentry 等外部日志服务）/ `reportError` / `errorSummary` / `installGlobalErrorHandlers`，`ErrorScope = "component" | "page" | "route" | "global"`；生产环境错误详情不暴露堆栈
 
+### Desktop 条件编译
+
+- 同一代码库产出 Web 与桌面两个目标，由 `GOSPEAK_TARGET`（web|desktop）决定，Vite 注入 `__GOSPEAK_TARGET__`。
+- 业务代码判定平台一律用 `inDesktop()`（`@gospeak/desktop`），**禁止新增裸 `isDesktop()`**——它仅限 SDK 内部 `capabilities/*` 的浏览降级使用。
+- 改动 `app/desktop/` 或 `packages/desktop/` 后必须跑一次 `pnpm --filter @gospeak/web build:desktop` 验证；桌面独享模块在 Web 构建中被摇树剔除。
+- 详细约束见根 `AGENTS.md` §4.4。
+
 ## Conventions
 
 - 文件名沿用所在目录既有风格：页面平铺 `discover.tsx`、通用组件 `camelCase`、页面私有组件多为 `PascalCase`
 - 事件名与 payload 类型由 `src/protocol/generated/` 提供（后端 `internal/protocol` 经 gen-protocol 生成，禁止手改）；`src/socket/events.ts` 仅重导出
 - TypeScript 严格模式；Biome 开启 `noUnusedImports: error`、`noExplicitAny: off`
 - 页面编排层保持轻量，复杂 UI 下沉到同级 `components/`（该目录不会被生成成路由）
+- 仓库级约束（分层与错误处理、协议单一事实源、UI token、Git/文档卫生）见根 `AGENTS.md`，本文件不复述
 
 ## Proxy
 

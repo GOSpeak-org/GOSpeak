@@ -1,52 +1,31 @@
 # signal 模块
 
-WebSocket 信令层，基于 WebSocket 实现实时通信。
+WebSocket 信令中心：`Hub` 维护房间/成员状态，事件 handler 全部走 `internal/protocol` 定义的事件名。
 
-## 文件说明
+## 文件组织
+
+`hub.go` 是 Hub 主体；其余按职责拆成 `hub_*.go`：
 
 | 文件 | 职责 |
 |------|------|
-| events.go | 事件名常量（37 个）|
-| types.go | `RoomRequest`、`MemberInfo`、`RoomInfo` 等结构 |
-| hub.go | 信令中心：连接、房间成员、事件处理、SFU 分发 |
-
-## Hub struct
-
-```
-Hub.sfuProvider      — SFU provider 接口
-Hub.sfuProviderName  — 初始化时从 `Provider.ProviderName()` 获取；dispatch 已改为按 `ErrSFUNotSupported` 优雅降级，不再依赖此字段做硬编码分支
-Hub.rooms            — map[string]*Room, roomName → 在线房间（有 WS 连接的）
-```
-
-### 房间查询方法
-
-| 方法 | 返回 |
-|------|------|
-| `GetSFURooms()` | 仅内存活跃房间（有 WS 连接的），供 `room:list` 广播 |
-| `GetRooms()` | DB 持久化房间 + 内存活跃房间合并 |
-| `GetRoomMembers(room)` | 指定房间的在线成员 |
-
-### SFU dispatch 逻辑
-
-`OnRoomKick` 信令层始终先处理（删 Members + 广播），随后由 `Hub.removeParticipantSafe` 直接调用 `sfuProvider.RemoveParticipant(room, identity)`。Hub **不硬编码 provider 名**，仅在返回 `pkg.ErrSFUNotSupported` 时静默跳过：
-
-| provider | `sfuProvider.RemoveParticipant` 调用 | 实现状态 |
-|----------|------------------------------------|----------|
-| livekit  | ✅ LiveKit gRPC SDK | 完整实现 |
-
-Mute/ListParticipants 不由信令层触发 SFU 调用——靠前端 WebSocket 事件协作。
+| `hub_lifecycle` `hub_disconnect` `hub_disconnect_grace` | 连接生命周期、断线宽限 |
+| `hub_room` `hub_room_join` `hub_room_list` `hub_room_events` `hub_room_meta` | 房间进出与元数据 |
+| `hub_mute` `hub_mute_cache` | 禁言状态与缓存 |
+| `hub_sfu` `hub_reconcile` | SFU 调用与状态对账 |
+| `hub_kickban` `hub_removal` | 踢出/封禁与成员移除 |
+| `hub_bus` `state_sync` `state_sync_room` | 跨实例事件与状态同步 |
+| `hub_typing` `message_bridge` `private_bridge` | 打字、消息与私聊桥接 |
+| `permission` `events` `types` | 权限判定、事件别名、类型 |
 
 ## 语义约束
 
-- 禁言是用户级限制，不是房间级静音。
-- `user:muted` / `user:unmuted` 表示用户被切换为仅收听 / 恢复可发布状态。
-- `room:mute` / `member:muted` 旧房间级静音链路已移除。
-- SFU 房间 ≠ 业务房间，两者状态不互相 fallback。
-- 发言检测：LiveKit 原生事件驱动 `onActiveSpeakers`；同时保留前端上报链路作为兜底：
-  - 前端 `onLocalSpeakingChange` 上报「自身」本地麦克风音量状态，经 `member:speaking` 发往信令层；
-  - `Hub.OnMemberSpeaking` 按房间聚合 `Room.Speaking`，广播 `room:active-speakers`（identities 列表）；
-  - 成员离开 / 断连 / 被踢时清发言态；原本在发言则广播最新列表以重置高亮。
+- **信令层确实调用 SFU**：禁言会调 `MuteParticipant`，踢出/房间查询会调 `ListRooms`/`ListParticipants`（见 `hub_mute.go`、`hub_sfu.go`）。不要写成「信令层不触发 SFU」。
+- 对 `ErrSFUNotSupported` 必须降级而非报错；其他 SFU 错误按错误契约上抛。
+- 发言检测由 `packages/sfu-client` 的 meter 采集 → `member:speaking` → 服务端聚合 → `room:active-speakers`。
+- **事件名不写字符串字面量**，统一用 `protocol.EventXxx`；`events.go` 仅为存量别名文件。
+- 房间/成员状态变更要同时处理本地状态与 bus 同步，避免多端不一致。
+- 域隔离：房间标识用 `pkg.RoomKey(domainUUID, room)`，不要拼接裸字符串。
 
 ## 依赖
 
-使用 `GOSpeak/internal/ws` 实现 WebSocket 通信。
+只依赖 `protocol` / `ws` / `pkg` / `bus` / `sfu` 抽象与 model 快照，不直接依赖 HTTP 层。

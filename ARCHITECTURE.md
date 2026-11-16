@@ -405,17 +405,19 @@ Tech Stack:
 │
 ├── /user-group                        # 用户分组 CRUD (需认证)
 │
-├── /guest                             # 访客 (公开签发 60/h + 受保护管理)
-│   ├── POST /auth/guest               # 访客签发 (公开)
-│   ├── POST /auth/guest/renew         # 访客续约 (guest JWT)
-│   └── POST /domain/guest/*           # 配置/封禁/清理 (需认证)
+├── /invite                            # 邀请码（公开预览/注册 + 域内管理）
+│   ├── POST /preview                  # 邀请码预览 (公开, 20/h)
+│   ├── POST /register                 # 邀请注册 (公开, 20/h)
+│   └── POST /join /my-request /cancel-request
 │
 ├── /domain                            # 语音服务器（多租户）
 │   ├── POST /create                   # 创建域 (domain:create, 10/min)
-│   ├── POST /list /list-public /my-domains /preview
-│   ├── POST /join /leave /kick /members
-│   ├── POST /update /delete /reset-invite
-│   ├── POST /guest/config|ban|unban|ban-list|cleanup
+│   ├── POST /list /list-public /my-domains
+│   ├── POST /leave /kick /members
+│   ├── POST /update /delete
+│   ├── POST /invites/*                # 邀请码 list/create/disable/redemptions
+│   ├── POST /join-requests/list|review    # 入域审核
+│   ├── POST /join-approval/config         # 审核开关
 │   └── POST /roles/* /my-permissions  # 域角色与权限
 │
 ├── /room                              # 房间 CRUD
@@ -423,8 +425,7 @@ Tech Stack:
 │   └── POST /messages/list|search|react  # 文字房间消息
 │
 ├── /conversation                      # 私聊
-│   ├── GET  /list                     # 会话列表
-│   └── POST /messages /mark-read /send
+│   ├── POST /list /messages /mark-read /send
 │
 ├── /message                           # 消息（挂 /room）
 │
@@ -439,8 +440,11 @@ Tech Stack:
 │
 ├── /audit                             # 审计日志 (audit:read)
 │
+├── /announcement                      # 系统公告 (list/unread-count/mark-read + admin/*)
+│
 ├── /system
-│   └── GET /stream                    # 服务状态流 (admin)
+│   ├── GET  /stream                   # 服务状态流 (admin)
+│   └── GET  /update/current|check     # 版本与更新检查 (admin)
 │
 ├── /readyz                            # 就绪探针
 ├── /metrics                           # 指标 (METRICS_TOKEN)
@@ -449,7 +453,7 @@ Tech Stack:
 └── /swagger/*any                      # Swagger UI
 ```
 
-> 完整路由表（方法/鉴权/权限门/Handler）见根 `AGENTS.md`「Current Route Table」。
+> 精确路由表以 `app/server/internal/router/routes/*/routes.go` 为准（本图为概览，避免与代码重复维护）。
 
 ## WebSocket 事件 (WebSocket)
 

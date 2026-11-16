@@ -246,7 +246,7 @@
 - **建议**：策略收敛到独立 policy 层，repository 只做幂等 upsert 与事务原语；删除重复播种调用。
 
 ### F5. `ListParticipants` 错误时返回空数组（历史 B05 回归） 〔🔴〕
-- **问题**：SFU 查询失败被转译成 `code:0` 成功响应，监控与前端无法区分"房间无人"与"上游故障"。**累计摘要 `review_cumulative_summary.md:24` 将 B05 标记为已修复，本次复核发现当前代码又回到原样，属回归。**
+- **问题**：SFU 查询失败被转译成 `code:0` 成功响应，监控与前端无法区分"房间无人"与"上游故障"。**历史 review 曾将 B05 标记为已修复，本次复核发现当前代码又回到原样，属回归。**
 - **证据**：`app/server/internal/handler/signal_handler.go:246-252`（`if err != nil { pkg.Success(c, []interface{}{}); return }`）。
 - **影响**：SFU 不可用/鉴权失败时返回空数组，与错误契约冲突，故障不可观测。
 - **建议**：上游错误走 `pkg.HandleError(c, err)`；若业务需要降级，至少带 `degraded: true` 标识并记日志。**建议为 B01–B09 建立回归测试，防止历史修复再次回退。**
@@ -313,7 +313,7 @@
 2. **WS Origin 文档 vs 实现**：配置注释称未配置时默认同源，实现默认 `*` 放行（详见 B3）。
 3. **SFU 契约文档 vs 实现**：`AGENTS.md` 声明"不支持的操作 MUST 返回 `NewErrSFUNotSupported()`"，LiveKit 实现从不返回（详见 C1）；`AGENTS.md` 的多 provider/动态切换叙事与"SFU_PROVIDER 固定为 livekit"并存。
 4. **cluster/mediasoup 残留**：`app/server/internal/signal/hub.go:61-68`、`app/server/internal/bus/AGENTS.md` 仍有 mediasoup/cluster 注释，但 factory 只支持 LiveKit；反映从多 SFU + Redis 精简的历史（呼应 A1）。
-5. **历史 review B05 状态失真**：`docs/review/review_cumulative_summary.md:24` 标"已修复"，实际回归（详见 F5）。**建议**为 P0 级历史修复补回归测试或状态复检机制。
+5. **历史 review B05 状态失真**：历史 review 曾标"已修复"，实际回归（详见 F5）。**建议**为 P0 级历史修复补回归测试或状态复检机制。
 
 ---
 
@@ -358,5 +358,5 @@
 ## 审查方法与边界
 
 - 本报告为**静态只读审查**，未运行服务、未做动态压测或 `-race` 实测；E 类并发问题为代码路径推断，建议后续用 `go test -race` 与压测验证。
-- 结论基于 2026-11-10 工作区快照；与 `docs/review/review_cumulative_summary.md`（2026-08-05，Round 1–6）交叉比对，标注了回归与演进残留。
+- 结论基于 2026-11-10 工作区快照；与历史 review 结论交叉比对，标注了回归与演进残留。
 - 严重度是**架构风险**评估，不等于修复工单优先级；实际排期请结合版本节奏与业务影响。
