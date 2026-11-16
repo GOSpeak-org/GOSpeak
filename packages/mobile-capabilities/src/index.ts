@@ -51,6 +51,12 @@ export type { Push } from "./capabilities/push";
 export { createDeepLink, normalizeDeepLink } from "./capabilities/deeplink";
 export type { DeepLink } from "./capabilities/deeplink";
 
+export { createKeyboard } from "./capabilities/keyboard";
+export type {
+	Keyboard,
+	KeyboardInfo,
+} from "./capabilities/keyboard";
+
 export { createLifecycle, isAppState } from "./capabilities/lifecycle";
 export type { AppState, Lifecycle } from "./capabilities/lifecycle";
 
@@ -67,6 +73,7 @@ import { createAudioRoute } from "./capabilities/audio-route";
 import { createMediaControl } from "./capabilities/media-control";
 import { createPush } from "./capabilities/push";
 import { createDeepLink } from "./capabilities/deeplink";
+import { createKeyboard } from "./capabilities/keyboard";
 import { createLifecycle } from "./capabilities/lifecycle";
 import { createLocalNotification } from "./capabilities/local-notification";
 
@@ -80,6 +87,7 @@ export function createMobile() {
 		push: createPush(),
 		deepLink: createDeepLink(),
 		lifecycle: createLifecycle(),
+		keyboard: createKeyboard(),
 		localNotification: createLocalNotification(),
 	};
 }

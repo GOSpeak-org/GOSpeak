@@ -25,6 +25,13 @@ const config: CapacitorConfig = {
 		allowMixedContent: false,
 	},
 	plugins: {
+		// iOS 键盘内缩由插件负责：resize 默认 native，未安装本插件时 WKWebView
+		// 完全不缩放，键盘会直接盖住底部输入框。autoBackdropColor 让键盘背后
+		// 的留白跟随应用主题，避免深色主题下闪一片白。
+		Keyboard: {
+			resize: "native",
+			autoBackdropColor: "auto",
+		},
 		PushNotifications: {
 			presentationOptions: ["badge", "sound", "alert"],
 		},

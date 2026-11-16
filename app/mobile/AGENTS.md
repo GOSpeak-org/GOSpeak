@@ -22,6 +22,7 @@ pnpm --filter @gospeak/mobile run:android   # 同步后跑 Android
 - `android/app/src/debug/AndroidManifest.xml`：**仅 debug 变体**放行明文 HTTP，供 dev 连局域网 `http://<开发机IP>:3000`；release 不合并该文件。
 - `Info.plist` 的 `NSAppTransportSecurity/NSAllowsLocalNetworking` 同理只放行本地网络，未使用 `NSAllowsArbitraryLoads`。
 - 安全区：`viewport-fit=cover` + `#app` 的 `env(safe-area-inset-*)` 内缩，`contentInset` 保持 `never` 以免双重留白。
+- 键盘：`plugins.Keyboard.resize: native`（iOS 默认值）——**必须装 `@capacitor/keyboard`**，否则 WKWebView 不缩放、键盘直接盖住底部输入框；`autoBackdropColor: auto` 让键盘底部留白跟随主题。
 
 ## 约束
 

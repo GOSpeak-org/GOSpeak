@@ -9,6 +9,7 @@ describe("createMobile", () => {
 			"audioSession",
 			"backButton",
 			"deepLink",
+			"keyboard",
 			"lifecycle",
 			"localNotification",
 			"mediaControl",
