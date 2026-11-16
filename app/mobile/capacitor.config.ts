@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
 	server: devUrl ? { url: devUrl, cleartext: true } : undefined,
 	ios: {
 		contentInset: "always",
-		scheme: "GOSpeak",
+		scheme: "gospeak",
 	},
 	android: {
 		allowMixedContent: false,
