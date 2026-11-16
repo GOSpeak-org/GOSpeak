@@ -16,8 +16,10 @@ const config: CapacitorConfig = {
 	webDir: "../web/dist/mobile",
 	server: devUrl ? { url: devUrl, cleartext: true } : undefined,
 	ios: {
-		contentInset: "always",
 		scheme: "gospeak",
+		// 安全区内缩交给前端 CSS 的 env(safe-area-inset-*) 统一处理（app/web/src/assets/styles/global.css），
+		// 这里必须关掉原生自动内缩，否则刘海屏会被内缩两次。
+		contentInset: "never",
 	},
 	android: {
 		allowMixedContent: false,
