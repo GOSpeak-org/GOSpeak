@@ -215,6 +215,21 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath /tmp/gospeak-ios-derived \
             CODE_SIGNING_ALLOWED=NO build
+      - name: Package iOS simulator app
+        # 用 ditto 而不是普通 zip：ditto 会保留 .app 的 bundle 目录结构、可执行位和
+        # 符号链接，解压后仍是可安装的 App.app；裸 zip 容易把 bundle 拍平。
+        run: |
+          test -d /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
+            || { echo "iOS simulator App.app missing"; exit 1; }
+          ditto -c -k --sequesterRsrc --keepParent \
+            /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
+            /tmp/gospeak-ios-simulator.zip
+      - name: Upload iOS simulator app
+        uses: actions/upload-artifact@v7
+        with:
+          name: gospeak-ios-simulator
+          path: /tmp/gospeak-ios-simulator.zip
+          retention-days: 7
 
   build-server:
     name: Build Server (Go)
