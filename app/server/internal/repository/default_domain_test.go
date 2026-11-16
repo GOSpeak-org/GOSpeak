@@ -26,6 +26,9 @@ func TestMigrateDefaultDomain_CreatesOwnerAndMember(t *testing.T) {
 	if domain.OwnerUUID != "admin-uuid" {
 		t.Fatalf("expected owner admin-uuid, got %q", domain.OwnerUUID)
 	}
+	if !domain.IsPublic {
+		t.Fatal("expected default domain to be public")
+	}
 
 	var member model.DomainMember
 	if err := db.Where("domain_uuid = ? AND user_uuid = ?", domain.UUID, "admin-uuid").First(&member).Error; err != nil {
@@ -80,6 +83,26 @@ func TestMigrateDefaultDomain_RepairsMissingOwner(t *testing.T) {
 	}
 	if room.DomainUUID != "" {
 		t.Fatalf("existing default domain must not migrate platform rooms, got %q", room.DomainUUID)
+	}
+}
+
+func TestMigrateDefaultDomain_RepairsExistingDomainToPublic(t *testing.T) {
+	db := newDomainTestDB(t)
+	broken := &model.Domain{Name: "默认域", Description: "legacy default", OwnerUUID: "existing-owner", IsPublic: false}
+	if err := db.Create(broken).Error; err != nil {
+		t.Fatalf("seed broken domain: %v", err)
+	}
+
+	if err := EnsureDefaultDomain(db, "admin-uuid"); err != nil {
+		t.Fatalf("EnsureDefaultDomain: %v", err)
+	}
+
+	var domain model.Domain
+	if err := db.Where("uuid = ?", broken.UUID).First(&domain).Error; err != nil {
+		t.Fatalf("default domain not found: %v", err)
+	}
+	if !domain.IsPublic {
+		t.Fatal("expected existing default domain repaired to public")
 	}
 }
 

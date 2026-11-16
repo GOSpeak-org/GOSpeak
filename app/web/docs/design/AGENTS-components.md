@@ -27,7 +27,7 @@ components/
 ├── textRoom/       # 文字房间（TextRoomPanel、MessageList、MessageItem、MessageInput、ReactionBar、MarkdownText）
 ├── chat/           # 聊天（conversationList、chatWindow、audioControl、micControl、speakerControl、memberSidebar）
 ├── discover/       # 发现页（DiscoverDomainGrid / Card / JoinPanel、DiscoverMyDomains）
-├── domain/         # 域管理 UI（DomainRoomTable、DomainMemberTable、GuestManageTable、CreateDomainModal、InviteShareModal、DomainIcon…）
+├── domain/         # 域管理 UI（DomainRoomTable、DomainMemberTable、CreateDomainModal、InviteShareModal、DomainIcon…）
 ├── manage/         # 管理壳复用件（ManageShell、manageNav、UserSearchSelect、MuteDurationPicker）
 ├── modal/          # 弹窗（createRoomModal、editRoomModal、userCard、settingModal/）
 ├── form/           # 表单（PasswordChangeForm、index.tsx）

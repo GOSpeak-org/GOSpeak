@@ -16,7 +16,7 @@ import { isDesktop } from "./runtime";
  * 否则回退到运行时检测。UI 条件渲染用它，模块级裁剪用 token。
  */
 
-export type BuildTarget = "web" | "desktop";
+export type BuildTarget = "web" | "desktop" | "mobile";
 
 /**
  * 当前构建目标。未注入 token 的环境（tsc / vitest / Node 直跑源码）按 `"web"` 兜底，

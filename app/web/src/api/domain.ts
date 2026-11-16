@@ -26,6 +26,7 @@ export interface DomainMember {
 	joined_at: string;
 	name: string;
 	display_name: string;
+	avatar?: string;
 }
 
 export interface DomainPage {

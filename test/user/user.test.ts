@@ -76,13 +76,26 @@ describe("user module", () => {
 			token: admin,
 			body: { id: user.user.id, role: "admin" },
 		});
-		expect(promote.code).toBe(0);
+		assertSuccess(promote);
+
+		// 写操作必须回读：只断言 code=0 抓不到「返回成功但没落库」。
+		const promoted = await api<{ role: string }>("/api/v1/user/get", {
+			token: admin,
+			body: { id: user.user.id },
+		});
+		expect(assertSuccess(promoted).role).toBe("admin");
 
 		const demote = await api("/api/v1/user/update-role", {
 			token: admin,
 			body: { id: user.user.id, role: "user" },
 		});
-		expect(demote.code).toBe(0);
+		assertSuccess(demote);
+
+		const demoted = await api<{ role: string }>("/api/v1/user/get", {
+			token: admin,
+			body: { id: user.user.id },
+		});
+		expect(assertSuccess(demoted).role).toBe("user");
 	});
 
 	it("lets admins delete a user", async () => {
@@ -106,7 +119,7 @@ describe("user module", () => {
 		const user = await registerUser("user");
 		const groupName = unique("group");
 
-		const created = await api<{ id: number; name: string }>(
+		const created = await api<{ id: number; group_name: string }>(
 			"/api/v1/user-group/create",
 			{
 				token: user.access_token,
@@ -115,25 +128,39 @@ describe("user module", () => {
 		);
 		const group = assertSuccess(created);
 		expect(group.id).toBeGreaterThan(0);
+		expect(group.group_name).toBe(groupName);
 
-		const listed = await api<{ groups: Array<{ id: number; name: string }> }>(
-			"/api/v1/user-group/list",
-			{
-				token: user.access_token,
-			},
-		);
-		expect(listed.data?.groups.some((item) => item.id === group.id)).toBe(true);
+		const listed = await api<{
+			groups: Array<{ id: number; group_name: string }>;
+		}>("/api/v1/user-group/list", {
+			token: user.access_token,
+		});
+		expect(
+			assertSuccess(listed).groups.some((item) => item.id === group.id),
+		).toBe(true);
 
+		const renamedGroupName = `${groupName}_renamed`;
 		const renamed = await api("/api/v1/user-group/update", {
 			token: user.access_token,
-			body: { id: group.id, group_name: `${groupName}_renamed` },
+			body: { id: group.id, group_name: renamedGroupName },
 		});
-		expect(renamed.code).toBe(0);
+		assertSuccess(renamed);
+
+		// 改名后回读列表：确认落库的是新名字，而不是接口只吞了参数。
+		const relisted = await api<{
+			groups: Array<{ id: number; group_name: string }>;
+		}>("/api/v1/user-group/list", {
+			token: user.access_token,
+		});
+		const renamedGroup = assertSuccess(relisted).groups.find(
+			(item) => item.id === group.id,
+		);
+		expect(renamedGroup?.group_name).toBe(renamedGroupName);
 
 		const deleted = await api("/api/v1/user-group/delete", {
 			token: user.access_token,
 			body: { id: group.id },
 		});
-		expect(deleted.code).toBe(0);
+		assertSuccess(deleted);
 	});
 });

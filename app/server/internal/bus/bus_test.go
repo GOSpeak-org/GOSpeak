@@ -3,6 +3,8 @@ package bus
 import (
 	"encoding/json"
 	"testing"
+
+	"GOSpeak/internal/protocol"
 )
 
 func TestSubjectHelpers(t *testing.T) {
@@ -16,11 +18,11 @@ func TestSubjectHelpers(t *testing.T) {
 
 func TestNewEnvelopeRoundTrip(t *testing.T) {
 	payload := map[string]any{"identity": "alice"}
-	env, err := NewEnvelope("inst-1", "room", "lobby", "member:joined", payload)
+	env, err := NewEnvelope("inst-1", "room", "lobby", protocol.EventMemberJoined, payload)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if env.V != 1 || env.InstanceID != "inst-1" || env.Scope != "room" || env.Room != "lobby" || env.Event != "member:joined" {
+	if env.V != 1 || env.InstanceID != "inst-1" || env.Scope != "room" || env.Room != "lobby" || env.Event != protocol.EventMemberJoined {
 		t.Fatalf("envelope fields wrong: %+v", env)
 	}
 	if env.TS <= 0 {

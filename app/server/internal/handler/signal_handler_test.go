@@ -78,14 +78,10 @@ func (m *mockSFU) GetHost() string {
 // ─── Helpers ───
 
 func setupRouter(sfu *mockSFU) *gin.Engine {
-	return setupRouterWithClusterResolver(sfu, nil)
+	return setupRouterFull(sfu, nil)
 }
 
-func setupRouterWithClusterResolver(sfu *mockSFU, resolver func(domainUUID string) (string, error)) *gin.Engine {
-	return setupRouterFull(sfu, nil, resolver)
-}
-
-func setupRouterFull(sfu *mockSFU, checker func(domainUUID, userUUID string) bool, _ func(domainUUID string) (string, error)) *gin.Engine {
+func setupRouterFull(sfu *mockSFU, checker func(domainUUID, userUUID string) bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	svc := service.NewSFUService(sfu, nil, checker)
@@ -295,7 +291,7 @@ func TestGetJoinToken_SFUError(t *testing.T) {
 func TestGetJoinToken_DomainSuccess(t *testing.T) {
 	r := setupRouterFull(&mockSFU{}, func(domainUUID, userUUID string) bool {
 		return domainUUID == "domain-a" && userUUID == "user-1"
-	}, nil)
+	})
 
 	body := `{"room":"test-room","domain_uuid":"domain-a"}`
 	w := httptest.NewRecorder()
@@ -325,7 +321,7 @@ func TestGetJoinToken_DomainSuccess(t *testing.T) {
 func TestGetJoinToken_DomainNonMemberForbidden(t *testing.T) {
 	r := setupRouterFull(&mockSFU{}, func(domainUUID, userUUID string) bool {
 		return false
-	}, nil)
+	})
 
 	body := `{"room":"test-room","domain_uuid":"domain-a"}`
 	w := httptest.NewRecorder()
@@ -522,6 +518,20 @@ func TestListParticipants_Success(t *testing.T) {
 	if resp.Code != pkg.SUCCESS {
 		t.Fatalf("expected SUCCESS, got %d", resp.Code)
 	}
+	participants, ok := resp.Data.([]interface{})
+	if !ok {
+		t.Fatalf("data is not an array: %#v", resp.Data)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("expected 1 participant, got %d", len(participants))
+	}
+	participant, ok := participants[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("participant is not an object: %#v", participants[0])
+	}
+	if participant["identity"] != "user-1" {
+		t.Errorf("expected identity user-1, got %v", participant["identity"])
+	}
 }
 
 func TestListParticipants_MissingRoom(t *testing.T) {
@@ -534,6 +544,27 @@ func TestListParticipants_MissingRoom(t *testing.T) {
 	resp := parseResp(t, w.Body.String())
 	if resp.Code != pkg.INVALID_PARAMS {
 		t.Fatalf("expected INVALID_PARAMS, got %d", resp.Code)
+	}
+}
+
+func TestListParticipants_SFUError(t *testing.T) {
+	sfu := &mockSFU{
+		listParticipants: func(room string) ([]sfu.ParticipantSummary, error) {
+			return nil, errors.New("livekit unavailable")
+		},
+	}
+	r := setupRouter(sfu)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/participants?room=test-room", nil)
+	r.ServeHTTP(w, req)
+
+	resp := parseResp(t, w.Body.String())
+	if resp.Code != pkg.INTERNAL_ERROR {
+		t.Fatalf("expected INTERNAL_ERROR, got %d", resp.Code)
+	}
+	if resp.Data != nil {
+		t.Fatalf("SFU failure must not be disguised as an empty participant list, got %v", resp.Data)
 	}
 }
 

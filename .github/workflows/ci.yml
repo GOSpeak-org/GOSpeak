@@ -52,6 +52,7 @@ jobs:
               - 'app/desktop/go.sum'
             js:
               - 'app/web/**'
+              - 'app/mobile/**'
               - 'app/desktop/mygo.config.ts'
               - 'app/desktop/package.json'
               - 'packages/**'
@@ -88,7 +89,7 @@ jobs:
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
               needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
-        run: pnpm exec biome ci --files-ignore-unknown=true ./app/web ./packages ./scripts ./test ./app/desktop
+        run: pnpm exec biome ci --files-ignore-unknown=true ./app/web ./packages ./scripts ./test ./app/desktop ./app/mobile
       - name: UI token guard (圆角 / 字号 / 文字层级 / 图标尺寸)
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
@@ -113,6 +114,13 @@ jobs:
         run: |
           node --test scripts/check-desktop-commands.test.mjs
           node scripts/check-desktop-commands.mjs
+      - name: Mobile bridge contract (plugin methods ↔ native)
+        if: >-
+          ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
+              needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
+        run: |
+          node --test scripts/check-mobile-bridge.test.mjs
+          node scripts/check-mobile-bridge.mjs
       - name: Deploy config guard (env 与 livekit.yaml 一致性)
         # 防止把 LiveKit 密钥硬编码回 livekit.yaml，或让 .env 与注入表达式脱节。
         # 校验逻辑单一来源在 deploy/init.sh --check，本地可直接复跑。
@@ -125,6 +133,10 @@ jobs:
           go-version-file: app/server/go.mod
           cache-dependency-path: app/server/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: server-lint
       - name: Vet
         if: >-
           ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
@@ -156,12 +168,68 @@ jobs:
       - uses: ./.github/actions/pnpm-install
       - name: Build JS
         run: pnpm turbo run build --filter=@gospeak/web
+      - name: Build mobile web bundle
+        run: pnpm turbo run build:mobile --filter=@gospeak/web
       - name: Upload web dist
         uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: app/web/dist
           retention-days: 3
+
+  build-mobile:
+    name: Build Mobile (Capacitor)
+    needs: changes
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
+          needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
+    # 原生编译已实跑通过（Android assembleDebug + iOS simulator build 均绿），
+    # 因此纳入 gate；产物 gospeak-android-debug / gospeak-ios-simulator 供下载验证。
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/pnpm-install
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
+          # 用 17 会在 :capacitor-android:compileDebugJavaWithJavac 报 invalid source release。
+          java-version: '21'
+      - name: Sync native projects
+        run: pnpm --filter @gospeak/mobile sync
+      - name: Build Android (assembleDebug)
+        run: cd app/mobile/android && ./gradlew assembleDebug --no-daemon
+      - name: Upload Android debug APK
+        # 放在 iOS 步骤之前：iOS 失败时 APK 仍然上传成功，可直接下载验证。
+        uses: actions/upload-artifact@v7
+        with:
+          name: gospeak-android-debug
+          path: app/mobile/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+      - name: Build iOS (simulator, unsigned)
+        # iOS 工程走 SPM（App/CapApp-SPM/Package.swift），没有 CocoaPods 的
+        # .xcworkspace，因此必须用 -project 而不是 -workspace。
+        run: |
+          xcodebuild -project app/mobile/ios/App/App.xcodeproj \
+            -scheme App -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath /tmp/gospeak-ios-derived \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Package iOS simulator app
+        # 用 ditto 而不是普通 zip：ditto 会保留 .app 的 bundle 目录结构、可执行位和
+        # 符号链接，解压后仍是可安装的 App.app；裸 zip 容易把 bundle 拍平。
+        run: |
+          test -d /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
+            || { echo "iOS simulator App.app missing"; exit 1; }
+          ditto -c -k --sequesterRsrc --keepParent \
+            /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
+            /tmp/gospeak-ios-simulator.zip
+      - name: Upload iOS simulator app
+        uses: actions/upload-artifact@v7
+        with:
+          name: gospeak-ios-simulator
+          path: /tmp/gospeak-ios-simulator.zip
+          retention-days: 7
 
   build-server:
     name: Build Server (Go)
@@ -178,6 +246,10 @@ jobs:
           go-version-file: app/server/go.mod
           cache-dependency-path: app/server/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: server-build
       - name: Download web dist
         uses: actions/download-artifact@v8
         with:
@@ -211,6 +283,10 @@ jobs:
           go-version-file: app/server/go.mod
           cache-dependency-path: app/server/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: server-test
       - name: Protocol gen-diff
         working-directory: app/server
         run: |
@@ -219,8 +295,14 @@ jobs:
       - name: Test
         working-directory: app/server
         env:
+          CGO_ENABLED: 0
+        run: go test ./... -count=1
+      - name: Test (race)
+        # 并发敏感包必须过 -race：测试侧 mock 的非原子计数曾长期掩盖竞争。
+        working-directory: app/server
+        env:
           CGO_ENABLED: 1
-        run: go test ./... -race -v -count=1
+        run: go test -race ./internal/signal/... ./internal/ws/... ./internal/bus/... -count=1
 
   test-web:
     name: Test Web (Vitest)
@@ -252,7 +334,17 @@ jobs:
       - name: Package unit tests
         env:
           CI: "true"
-        run: pnpm --filter @gospeak/components --filter @gospeak/desktop --filter @gospeak/sfu-client test
+        run: pnpm --filter @gospeak/components --filter @gospeak/desktop --filter @gospeak/sfu-client --filter @gospeak/mobile-capabilities test
+      - name: Package tests (mobile target)
+        env:
+          CI: "true"
+          GOSPEAK_TARGET: mobile
+        run: pnpm --filter @gospeak/mobile-capabilities --filter @gospeak/desktop test
+      - name: Package tests (desktop target)
+        env:
+          CI: "true"
+          GOSPEAK_TARGET: desktop
+        run: pnpm --filter @gospeak/desktop --filter @gospeak/mobile-capabilities test
 
   test-scripts:
     name: Test CI Scripts (node --test)
@@ -283,6 +375,8 @@ jobs:
         run: node scripts/check-version.mjs . "" server
       - name: Version consistency (desktop)
         run: node scripts/check-version.mjs . "" desktop
+      - name: Version consistency (mobile)
+        run: node scripts/check-version.mjs . "" mobile
 
   desktop-go:
     name: Desktop Host (Go)
@@ -301,6 +395,10 @@ jobs:
           go-version-file: app/desktop/go.mod
           cache-dependency-path: app/desktop/go.sum
           cache: true
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/desktop/go.sum
+          cache-prefix: desktop
       - name: Seed embed placeholder
         # proxyserver.go 用 //go:embed all:webui/dist 内嵌前端产物，而该目录
         # 由 mygo build 生成且被 gitignore。这里放一个占位文件，让 vet/test
@@ -312,9 +410,20 @@ jobs:
       - name: Vet
         working-directory: app/desktop
         run: go vet ./...
-      # 桌面端的 go test 依赖真实前端产物（proxyserver 的测试会校验 gzip 与
-      # 完整 index.html），占位文件不满足。这里只做编译期门禁；完整测试在
-      # 本地或发布前用真实构建产物跑。
+      - uses: ./.github/actions/pnpm-install
+      - name: Build web (desktop target)
+        run: pnpm --filter @gospeak/web build:desktop
+      - name: Seed embed from build
+        # proxyserver 测试校验真实 gzip 与完整 index.html，占位文件不满足，
+        # 因此这里用真实桌面目标产物覆盖占位。
+        run: |
+          rm -rf app/desktop/webui/dist
+          mkdir -p app/desktop/webui/dist
+          cp -R app/web/dist/. app/desktop/webui/dist/
+          test -f app/desktop/webui/dist/index.html
+      - name: Test
+        working-directory: app/desktop
+        run: go test ./... -count=1
 
   workflow-lint:
     name: Workflow Lint (actionlint)
@@ -341,7 +450,7 @@ jobs:
   gate:
     name: CI Gate
     if: always()
-    needs: [lint, typecheck, build-js, build-server, test-server, test-web, test-packages, test-scripts, desktop-go, workflow-lint]
+    needs: [lint, typecheck, build-js, build-server, test-server, test-web, test-packages, test-scripts, desktop-go, build-mobile, workflow-lint]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required checks
@@ -355,10 +464,11 @@ jobs:
           TEST_PACKAGES_RESULT: ${{ needs.test-packages.result }}
           TEST_SCRIPTS_RESULT: ${{ needs.test-scripts.result }}
           DESKTOP_GO_RESULT: ${{ needs.desktop-go.result }}
+          BUILD_MOBILE_RESULT: ${{ needs.build-mobile.result }}
           WORKFLOW_LINT_RESULT: ${{ needs.workflow-lint.result }}
         run: |
           set -euo pipefail
-          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_JS_RESULT" "$BUILD_SERVER_RESULT" "$TEST_SERVER_RESULT" "$TEST_WEB_RESULT" "$TEST_PACKAGES_RESULT" "$TEST_SCRIPTS_RESULT" "$DESKTOP_GO_RESULT" "$WORKFLOW_LINT_RESULT"; do
+          for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_JS_RESULT" "$BUILD_SERVER_RESULT" "$TEST_SERVER_RESULT" "$TEST_WEB_RESULT" "$TEST_PACKAGES_RESULT" "$TEST_SCRIPTS_RESULT" "$DESKTOP_GO_RESULT" "$BUILD_MOBILE_RESULT" "$WORKFLOW_LINT_RESULT"; do
             case "$result" in
               success|skipped) ;;
               *) echo "required CI job failed: $result" >&2; exit 1 ;;

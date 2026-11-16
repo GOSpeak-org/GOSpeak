@@ -10,6 +10,7 @@ import (
 
 	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/model"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/repository"
 	"GOSpeak/internal/service"
@@ -100,6 +101,13 @@ func TestRoomHandler_Update_AllowsDomainRolePermission(t *testing.T) {
 	if code := roomResponseCode(t, w); code != 0 {
 		t.Fatalf("expected code 0 without global permission, got %d: %s", code, w.Body.String())
 	}
+	var persisted model.Room
+	if err := db.First(&persisted, roomID).Error; err != nil {
+		t.Fatalf("reload room: %v", err)
+	}
+	if persisted.Name != "renamed" {
+		t.Fatalf("expected persisted room name %q, got %q", "renamed", persisted.Name)
+	}
 }
 
 func TestRoomHandler_Delete_DomainPermissionDoesNotFallBackToGlobal(t *testing.T) {
@@ -178,7 +186,7 @@ func TestRoomHandler_Update_BotClaimsMissingPermissionDoesNotFallBackToGlobal(t 
 		c.Set("username", "bot-1")
 		c.Set("user_uuid", "bot-1")
 		c.Set("role", "user")
-		c.Set("claims", &pkg.Claims{Role: "user", Permissions: []string{"room:read"}})
+		c.Set("claims", &pkg.Claims{Role: "user", Permissions: []string{permcode.PermRoomRead}})
 		c.Next()
 	})
 	r.POST("/room/update", h.Update)

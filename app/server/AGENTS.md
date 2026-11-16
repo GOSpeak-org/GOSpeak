@@ -1,82 +1,64 @@
 # server 模块
 
-GOSpeak 服务端入口，基于 Gin + WebSocket 的 WebRTC 信令服务器。媒体层通过 SFU provider 抽象接入 **LiveKit**（唯一支持的音视频后端）。
+GOSpeak 服务端入口（Gin + 原生 WebSocket）。媒体层经 `sfu.Provider` 抽象接入 **LiveKit（唯一支持的后端）**。
 
-## 目录结构
+## 目录
 
 ```
 server/
-├── main.go               # 程序入口，Swagger 注解定义
-├── AGENTS.md             # 模块说明
-├── cmd/
-│   └── root.go           # Cobra CLI 命令定义（server / version）
-├── server/
-│   └── gin.go            # Gin 引擎启动、依赖组装、WebSocket 集成
+├── main.go              # 入口，Swagger 注解
+├── cmd/                 # cobra：root.go（server/version）、reset_password.go、gen-protocol/
+├── server/              # gin.go（DI 装配）、bootstrap.go、seeds.go、ws_policy.go、server_jobs.go、server_shutdown.go、server_stats.go
 ├── internal/
-│   ├── config/           # 配置管理（环境变量）
-│   ├── model/            # GORM 数据模型
-│   ├── repository/       # 数据访问层
-│   ├── service/          # 业务逻辑层
-│   ├── handler/          # HTTP 请求处理层
-│   ├── middleware/       # Gin 中间件（JWT、权限 RBAC、封禁检查）
-│   ├── router/           # 路由注册（按模块拆分）
-│   ├── sfu/              # SFU 抽象与动态 provider 分发
-│   │   └── providers/    # SFU 后端实现
-│   │       └── livekit/  # LiveKit 实现
-│   ├── bus/              # 进程内嵌事件总线与共享状态（固定 embedded NATS）
-│   ├── protocol/         # WS 事件协议单一事实源（Catalog + payload struct，gen-protocol 产出前端 TS）
-│   ├── ws/               # WebSocket 基础设施（upgrader / fanout / handler + ACK）
-│   ├── permcode/         # 权限码常量
-│   ├── signal/           # WebSocket 信令中心（Hub，事件 handler 走 protocol）
-│   ├── authstate/        # JWT 认证状态（黑名单、密钥轮换，NATS KV）
-│   └── pkg/              # 公共工具（错误码、JWT、响应、OAuth）
-├── docs/                 # Swagger 文档
-├── ../web/               # Web 前端（React 19 + @tanstack/react-router + @tanstack/react-query + zustand + Tailwind 4 + packages/components）
-└── test/                 # 测试用例
+│   ├── config/          # 环境变量解析、校验、归一化
+│   ├── model/           # GORM 实体
+│   ├── repository/      # 数据访问 + 迁移
+│   ├── service/         # 业务逻辑
+│   ├── handler/         # HTTP handler
+│   ├── middleware/      # 鉴权 / 域校验 / 限流 / CORS
+│   ├── router/          # 路由装配（routes/ 按模块拆分）
+│   ├── policy/          # 传输无关的访问策略（HTTP 与 WS 共用）
+│   ├── sfu/             # Provider 抽象 + capabilities + factory
+│   │   └── providers/livekit/
+│   ├── signal/          # WS 信令 Hub
+│   ├── ws/              # WS 基础设施（upgrader/fanout/handler/ACK）
+│   ├── bus/             # 内嵌 NATS 事件总线 + JetStream KV
+│   ├── protocol/        # WS 事件单一事实源
+│   ├── genprotocol/     # TS 代码生成器
+│   ├── authstate/       # JWT 黑名单 / 密钥轮换
+│   ├── jobs/            # 后台任务（聊天持久化、禁言到期）
+│   ├── notify/          # 通知广播
+│   ├── livekitproxy/    # LiveKit 反向代理
+│   ├── metrics/         # 指标
+│   ├── webui/           # 内嵌前端资源
+│   ├── buildinfo/       # 版本信息
+│   ├── permcode/        # 权限码
+│   ├── audit/ logger/ storage/ pkg/
+├── docs/                # Swagger 产物
+└── ../web/              # React 前端
 ```
 
-## 启动方式
+## 启动
 
 ```bash
-go run main.go server          # 生产模式
-go run main.go server -e dev   # 开发模式
+go run main.go server          # 未指定 -e 时默认 dev
+go run main.go server -e prod  # 生产
 ```
 
-## 环境变量（关键项）
+配置全部来自环境变量，由 `config.LoadEnvFiles()` 按优先级加载：`GOSPEAK_ENV_FILE` > 工作目录 `.env.<env>`/`.env` > 仓库根 `deploy/.env`。**仓库不提交 `.env*` 文件**，样例见 `deploy/.env.example`；字段清单见 `internal/config/config.go`。
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| SERVER_PORT | `8998` | HTTP 监听端口 |
-| SFU_PROVIDER | `livekit` | SFU 类型（固定 `livekit`） |
-| LIVEKIT_HOST | — | LiveKit 服务器地址 |
-| LIVEKIT_KEY | — | LiveKit API Key |
-| LIVEKIT_SECRET | — | LiveKit API Secret |
-| DB_TYPE | `SQLite` | `PostgreSQL` / `MySQL` / `SQLite` |
-| DB_WAL | `false` | SQLite WAL 模式开关（并发读建议开启）|
-| JWT_KEY | `default-secret` | JWT 签名密钥（生产必须修改）|
-| EMAIL_ENABLED | `false` | 启用邮箱验证 |
-| STORAGE_TYPE | `local` | `local` / `s3` |
+## 依赖装配
 
-完整变量见根目录 `AGENTS.md` 的「Configuration」章节。
-
-## 依赖关系
-
-```
-main.go → cmd/ → server/gin.go
-                   ├── internal/repository/ → SQLite/PostgreSQL/MySQL
-                   ├── internal/sfu/        → SFU provider 抽象 / 动态分发
-                   │   └── providers/       → livekit
-                   ├── internal/bus/        → 内嵌事件总线（embedded NATS）
-                   ├── internal/service/    → 业务逻辑层
-                   ├── internal/handler/    → HTTP 处理层
-                   ├── internal/router/     → 路由注册（含 domain/conversation/message）
-                   ├── internal/signal/     → WebSocket 信令
-                   └── internal/authstate/  → 黑名单 / 密钥轮换（NATS KV）
-```
+`main.go → cmd/ → server/gin.go`：按 repository → service → handler → router 顺序组装；`bootstrap.go` 负责启动期的域/角色种子与回填，`server_jobs.go` 启动后台任务，`server_shutdown.go` 收尾（含 bus cleanup）。
 
 ## 禁言语义
 
-- 服务端只维护**用户级禁言**。
-- 用户级禁言：**允许收听，但不允许发布本地音轨**。
-- 不要引入"房间级静音/房间级禁言"作为产品语义。
-- `静音` = 前端本地远端轨道静音；`禁言` = 服务端用户级发言限制。
+- 只维护**用户级禁言**：允许收听，禁止发布本地音轨。
+- 不引入「房间级禁言/静音」作为产品语义。
+- `静音` = 客户端本地对远端音轨静音；`禁言` = 服务端用户级发言限制。
+
+## 关键约束
+
+- `SFU_PROVIDER` 固定 `livekit`，其他值启动失败。
+- HTTP 与 WS 两个通道共用 `internal/policy` 的封禁判决（`middleware.BanCheck` 与 `ws_policy.go`）。
+- 改 `internal/protocol` 后必须 `pnpm gen:protocol`。

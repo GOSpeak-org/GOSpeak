@@ -47,9 +47,6 @@ func (f *failingGetStore) DeleteRoomMembers(ctx context.Context, room string) er
 	return nil
 }
 
-
-
-
 func (f *failingGetStore) ListRoomNames(ctx context.Context) ([]string, error) { return nil, nil }
 
 func TestSyncRoomToStorePlain_ReadErrorDoesNotClobber(t *testing.T) {
@@ -58,7 +55,7 @@ func TestSyncRoomToStorePlain_ReadErrorDoesNotClobber(t *testing.T) {
 	hub.SetMembershipStore(store, "inst-a")
 
 	// 最后一名本地成员离开时，若远端快照读失败，绝不能执行删除/覆盖。
-	hub.syncRoomToStore("domain:lobby")
+	hub.syncRoomToStore(pkg.RoomKey("domain", "lobby"))
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -105,8 +102,8 @@ func TestRegisterRoomMembers_RejectsRemoteDuplicateIdentity(t *testing.T) {
 	hub.SetMembershipStore(store, "inst-a")
 
 	now := time.Now().UnixMilli()
-	store.rooms["domain:lobby"] = bus.RoomMembersSnapshot{
-		Room: "domain:lobby",
+	store.rooms[pkg.RoomKey("domain", "lobby")] = bus.RoomMembersSnapshot{
+		Room: pkg.RoomKey("domain", "lobby"),
 		Members: []bus.MemberRecord{{
 			Identity:    "alice",
 			InstanceID:  "inst-b",
@@ -115,13 +112,13 @@ func TestRegisterRoomMembers_RejectsRemoteDuplicateIdentity(t *testing.T) {
 	}
 
 	local := []bus.MemberRecord{{
-		Room:        "domain:lobby",
+		Room:        pkg.RoomKey("domain", "lobby"),
 		Identity:    "alice",
 		SocketHint:  "conn-2",
 		InstanceID:  "inst-a",
 		ExpiresAtMS: now + 60_000,
 	}}
-	err := hub.registerRoomMembers("domain:lobby", local, 0, "alice")
+	err := hub.registerRoomMembers(pkg.RoomKey("domain", "lobby"), local, 0, "alice")
 	if !errors.Is(err, errDuplicateRemoteIdentity) {
 		t.Fatalf("expected errDuplicateRemoteIdentity, got %v", err)
 	}
@@ -133,8 +130,8 @@ func TestRegisterRoomMembers_EnforcesLimitAtomically(t *testing.T) {
 	hub.SetMembershipStore(store, "inst-a")
 
 	now := time.Now().UnixMilli()
-	store.rooms["domain:lobby"] = bus.RoomMembersSnapshot{
-		Room: "domain:lobby",
+	store.rooms[pkg.RoomKey("domain", "lobby")] = bus.RoomMembersSnapshot{
+		Room: pkg.RoomKey("domain", "lobby"),
 		Members: []bus.MemberRecord{{
 			Identity:    "bob",
 			InstanceID:  "inst-b",
@@ -143,13 +140,13 @@ func TestRegisterRoomMembers_EnforcesLimitAtomically(t *testing.T) {
 	}
 
 	local := []bus.MemberRecord{{
-		Room:        "domain:lobby",
+		Room:        pkg.RoomKey("domain", "lobby"),
 		Identity:    "alice",
 		SocketHint:  "conn-1",
 		InstanceID:  "inst-a",
 		ExpiresAtMS: now + 60_000,
 	}}
-	err := hub.registerRoomMembers("domain:lobby", local, 1, "alice")
+	err := hub.registerRoomMembers(pkg.RoomKey("domain", "lobby"), local, 1, "alice")
 	if !errors.Is(err, errRoomLimitExceeded) {
 		t.Fatalf("expected errRoomLimitExceeded, got %v", err)
 	}

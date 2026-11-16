@@ -138,20 +138,22 @@ func TestDomainInviteRepository_Disable_Idempotent(t *testing.T) {
 	if err := repo.Create(invite); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if err := repo.Disable(invite.ID, "u1"); err != nil {
-		t.Fatalf("first disable: %v", err)
+	seeded := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	if err := db.Model(&model.DomainInvite{}).Where("id = ?", invite.ID).
+		Update("disabled_at", seeded).Error; err != nil {
+		t.Fatalf("seed disabled_at: %v", err)
 	}
-	first, _ := repo.GetByID(invite.ID)
-	if first.DisabledAt == nil {
-		t.Fatal("disabled_at must be set")
-	}
-	time.Sleep(2 * time.Millisecond)
-	if err := repo.Disable(invite.ID, "u2"); err != nil {
-		t.Fatalf("second disable: %v", err)
-	}
-	second, _ := repo.GetByID(invite.ID)
-	if !second.DisabledAt.Equal(*first.DisabledAt) {
-		t.Fatal("disable must be idempotent (disabled_at unchanged)")
+	for i, operator := range []string{"u1", "u2"} {
+		if err := repo.Disable(invite.ID, operator); err != nil {
+			t.Fatalf("disable %d: %v", i, err)
+		}
+		got, err := repo.GetByID(invite.ID)
+		if err != nil {
+			t.Fatalf("get after disable %d: %v", i, err)
+		}
+		if got.DisabledAt == nil || got.DisabledAt.Unix() != seeded.Unix() {
+			t.Fatalf("disable %d must preserve seeded disabled_at, got %v want %v", i, got.DisabledAt, seeded)
+		}
 	}
 }
 

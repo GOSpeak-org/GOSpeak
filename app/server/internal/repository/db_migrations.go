@@ -408,7 +408,7 @@ func migrateDefaultDomain(db *gorm.DB, ownerUUID string) error {
 			return nil
 		}
 		defaultDomain = &model.Domain{
-			Name: "默认域", Description: "系统默认语音域", IsPublic: false, OwnerUUID: ownerUUID,
+			Name: "默认域", Description: "系统默认语音域", IsPublic: true, OwnerUUID: ownerUUID,
 		}
 		if err := db.Create(defaultDomain).Error; err != nil {
 			return err
@@ -423,6 +423,13 @@ func migrateDefaultDomain(db *gorm.DB, ownerUUID string) error {
 			return err
 		}
 		defaultDomain.OwnerUUID = ownerUUID
+	}
+
+	if !defaultDomain.IsPublic {
+		if err := db.Model(&model.Domain{}).Where("uuid = ?", defaultDomain.UUID).Update("is_public", true).Error; err != nil {
+			return err
+		}
+		defaultDomain.IsPublic = true
 	}
 
 	ownerUUIDForMember := defaultDomain.OwnerUUID

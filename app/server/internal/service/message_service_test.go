@@ -13,6 +13,7 @@ import (
 	"GOSpeak/internal/bus"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/repository"
 
 	"github.com/glebarez/sqlite"
@@ -462,14 +463,14 @@ func TestMessageService_Send_Success(t *testing.T) {
 		t.Error("expected non-zero CreatedAt")
 	}
 
-	// Bus should have received "message:created"
+	// Bus should have received protocol.EventMessageCreated
 	bus.mu.Lock()
 	busCalls := len(bus.calls)
 	bus.mu.Unlock()
 	if busCalls != 1 {
 		t.Errorf("expected 1 bus call, got %d", busCalls)
 	}
-	if len(bus.calls) > 0 && bus.calls[0] != "message:created" {
+	if len(bus.calls) > 0 && bus.calls[0] != protocol.EventMessageCreated {
 		t.Errorf("expected bus event 'message:created', got %s", bus.calls[0])
 	}
 
@@ -706,7 +707,7 @@ func TestMessageService_Edit_Success(t *testing.T) {
 	}
 
 	// Bus got message:updated
-	if len(bus.calls) != 1 || bus.calls[0] != "message:updated" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageUpdated {
 		t.Errorf("expected bus event 'message:updated', got %v", bus.calls)
 	}
 
@@ -830,7 +831,7 @@ func TestMessageService_Delete_Success(t *testing.T) {
 	assertNoError(t, err)
 
 	// Bus got message:deleted
-	if len(bus.calls) != 1 || bus.calls[0] != "message:deleted" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageDeleted {
 		t.Errorf("expected bus event 'message:deleted', got %v", bus.calls)
 	}
 
@@ -916,7 +917,7 @@ func TestMessageService_React_Success(t *testing.T) {
 	assertNoError(t, err)
 
 	// Bus got message:reaction
-	if len(bus.calls) != 1 || bus.calls[0] != "message:reaction" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageReaction {
 		t.Errorf("expected bus event 'message:reaction', got %v", bus.calls)
 	}
 
@@ -990,7 +991,7 @@ func TestMessageService_Unreact_Success(t *testing.T) {
 	assertNoError(t, err)
 
 	// Bus got message:reaction
-	if len(bus.calls) != 1 || bus.calls[0] != "message:reaction" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageReaction {
 		t.Errorf("expected bus event 'message:reaction', got %v", bus.calls)
 	}
 
@@ -1508,7 +1509,7 @@ func TestMessageService_Delete_BroadcastUsesDomainScopedKey(t *testing.T) {
 	bus.reset()
 	assertNoError(t, svc.Delete(domainRoomUUID, dto.UUID, testActorWithUUID("alice", "uuid-alice"), false))
 
-	if len(bus.calls) != 1 || bus.calls[0] != "message:deleted" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageDeleted {
 		t.Fatalf("expected message:deleted broadcast, got %v", bus.calls)
 	}
 	if bus.rooms[0] != "domain-del:domain-delete-room" {
@@ -1527,7 +1528,7 @@ func TestMessageService_React_BroadcastUsesDomainScopedKey(t *testing.T) {
 	bus.reset()
 	assertNoError(t, svc.React(domainRoomUUID, dto.UUID, testActorWithUUID("alice", "uuid-alice"), "+1"))
 
-	if len(bus.calls) != 1 || bus.calls[0] != "message:reaction" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageReaction {
 		t.Fatalf("expected message:reaction broadcast, got %v", bus.calls)
 	}
 	if bus.rooms[0] != "domain-react:domain-react-room" {
@@ -1547,7 +1548,7 @@ func TestMessageService_Unreact_BroadcastUsesDomainScopedKey(t *testing.T) {
 	bus.reset()
 	assertNoError(t, svc.Unreact(domainRoomUUID, dto.UUID, testActorWithUUID("alice", "uuid-alice"), "+1"))
 
-	if len(bus.calls) != 1 || bus.calls[0] != "message:reaction" {
+	if len(bus.calls) != 1 || bus.calls[0] != protocol.EventMessageReaction {
 		t.Fatalf("expected message:reaction broadcast, got %v", bus.calls)
 	}
 	if bus.rooms[0] != "domain-unreact:domain-unreact-room" {

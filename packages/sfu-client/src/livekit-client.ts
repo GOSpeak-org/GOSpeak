@@ -15,6 +15,10 @@ import {
 	setLogLevel,
 } from "livekit-client";
 import {
+	createReconnectPolicy,
+	type ReconnectContextLike,
+} from "./reconnect-policy";
+import {
 	computeScreenShareLayerEncodings,
 	DEFAULT_SCREEN_SHARE_QUALITY,
 	SCREEN_SHARE_CAPTURE_RESOLUTION,
@@ -47,6 +51,9 @@ export class LiveKitSFUClient implements SFUClient {
 
 	constructor(options: SFUClientOptions = {}) {
 		setLogLevel(LogLevel.warn);
+		const reconnectPolicy = createReconnectPolicy({
+			isOnline: options.isOnline,
+		});
 		this.room = new Room({
 			adaptiveStream: true,
 			dynacast: true,
@@ -67,10 +74,8 @@ export class LiveKitSFUClient implements SFUClient {
 			},
 			webAudioMix: true,
 			reconnectPolicy: {
-				nextRetryDelayInMs: (context: { retryCount: number }) => {
-					if (context.retryCount >= 3) return null;
-					return Math.min(1000 * 2 ** context.retryCount, 8000);
-				},
+				nextRetryDelayInMs: (context: ReconnectContextLike) =>
+					reconnectPolicy(context).delayMs,
 			},
 		});
 

@@ -9,6 +9,7 @@ import { useChatStore } from "@/stores/chatStore";
 import { useScreenShareStore } from "@/stores/screenShareStore";
 import { useSocketStore } from "@/stores/socketStore";
 import { useWorkspaceUiStore } from "@/stores/workspaceUiStore";
+import { useMobileSessionBridge } from "./hooks/useMobileSessionBridge";
 import { useRoomAudioBridge } from "./hooks/useRoomAudioBridge";
 import { useRoomSounds } from "./hooks/useRoomSounds";
 import { useVoiceSession } from "./hooks/useVoiceSession";
@@ -27,6 +28,12 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 	const session = useVoiceSession();
 	useRoomAudioBridge(session.sfuClient, session.isJoined);
 	useRoomSounds(session.phase);
+	useMobileSessionBridge({
+		isJoined: session.isJoined,
+		currentRoom: session.currentRoom,
+		phase: session.phase,
+		handleManualLeave: session.handleManualLeave,
+	});
 
 	// 远端屏幕共享 / 摄像头画面：client 层只抛 track，渲染交给视图组件
 	const sfuClient = session.sfuClient;

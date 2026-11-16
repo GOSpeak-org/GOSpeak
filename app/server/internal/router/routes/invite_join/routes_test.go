@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"GOSpeak/internal/handler"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,18 +44,18 @@ func TestRoutes_Registered(t *testing.T) {
 func TestRoutes_RegisterIsRateLimited(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	RegisterPublic(r.Group("/api/v1/invite"), nil)
-	// 20 次以内放行；第 21 次命中 1017。handler 为 nil 会在放行后 panic，
-	// 因此只断言「限流生效时返回 1017 而不是 500」。
+	h := handler.NewInviteJoinHandler(nil, nil)
+	RegisterPublic(r.Group("/api/v1/invite"), h)
+	// 畸形 JSON 在 handler 绑定阶段即返回，不会触及 nil service。
 	for i := 0; i < 21; i++ {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/invite/register", strings.NewReader("{}"))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/invite/register", strings.NewReader("not-json"))
 		req.Header.Set("Content-Type", "application/json")
 		req.RemoteAddr = "10.1.2.3:1234"
-		func() {
-			defer func() { _ = recover() }()
-			r.ServeHTTP(rec, req)
-		}()
+		r.ServeHTTP(rec, req)
+		if i < 20 && rec.Code == http.StatusTooManyRequests {
+			t.Fatalf("request %d must pass rate limit, got 429", i+1)
+		}
 		if i == 20 && rec.Code != http.StatusTooManyRequests {
 			t.Fatalf("21st request status = %d, want 429", rec.Code)
 		}

@@ -17,7 +17,7 @@
 **1. 用户规模**
 - 10 人以内：单机 + SQLite
 - 几十人：单机 + PostgreSQL，或将数据库独立部署
-- 上百人：LiveKit 独立部署、对象存储、多实例
+- 上百人：LiveKit 独立部署、对象存储、PostgreSQL（单实例纵向扩展）
 
 **2. 语音自建还是云服务？**
 自建 LiveKit 成本低但需自行运维；LiveKit Cloud 免运维但按量计费。详见 [语音服务](/sfu/)。
@@ -111,7 +111,7 @@ GOSPEAK_PORT=8998
 
 将现有反代指向 `http://<宿主机>:8998` 这**一个上游**，`/api`、`/ws`、`/uploads`、`/livekit` 全部同源经过它。反代侧需保留 `Host` 与 `X-Forwarded-Proto` 头，并放行 WebSocket 升级。
 
-**无需为 LiveKit 编写任何 location。** 详见 [反代与 HTTPS](/deploy/nginx)。
+**无需为 LiveKit 编写任何 location。** 详见 [反代与 HTTPS](/deploy/reverse-proxy)。
 
 ### 场景三：局域网 / 无域名测试
 
@@ -276,6 +276,6 @@ docker run -d \
 ## 下一步
 
 - [Docker Compose 详解](/deploy/compose) — 各档位说明
-- [反代与 HTTPS](/deploy/nginx) — 内置 Caddy 与已有反代
+- [反代与 HTTPS](/deploy/reverse-proxy) — 内置 Caddy 与已有反代
 - [监控](/deploy/monitoring) — Prometheus + Grafana
 - [故障排查](/deploy/troubleshooting) — 问题诊断

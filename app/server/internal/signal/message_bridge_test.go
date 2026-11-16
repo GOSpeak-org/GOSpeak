@@ -2,10 +2,12 @@ package signal
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
 	"GOSpeak/internal/model"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
 )
@@ -18,8 +20,18 @@ type mockMessageSvc struct {
 	deleteCalled        int
 	reactCalled         int
 	unreactCalled       int
+	reactErr            error
+	unreactErr          error
 	lastRoomUUID        string
 	lastCanDeleteOthers bool
+	lastReactRoom       string
+	lastReactMessage    string
+	lastReactEmoji      string
+	lastReactIdentity   string
+	lastUnreactRoom     string
+	lastUnreactMessage  string
+	lastUnreactEmoji    string
+	lastUnreactIdentity string
 }
 
 func (m *mockMessageSvc) Send(roomUUID string, actor service.MessageActor, content, replyTo, clientNonce string, mentions []string) (*service.MessageDTO, error) {
@@ -41,12 +53,20 @@ func (m *mockMessageSvc) Delete(roomUUID, messageUUID string, actor service.Mess
 
 func (m *mockMessageSvc) React(roomUUID, messageUUID string, actor service.MessageActor, emoji string) error {
 	m.reactCalled++
-	return nil
+	m.lastReactRoom = roomUUID
+	m.lastReactMessage = messageUUID
+	m.lastReactEmoji = emoji
+	m.lastReactIdentity = actor.Identity
+	return m.reactErr
 }
 
 func (m *mockMessageSvc) Unreact(roomUUID, messageUUID string, actor service.MessageActor, emoji string) error {
 	m.unreactCalled++
-	return nil
+	m.lastUnreactRoom = roomUUID
+	m.lastUnreactMessage = messageUUID
+	m.lastUnreactEmoji = emoji
+	m.lastUnreactIdentity = actor.Identity
+	return m.unreactErr
 }
 
 // ─── helpers ───
@@ -220,7 +240,7 @@ func TestOnMessageSend_BotWithoutPermissionDenied(t *testing.T) {
 	h.SetMessageService(msgSvc)
 
 	conn := newMockClient("conn-1")
-	conn.claims = &pkg.Claims{Username: "bot_helper", UserUUID: "bot-helper", Role: "user", Permissions: []string{"message:read"}}
+	conn.claims = &pkg.Claims{Username: "bot_helper", UserUUID: "bot-helper", Role: "user", Permissions: []string{permcode.PermMessageRead}}
 
 	if _, err := h.OnRoomJoin(conn, `{"room":"text-chat","identity":"bot_helper"}`); err != nil {
 		t.Fatalf("join: %v", err)
@@ -245,7 +265,7 @@ func TestOnMessageSend_UsesDomainScopedRoom(t *testing.T) {
 	h := newTestHub()
 	h.roomStore = store
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool {
-		return domainUUID == "domain-a" && userUUID == "alice" && permCode == "message:send"
+		return domainUUID == "domain-a" && userUUID == "alice" && permCode == permcode.PermMessageSend
 	}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
@@ -415,7 +435,9 @@ func TestRoomJoinSFU_WithServer(t *testing.T) {
 		t.Fatalf("OnRoomJoinSFU: %v", err)
 	}
 	var ackMap map[string]interface{}
-	json.Unmarshal([]byte(ack), &ackMap)
+	if err := json.Unmarshal([]byte(ack), &ackMap); err != nil {
+		t.Fatalf("bad ack json: %v", err)
+	}
 	if ackMap["error"] != "text room has no media" {
 		t.Errorf("expected error, got %v", ackMap)
 	}
@@ -427,10 +449,10 @@ func TestOnMessageDelete_DomainRoleCanDeleteOthers(t *testing.T) {
 	}}
 	h := newTestHub()
 	h.roomStore = store
-	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {"message:send": true}}}
+	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {permcode.PermMessageSend: true}}}
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool {
 		return domainUUID == "domain-a" && userUUID == "mod-1" &&
-			(permCode == "message:send" || permCode == "message:delete_others")
+			(permCode == permcode.PermMessageSend || permCode == permcode.PermMessageDeleteOthers)
 	}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
@@ -459,7 +481,7 @@ func TestOnMessageDelete_DomainPermissionGatesDeleteWhenCheckerWired(t *testing.
 	h := newTestHub()
 	h.roomStore = store
 	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{
-		"admin": {"message:send": true, "message:delete_others": true},
+		"admin": {permcode.PermMessageSend: true, permcode.PermMessageDeleteOthers: true},
 	}}
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool { return false }
 	msgSvc := &mockMessageSvc{}
@@ -489,11 +511,11 @@ func TestOnMessageDelete_UsesResolvedRoomDomain(t *testing.T) {
 	h := newTestHub()
 	h.roomStore = store
 	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{
-		"user": {"message:send": true},
+		"user": {permcode.PermMessageSend: true},
 	}}
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool {
 		return domainUUID == "domain-a" && userUUID == "mod-1" &&
-			(permCode == "message:send" || permCode == "message:delete_others")
+			(permCode == permcode.PermMessageSend || permCode == permcode.PermMessageDeleteOthers)
 	}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
@@ -521,9 +543,9 @@ func TestOnMessageSend_DomainPermissionRequiredWhenCheckerWired(t *testing.T) {
 	}}
 	h := newTestHub()
 	h.roomStore = store
-	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {"message:send": true}}}
+	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {permcode.PermMessageSend: true}}}
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool {
-		return domainUUID == "domain-a" && userUUID == "mod-1" && permCode == "message:send"
+		return domainUUID == "domain-a" && userUUID == "mod-1" && permCode == permcode.PermMessageSend
 	}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
@@ -551,9 +573,9 @@ func TestOnMessageSend_DomainPermissionAllowsMember(t *testing.T) {
 	}}
 	h := newTestHub()
 	h.roomStore = store
-	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {"message:send": true}}}
+	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {permcode.PermMessageSend: true}}}
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool {
-		return domainUUID == "domain-a" && userUUID == "mod-1" && permCode == "message:send"
+		return domainUUID == "domain-a" && userUUID == "mod-1" && permCode == permcode.PermMessageSend
 	}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
@@ -578,7 +600,7 @@ func TestOnMessageSend_DomainPermissionNilCheckerFailsClosed(t *testing.T) {
 	}}
 	h := newTestHub()
 	h.roomStore = store
-	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {"message:send": true}}}
+	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{"user": {permcode.PermMessageSend: true}}}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
 
@@ -627,10 +649,10 @@ func TestOnMessageDelete_DomainPermissionDoesNotFallBackToGlobalDeleteOthers(t *
 	h := newTestHub()
 	h.roomStore = store
 	h.permChecker = &mockPermChecker{rolePerms: map[string]map[string]bool{
-		"user": {"message:send": true, "message:delete_others": true},
+		"user": {permcode.PermMessageSend: true, permcode.PermMessageDeleteOthers: true},
 	}}
 	h.domainPermChecker = func(domainUUID, userUUID, permCode string) bool {
-		return domainUUID == "domain-a" && userUUID == "mod-1" && permCode == "message:send"
+		return domainUUID == "domain-a" && userUUID == "mod-1" && permCode == permcode.PermMessageSend
 	}
 	msgSvc := &mockMessageSvc{}
 	h.SetMessageService(msgSvc)
@@ -649,5 +671,168 @@ func TestOnMessageDelete_DomainPermissionDoesNotFallBackToGlobalDeleteOthers(t *
 	}
 	if msgSvc.lastCanDeleteOthers != false {
 		t.Fatalf("domain room must not fall back to global delete_others, got %v", msgSvc.lastCanDeleteOthers)
+	}
+}
+
+func newTextMessageHub(t *testing.T, msgSvc *mockMessageSvc) (*Hub, *mockClient) {
+	t.Helper()
+	h := newTestHub()
+	h.roomStore = newMockRoomStoreWithType("text-chat", model.RoomTypeText)
+	h.SetMessageService(msgSvc)
+	conn := newAuthedMockClient("conn-1", "alice")
+	if _, err := h.OnRoomJoin(conn, `{"room":"text-chat","identity":"alice"}`); err != nil {
+		t.Fatalf("join text-chat: %v", err)
+	}
+	return h, conn
+}
+
+func TestOnMessageReact_Success(t *testing.T) {
+	msgSvc := &mockMessageSvc{}
+	h, conn := newTextMessageHub(t, msgSvc)
+
+	ack, err := h.OnMessageReact(conn, `{"room":"text-chat","message_uuid":"msg-1","emoji":"thumbsup"}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ack != "" {
+		t.Fatalf("expected empty ack data on success, got %q", ack)
+	}
+	if msgSvc.reactCalled != 1 {
+		t.Fatalf("expected 1 react call, got %d", msgSvc.reactCalled)
+	}
+	if msgSvc.lastReactRoom != "uuid-text-chat" || msgSvc.lastReactMessage != "msg-1" ||
+		msgSvc.lastReactEmoji != "thumbsup" || msgSvc.lastReactIdentity != "alice" {
+		t.Fatalf("unexpected React args: room=%q message=%q emoji=%q identity=%q",
+			msgSvc.lastReactRoom, msgSvc.lastReactMessage, msgSvc.lastReactEmoji, msgSvc.lastReactIdentity)
+	}
+}
+
+func TestOnMessageReact_RejectsInvalidPayload(t *testing.T) {
+	msgSvc := &mockMessageSvc{}
+	h, conn := newTextMessageHub(t, msgSvc)
+
+	cases := []struct{ name, frame string }{
+		{"malformed", `not-json`},
+		{"missing room", `{"message_uuid":"msg-1","emoji":"thumbsup"}`},
+		{"missing message uuid", `{"room":"text-chat","emoji":"thumbsup"}`},
+		{"missing emoji", `{"room":"text-chat","message_uuid":"msg-1"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ack, err := h.OnMessageReact(conn, tc.frame)
+			if err == nil {
+				t.Fatal("expected error path")
+			}
+			if err.Error() != "room, message_uuid, and emoji are required" {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if ack != "" {
+				t.Fatalf("expected empty ack on invalid payload, got %q", ack)
+			}
+		})
+	}
+	if msgSvc.reactCalled != 0 {
+		t.Fatalf("invalid payloads must not reach service, got %d calls", msgSvc.reactCalled)
+	}
+}
+
+func TestOnMessageReact_NotInRoom(t *testing.T) {
+	msgSvc := &mockMessageSvc{}
+	h := newTestHub()
+	h.roomStore = newMockRoomStoreWithType("text-chat", model.RoomTypeText)
+	h.SetMessageService(msgSvc)
+	conn := newAuthedMockClient("conn-1", "alice")
+
+	ack, err := h.OnMessageReact(conn, `{"room":"text-chat","message_uuid":"msg-1","emoji":"thumbsup"}`)
+	if err == nil || err.Error() != "not in room: text-chat" {
+		t.Fatalf("expected not-in-room error, got %v", err)
+	}
+	if ack != "" {
+		t.Fatalf("expected empty ack, got %q", ack)
+	}
+	if msgSvc.reactCalled != 0 {
+		t.Fatalf("react must not be called for a non-member, got %d", msgSvc.reactCalled)
+	}
+}
+
+func TestOnMessageReact_ServiceErrorPropagates(t *testing.T) {
+	msgSvc := &mockMessageSvc{reactErr: errors.New("reaction rejected")}
+	h, conn := newTextMessageHub(t, msgSvc)
+
+	ack, err := h.OnMessageReact(conn, `{"room":"text-chat","message_uuid":"msg-1","emoji":"thumbsup"}`)
+	if err == nil || err.Error() != "reaction rejected" {
+		t.Fatalf("expected service error, got %v", err)
+	}
+	if ack != "" {
+		t.Fatalf("expected empty ack on error, got %q", ack)
+	}
+	if msgSvc.reactCalled != 1 {
+		t.Fatalf("expected 1 react call, got %d", msgSvc.reactCalled)
+	}
+}
+
+func TestOnMessageUnreact_Success(t *testing.T) {
+	msgSvc := &mockMessageSvc{}
+	h, conn := newTextMessageHub(t, msgSvc)
+
+	ack, err := h.OnMessageUnreact(conn, `{"room":"text-chat","message_uuid":"msg-1","emoji":"thumbsup"}`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ack != "" {
+		t.Fatalf("expected empty ack data on success, got %q", ack)
+	}
+	if msgSvc.unreactCalled != 1 {
+		t.Fatalf("expected 1 unreact call, got %d", msgSvc.unreactCalled)
+	}
+	if msgSvc.lastUnreactRoom != "uuid-text-chat" || msgSvc.lastUnreactMessage != "msg-1" ||
+		msgSvc.lastUnreactEmoji != "thumbsup" || msgSvc.lastUnreactIdentity != "alice" {
+		t.Fatalf("unexpected Unreact args: room=%q message=%q emoji=%q identity=%q",
+			msgSvc.lastUnreactRoom, msgSvc.lastUnreactMessage, msgSvc.lastUnreactEmoji, msgSvc.lastUnreactIdentity)
+	}
+}
+
+func TestOnMessageUnreact_RejectsInvalidPayload(t *testing.T) {
+	msgSvc := &mockMessageSvc{}
+	h, conn := newTextMessageHub(t, msgSvc)
+
+	cases := []struct{ name, frame string }{
+		{"malformed", `not-json`},
+		{"missing room", `{"message_uuid":"msg-1","emoji":"thumbsup"}`},
+		{"missing message uuid", `{"room":"text-chat","emoji":"thumbsup"}`},
+		{"missing emoji", `{"room":"text-chat","message_uuid":"msg-1"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ack, err := h.OnMessageUnreact(conn, tc.frame)
+			if err == nil {
+				t.Fatal("expected error path")
+			}
+			if err.Error() != "room, message_uuid, and emoji are required" {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if ack != "" {
+				t.Fatalf("expected empty ack on invalid payload, got %q", ack)
+			}
+		})
+	}
+	if msgSvc.unreactCalled != 0 {
+		t.Fatalf("invalid payloads must not reach service, got %d calls", msgSvc.unreactCalled)
+	}
+}
+
+func TestOnMessageUnreact_ServiceErrorPropagates(t *testing.T) {
+	msgSvc := &mockMessageSvc{unreactErr: errors.New("unreaction rejected")}
+	h, conn := newTextMessageHub(t, msgSvc)
+
+	ack, err := h.OnMessageUnreact(conn, `{"room":"text-chat","message_uuid":"msg-1","emoji":"thumbsup"}`)
+	if err == nil || err.Error() != "unreaction rejected" {
+		t.Fatalf("expected service error, got %v", err)
+	}
+	if ack != "" {
+		t.Fatalf("expected empty ack on error, got %q", ack)
+	}
+	if msgSvc.unreactCalled != 1 {
+		t.Fatalf("expected 1 unreact call, got %d", msgSvc.unreactCalled)
 	}
 }

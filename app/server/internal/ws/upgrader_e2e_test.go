@@ -2,6 +2,8 @@ package ws
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,8 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"GOSpeak/internal/pkg"
 	nhooyrws "nhooyr.io/websocket"
+
+	"GOSpeak/internal/pkg"
 )
 
 func wsDialOptionsWithCookie(token string) *nhooyrws.DialOptions {
@@ -85,7 +88,11 @@ func TestUpgrader_E2E_Lifecycle(t *testing.T) {
 
 	conn, resp, err := nhooyrws.Dial(ctx, wsURL, wsDialOptionsWithCookie(token))
 	if err != nil {
-		t.Fatalf("Dial: %v (status=%d)", err, resp.StatusCode)
+		status := 0
+		if resp != nil {
+			status = resp.StatusCode
+		}
+		t.Fatalf("Dial: %v (status=%d)", err, status)
 	}
 	defer conn.Close(nhooyrws.StatusNormalClosure, "test done")
 
@@ -135,15 +142,8 @@ func TestUpgrader_E2E_Lifecycle(t *testing.T) {
 	// Close connection from client side to trigger server cleanup
 	conn.Close(nhooyrws.StatusNormalClosure, "test done")
 
-	// Allow server to process close frame and cleanup
-	time.Sleep(200 * time.Millisecond)
-
-	// After disconnect, client should be removed from fanout
-	if connectedID != "" && fanout.GetClient(connectedID) != nil {
-		t.Log("note: client still registered in fanout (may be race in fast test)")
-	}
-
-	// Verify OnDisconnect lifecycle hook fired
+	// Verify OnDisconnect lifecycle hook fired；事件到达即说明服务端已处理
+	// close frame 并完成清理，用可观察事件替代固定 sleep。
 	select {
 	case c := <-disconnected:
 		if !strings.HasPrefix(c.ID(), "e2e-uuid-") {
@@ -151,6 +151,14 @@ func TestUpgrader_E2E_Lifecycle(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for OnDisconnect")
+	}
+
+	removalDeadline := time.Now().Add(2 * time.Second)
+	for fanout.GetClient(connectedID) != nil {
+		if !time.Now().Before(removalDeadline) {
+			t.Fatal("client must be removed from fanout after disconnect")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -167,16 +175,26 @@ func TestUpgrader_E2E_Unauthenticated(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	_, resp, err := nhooyrws.Dial(ctx, "ws://"+server.Listener.Addr().String()+"/ws", &nhooyrws.DialOptions{})
-	if err == nil {
-		// If Dial succeeded but server sent 401, the upgrade was accepted but status code wasn't checked
-		if resp != nil && resp.StatusCode == http.StatusUnauthorized {
-			return // expected
-		}
-		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	conn, resp, err := nhooyrws.Dial(ctx, "ws://"+server.Listener.Addr().String()+"/ws", &nhooyrws.DialOptions{})
+	if conn != nil {
+		conn.CloseNow()
+		t.Fatal("unauthenticated dial must not complete the upgrade")
 	}
-	// Dial error is also acceptable (server rejected at HTTP level)
-	t.Logf("Dial rejected as expected: %v", err)
+	if err == nil {
+		t.Fatal("expected unauthenticated dial to be rejected")
+	}
+
+	if resp != nil {
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("expected handshake rejection with 401, got %d", resp.StatusCode)
+		}
+		return
+	}
+
+	var netErr net.Error
+	if !errors.As(err, &netErr) {
+		t.Fatalf("expected transport-level dial error, got %T: %v", err, err)
+	}
 }
 
 // TestUpgrader_E2E_OnConnectPanicClosesClient verifies an accepted connection is

@@ -121,7 +121,7 @@ type Provider interface {
 
 | 表 | 存储内容 |
 |----|--------|
-| `users` | 用户账号，含角色、令牌版本、是否访客 |
+| `users` | 用户账号，含角色、令牌版本 |
 | `roles` | 角色（`admin` / `user` / `ban`） |
 | `permissions` | 权限码定义 |
 | `role_permissions` | 角色和权限的关联 |
@@ -131,12 +131,14 @@ type Provider interface {
 
 | 表 | 存储内容 |
 |----|--------|
-| `domains` | 语音域，含访客开关 |
+| `domains` | 语音域，含公开标记与入域审核开关 |
 | `domain_members` | 域的成员关系 |
 | `domain_roles` | 域内角色 |
 | `domain_role_permissions` | 域角色的权限 |
-| `domain_guest_bans` | 访客封禁列表 |
-| `rooms` | 频道/房间 |
+| `domain_join_requests` | 入域申请（pending/approved/rejected） |
+| `domain_invites` | 域邀请码（自包含签名串，含使用次数） |
+| `domain_invite_redemptions` | 邀请码使用记录（含失败原因） |
+| `room` | 频道/房间 |
 
 ### 消息
 
@@ -152,11 +154,13 @@ type Provider interface {
 | 表 | 存储内容 |
 |----|--------|
 | `mutes` | 禁言记录 |
+| `announcements` | 系统公告（平台/域级，含草稿与过期时间） |
+| `announcement_reads` | 用户公告已读记录 |
 | `audit_logs` | 审计日志 |
 | `oauth_providers` / `oauth_accounts` | 第三方登录配置与绑定 |
 | `email_configs` / `email_verification_codes` | 邮件配置与验证码 |
 | `storage_configs` | 存储配置（密钥加密后存储） |
-| `sfu_configs` / `sfu_active_providers` | 语音服务配置 |
+| `sfu_configs` / `sfu_active_provider` | 语音服务配置 |
 
 ## 状态的存储位置
 

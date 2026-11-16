@@ -59,15 +59,6 @@ func TestStartEmbeddedServer_JetStreamAvailable(t *testing.T) {
 }
 
 func TestStartEmbeddedServerOnPort_Fixed(t *testing.T) {
-	es, err := StartEmbeddedServerOnPort(0)
-	if err != nil {
-		t.Fatalf("bootstrap free port server: %v", err)
-	}
-	// Borrow a free port by starting random, then rebind via second start after shutdown
-	// using OS-assigned free port discovery from first ClientURL is flaky; instead use port 0
-	// and validate fixed path with a known free TCP port.
-	es.Shutdown()
-
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen free port: %v", err)
@@ -75,7 +66,7 @@ func TestStartEmbeddedServerOnPort_Fixed(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 	_ = ln.Close()
 
-	es, err = StartEmbeddedServerOnPort(port)
+	es, err := StartEmbeddedServerOnPort(port)
 	if err != nil {
 		t.Fatalf("StartEmbeddedServerOnPort(%d): %v", port, err)
 	}

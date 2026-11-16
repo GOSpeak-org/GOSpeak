@@ -78,14 +78,8 @@ func fakeConn(identity string) *mockClient {
 	return newAuthedMockClient(identity, identity)
 }
 
-func (h *Hub) primeMuteCache(identity string, muted bool) error {
-	h.mu.Lock()
-	if h.muteCache == nil {
-		h.muteCache = make(map[string]muteCacheEntry)
-	}
-	h.muteCache[identity] = muteCacheEntry{muted: muted, expires: time.Now().Add(5 * time.Second)}
-	h.mu.Unlock()
-	return nil
+func (h *Hub) primeMuteCache(identity string, muted bool) {
+	h.muteCacheSet(identity, muted)
 }
 
 func testMuteStoreCallCount(t *testing.T, h *Hub) muteStoreCalls {
@@ -145,9 +139,7 @@ func (m *blockingUserStore) GetByUUID(uuid string) (*model.User, error) {
 
 func TestOnMemberSpeaking_UsesMuteCache(t *testing.T) {
 	h := newTestHubWithMuteStore(t)
-	if err := h.primeMuteCache("alice", false); err != nil {
-		t.Fatalf("primeMuteCache: %v", err)
-	}
+	h.primeMuteCache("alice", false)
 	// 桩 muteStore 每次调用都计数；缓存命中后不再走 DB
 	h.OnMemberSpeaking(fakeConn("alice"), `{"room":"r1","identity":"alice","speaking":true}`)
 	if calls := testMuteStoreCallCount(t, h); calls.IsMutedByIdentity != 0 {

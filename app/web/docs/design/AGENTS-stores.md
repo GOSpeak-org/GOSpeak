@@ -62,7 +62,6 @@ export default userStore;
 | `voiceChatStore.ts` | 本地语音状态（静音、音量），导出 `useVoiceChatStore` / `useVoiceChatActions` |
 | `chatStore.ts` | 会话与文字房间消息状态 |
 | `domainStore.ts` | 域数据与当前选中域 |
-| `guestStore.ts` | 访客态 |
 | `textRoomUiStore.ts` | 文字房间 UI 状态 |
 | `workspaceUiStore.ts` | 工作区舞台（语音/文字）UI 状态 |
 

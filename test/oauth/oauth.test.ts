@@ -64,7 +64,16 @@ describe("oauth module", () => {
 			method: "DELETE",
 			token: admin,
 		});
-		expect(deleted.code).toBe(0);
+		assertSuccess(deleted);
+
+		// 删除后回读管理端列表：确认 provider 确实消失（公开列表过滤 enabled，不作为删除证据）。
+		const remaining = await api<Array<{ id: number; name: string }>>(
+			"/api/v1/oauth/admin/providers",
+			{ method: "GET", token: admin },
+		);
+		const providers = assertSuccess(remaining);
+		expect(providers.some((item) => item.id === provider.id)).toBe(false);
+		expect(providers.some((item) => item.name === name)).toBe(false);
 	});
 
 	it("keeps oauth admin routes admin-only", async () => {

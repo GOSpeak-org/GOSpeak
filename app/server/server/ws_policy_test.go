@@ -5,6 +5,7 @@ import (
 
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/policy"
+	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/ws"
 )
 
@@ -34,7 +35,7 @@ func TestNewWSPolicyGuard_BanRoleRejectedOnEveryEvent(t *testing.T) {
 		},
 	}
 
-	for _, event := range []string{"message:send", "private:send", "typing"} {
+	for _, event := range []string{protocol.EventMessageSend, protocol.EventPrivateSend, protocol.EventTyping} {
 		d := guard(client, ws.Message{Event: event})
 		if d.Code != pkg.USER_BANNED || !d.Terminate {
 			t.Errorf("event %q for ban role must be USER_BANNED + terminate, got %+v", event, d)
@@ -46,7 +47,7 @@ func TestNewWSPolicyGuard_NormalUserUnaffected(t *testing.T) {
 	guard := newWSPolicyGuard(policy.NewEngine(), func(string) string { return "" })
 	client := &fakeWSClient{id: "conn-1", claims: &pkg.Claims{UserUUID: "user-1", Role: "user"}}
 
-	for _, event := range []string{"private:send", "message:send", "typing"} {
+	for _, event := range []string{protocol.EventPrivateSend, protocol.EventMessageSend, protocol.EventTyping} {
 		if d := guard(client, ws.Message{Event: event}); d.Code != pkg.SUCCESS {
 			t.Errorf("event %q must pass for normal user, got %+v", event, d)
 		}
@@ -55,7 +56,7 @@ func TestNewWSPolicyGuard_NormalUserUnaffected(t *testing.T) {
 
 func TestNewWSPolicyGuard_MissingClaimsRejected(t *testing.T) {
 	guard := newWSPolicyGuard(policy.NewEngine(), func(string) string { return "" })
-	if d := guard(&fakeWSClient{id: "conn-1"}, ws.Message{Event: "typing"}); d.Code != pkg.TOKEN_NOT_EXIST {
+	if d := guard(&fakeWSClient{id: "conn-1"}, ws.Message{Event: protocol.EventTyping}); d.Code != pkg.TOKEN_NOT_EXIST {
 		t.Fatalf("connection without claims must be rejected, got %+v", d)
 	}
 }

@@ -9,10 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func setupDomainMiddlewareRouter(checker func(uuid, userUUID string) bool) *gin.Engine {
+func setupDomainMiddlewareRouter(t *testing.T, checker func(uuid, userUUID string) bool) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	SetDomainChecker(checker)
+	t.Cleanup(func() { SetDomainChecker(nil) })
 
 	r.Use(func(c *gin.Context) {
 		userUUID := c.GetHeader("X-User-UUID")
@@ -29,10 +31,12 @@ func setupDomainMiddlewareRouter(checker func(uuid, userUUID string) bool) *gin.
 	return r
 }
 
-func setupDomainMiddlewareIfProvidedRouter(checker func(uuid, userUUID string) bool) *gin.Engine {
+func setupDomainMiddlewareIfProvidedRouter(t *testing.T, checker func(uuid, userUUID string) bool) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	SetDomainChecker(checker)
+	t.Cleanup(func() { SetDomainChecker(nil) })
 
 	r.Use(func(c *gin.Context) {
 		userUUID := c.GetHeader("X-User-UUID")
@@ -50,8 +54,7 @@ func setupDomainMiddlewareIfProvidedRouter(checker func(uuid, userUUID string) b
 }
 
 func TestRequireDomainMemberIfProvided_SkipsWithoutDomain(t *testing.T) {
-	r := setupDomainMiddlewareIfProvidedRouter(func(uuid, userUUID string) bool { return true })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareIfProvidedRouter(t, func(uuid, userUUID string) bool { return true })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"name":"lobby"}`))
@@ -65,8 +68,7 @@ func TestRequireDomainMemberIfProvided_SkipsWithoutDomain(t *testing.T) {
 }
 
 func TestRequireDomainMemberIfProvided_RejectsNonMember(t *testing.T) {
-	r := setupDomainMiddlewareIfProvidedRouter(func(uuid, userUUID string) bool { return false })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareIfProvidedRouter(t, func(uuid, userUUID string) bool { return false })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"domain_uuid":"domain-1"}`))
@@ -80,8 +82,7 @@ func TestRequireDomainMemberIfProvided_RejectsNonMember(t *testing.T) {
 }
 
 func TestRequireDomainMemberIfProvided_AllowsMember(t *testing.T) {
-	r := setupDomainMiddlewareIfProvidedRouter(func(uuid, userUUID string) bool { return true })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareIfProvidedRouter(t, func(uuid, userUUID string) bool { return true })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"domain_uuid":"domain-1"}`))
@@ -95,8 +96,7 @@ func TestRequireDomainMemberIfProvided_AllowsMember(t *testing.T) {
 }
 
 func TestRequireDomainMember_NoUUID(t *testing.T) {
-	r := setupDomainMiddlewareRouter(func(uuid, userUUID string) bool { return true })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareRouter(t, func(uuid, userUUID string) bool { return true })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{}`))
@@ -110,8 +110,7 @@ func TestRequireDomainMember_NoUUID(t *testing.T) {
 }
 
 func TestRequireDomainMember_NotMember(t *testing.T) {
-	r := setupDomainMiddlewareRouter(func(uuid, userUUID string) bool { return false })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareRouter(t, func(uuid, userUUID string) bool { return false })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"domain_uuid":"domain-1"}`))
@@ -125,8 +124,7 @@ func TestRequireDomainMember_NotMember(t *testing.T) {
 }
 
 func TestRequireDomainMember_Success(t *testing.T) {
-	r := setupDomainMiddlewareRouter(func(uuid, userUUID string) bool { return true })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareRouter(t, func(uuid, userUUID string) bool { return true })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"domain_uuid":"domain-1"}`))
@@ -140,8 +138,7 @@ func TestRequireDomainMember_Success(t *testing.T) {
 }
 
 func TestRequireDomainMember_UUIDBodyIgnored(t *testing.T) {
-	r := setupDomainMiddlewareRouter(func(uuid, userUUID string) bool { return true })
-	t.Cleanup(func() { SetDomainChecker(nil) })
+	r := setupDomainMiddlewareRouter(t, func(uuid, userUUID string) bool { return true })
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(`{"uuid":"domain-1"}`))

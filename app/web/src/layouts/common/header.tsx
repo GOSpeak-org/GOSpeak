@@ -15,7 +15,16 @@ export default function Header() {
 
 	return (
 		<div className="text-foreground flex select-none items-center justify-between overflow-hidden px-2 py-0.5 text-xs">
-			<div className="flex-1 font-semibold" />
+			<div className="flex flex-1 items-center gap-1.5">
+				<img
+					src="/favicon-256.png"
+					alt="GOSpeak"
+					className="border-foreground/10 size-4 rounded-sm border"
+				/>
+				<span className="text-xs font-bold tracking-tight">
+					GO<span className="text-primary">Speak</span>
+				</span>
+			</div>
 			<div className="flex items-center justify-center">{title}</div>
 			<div className="flex flex-1 items-center justify-end gap-1">
 				<ConnectionIndicator />

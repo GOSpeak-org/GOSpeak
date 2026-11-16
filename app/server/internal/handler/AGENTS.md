@@ -1,43 +1,31 @@
 # handler 模块
 
-HTTP 请求处理层，负责接收请求、参数校验、调用 service 层并返回统一响应。
+HTTP 请求处理层：参数绑定与校验、调用 service、按统一格式返回。
 
-## 文件说明
+## 分组
 
-| 文件 | 职责 |
+| 领域 | 文件 |
 |------|------|
-| auth_handler.go | 登录、注册、刷新 Token、登出（JTI 写入共享黑名单）、改密、首次改密、重置密码 |
-| user_handler.go | 资料、按名查询、更新资料、上传头像、列表、详情、删除、更新角色 |
-| signal_handler.go | 加入 Token、信令消息、房间列表、参与者列表、Webhook |
-| oauth_handler.go | 第三方登录跳转、回调、启用提供商列表、提供商管理 CRUD |
-| role_handler.go | 角色列表/创建/更新/删除 |
-| permission_handler.go | 权限列表、角色权限查询、角色权限同步 |
-| mute_handler.go | 禁言创建/取消/状态/列表 |
-| room_handler.go | 房间 CRUD |
-| storage_handler.go | 预签名/确认/上传/删除/配置 |
-| email_verification_handler.go | 发送/校验邮箱验证码 |
-| email_config_handler.go | 邮箱配置读取/更新 |
-| sfu_config_handler.go | SFU 配置读取/更新/切换/列出 provider |
-| monitor_handler.go | 健康检查流 |
-| domain_handler.go | Domain 创建/查询/列表/加入/离开/踢出/成员 |
-| conversation_handler.go | 会话列表/消息历史/标记已读 |
-| message_handler.go | 消息发送/编辑/删除/表情回应 |
+| 认证 | `auth_handler` `authcookie` `oauth_handler` |
+| 用户与角色 | `user_handler` `user_group_handler` `role_handler` `permission_handler` |
+| 域 | `domain_handler` `domain_access` `invite_handler` `invite_join_handler` `join_request_handler` |
+| 房间与信令 | `room_handler` `signal_handler` `mute_handler` `sfu_config_handler` |
+| 消息 | `message_handler` `conversation_handler` |
+| 其他 | `announcement_handler` `audit_handler` + `audit_helper` `storage_handler` + `storage_object_handler` + `storage_helpers` `storage_config_handler` `email_config_handler` `email_verification_handler` `monitor_handler` `system_update_handler` |
 
-## signal_handler 特殊逻辑
+## 约定
 
-`SignalHandler` 同时持有 `sfuProvider` 和 `signal.Hub`，区分 SFU 层与信令层职责：
+- 方法签名固定 `func (h *XxxHandler) Name(c *gin.Context)`，**无返回值**。
+- 成功用 `pkg.Success(c, data)`；业务错误 `pkg.HandleError(c, err)`；参数错误 `pkg.Fail(c, pkg.INVALID_PARAMS, ...)`。
+- **不写业务逻辑**：校验入参格式后即调用 service，领域规则留在 service。
+- 不在 handler 里分支 SFU provider——统一走 `sfu.Provider` 抽象，按 `ErrSFUNotSupported` 降级。
+- 敏感字段（密码等）JSON tag 用 `json:"-"`，不要出现在响应里。
 
-| 端点 | SFU 层 | 失败时行为 |
-|------|--------|-----------|
-| `POST /signal/token` | `sfuProvider.GenerateToken()` | 透传错误，不可降级 |
-| `GET /signal/rooms` | `sfuProvider.ListRooms()` | 返回 `[]`（SFU 房间 ≠ 业务房间）|
-| `GET /signal/participants` | `sfuProvider.ListParticipants()` | 返回 `[]`（SFU 参与者 ≠ WS 在线成员）|
+## signal_handler 要点
 
-SFU ListRooms/ListParticipants 失败时不 fallback 到信令层数据，
-因为 SFU 媒体节点状态与信令层在线成员是两个独立概念。
+- `LivekitWebhook`：先验签（失败 → `TOKEN_WRONG`；未配置 → `SFU_NOT_CONFIGURED`），再投递到 jobs；签名校验不可省略。
+- `ListParticipants` 与 `ListRooms` 一样：上游 SFU 出错时走 `pkg.HandleError(c, err)`，不得把故障伪装成「房间无人」的空数组。回归测试见 `signal_handler_test.go` 的 `TestListParticipants_SFUError`。
 
-## 依赖关系
+## 测试
 
-handler → service → repository → model
-
-handler 不直接操作数据库，仅通过 service 层完成业务逻辑。
+handler 单测与源码同包（`*_test.go`），用 `rt`/`gin.TestContext` 构造请求；跨层行为放 `test/` 集成测试。

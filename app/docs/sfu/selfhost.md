@@ -172,7 +172,7 @@ openssl rand -hex 32
 - 有域名：`COMPOSE_PROFILES=app,livekit,edge`，Caddy 自动申请证书
 - 已有反代：反代指向 `gospeak:8998` 即可
 
-详见 [反代与 HTTPS](/deploy/nginx)。
+详见 [反代与 HTTPS](/deploy/reverse-proxy)。
 
 ## 扩展
 

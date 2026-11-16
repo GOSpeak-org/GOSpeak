@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* 自带字体：macOS 用 SF、Windows 用 Segoe UI，字宽与行高不同，
+   同一份设计在两端排版会漂移。Inter + Noto Sans SC 打包进产物统一。 */
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/noto-sans-sc";
 @import "@gospeak/components/theme.css";
 @import "./assets/styles/global.css";
 @import "./assets/styles/auth-shell.css";

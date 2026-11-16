@@ -11,6 +11,8 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ErrorBoundary } from "@/components/common/errorBoundary";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { useMobileBackButton } from "@/hooks/useMobileBackButton";
+import { useMobileKeyboard } from "@/hooks/useMobileKeyboard";
 import DomainWorkspace from "@/layouts/common/domainWorkspace";
 import Header from "@/layouts/common/header";
 import Main from "@/layouts/common/main";
@@ -343,6 +345,10 @@ export default function Layout({ children }: { children: ReactNode }) {
 	useGlobalShortcuts();
 	// 把主窗口的房间/成员/发言状态接力推给原生覆盖层 HUD（仅桌面端生效）。
 	useOverlayRelay();
+	// Android 硬件返回键：有历史回退、无历史退到后台（仅移动端生效）。
+	useMobileBackButton();
+	// 键盘弹出时把聚焦输入框拉进可视区（iOS 原生内缩之外的安全网）。
+	useMobileKeyboard();
 
 	const isDomain = location.pathname.startsWith("/domain");
 	const isManage = location.pathname.startsWith("/manage");

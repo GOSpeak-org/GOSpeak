@@ -121,7 +121,7 @@ GOSPEAK_PORT=8998
 - 为 WebSocket 放行升级（`/ws` 与 `/livekit` 都是 WebSocket 长连接）
 - **不需要为 LiveKit 写任何 location**。`/livekit` 由应用内部转发，反代看到的就是普通 HTTP 请求。
 
-Nginx 最小片段见 [反代与 HTTPS](/deploy/nginx)。
+Nginx 最小片段见 [反代与 HTTPS](/deploy/reverse-proxy)。
 
 > 如果之前误传了 `--domain`，把 `edge` 从 `COMPOSE_PROFILES` 里去掉即可（否则 Caddy 会和你的反代抢 80/443）。
 
@@ -395,7 +395,7 @@ COMPOSE_PROFILES=app,livekit,edge,observability
 
 ## 相关文档
 
-- [反代与 HTTPS](/deploy/nginx) — 内置 Caddy 档位与已有反代的接法
+- [反代与 HTTPS](/deploy/reverse-proxy) — 内置 Caddy 档位与已有反代的接法
 - [Docker Compose 详解](/deploy/compose) — 每个档位、每个常用操作
 - [故障排查](/deploy/troubleshooting) — 按症状查
 - [单二进制部署](/deploy/binary) — 不用 Docker 时

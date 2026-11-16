@@ -22,6 +22,7 @@ import {
 	socketStore,
 	useSocketStore,
 } from "@/stores/socketStore";
+import type { WSConnectionState } from "@/socket/wsClient";
 import { hasPermission } from "@/utils/permissions";
 import { useNavigate } from "@tanstack/react-router";
 import { apiErrorMessage } from "@/utils/apiError";
@@ -42,29 +43,52 @@ function RoomItemSkeleton() {
 	);
 }
 
-function RoomListFallback() {
-	const connecting = useSocketStore((s) => s.connecting);
+function RoomListLoading({ label }: { label: string }) {
 	return (
 		<div className="flex flex-col gap-3 px-2 py-4" aria-live="polite">
-			{connecting ? (
-				<>
-					<RoomItemSkeleton />
-					<div className="text-muted-foreground text-center text-xs">
-						正在连接服务器...
-					</div>
-				</>
-			) : (
-				<div className="text-muted-foreground flex flex-col items-center gap-2 py-2 text-xs">
-					<span>连接失败，请检查服务器状态</span>
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => socketStore.connect()}
-					>
-						重新连接
-					</Button>
-				</div>
-			)}
+			<RoomItemSkeleton />
+			<div className="text-muted-foreground text-center text-xs">{label}</div>
+		</div>
+	);
+}
+
+function RoomListFallback({ state }: { state: WSConnectionState }) {
+	// closed 之后 wsClient 立刻按退避重连（首帧就会回到 connecting），
+	// 中间这段时间只闪一帧错误态会让用户以为要手动重试；给自动重连一个宽限窗口。
+	const [retryVisible, setRetryVisible] = useState(false);
+	useEffect(() => {
+		if (state !== "closed") {
+			setRetryVisible(false);
+			return;
+		}
+		const timer = setTimeout(() => setRetryVisible(true), 4000);
+		return () => clearTimeout(timer);
+	}, [state]);
+
+	// 首帧 socketState 还是 "new"（connect() 在 effect 里才发出），此时既没连上
+	// 也没失败，不能直接当成错误态；只有关掉/关闭中才算真的连不上。
+	if (
+		state === "new" ||
+		state === "connecting" ||
+		state === "closing" ||
+		(state === "closed" && !retryVisible)
+	) {
+		return (
+			<RoomListLoading
+				label={
+					state === "closed" ? "连接已断开，正在重连..." : "正在连接服务器..."
+				}
+			/>
+		);
+	}
+	return (
+		<div className="flex flex-col gap-3 px-2 py-4" aria-live="polite">
+			<div className="text-muted-foreground flex flex-col items-center gap-2 py-2 text-xs">
+				<span>连接失败，请检查服务器状态</span>
+				<Button variant="ghost" size="sm" onClick={() => socketStore.connect()}>
+					重新连接
+				</Button>
+			</div>
 		</div>
 	);
 }
@@ -116,6 +140,9 @@ export default function RoomList() {
 	}, []);
 
 	const rooms = useSocketStore((s) => s.rooms);
+	const connected = useSocketStore((s) => s.connected);
+	const socketState = useSocketStore((s) => s.socketState);
+	const roomsLoading = useSocketStore((s) => s.roomsLoading);
 	const currentRoom = useSocketStore((s) => s.currentRoom);
 	const currentDomainUUID = socketStore.currentDomainUUID();
 	const visibleRooms = visibleRoomsForDomain(rooms, currentDomainUUID);
@@ -187,7 +214,7 @@ export default function RoomList() {
 				    宽度恒定所以出现/隐藏滚动条都不会让行左右跳动 */}
 				<ScrollArea className="min-h-0 flex-1" viewportClassName="pb-1 pr-1.5">
 					<div className="flex flex-col space-y-1">
-						{socketStore.connected() ? (
+						{connected ? (
 							visibleRooms.length > 0 ? (
 								visibleRooms.map((room) => (
 									<RoomItem
@@ -206,13 +233,15 @@ export default function RoomList() {
 										onDeleteRoom={openDeleteRoom}
 									/>
 								))
+							) : roomsLoading ? (
+								<RoomListLoading label="正在加载房间..." />
 							) : (
 								<div className="text-faint-foreground flex h-20 items-center justify-center text-xs">
 									暂无房间
 								</div>
 							)
 						) : (
-							<RoomListFallback />
+							<RoomListFallback state={socketState} />
 						)}
 					</div>
 				</ScrollArea>

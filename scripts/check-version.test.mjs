@@ -46,6 +46,35 @@ function createDesktopRoot({
 	return root;
 }
 
+function createMobileRoot({
+	version = "1.0.3",
+	packageVersion = version,
+	gradleVersion = version,
+	gradleCode = "10003",
+	marketingVersion = version,
+	projectVersion = "10003",
+} = {}) {
+	const root = mkdtempSync(join(tmpdir(), "gospeak-version-mobile-"));
+	const dir = join(root, "app", "mobile");
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(
+		join(dir, "package.json"),
+		JSON.stringify({ version: packageVersion }),
+	);
+	mkdirSync(join(dir, "android", "app"), { recursive: true });
+	writeFileSync(
+		join(dir, "android", "app", "build.gradle"),
+		`versionCode ${gradleCode}\nversionName "${gradleVersion}"\n`,
+	);
+	mkdirSync(join(dir, "ios", "App", "App.xcodeproj"), { recursive: true });
+	writeFileSync(
+		join(dir, "ios", "App", "App.xcodeproj", "project.pbxproj"),
+		`MARKETING_VERSION = ${marketingVersion};\nCURRENT_PROJECT_VERSION = ${projectVersion};\n`,
+	);
+	writeDeclaration(root, "mobile", version);
+	return root;
+}
+
 test("accepts a synchronized server version and release tag", () => {
 	const root = createServerRoot();
 
@@ -106,6 +135,44 @@ test("detects mygo.config.ts drift that package.json cannot catch", () => {
 
 	assert.deepEqual(result.issues, [
 		"app/desktop/mygo.config.ts version 0.9.0 does not match .github/versions/desktop.yaml 1.0.0",
+	]);
+});
+
+test("accepts a synchronized mobile version", () => {
+	const root = createMobileRoot();
+
+	assert.deepEqual(checkVersionState(root, "", "mobile"), {
+		component: "mobile",
+		declared: "1.0.3",
+		issues: [],
+	});
+});
+
+test("detects mobile package.json drift", () => {
+	const root = createMobileRoot({ packageVersion: "1.0.2" });
+
+	const result = checkVersionState(root, "", "mobile");
+
+	assert.deepEqual(result.issues, [
+		"app/mobile/package.json version 1.0.2 does not match .github/versions/mobile.yaml 1.0.3",
+	]);
+});
+
+test("detects Android/iOS native version drift", () => {
+	const root = createMobileRoot({
+		gradleVersion: "1.0.2",
+		gradleCode: "1",
+		marketingVersion: "1.0.2",
+		projectVersion: "1",
+	});
+
+	const result = checkVersionState(root, "", "mobile");
+
+	assert.deepEqual(result.issues, [
+		"app/mobile/android/app/build.gradle versionName 1.0.2 does not match .github/versions/mobile.yaml 1.0.3",
+		"app/mobile/android/app/build.gradle versionCode 1 does not match expected 10003 for 1.0.3",
+		"ios pbxproj MARKETING_VERSION 1.0.2 does not match .github/versions/mobile.yaml 1.0.3",
+		"ios pbxproj CURRENT_PROJECT_VERSION 1 does not match expected 10003 for 1.0.3",
 	]);
 });
 

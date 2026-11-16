@@ -47,7 +47,11 @@ export async function loadSfuClient(
 	rememberSfuProvider(provider);
 	try {
 		await preloadSfuClient(provider);
-		return await createSFUClient(provider, options);
+		// 离线探测统一在这里注入：弱网/断网时让重连走「慢速等待」而不是烧完预算
+		return await createSFUClient(provider, {
+			isOnline: () => navigator.onLine,
+			...options,
+		});
 	} catch (error) {
 		toast.error("新语音后端资源加载失败，请刷新后重试");
 		throw error;

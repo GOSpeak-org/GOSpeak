@@ -1,11 +1,17 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
-	"GOSpeak/internal/model"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+
+	"GOSpeak/internal/model"
+	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/repository"
 )
 
 func TestRoomService_LockDomainIsScoped(t *testing.T) {
@@ -26,231 +32,234 @@ func TestRoomService_LockDomainIsScoped(t *testing.T) {
 	unlockA()
 }
 
-// ─── Approach: Test via exported methods with a modified Create pattern ───
-
-// Since RoomService has unexported fields, we'll test by refactoring
-// For now, we'll use a bypass: create a test helper service
-
-type testRoomRepo struct {
-	createFn    func(*model.Room) error
-	getByIDFn   func(uint) (*model.Room, error)
-	getByUUIDFn func(string) (*model.Room, error)
-	getByNameFn func(string) (*model.Room, error)
-	listFn      func(int, int, string, string) ([]model.Room, int64, error)
-	updateFn    func(*model.Room) error
-	deleteFn    func(uint) error
-}
-
-func (m *testRoomRepo) Create(room *model.Room) error {
-	if m.createFn != nil {
-		return m.createFn(room)
+func setupRoomServiceTestDB(t *testing.T) (*RoomService, *gorm.DB) {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
 	}
-	return nil
-}
-func (m *testRoomRepo) GetByID(id uint) (*model.Room, error) {
-	if m.getByIDFn != nil {
-		return m.getByIDFn(id)
+	if err := db.AutoMigrate(&model.Room{}); err != nil {
+		t.Fatalf("migrate: %v", err)
 	}
-	return nil, gorm.ErrRecordNotFound
+	return NewRoomService(repository.NewRoomRepository(db)), db
 }
-func (m *testRoomRepo) GetByUUID(uuid string) (*model.Room, error) {
-	if m.getByUUIDFn != nil {
-		return m.getByUUIDFn(uuid)
+
+func seedRoomServiceRooms(t *testing.T, db *gorm.DB, domainUUID, roomType, prefix string, count int) []model.Room {
+	t.Helper()
+	base := time.Unix(1700000000, 0)
+	rooms := make([]model.Room, 0, count)
+	for i := 0; i < count; i++ {
+		rooms = append(rooms, model.Room{
+			Name:       fmt.Sprintf("%s-%03d", prefix, i),
+			DomainUUID: domainUUID,
+			Type:       roomType,
+			CreatedAt:  base.Add(time.Duration(i) * time.Minute),
+		})
 	}
-	return nil, gorm.ErrRecordNotFound
-}
-func (m *testRoomRepo) GetByName(name string) (*model.Room, error) {
-	if m.getByNameFn != nil {
-		return m.getByNameFn(name)
+	if err := db.Create(&rooms).Error; err != nil {
+		t.Fatalf("seed rooms: %v", err)
 	}
-	return nil, gorm.ErrRecordNotFound
+	return rooms
 }
-func (m *testRoomRepo) List(page, pageSize int, roomType, domainUUID string) ([]model.Room, int64, error) {
-	if m.listFn != nil {
-		return m.listFn(page, pageSize, roomType, domainUUID)
+
+func assertRoomServiceErrCode(t *testing.T, err error, code pkg.ErrCode) {
+	t.Helper()
+	if err == nil {
+		t.Fatal("expected error")
 	}
-	return []model.Room{}, 0, nil
-}
-func (m *testRoomRepo) Update(room *model.Room) error {
-	if m.updateFn != nil {
-		return m.updateFn(room)
+	var appErr *pkg.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("expected *pkg.AppError, got %T", err)
 	}
-	return nil
-}
-func (m *testRoomRepo) Delete(id uint) error {
-	if m.deleteFn != nil {
-		return m.deleteFn(id)
-	}
-	return nil
-}
-
-// We'll test the service logic through the methods
-// Since we can't inject mocks directly, we'll test the error handling behavior
-
-// ─── Test Create ───
-
-func TestRoomService_Create_Success(t *testing.T) {
-	// We can test the service's error handling indirectly
-	// The Create method wraps repo errors in AppError
-	// To properly test, we'd need to refactor RoomService to accept an interface
-	// For now, we'll document the contract that's being tested
-
-	// Expected behavior from RoomService.Create():
-	// - If repo.Create succeeds (returns nil), Create returns nil
-	// - If repo.Create fails, Create returns AppError with INTERNAL_ERROR code
-	t.Log("RoomService.Create: success case would be tested with DB integration")
-}
-
-// ─── Create Unit Test Patterns for RoomService ───
-
-// Test that the service properly converts repository errors to AppError
-func TestRoomService_ErrorHandling(t *testing.T) {
-	// Tests that would work with proper dependency injection:
-	t.Log("Error handling tests:")
-	t.Log("- Create error: repo error -> AppError(INTERNAL_ERROR)")
-	t.Log("- GetByID not found: ErrRecordNotFound -> AppError(NOT_FOUND)")
-	t.Log("- GetByID error: repo error -> AppError(INTERNAL_ERROR)")
-	t.Log("- GetByUUID not found: ErrRecordNotFound -> AppError(NOT_FOUND)")
-	t.Log("- GetByUUID error: repo error -> AppError(INTERNAL_ERROR)")
-	t.Log("- List pagination validation: page/pageSize clamping")
-	t.Log("- Delete not found: ErrRecordNotFound -> AppError(NOT_FOUND)")
-}
-
-// ─── Recommended: Integration tests with actual DB ───
-
-// These would be integration tests using an in-memory SQLite database
-// For now, documenting the test scenarios:
-
-func TestRoomService_Integration_RequiresDB(t *testing.T) {
-	t.Log("Integration test scenarios that require a database:")
-	t.Log("1. Create and retrieve room by ID")
-	t.Log("2. Create and retrieve room by UUID")
-	t.Log("3. Create and retrieve room by Name")
-	t.Log("4. Create multiple rooms and list with pagination")
-	t.Log("5. Create, update, retrieve to verify changes")
-	t.Log("6. Create and delete, verify not found")
-	t.Log("7. List with page/size boundaries")
-	t.Log("8. Concurrent operations (threading safety)")
-}
-
-// ─── Example Test Scenarios (Behavior-Driven) ───
-
-// These tests document what the RoomService should do:
-
-func TestRoomService_Create_ExpectedBehavior(t *testing.T) {
-	const (
-		errorCase = iota
-		successCase
-	)
-
-	tests := []struct {
-		name     string
-		scenario int
-		check    func(t *testing.T)
-	}{
-		{
-			name:     "Create returns nil when repo succeeds",
-			scenario: successCase,
-			check: func(t *testing.T) {
-				t.Log("When repo.Create returns nil, service.Create should return nil")
-			},
-		},
-		{
-			name:     "Create returns AppError when repo fails",
-			scenario: errorCase,
-			check: func(t *testing.T) {
-				t.Log("When repo.Create returns error, service.Create should return AppError(INTERNAL_ERROR)")
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, tt.check)
+	if appErr.Code != code {
+		t.Fatalf("expected code=%d, got code=%d (msg=%q)", code, appErr.Code, appErr.Message)
 	}
 }
 
-func TestRoomService_GetByID_ExpectedBehavior(t *testing.T) {
-	tests := []struct {
-		name string
-		desc string
-	}{
-		{
-			name: "Returns room when found",
-			desc: "GetByID(1) should return *Room when repo finds it",
-		},
-		{
-			name: "Returns NOT_FOUND when missing",
-			desc: "GetByID(999) should return AppError(NOT_FOUND) when repo returns ErrRecordNotFound",
-		},
-		{
-			name: "Returns INTERNAL_ERROR for other repo errors",
-			desc: "GetByID(1) should return AppError(INTERNAL_ERROR) for DB connection errors",
-		},
+func TestRoomService_Create_PersistsFields(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	room := &model.Room{
+		Name:          "lobby",
+		Description:   "main lobby",
+		Limit:         10,
+		AudioOnly:     true,
+		AllowAudience: true,
+		Type:          model.RoomTypeVoice,
+		CreatedBy:     "user-1",
+		DomainUUID:    "domain-a",
+	}
+	if err := svc.Create(room); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if room.ID == 0 {
+		t.Fatal("expected Create to assign primary key")
+	}
+	if room.UUID == "" {
+		t.Fatal("expected Create to assign uuid")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Log(tt.desc)
+	saved, err := svc.GetByUUID(room.UUID)
+	if err != nil {
+		t.Fatalf("GetByUUID: %v", err)
+	}
+	if saved.ID != room.ID || saved.Name != "lobby" || saved.DomainUUID != "domain-a" {
+		t.Fatalf("unexpected persisted room: %+v", saved)
+	}
+	if saved.Description != "main lobby" || saved.Limit != 10 || saved.CreatedBy != "user-1" {
+		t.Fatalf("unexpected persisted room: %+v", saved)
+	}
+	if saved.Type != model.RoomTypeVoice || !saved.AudioOnly || !saved.AllowAudience {
+		t.Fatalf("unexpected persisted room: %+v", saved)
+	}
+
+	var count int64
+	if err := db.Model(&model.Room{}).Count(&count).Error; err != nil {
+		t.Fatalf("count rooms: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 persisted room, got %d", count)
+	}
+}
+
+func TestRoomService_List_ClampsPageBelowOne(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "room", 5)
+
+	for _, page := range []int{0, -3} {
+		t.Run(fmt.Sprintf("page=%d", page), func(t *testing.T) {
+			got, total, err := svc.List(page, 2, "", "domain-a")
+			if err != nil {
+				t.Fatalf("List(page=%d): %v", page, err)
+			}
+			if total != 5 || len(got) != 2 {
+				t.Fatalf("expected total=5 rooms=2, got total=%d rooms=%d", total, len(got))
+			}
+			if got[0].Name != "room-000" || got[1].Name != "room-001" {
+				t.Fatalf("expected first page rooms, got %q,%q", got[0].Name, got[1].Name)
+			}
 		})
 	}
 }
 
-func TestRoomService_List_PaginationValidation(t *testing.T) {
-	// This tests the validation logic in the List method
-	tests := []struct {
-		inputPage     int
-		inputPageSize int
-		expectedPage  int
-		expectedSize  int
-		name          string
-	}{
-		{-1, -1, 1, 20, "Negative values default to page=1, pageSize=20"},
-		{0, 0, 1, 20, "Zero values default to page=1, pageSize=20"},
-		{1, 10, 1, 10, "Valid values pass through"},
-		{5, 100, 5, 100, "pageSize 100 is preserved"},
-		{1, 200, 1, 100, "pageSize > 100 capped at 100"},
-	}
+func TestRoomService_List_ClampsPageSizeBelowOne(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "room", 25)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Logf("List(%d, %d) should use page=%d, pageSize=%d",
-				tt.inputPage, tt.inputPageSize, tt.expectedPage, tt.expectedSize)
+	for _, pageSize := range []int{0, -5} {
+		t.Run(fmt.Sprintf("page_size=%d", pageSize), func(t *testing.T) {
+			got, total, err := svc.List(1, pageSize, "", "domain-a")
+			if err != nil {
+				t.Fatalf("List(pageSize=%d): %v", pageSize, err)
+			}
+			if total != 25 || len(got) != 20 {
+				t.Fatalf("expected total=25 rooms=20, got total=%d rooms=%d", total, len(got))
+			}
+			if got[0].Name != "room-000" || got[19].Name != "room-019" {
+				t.Fatalf("expected 20 room window, got %q..%q", got[0].Name, got[19].Name)
+			}
 		})
 	}
 }
 
-// ─── Service Contract Documentation ───
+func TestRoomService_List_ClampsPageSizeAboveHundred(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "room", 120)
 
-func TestRoomService_ContractDocumentation(t *testing.T) {
-	t.Log("RoomService Contract:")
-	t.Log("")
-	t.Log("Create(room) error:")
-	t.Log("  - Success: returns nil, room is persisted")
-	t.Log("  - Failure: returns AppError(INTERNAL_ERROR)")
-	t.Log("")
-	t.Log("GetByID(id) (*Room, error):")
-	t.Log("  - Found: returns *Room, nil")
-	t.Log("  - Not found: returns nil, AppError(NOT_FOUND)")
-	t.Log("  - DB error: returns nil, AppError(INTERNAL_ERROR)")
-	t.Log("")
-	t.Log("GetByUUID(uuid) (*Room, error):")
-	t.Log("  - Found: returns *Room, nil")
-	t.Log("  - Not found: returns nil, AppError(NOT_FOUND)")
-	t.Log("  - DB error: returns nil, AppError(INTERNAL_ERROR)")
-	t.Log("")
-	t.Log("List(page, pageSize, roomType, domainUUID) ([]Room, int64, error):")
-	t.Log("  - Page defaults to 1 if < 1")
-	t.Log("  - PageSize defaults to 20 if < 1 or > 100")
-	t.Log("  - Returns rooms slice, total count, nil on success")
-	t.Log("  - Returns nil, 0, AppError(INTERNAL_ERROR) on failure")
-	t.Log("")
-	t.Log("Update(room) error:")
-	t.Log("  - Success: returns nil, room is updated")
-	t.Log("  - Failure: returns AppError(INTERNAL_ERROR)")
-	t.Log("")
-	t.Log("Delete(id) error:")
-	t.Log("  - Checks existence first (GetByID)")
-	t.Log("  - Not found: returns AppError(NOT_FOUND)")
-	t.Log("  - Found & deleted: returns nil")
-	t.Log("  - Error: returns AppError(INTERNAL_ERROR)")
+	got, total, err := svc.List(1, 200, "", "domain-a")
+	if err != nil {
+		t.Fatalf("List(pageSize=200): %v", err)
+	}
+	if total != 120 || len(got) != 100 {
+		t.Fatalf("expected total=120 rooms=100, got total=%d rooms=%d", total, len(got))
+	}
+	if got[0].Name != "room-000" || got[99].Name != "room-099" {
+		t.Fatalf("expected capped 100 room window, got %q..%q", got[0].Name, got[99].Name)
+	}
+
+	second, secondTotal, err := svc.List(2, 200, "", "domain-a")
+	if err != nil {
+		t.Fatalf("List(page=2): %v", err)
+	}
+	if secondTotal != 120 || len(second) != 20 {
+		t.Fatalf("expected total=120 rooms=20, got total=%d rooms=%d", secondTotal, len(second))
+	}
+	if second[0].Name != "room-100" {
+		t.Fatalf("expected offset to use capped page size, got first room %q", second[0].Name)
+	}
+}
+
+func TestRoomService_List_FiltersRoomType(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "voice", 3)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeText, "text", 2)
+	seedRoomServiceRooms(t, db, "domain-b", model.RoomTypeText, "other", 1)
+
+	textRooms, textTotal, err := svc.List(1, 100, model.RoomTypeText, "domain-a")
+	if err != nil {
+		t.Fatalf("List text: %v", err)
+	}
+	if textTotal != 2 || len(textRooms) != 2 {
+		t.Fatalf("expected total=2 text rooms, got total=%d rooms=%d", textTotal, len(textRooms))
+	}
+	for _, room := range textRooms {
+		if room.Type != model.RoomTypeText || room.DomainUUID != "domain-a" {
+			t.Fatalf("unexpected room in text filter: %+v", room)
+		}
+	}
+
+	voiceRooms, voiceTotal, err := svc.List(1, 100, model.RoomTypeVoice, "domain-a")
+	if err != nil {
+		t.Fatalf("List voice: %v", err)
+	}
+	if voiceTotal != 3 || len(voiceRooms) != 3 {
+		t.Fatalf("expected total=3 voice rooms, got total=%d rooms=%d", voiceTotal, len(voiceRooms))
+	}
+	for _, room := range voiceRooms {
+		if room.Type != model.RoomTypeVoice {
+			t.Fatalf("unexpected room in voice filter: %+v", room)
+		}
+	}
+
+	allRooms, allTotal, err := svc.List(1, 100, "", "domain-a")
+	if err != nil {
+		t.Fatalf("List all types: %v", err)
+	}
+	if allTotal != 5 || len(allRooms) != 5 {
+		t.Fatalf("expected total=5 rooms=5, got total=%d rooms=%d", allTotal, len(allRooms))
+	}
+}
+
+func TestRoomService_List_RejectsUnknownRoomType(t *testing.T) {
+	svc, _ := setupRoomServiceTestDB(t)
+
+	_, _, err := svc.List(1, 20, "video", "domain-a")
+	assertRoomServiceErrCode(t, err, pkg.INVALID_PARAMS)
+}
+
+func TestRoomService_GetByID_NotFound(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "room", 1)
+
+	room, err := svc.GetByID(9999)
+	if room != nil {
+		t.Fatalf("expected nil room, got %+v", room)
+	}
+	assertRoomServiceErrCode(t, err, pkg.NOT_FOUND)
+	if !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("expected ErrRoomNotFound sentinel, got %v", err)
+	}
+}
+
+func TestRoomService_GetByUUID_NotFound(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "room", 1)
+
+	room, err := svc.GetByUUID("00000000-0000-7000-8000-000000000000")
+	if room != nil {
+		t.Fatalf("expected nil room, got %+v", room)
+	}
+	assertRoomServiceErrCode(t, err, pkg.NOT_FOUND)
+	if !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("expected ErrRoomNotFound sentinel, got %v", err)
+	}
 }

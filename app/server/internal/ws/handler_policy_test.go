@@ -11,6 +11,7 @@ import (
 	nhooyrws "nhooyr.io/websocket"
 
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/protocol"
 )
 
 type closeTrackingClient struct {
@@ -36,7 +37,7 @@ func newPermissiveRegistry() *HandlerRegistry {
 func TestHandlerRegistry_Dispatch_PolicyGuardRejectsAndTerminates(t *testing.T) {
 	r := NewHandlerRegistry()
 	called := false
-	r.HandleAck("message:send", func(c ClientMessenger, data string) (string, error) {
+	r.HandleAck(protocol.EventMessageSend, func(c ClientMessenger, data string) (string, error) {
 		called = true
 		return "ok", nil
 	})
@@ -45,7 +46,7 @@ func TestHandlerRegistry_Dispatch_PolicyGuardRejectsAndTerminates(t *testing.T) 
 	})
 
 	tc := &closeTrackingClient{testClient: &testClient{id: "c1"}}
-	r.Dispatch(tc, Message{ID: "req-1", Event: "message:send", Data: []byte(`{}`)})
+	r.Dispatch(tc, Message{ID: "req-1", Event: protocol.EventMessageSend, Data: []byte(`{}`)})
 
 	if called {
 		t.Fatal("policy rejection must stop handler execution")
@@ -64,7 +65,7 @@ func TestHandlerRegistry_Dispatch_PolicyGuardRejectsAndTerminates(t *testing.T) 
 
 func TestHandlerRegistry_Dispatch_PolicyGuardRejectsWithoutClosing(t *testing.T) {
 	r := NewHandlerRegistry()
-	r.HandleAck("private:send", func(c ClientMessenger, data string) (string, error) {
+	r.HandleAck(protocol.EventPrivateSend, func(c ClientMessenger, data string) (string, error) {
 		return "ok", nil
 	})
 	r.SetPolicyGuard(func(c ClientMessenger, msg Message) PolicyDecision {
@@ -72,7 +73,7 @@ func TestHandlerRegistry_Dispatch_PolicyGuardRejectsWithoutClosing(t *testing.T)
 	})
 
 	tc := &closeTrackingClient{testClient: &testClient{id: "c1"}}
-	r.Dispatch(tc, Message{ID: "req-1", Event: "private:send", Data: []byte(`{}`)})
+	r.Dispatch(tc, Message{ID: "req-1", Event: protocol.EventPrivateSend, Data: []byte(`{}`)})
 
 	if tc.closed {
 		t.Fatal("whitelist rejection must not disconnect the client")
@@ -86,13 +87,13 @@ func TestHandlerRegistry_Dispatch_PolicyGuardRejectsWithoutClosing(t *testing.T)
 func TestHandlerRegistry_Dispatch_PolicyGuardDropsNoAckEvent(t *testing.T) {
 	r := NewHandlerRegistry()
 	called := false
-	r.Handle("typing", func(c ClientMessenger, data string) { called = true })
+	r.Handle(protocol.EventTyping, func(c ClientMessenger, data string) { called = true })
 	r.SetPolicyGuard(func(c ClientMessenger, msg Message) PolicyDecision {
 		return PolicyDecision{Code: pkg.FORBIDDEN, Message: "user has been banned", Terminate: true}
 	})
 
 	tc := &closeTrackingClient{testClient: &testClient{id: "c1"}}
-	r.Dispatch(tc, Message{Event: "typing", Data: []byte(`{}`)})
+	r.Dispatch(tc, Message{Event: protocol.EventTyping, Data: []byte(`{}`)})
 
 	if called || len(tc.emitted) != 0 || !tc.closed {
 		t.Fatalf("rejected no-ack event must be dropped and terminated: called=%v emitted=%d closed=%v",
@@ -103,7 +104,7 @@ func TestHandlerRegistry_Dispatch_PolicyGuardDropsNoAckEvent(t *testing.T) {
 func TestHandlerRegistry_Dispatch_PolicyGuardAllows(t *testing.T) {
 	r := NewHandlerRegistry()
 	called := false
-	r.HandleAck("message:send", func(c ClientMessenger, data string) (string, error) {
+	r.HandleAck(protocol.EventMessageSend, func(c ClientMessenger, data string) (string, error) {
 		called = true
 		return "ok", nil
 	})
@@ -112,7 +113,7 @@ func TestHandlerRegistry_Dispatch_PolicyGuardAllows(t *testing.T) {
 	})
 
 	tc := &closeTrackingClient{testClient: &testClient{id: "c1"}}
-	r.Dispatch(tc, Message{ID: "req-1", Event: "message:send", Data: []byte(`{}`)})
+	r.Dispatch(tc, Message{ID: "req-1", Event: protocol.EventMessageSend, Data: []byte(`{}`)})
 
 	if !called || tc.closed {
 		t.Fatalf("allowed event must reach handler: called=%v closed=%v", called, tc.closed)
@@ -131,7 +132,7 @@ func TestHandlerRegistry_Dispatch_BanACKDeliveredBeforeClose(t *testing.T) {
 	}
 
 	reg := NewHandlerRegistry()
-	reg.HandleAck("message:send", func(c ClientMessenger, data string) (string, error) {
+	reg.HandleAck(protocol.EventMessageSend, func(c ClientMessenger, data string) (string, error) {
 		t.Error("banned client must not reach the handler")
 		return "", nil
 	})
@@ -149,23 +150,34 @@ func TestHandlerRegistry_Dispatch_BanACKDeliveredBeforeClose(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	const rounds = 25
-	for i := 0; i < rounds; i++ {
-		conn, _, err := nhooyrws.Dial(ctx, wsURL, wsDialOptionsWithCookie(token))
-		if err != nil {
-			t.Fatalf("round %d: Dial: %v", i, err)
+	request, err := json.Marshal(Message{ID: "req-ban", Event: protocol.EventMessageSend, Data: json.RawMessage(`{}`)})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for attempt := 1; ; attempt++ {
+		if !time.Now().Before(deadline) {
+			t.Fatalf("ban ACK must be delivered before close within 5s (attempts=%d)", attempt-1)
 		}
 
-		if err := conn.Write(ctx, nhooyrws.MessageText, []byte(`{"id":"req-ban","event":"message:send","data":{}}`)); err != nil {
+		conn, _, err := nhooyrws.Dial(ctx, wsURL, wsDialOptionsWithCookie(token))
+		if err != nil {
+			t.Fatalf("attempt %d: Dial: %v", attempt, err)
+		}
+
+		if err := conn.Write(ctx, nhooyrws.MessageText, request); err != nil {
 			conn.CloseNow()
-			t.Fatalf("round %d: Write: %v", i, err)
+			t.Fatalf("attempt %d: Write: %v", attempt, err)
 		}
 
 		_, payload, err := conn.Read(ctx)
 		if err != nil {
 			conn.CloseNow()
-			t.Fatalf("round %d: ban ACK lost before close: %v", i, err)
+			time.Sleep(10 * time.Millisecond)
+			continue
 		}
+
 		var ack struct {
 			ID    string `json:"id"`
 			Event string `json:"event"`
@@ -176,23 +188,28 @@ func TestHandlerRegistry_Dispatch_BanACKDeliveredBeforeClose(t *testing.T) {
 		}
 		if err := json.Unmarshal(payload, &ack); err != nil {
 			conn.CloseNow()
-			t.Fatalf("round %d: bad ACK json: %v", i, err)
+			t.Fatalf("attempt %d: bad ACK json: %v", attempt, err)
 		}
-		if ack.ID != "req-ban" || ack.Error == nil || ack.Error.Code != int(pkg.USER_BANNED) {
+		if ack.ID != "req-ban" || ack.Event != protocol.EventMessageSend || ack.Error == nil || ack.Error.Code != int(pkg.USER_BANNED) {
 			conn.CloseNow()
-			t.Fatalf("round %d: unexpected ACK: %s", i, payload)
+			t.Fatalf("attempt %d: unexpected ACK: %s", attempt, payload)
+		}
+		if ack.Error.Message != "user has been banned" {
+			conn.CloseNow()
+			t.Fatalf("attempt %d: unexpected ACK message %q", attempt, ack.Error.Message)
 		}
 
 		_, _, err = conn.Read(ctx)
 		if err == nil {
 			conn.CloseNow()
-			t.Fatalf("round %d: connection must be closed after ban ACK", i)
+			t.Fatalf("attempt %d: connection must be closed after ban ACK", attempt)
 		}
 		if status := nhooyrws.CloseStatus(err); status != nhooyrws.StatusPolicyViolation {
 			conn.CloseNow()
-			t.Fatalf("round %d: close status = %d, want %d (%v)", i, status, nhooyrws.StatusPolicyViolation, err)
+			t.Fatalf("attempt %d: close status = %d, want %d (%v)", attempt, status, nhooyrws.StatusPolicyViolation, err)
 		}
 		conn.CloseNow()
+		return
 	}
 }
 
@@ -200,13 +217,13 @@ func TestHandlerRegistry_Dispatch_BanACKDeliveredBeforeClose(t *testing.T) {
 func TestHandlerRegistry_Dispatch_FailClosedWithoutPolicyGuard(t *testing.T) {
 	r := NewHandlerRegistry()
 	called := false
-	r.HandleAck("message:send", func(c ClientMessenger, data string) (string, error) {
+	r.HandleAck(protocol.EventMessageSend, func(c ClientMessenger, data string) (string, error) {
 		called = true
 		return "ok", nil
 	})
 
 	tc := &testClient{id: "c1"}
-	r.Dispatch(tc, Message{ID: "req-1", Event: "message:send", Data: []byte(`{}`)})
+	r.Dispatch(tc, Message{ID: "req-1", Event: protocol.EventMessageSend, Data: []byte(`{}`)})
 
 	if called {
 		t.Fatal("dispatch without policy guard must not reach the handler")

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"GOSpeak/internal/buildinfo"
 	"GOSpeak/internal/pkg"
 )
 
@@ -97,16 +98,20 @@ func TestSystemUpdateService_Check_DevVersionNotAvailable(t *testing.T) {
 }
 
 func TestSystemUpdateService_Check_UpToDate(t *testing.T) {
-	// 将"当前版本"伪造成与最新发布相同：借助全局 buildinfo 不便改写，
-	// 直接验证比较逻辑：latest == current → available=false。
+	prev := buildinfo.Version
+	buildinfo.Version = "1.2.3"
+	t.Cleanup(func() { buildinfo.Version = prev })
+
 	srv, _ := stubGitHub(t, []githubRelease{
-		{TagName: "v0.0.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v0.0.0"},
+		{TagName: "v1.2.3", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.2.3"},
 	})
 	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 0}
 	info, err := svc.Check(context.Background())
 	require.NoError(t, err)
+	assert.Equal(t, "1.2.3", info.Current)
+	assert.Equal(t, "1.2.3", info.Latest)
 	assert.False(t, info.Available)
-	assert.NotEmpty(t, info.URL)
+	assert.Equal(t, "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.2.3", info.URL)
 }
 
 func TestSystemUpdateService_Check_NoReleases(t *testing.T) {
@@ -224,16 +229,25 @@ func TestSystemUpdateService_Check_NegativeCacheConcurrent(t *testing.T) {
 	t.Cleanup(srv.Close)
 	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 0, negTTL: time.Hour}
 
+	_, err := svc.Check(context.Background())
+	require.Error(t, err)
+	assert.True(t, pkg.IsCode(err, pkg.RATE_LIMITED))
+
 	var wg sync.WaitGroup
+	results := make([]error, 16)
 	for i := 0; i < 16; i++ {
 		wg.Add(1)
-		go func() {
+		go func(i int) {
 			defer wg.Done()
-			_, _ = svc.Check(context.Background())
-		}()
+			_, results[i] = svc.Check(context.Background())
+		}(i)
 	}
 	wg.Wait()
-	assert.LessOrEqual(t, calls.Load(), int64(16))
+	for i, got := range results {
+		require.Error(t, got)
+		assert.True(t, pkg.IsCode(got, pkg.RATE_LIMITED), "goroutine %d must be served from negative cache", i)
+	}
+	assert.EqualValues(t, 1, calls.Load(), "负缓存 TTL 内并发 Check 都不应再请求上游")
 }
 
 // 中文发布说明必须按 rune 截断，不能切断多字节字符产生非法 UTF-8。

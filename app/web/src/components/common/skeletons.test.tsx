@@ -34,26 +34,40 @@ describe("Skeletons", () => {
 		);
 	});
 
-	it("SkeletonListRows / SkeletonCardGrid / SkeletonForm 至少渲染一个占位块", () => {
-		for (const node of [
-			<SkeletonListRows key="l" rows={4} />,
-			<SkeletonCardGrid key="c" cards={4} />,
-			<SkeletonForm key="f" fields={3} />,
-		]) {
-			const { container, unmount } = render(node);
-			expect(
-				container.querySelectorAll('[data-slot="skeleton"]').length,
-			).toBeGreaterThan(0);
-			unmount();
-		}
+	it("SkeletonListRows 每行渲染头像 + 两行文字共 3 块", () => {
+		const { container } = render(<SkeletonListRows rows={4} />);
+		expect(
+			container.querySelectorAll('[data-skeleton="list"] > div'),
+		).toHaveLength(4);
+		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
+			12,
+		);
+	});
+
+	it("SkeletonCardGrid 每张卡渲染头像 + 两行文字 + 底部行共 4 块", () => {
+		const { container } = render(<SkeletonCardGrid cards={4} />);
+		expect(
+			container.querySelectorAll('[data-skeleton="card-grid"] > div'),
+		).toHaveLength(4);
+		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
+			16,
+		);
+	});
+
+	it("SkeletonForm 每个字段渲染标签 + 输入框共 2 块", () => {
+		const { container } = render(<SkeletonForm fields={3} />);
+		expect(
+			container.querySelectorAll('[data-skeleton="form"] > div'),
+		).toHaveLength(3);
+		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
+			6,
+		);
 	});
 
 	it("SkeletonPage 保留页面加载骨架的可访问性契约", () => {
 		const { getByRole } = render(<SkeletonPage />);
 		const region = getByRole("status");
 		expect(region.getAttribute("aria-label")).toBe("页面加载中");
-		expect(
-			region.querySelectorAll('[data-slot="skeleton"]').length,
-		).toBeGreaterThan(0);
+		expect(region.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(5);
 	});
 });

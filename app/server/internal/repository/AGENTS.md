@@ -1,34 +1,25 @@
 # repository 模块
 
-数据访问层，封装数据库操作，提供 CRUD 接口。
+数据访问层：封装数据库操作，向 service 暴露 CRUD 与查询方法。
 
-## 文件说明
+## 基础设施
 
 | 文件 | 职责 |
 |------|------|
-| db.go | 数据库初始化：SQLite/PostgreSQL/MySQL，AutoMigrate 注册全部模型，健康检查，WAL 模式可选 |
-| user_repo.go | 用户：按 ID/UUID/Name 查询、列表分页、创建/更新/删除、TokenVersion 更新 |
-| room_repo.go | 房间：按 ID/UUID 查询、列表、创建/更新/删除 |
-| oauth_provider_repo.go | OAuth 提供商：按 name 查询、列表、创建/更新/删除 |
-| oauth_account_repo.go | 账号绑定：按 provider+uid、按 user_id 查询、创建/更新 |
-| role_repo.go | 角色：CRUD + 缓存加载 |
-| permission_repo.go | 权限与角色权限关联：CRUD、按角色查权限 |
-| mute_repo.go | 禁言：CRUD、按用户查有效禁言 |
-| email_config_repo.go | 邮箱配置：读取/更新（密钥加解密）|
-| email_verification_code_repo.go | 验证码：CRUD、场景查询、尝试计数 |
-| storage_config_repo.go | 存储配置：读取/更新 |
-| sfu_config_repo.go | SFU 配置：按 provider 读写、激活 provider 读写 |
-| domain_repo.go | Domain 语音服务器：CRUD、成员管理 |
-| message_repo.go | 消息（文本/系统）：CRUD、按房间查询、编辑/删除 |
-| conversation_repo.go | 会话列表：按用户查询、标记已读 |
+| `db.go` | 数据库初始化与连接池 |
+| `db_migrations.go` | `AutoMigrate` 注册、幂等删列/删表迁移 |
+| `tx.go` | 事务辅助 |
+| `timeout.go` | 查询超时包装 |
+| `casbin_adapter.go` / `domain_casbin_adapter.go` | Casbin 存储适配 |
 
-## 注意事项
+## 仓储
 
-- GetBy* 失败返回 nil 指针 + error，不要忽略 error 检查
-- SQLite 默认路径 `db/app.db`（相对于服务器工作目录）
-- SQLite WAL 模式通过环境变量 `DB_WAL=true` 开启（开发环境建议开启；默认 DELETE）
-- glebarez DSN 必须用 `_pragma=busy_timeout(...)/journal_mode(...)`，旧 `_busy_timeout` 无效
-- 连接池写死在 `db.go`，不提供环境变量覆盖：
-  - SQLite 非 WAL：`MaxOpen/Idle=1`
-  - SQLite WAL：`MaxOpen/Idle=4`（并发读）
-  - PostgreSQL/MySQL：`MaxOpen=25` / `MaxIdle=10` / `Lifetime=30m` / `IdleTime=5m`
+`user_repo` `user_group_repo` `role_repo` `permission_repo` `audit`（在 handler 侧）`domain_repo` `domain_role_repo` `domain_invite_repo` `domain_join_request_repo` `room_repo` `message_repo` `conversation_repo` `mute_repo` `email_config_repo` `email_verification_code_repo` `oauth_provider_repo` `oauth_account_repo` `sfu_config_repo` `storage_config_repo` `announcement_repo`
+
+## 约定
+
+- 只做数据访问，**不承载业务策略**（角色升降级、权限计算等应在 `internal/policy` / service）。
+- 单条查询未命中返回 `gorm.ErrRecordNotFound`，由 service 转成 `*pkg.AppError`。
+- 事务边界：跨表写入用 `tx.go` 辅助，保证原子性（如邀请码兑换 + 入域）。
+- 新增仓储需在 `server/gin.go` 装配并注入对应 service。
+- 注意 `db_migrations.go` 中的幂等逻辑：重复执行必须安全。

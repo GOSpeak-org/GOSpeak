@@ -43,8 +43,12 @@ func TestUserGroupRepo_ListAndRename(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("want 2 groups, got %d", len(got))
 	}
-	if got[0].GroupName != "朋友" || got[1].GroupName != "队友" {
-		t.Fatalf("unexpected order: %+v", got)
+	names := make(map[string]bool, len(got))
+	for _, group := range got {
+		names[group.GroupName] = true
+	}
+	if !names["朋友"] || !names["队友"] || len(names) != 2 {
+		t.Fatalf("unexpected groups: %+v", got)
 	}
 
 	if err := repo.Rename(got[0].ID, "密友"); err != nil {

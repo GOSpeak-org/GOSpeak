@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useThemeStore } from "@/stores/themeStore";
 
@@ -19,32 +19,59 @@ vi.mock("@/layouts/common/connectionIndicator", () => ({
 
 import DesktopTitleBar from "./desktopTitleBar";
 
-describe("DesktopTitleBar", () => {
+describe("DesktopTitleBar / 桌面构建", () => {
 	beforeEach(() => {
 		cleanup();
 		setAppearance.mockClear();
 		useThemeStore.setState({ isDark: false });
+		vi.stubGlobal("__GOSPEAK_DESKTOP__", true);
 	});
 
 	afterEach(() => {
 		cleanup();
+		vi.unstubAllGlobals();
 	});
 
-	it("桌面构建渲染标题栏，Web 构建不渲染任何节点", () => {
+	it("渲染窗口标题栏与路由标题", () => {
 		const { container } = render(<DesktopTitleBar />);
-		if (__GOSPEAK_DESKTOP__) {
-			expect(screen.getByText("域管理")).toBeTruthy();
-		} else {
-			expect(container.firstElementChild).toBeNull();
-		}
+		expect(container.querySelector(".app-titlebar")).not.toBeNull();
+		expect(screen.getByText("域管理").textContent).toBe("域管理");
+		expect(screen.getByTitle("切换到深色").getAttribute("aria-label")).toBe(
+			"切换到深色",
+		);
 	});
 
-	it("桌面构建把应用主题推给原生外观", () => {
+	it("把应用主题推给原生外观，主题切换后重推", async () => {
 		render(<DesktopTitleBar />);
-		if (__GOSPEAK_DESKTOP__) {
-			expect(setAppearance).toHaveBeenCalledWith("light");
-		} else {
-			expect(setAppearance).not.toHaveBeenCalled();
-		}
+		expect(setAppearance).toHaveBeenCalledTimes(1);
+		expect(setAppearance).toHaveBeenCalledWith("light");
+
+		await act(async () => {
+			useThemeStore.setState({ isDark: true });
+		});
+
+		expect(setAppearance).toHaveBeenCalledTimes(2);
+		expect(setAppearance).toHaveBeenLastCalledWith("dark");
+	});
+});
+
+describe("DesktopTitleBar / Web 构建", () => {
+	beforeEach(() => {
+		cleanup();
+		setAppearance.mockClear();
+		useThemeStore.setState({ isDark: false });
+		vi.stubGlobal("__GOSPEAK_DESKTOP__", false);
+	});
+
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+	});
+
+	it("不渲染任何节点，也不触碰原生外观", () => {
+		const { container } = render(<DesktopTitleBar />);
+		expect(container.firstElementChild).toBeNull();
+		expect(screen.queryByText("域管理")).toBeNull();
+		expect(setAppearance).not.toHaveBeenCalled();
 	});
 });

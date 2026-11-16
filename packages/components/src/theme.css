@@ -32,6 +32,11 @@
  *   text-faint-foreground   弱化文字（亮 42% / 暗 38%）：占位符、脚注、空状态提示
  */
 :root {
+	/* 字体统一由打包字体决定，不落到各平台 system-ui（见 app/web/src/styles.css） */
+	--font-sans:
+		"Inter Variable", "Noto Sans SC Variable", ui-sans-serif, system-ui,
+		sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+	--default-font-family: var(--font-sans);
 	--background: oklch(98% 0 0);
 	--foreground: oklch(0% 0 0);
 	--card: oklch(98% 0 0);
@@ -138,6 +143,10 @@
  * text-xl   20px  大标题
  */
 @theme {
+	--font-sans:
+		"Inter Variable", "Noto Sans SC Variable", ui-sans-serif, system-ui,
+		sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
+
 	--text-2xs: 0.6875rem;
 	--text-2xs--line-height: 1rem;
 

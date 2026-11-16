@@ -156,8 +156,11 @@ func TestInviteJoinHandler_Join_RequiresAuth(t *testing.T) {
 	env := newInviteJoinHandlerEnv(t)
 	rec := env.post(t, "/api/v1/invite/join", `{"domain_uuid":"whatever"}`)
 	resp := decodeJoinResp(t, rec)
-	if code := intCode(resp["code"]); code == 0 {
-		t.Fatalf("join without user must fail, got code 0")
+	if code := intCode(resp["code"]); code != 1001 {
+		t.Fatalf("code = %d, want 1001 (TOKEN_NOT_EXIST)", code)
+	}
+	if resp["data"] != nil {
+		t.Fatalf("error response must carry null data, got %#v", resp["data"])
 	}
 }
 

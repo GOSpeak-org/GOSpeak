@@ -94,6 +94,10 @@ func invitePath(code string) string {
 // app runs. Packaging registers the scheme through mygo.config.ts; the runtime
 // registration covers `go run` / `mygo dev` where no bundle is installed.
 func registerDeepLink() {
-	_ = mygo.App.RegisterURLScheme(deeplinkScheme)
+	// Package 安装时已由安装器写入注册表 / Info.plist，运行时再写一次只会让
+	// 每次冷启动多一次注册表写入（Windows 上尤其明显），跳过。
+	if !mygo.App.IsPackaged() {
+		_ = mygo.App.RegisterURLScheme(deeplinkScheme)
+	}
 	mygo.App.OnOpenURL(func(raw string) { deliverDeepLink(raw) })
 }

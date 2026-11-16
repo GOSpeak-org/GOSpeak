@@ -23,6 +23,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/egoist/mygo"
@@ -57,9 +58,11 @@ func main() {
 	mygo.Bind(AutoStart{})
 	mygo.Bind(DeepLink{})
 	mygo.Bind(Dialog{})
+	mygo.Bind(Clipboard{})
 	mygo.Bind(Updater{})
 	mygo.Bind(Overlay{})
 	mygo.Bind(ServerConfig{})
+	mygo.Bind(ClientLog{})
 	startupMark("services bound")
 
 	// Deep links (gospeak://invite/d/<CODE>) must be wired before Run so the
@@ -69,6 +72,10 @@ func main() {
 
 	mygo.App.WhenReady(func() {
 		startupMark("app ready")
+		// Open the host log file before anything can fail, so a crash during
+		// startup still leaves a report behind.
+		initHostLog()
+		startupMark("host log ready")
 		// Load the persisted backend base URL before any window opens.
 		loadServerConfig()
 		startupMark("server config loaded")
@@ -80,12 +87,20 @@ func main() {
 			// keeps /api and /ws same-origin, so no loopback proxy is needed.
 			if _, err := ensureProxyStarted(); err != nil {
 				log.Printf("[GOSpeak] loopback proxy failed to start: %v", err)
+				reportFatal("本地回环代理启动失败。", err.Error())
 			}
 			startupMark("loopback proxy listening on %s", proxyLoopbackURL)
 		}
 		openMainWindow()
 		startupMark("main window created (page load started)")
+		appSupervisor = newSupervisor(loopbackPageOps{}, loopbackProxyOps{}, &nativeHostOps{})
+		go appSupervisor.Run(context.Background())
+		startupMark("supervisor started")
 		startupProbeFrontend(mainWindow)
+		watchMainWindowFailures()
+		if p := mainWindow.Page(); p != nil {
+			watchDownloads(p)
+		}
 
 		// Dock / taskbar icon when running from source (a packaged bundle
 		// already carries resources/icon.png).
@@ -106,8 +121,12 @@ func main() {
 		startupMark("lifecycle wired")
 	})
 
+	// A panic on the main goroutine must not take the process down silently:
+	// report it into the native crash window instead.
+	defer recoverToCrashWindow()
 	if err := mygo.App.Run(); err != nil {
-		log.Fatal(err)
+		log.Printf("[GOSpeak] app run failed: %v", err)
+		reportFatal("宿主主循环异常退出。", err.Error())
 	}
 	startupMark("app exited")
 }

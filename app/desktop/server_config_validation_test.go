@@ -137,3 +137,22 @@ func TestSetBaseURLInvalidDoesNotPersist(t *testing.T) {
 		t.Fatalf("invalid URL wrote %s (stat err = %v)", serverConfigFileName, err)
 	}
 }
+
+func TestLoadServerConfigBacksUpCorruptFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "server-config.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	backup, err := backupCorruptConfig(path)
+	if err != nil {
+		t.Fatalf("backup: %v", err)
+	}
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Fatal("the corrupt file must be moved away")
+	}
+	if data, readErr := os.ReadFile(backup); readErr != nil || string(data) != "{not json" {
+		t.Fatalf("backup content lost: %q %v", data, readErr)
+	}
+}

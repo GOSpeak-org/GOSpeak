@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import net from "node:net";
+import { readFileSync } from "node:fs";
 import { visualizer } from "rollup-plugin-visualizer";
 
 function findAvailablePort(startPort: number): Promise<number> {
@@ -27,16 +28,23 @@ export default defineConfig(async ({ mode }) => {
   const isProduction = mode === "production";
   const devtoolsPort = isProduction ? 42069 : await findAvailablePort(42069);
 
-  // 条件编译目标：GOSPEAK_TARGET=desktop 构建桌面端（桌面独享模块进包），
-  // 默认 web（桌面独享模块在打包期整体剔除）。见 @gospeak/desktop 的 conditional.ts。
-  const gospeakTarget: "web" | "desktop" =
-    process.env.GOSPEAK_TARGET === "desktop" ? "desktop" : "web";
+  // 条件编译目标：GOSPEAK_TARGET=desktop 构建桌面端，=mobile 构建移动端
+  // （分别由 MyGo / Capacitor 壳装载），默认 web。见 @gospeak/desktop 的 conditional.ts。
+  const rawTarget = process.env.GOSPEAK_TARGET;
+  const gospeakTarget: "web" | "desktop" | "mobile" =
+    rawTarget === "desktop" ? "desktop" : rawTarget === "mobile" ? "mobile" : "web";
 
   return {
     // 条件编译注入常量（app/web/types/gospeak-build.d.ts 提供类型）
     define: {
       __GOSPEAK_TARGET__: JSON.stringify(gospeakTarget),
       __GOSPEAK_DESKTOP__: String(gospeakTarget === "desktop"),
+      __GOSPEAK_MOBILE__: String(gospeakTarget === "mobile"),
+      // 导出日志的版本头用；与 package.json 的 version 同步。
+      __APP_VERSION__: JSON.stringify(
+        JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"))
+          .version,
+      ),
     },
     base,
     plugins: [
@@ -94,15 +102,6 @@ export default defineConfig(async ({ mode }) => {
           target: "http://localhost:8998",
           changeOrigin: true,
         },
-        "/rtc/v1": {
-          target: "http://localhost:1985",
-          changeOrigin: true,
-          configure: (proxy) => {
-            proxy.on("proxyReq", (proxyReq) => {
-              proxyReq.setHeader("Connection", "close");
-            });
-          },
-        },
       },
       // 监听 symlinked workspace 包源码以实现 HMR
       watch: {
@@ -110,6 +109,7 @@ export default defineConfig(async ({ mode }) => {
           "!**/packages/sfu-client/src/**",
           "!**/packages/components/src/**",
           "!**/packages/desktop/src/**",
+          "!**/packages/mobile-capabilities/src/**",
         ],
       },
     },
@@ -126,6 +126,7 @@ export default defineConfig(async ({ mode }) => {
         "@gospeak/components",
         // workspace 源码直引（不预打包），保证 define 注入的条件编译常量生效且支持 HMR
         "@gospeak/desktop",
+        "@gospeak/mobile-capabilities",
       ],
       rolldownOptions: {
         define: {
@@ -157,6 +158,9 @@ export default defineConfig(async ({ mode }) => {
         : false,
     },
     build: {
+      // 移动产物必须与 dist 平级：Vite 每次构建会清空 outDir，
+      // 若把 mobile 放进 dist/mobile，一次 web/desktop 构建就会把它删掉。
+      outDir: gospeakTarget === "mobile" ? "dist-mobile" : "dist",
       target: "es2022",
       cssMinify: isProduction ? "lightningcss" : false,
       minify: isProduction ? "esbuild" : false,

@@ -4,7 +4,7 @@ import {
 	DialogContent,
 	DialogTitle,
 } from "@gospeak/components";
-import { Mic, Monitor, Palette, User, Volume2, X } from "lucide-react";
+import { Info, Mic, Monitor, Palette, User, Volume2, X } from "lucide-react";
 import type { ComponentType } from "react";
 import { useState } from "react";
 import { TABS } from "./tab_item";
@@ -26,6 +26,7 @@ const ICON_MAP: Record<
 	palette: Palette,
 	user: User,
 	monitor: Monitor,
+	info: Info,
 };
 
 export default function SettingModal({

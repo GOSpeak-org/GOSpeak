@@ -23,18 +23,23 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -48,11 +53,20 @@ type proxyServer struct {
 	mu     sync.RWMutex
 	target *url.URL
 
+	// port is the loopback port, reported by /healthz and the watchdog.
+	port     int
+	listener net.Listener
+	srv      *http.Server
+
+	errMu             sync.Mutex
+	lastUpstreamError string
+
 	dist      fs.FS
 	mainProxy *httputil.ReverseProxy
 	// transport is shared by the main and worker proxies so idle connections to
-	// the backend (and to SFU nodes) are reused across both.
-	transport *http.Transport
+	// the backend (and to SFU nodes) are reused across both. It routes upgrade
+	// requests over HTTP/1.1 and everything else over HTTP/2.
+	transport http.RoundTripper
 
 	// assets caches the embedded dist in memory: a page reload re-reads nothing
 	// from disk, and gzip is computed once per file (see assetCache).
@@ -88,13 +102,58 @@ func proxyTransport() *http.Transport {
 			Timeout:   10 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		ForceAttemptHTTP2:     true,
+		// 只走 HTTP/1.1：WebSocket 握手带 Connection/Upgrade，Go 的 HTTP/2
+		// 客户端直接拒绝这类头。proxyRoundTripper 只把升级请求交给这里，
+		// 普通 API 仍走 h2。
+		ForceAttemptHTTP2:     false,
+		TLSNextProto:          map[string]func(string, *tls.Conn) http.RoundTripper{},
 		MaxIdleConns:          64,
 		MaxIdleConnsPerHost:   16,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: time.Second,
 	}
+}
+
+// proxyHTTP2Transport carries the traffic that is not a protocol upgrade:
+// ordinary API/upload/RTC requests keep HTTP/2 multiplexing when the backend
+// speaks it.
+func proxyHTTP2Transport() *http.Transport {
+	tr := proxyTransport()
+	tr.ForceAttemptHTTP2 = true
+	tr.TLSNextProto = nil // let crypto/tls negotiate h2 again
+	return tr
+}
+
+// proxyRoundTripper downgrades a request to HTTP/1.1 only when it needs to be
+// one: a WebSocket (or any Connection: Upgrade) handshake cannot travel over
+// HTTP/2 with Go's client, while everything else benefits from h2. This is the
+// automatic downgrade — no configuration, and a backend that negotiates h2 no
+// longer turns /ws and /wsworker into 502.
+type proxyRoundTripper struct {
+	http11 *http.Transport
+	http2  *http.Transport
+}
+
+func newProxyRoundTripper() *proxyRoundTripper {
+	return &proxyRoundTripper{
+		http11: proxyTransport(),
+		http2:  proxyHTTP2Transport(),
+	}
+}
+
+func (t *proxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if isUpgradeRequest(req) {
+		return t.http11.RoundTrip(req)
+	}
+	return t.http2.RoundTrip(req)
+}
+
+// isUpgradeRequest reports whether a request asks for a protocol switch.
+// ReverseProxy sets these headers on the outbound request before RoundTrip.
+func isUpgradeRequest(req *http.Request) bool {
+	return req.Header.Get("Upgrade") != "" ||
+		strings.EqualFold(req.Header.Get("Connection"), "upgrade")
 }
 
 // handler wires the loopback routes: proxied API/WS prefixes first, static
@@ -106,11 +165,12 @@ func (s *proxyServer) handler() http.Handler {
 	// LiveKit 信令同源反代：后端下发的 serverUrl 是 ws://127.0.0.1:<port>/livekit，
 	// 由这里转给用户配置的后端（后端再转发到内部 LiveKit）。
 	mux.HandleFunc("/livekit/", s.handleProxied)
-	mux.HandleFunc("/rtc/v1/", s.handleProxied)
 	// Signal socket (page resolves ws://127.0.0.1:<port>/ws as same origin).
 	mux.HandleFunc("/ws", s.handleProxied)
 	// SFU / signaling worker nodes reached through us with the session cookie.
 	mux.HandleFunc("/wsworker", s.handleWorker)
+	// Liveness only: answered by this process without touching the backend.
+	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/", s.serveDist)
 	return mux
 }
@@ -126,7 +186,7 @@ func startProxyServer() (*proxyServer, string, error) {
 	s := &proxyServer{
 		dist:        sub,
 		assets:      newAssetCache(),
-		transport:   proxyTransport(),
+		transport:   newProxyRoundTripper(),
 		workerProxy: map[string]*httputil.ReverseProxy{},
 		workerHosts: &workerHostAllowlist{},
 	}
@@ -138,21 +198,23 @@ func startProxyServer() (*proxyServer, string, error) {
 		Director:       s.directMain,
 		ModifyResponse: s.modifyMainResponse,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 
 	listener, port, err := listenLoopback(proxyPortDir())
 	if err != nil {
 		return nil, "", err
 	}
-	srv := &http.Server{
+	s.port = port
+	s.listener = listener
+	s.srv = &http.Server{
 		Handler:           s.handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-	go func() {
+	go func(srv *http.Server) {
 		_ = srv.Serve(listener)
-	}()
+	}(s.srv)
 	// Pre-compress the frontend while the window is still being created, so the
 	// first page load never waits on gzip. With build-time .gz sidecars (the
 	// packaged app) this only warms the in-memory cache.
@@ -443,7 +505,7 @@ func (s *proxyServer) workerFor(u *url.URL) *httputil.ReverseProxy {
 		},
 		ModifyResponse: stripWorkerCookies,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 	s.workerProxy[key] = p
 	s.workerOrder = append(s.workerOrder, key)
@@ -461,8 +523,11 @@ func stripWorkerCookies(resp *http.Response) error {
 // proxyErrorHandler answers an unreachable backend with the API's unified error
 // envelope instead of ReverseProxy's bare 502 text, so the page's API client
 // can tell "server is down" apart from a server-side error and show its own
-// message (code 6002 = sfu/proxy transport error).
-func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+// message (code 6002 = sfu/proxy transport error). The classified cause is kept
+// for /healthz and the crash report.
+func (s *proxyServer) proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	s.recordUpstreamError(err)
+	log.Printf("[GOSpeak] loopback proxy: %s %s -> %v (%s)", r.Method, r.URL.Path, err, s.UpstreamError())
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusBadGateway)
@@ -471,6 +536,68 @@ func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 		"msg":  "backend unreachable",
 		"data": nil,
 	})
+}
+
+// handleHealthz reports liveness only. It never reaches the backend: no target
+// configured is still a healthy process.
+func (s *proxyServer) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	s.mu.RLock()
+	target := ""
+	if s.target != nil {
+		target = s.target.String()
+	}
+	s.mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":                  true,
+		"port":                s.port,
+		"target":              target,
+		"last_upstream_error": s.UpstreamError(),
+	})
+}
+
+// UpstreamError returns the class of the last backend failure: "" | dns | tls |
+// timeout | refused | other.
+func (s *proxyServer) UpstreamError() string {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+	return s.lastUpstreamError
+}
+
+func (s *proxyServer) recordUpstreamError(err error) {
+	kind := classifyProxyError(err)
+	if kind == "" {
+		return
+	}
+	s.errMu.Lock()
+	s.lastUpstreamError = kind
+	s.errMu.Unlock()
+}
+
+func classifyProxyError(err error) string {
+	if err == nil {
+		return ""
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return "dns"
+	}
+	var verifyErr *tls.CertificateVerificationError
+	if errors.As(err, &verifyErr) {
+		return "tls"
+	}
+	if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+		return "timeout"
+	}
+	if strings.Contains(err.Error(), "connection refused") {
+		return "refused"
+	}
+	return "other"
 }
 
 // modifyMainResponse rewrites backend cookies for the loopback origin and, on
@@ -823,4 +950,58 @@ func ensureProxyStarted() (string, error) {
 	// Apply the persisted base URL (if any) loaded by loadServerConfig.
 	loopbackProxy.setProxyTarget(currentBaseURL())
 	return proxyLoopbackURL, nil
+}
+
+func proxyPort() int {
+	if loopbackProxy == nil {
+		return 0
+	}
+	return loopbackProxy.port
+}
+
+// probeLoopback checks the local proxy from the host side. It never goes to the
+// backend: /healthz is answered by this process.
+func probeLoopback(port int) error {
+	if port == 0 {
+		return errors.New("proxy: not listening")
+	}
+	client := &http.Client{
+		Transport: &http.Transport{Proxy: nil},
+		Timeout:   2 * time.Second,
+	}
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", port))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("healthz: status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// restart closes the listener and serves again, preferring the saved port. The
+// target and the in-memory asset cache stay as they are.
+func (s *proxyServer) restart() (oldPort, newPort int, err error) {
+	oldPort = s.port
+	if s.srv != nil {
+		_ = s.srv.Close()
+	}
+	if s.listener != nil {
+		_ = s.listener.Close()
+	}
+	ln, port, lerr := listenLoopback(proxyPortDir())
+	if lerr != nil {
+		return oldPort, 0, lerr
+	}
+	s.listener = ln
+	s.port = port
+	s.srv = &http.Server{
+		Handler:           s.handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	go func(srv *http.Server) { _ = srv.Serve(ln) }(s.srv)
+	proxyLoopbackURL = fmt.Sprintf("http://127.0.0.1:%d", port)
+	return oldPort, port, nil
 }

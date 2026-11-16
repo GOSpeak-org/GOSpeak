@@ -4,6 +4,7 @@ import {
 	createFileRoute,
 	redirect,
 	useNavigate,
+	useRouter,
 } from "@tanstack/react-router";
 import { CircleX, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -17,7 +18,11 @@ import PasswordInput from "@/components/common/passwordInput";
 import ServerUrlField from "@/components/common/serverUrlField";
 import ProviderIcon from "@/components/oauth/ProviderIcon";
 import { useUserStore } from "@/stores/userStore";
-import { inDesktop } from "@gospeak/desktop";
+import { createServerConfig, inDesktop } from "@gospeak/desktop";
+import {
+	createServerConfig as createMobileServerConfig,
+	inMobile,
+} from "@gospeak/mobile-capabilities";
 import { depth, useAuthParallax } from "@/hooks/useAuthParallax";
 import ForcePasswordChangeModal from "@/pages/login/components/ForcePasswordChangeModal";
 import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
@@ -42,17 +47,43 @@ function resolveLoginRedirect(): string {
 
 function LoginPage() {
 	const navigate = useNavigate();
+	const router = useRouter();
 	const shellRef = useRef<HTMLDivElement>(null);
 	useAuthParallax(shellRef);
+
+	// 登录成功后先预取目标路由的 chunk 与 beforeLoad，再跳转：首次进入 (app)
+	// 外壳要等会话校验 + 我的域请求 + 布局 chunk，串起来就是那段白屏。
+	function goToApp() {
+		const target = resolveLoginRedirect();
+		void router.preloadRoute({ to: target });
+		navigate({ to: target });
+	}
 
 	const [banned, setBanned] = useState(false);
 	const [showForgotModal, setShowForgotModal] = useState(false);
 	const [showChangeModal, setShowChangeModal] = useState(false);
 	const [oauthLoading, setOauthLoading] = useState(false);
 
+	// 桌面端首次进入时服务器地址还是空的：没有任何可请求的后端，
+	// 不能先打一轮必然失败的接口（OAuth 列表、会话校验都不发）。
+	const [serverReady, setServerReady] = useState(() => {
+		if (inMobile())
+			return createMobileServerConfig().getBaseUrlSync().trim() !== "";
+		if (inDesktop()) return createServerConfig().getBaseUrlSync().trim() !== "";
+		return true;
+	});
+	useEffect(() => {
+		if (!inDesktop()) return;
+		void createServerConfig()
+			.getBaseUrl()
+			.then((url) => setServerReady(url.trim() !== ""))
+			.catch(() => {});
+	}, []);
+
 	const { data: oauthProviders } = useQuery({
 		queryKey: ["oauth-providers"],
 		queryFn: getEnabledProviders,
+		enabled: serverReady,
 	});
 
 	const [username, setUsername] = useState("");
@@ -76,7 +107,7 @@ function LoginPage() {
 					return;
 				}
 				showLoginSuccessToast();
-				navigate({ to: resolveLoginRedirect() });
+				goToApp();
 			} catch (e) {
 				await useUserStore.getState().clearAuth();
 				const code = (e as { response?: { data?: { code?: number } } })
@@ -126,7 +157,7 @@ function LoginPage() {
 		e?.stopPropagation();
 		setTouched({ username: true, password: true });
 		if (!username.trim() || !password) return;
-		if (submitting) return;
+		if (submitting || !serverReady) return;
 		setSubmitting(true);
 		try {
 			const data = await loginApi({
@@ -140,7 +171,7 @@ function LoginPage() {
 			}
 			await useUserStore.getState().login(data.user, data.expires_in);
 			showLoginSuccessToast();
-			navigate({ to: resolveLoginRedirect() });
+			goToApp();
 		} catch (err: any) {
 			if (err?.response?.data?.code === 1015) {
 				setBanned(true);
@@ -270,7 +301,7 @@ function LoginPage() {
 											type="submit"
 											size="lg"
 											className="mt-4 w-full"
-											disabled={submitting}
+											disabled={submitting || !serverReady}
 										>
 											{submitting ? "登录中..." : "登录"}
 										</Button>
@@ -353,10 +384,10 @@ function LoginPage() {
 										</div>
 									)}
 
-									{/* 桌面端：登录前即可指定要连接的服务器（持久化，设置里也可改） */}
-									{inDesktop() && (
+									{/* 桌面端 / 移动端：登录前即可指定要连接的服务器 */}
+									{(inDesktop() || inMobile()) && (
 										<div className="border-foreground/10 mt-4 border-t pt-4">
-											<ServerUrlField />
+											<ServerUrlField mobile={!inDesktop()} />
 										</div>
 									)}
 								</div>
@@ -381,7 +412,7 @@ function LoginPage() {
 					await useUserStore.getState().login(result.user, result.expires_in);
 					setShowChangeModal(false);
 					showLoginSuccessToast();
-					navigate({ to: resolveLoginRedirect() });
+					goToApp();
 				}}
 			/>
 		</div>

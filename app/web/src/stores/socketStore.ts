@@ -65,6 +65,8 @@ export interface SocketState {
 	connecting: boolean;
 	socketState: WSConnectionState;
 	rooms: RoomInfo[];
+	/** room:list 请求已发出、结果还没回来：列表据此显示骨架而不是「暂无房间」 */
+	roomsLoading: boolean;
 	currentRoom: string | null;
 	selectedRoomInfo: RoomInfo | null;
 	activeSFUProvider: SFUProvider | undefined;
@@ -91,6 +93,7 @@ export const useSocketStore = create<SocketState>(() => ({
 	connecting: false,
 	socketState: "new",
 	rooms: [],
+	roomsLoading: false,
 	currentRoom: null,
 	selectedRoomInfo: null,
 	activeSFUProvider: undefined,
@@ -145,6 +148,8 @@ const setConnecting = (v: boolean | ((prev: boolean) => boolean)) =>
 const setRooms = (updater: RoomInfo[] | ((prev: RoomInfo[]) => RoomInfo[])) =>
 	useSocketStore.setState((prev) => ({
 		rooms: resolveUpdater(updater, prev.rooms),
+		// 任何一次房间列表结果（含增量事件）都代表请求已落地
+		roomsLoading: false,
 	}));
 const setCurrentRoom = (
 	room: string | null | ((prev: string | null) => string | null),
@@ -414,7 +419,7 @@ function connect() {
  *  selectedRoomInfo / currentRoom / rejoinIntent 必须保留 —— 它们是"我要在这个房间"的
  *  本地意图，而 SFU 媒体连接与信令是两条独立的链路，信令抖动不该把语音踢掉。 */
 function resetTransientState() {
-	useSocketStore.setState({ rooms: [] });
+	useSocketStore.setState({ rooms: [], roomsLoading: false });
 	setSpeechRestricted(false);
 	setSpeechRestrictionInfo(null);
 	setSpeakingIdentities([]);
@@ -422,7 +427,7 @@ function resetTransientState() {
 
 function resetRoomState() {
 	setCurrentRoom(null);
-	useSocketStore.setState({ rooms: [] });
+	useSocketStore.setState({ rooms: [], roomsLoading: false });
 	setSelectedRoomInfo(null);
 	setSpeechRestricted(false);
 	setSpeechRestrictionInfo(null);
@@ -612,9 +617,10 @@ function getSocket() {
 function listRooms() {
 	const domainUUID = currentDomainUUID();
 	if (!domainUUID) {
-		useSocketStore.setState({ rooms: [] });
+		useSocketStore.setState({ rooms: [], roomsLoading: false });
 		return;
 	}
+	useSocketStore.setState({ roomsLoading: true });
 	adapter.emitFireAndForget(EVENTS.ROOM_LIST, { domain_uuid: domainUUID });
 }
 

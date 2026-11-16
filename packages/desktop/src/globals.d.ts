@@ -8,5 +8,6 @@
  * for usage patterns. Keep this file in sync with
  * `app/web/types/gospeak-build.d.ts` (the web app's copy for its own program).
  */
-declare const __GOSPEAK_TARGET__: "web" | "desktop";
+declare const __GOSPEAK_TARGET__: "web" | "desktop" | "mobile";
 declare const __GOSPEAK_DESKTOP__: boolean;
+declare const __GOSPEAK_MOBILE__: boolean;

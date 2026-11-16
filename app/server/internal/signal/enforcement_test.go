@@ -10,13 +10,14 @@ import (
 
 type capsProvider struct {
 	sfu.BaseProvider
-	caps    sfu.Capabilities
-	kickErr error
-	muteErr error
-	kicked  []string
-	muted   []string
-	ttlSeen int
-	timed   bool
+	caps        sfu.Capabilities
+	kickErr     error
+	muteErr     error
+	muteResults []error
+	kicked      []string
+	muted       []string
+	ttlSeen     int
+	timed       bool
 }
 
 func (p *capsProvider) ProviderName() string           { return "test" }
@@ -30,6 +31,11 @@ func (p *capsProvider) ListParticipants(string) ([]sfu.ParticipantSummary, error
 }
 func (p *capsProvider) MuteParticipant(room, identity, trackSid string, muted bool) error {
 	p.muted = append(p.muted, room+":"+identity)
+	if len(p.muteResults) > 0 {
+		err := p.muteResults[0]
+		p.muteResults = p.muteResults[1:]
+		return err
+	}
 	return p.muteErr
 }
 func (p *capsProvider) MuteParticipantTimed(room, identity, trackSid string, muted bool, ttlSeconds int) error {
@@ -168,15 +174,40 @@ func TestEnforceUserMediaMute_PartialMultiRoomIsSoft(t *testing.T) {
 		1: {ID: 1, Name: "alice"},
 	}}, nil)
 	p := &capsProvider{
-		caps:    sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementHard},
-		muteErr: errors.New("fail once"),
+		caps:        sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementHard},
+		muteResults: []error{nil, errors.New("second room down")},
 	}
-	// first call fails because muteErr set; make custom by alternating - simpler: one room fail via err always => soft
 	hub.SetSFU(p)
 	hub.rooms["a"] = &Room{Name: "a", Members: map[string]*MemberInfo{"1": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
 	hub.rooms["b"] = &Room{Name: "b", Members: map[string]*MemberInfo{"2": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
 	if got := hub.enforceUserMediaMute(1, true, 10); got != sfu.EnforcementSoft {
-		t.Fatalf("enforcement=%q, want soft on total fail", got)
+		t.Fatalf("enforcement=%q, want soft when one of two rooms fails", got)
+	}
+	if len(p.muted) != 2 {
+		t.Fatalf("expected mute attempts in both rooms, got %v", p.muted)
+	}
+	attempted := map[string]bool{}
+	for _, target := range p.muted {
+		attempted[target] = true
+	}
+	if !attempted["a:alice"] || !attempted["b:alice"] {
+		t.Fatalf("expected a:alice and b:alice mute attempts, got %v", p.muted)
+	}
+}
+
+func TestEnforceUserMediaMute_AllRoomsSucceedIsHard(t *testing.T) {
+	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
+		1: {ID: 1, Name: "alice"},
+	}}, nil)
+	p := &capsProvider{caps: sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementHard}}
+	hub.SetSFU(p)
+	hub.rooms["a"] = &Room{Name: "a", Members: map[string]*MemberInfo{"1": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
+	hub.rooms["b"] = &Room{Name: "b", Members: map[string]*MemberInfo{"2": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
+	if got := hub.enforceUserMediaMute(1, true, 10); got != sfu.EnforcementHard {
+		t.Fatalf("enforcement=%q, want hard when every room succeeds", got)
+	}
+	if len(p.muted) != 2 {
+		t.Fatalf("expected mute attempts in both rooms, got %v", p.muted)
 	}
 }
 

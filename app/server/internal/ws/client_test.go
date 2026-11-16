@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/json"
 	"sync"
 	"testing"
 
@@ -83,9 +84,18 @@ func TestClient_SendErrorACK(t *testing.T) {
 
 func TestClient_SendAfterClose(t *testing.T) {
 	c := NewTestClient("c1", nil)
-	// Close without full WS conn - should not panic
-	// Just test that Send doesn't panic
-	_ = c.Send(map[string]string{"msg": "before close"})
+	c.Close()
+
+	if ok := c.Send(map[string]string{"msg": "after close"}); ok {
+		t.Fatal("expected Send to return false after Close")
+	}
+	if got := len(c.writeCh); got != 0 {
+		t.Fatalf("closed client must not enqueue messages, got %d", got)
+	}
+	c.Close()
+	if ok := c.Send(map[string]string{"msg": "after double close"}); ok {
+		t.Fatal("expected Send to return false after repeated Close")
+	}
 }
 
 func TestClient_Close(t *testing.T) {
@@ -121,26 +131,58 @@ func TestClient_Claims(t *testing.T) {
 func TestClientConcurrentSend(t *testing.T) {
 	c := NewTestClient("c1", nil)
 
-	// Concurrent writes should not race (verified with -race)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 10; i++ {
-			c.Send(map[string]int{"val": i})
+			if ok := c.Send(map[string]int{"val": i}); !ok {
+				t.Errorf("concurrent Send(%d) returned false", i)
+			}
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 10; i++ {
-			c.Send(map[string]int{"val": i + 100})
+			if ok := c.Send(map[string]int{"val": i + 100}); !ok {
+				t.Errorf("concurrent Send(%d) returned false", i+100)
+			}
 		}
 	}()
 
 	wg.Wait()
-	// Drain writeCh
-	for len(c.writeCh) > 0 {
-		<-c.writeCh
+
+	if got := len(c.writeCh); got != 20 {
+		t.Fatalf("expected 20 queued messages, got %d", got)
+	}
+
+	want := make(map[int]bool, 20)
+	for i := 0; i < 10; i++ {
+		want[i] = true
+		want[i+100] = true
+	}
+	seen := make(map[int]bool, 20)
+	for i := 0; i < 20; i++ {
+		var payload map[string]int
+		select {
+		case data := <-c.writeCh:
+			if err := json.Unmarshal(data, &payload); err != nil {
+				t.Fatalf("unmarshal queued message: %v", err)
+			}
+		default:
+			t.Fatalf("expected 20 queued messages, got %d", i)
+		}
+		value := payload["val"]
+		if !want[value] {
+			t.Fatalf("queued unexpected value %d", value)
+		}
+		if seen[value] {
+			t.Fatalf("queued duplicate value %d", value)
+		}
+		seen[value] = true
+	}
+	if len(seen) != 20 {
+		t.Fatalf("expected 20 distinct values, got %d", len(seen))
 	}
 }
 

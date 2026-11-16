@@ -16,7 +16,7 @@
 src/pages/
 ├── __root.tsx                 # 根路由（Outlet + errorComponent）
 ├── login.tsx                  # → /login
-├── register.tsx / guest.tsx
+├── register.tsx
 ├── (app)/                     # 路由组（不生成 URL 段）
 │   ├── route.tsx              # 布局路由（登录守卫 + Layout + Outlet）
 │   ├── index.tsx              # → /（重定向到 /discover）

@@ -225,7 +225,7 @@ func (h *SignalHandler) ListParticipants(c *gin.Context) {
 
 	participants, err := h.sfuSvc.ListParticipants(room)
 	if err != nil {
-		pkg.Success(c, []interface{}{})
+		pkg.HandleError(c, err)
 		return
 	}
 

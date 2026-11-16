@@ -57,7 +57,9 @@ func TestMessageRepo_ListBefore(t *testing.T) {
 	if len(next) == 0 {
 		t.Fatal("want older page")
 	}
-	_ = hasMore2
+	if !hasMore2 {
+		t.Fatal("want hasMore on older page with 3 remaining messages")
+	}
 }
 
 func TestEnsureMentions_Idempotent(t *testing.T) {

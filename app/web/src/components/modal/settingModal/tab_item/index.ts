@@ -1,3 +1,4 @@
+import about from "./about";
 import account from "./account";
 import appearance from "./appearance";
 import audio from "./audio";
@@ -12,7 +13,7 @@ import voice from "./voice";
 const baseTabs: SettingTabConfig[] = [audio, voice, appearance, account];
 
 export const TABS: SettingTabConfig[] = __GOSPEAK_DESKTOP__
-	? [...baseTabs, desktop]
-	: baseTabs;
+	? [...baseTabs, desktop, about]
+	: [...baseTabs, about];
 
 export type { SettingTabConfig };

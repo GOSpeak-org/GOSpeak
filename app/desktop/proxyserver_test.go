@@ -3,13 +3,18 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
+	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -37,7 +42,7 @@ func testDist() fstest.MapFS {
 }
 
 func newServeTestServer() *proxyServer {
-	return &proxyServer{dist: testDist(), assets: newAssetCache(), transport: proxyTransport()}
+	return &proxyServer{dist: testDist(), assets: newAssetCache(), transport: newProxyRoundTripper()}
 }
 
 // newTestReverseProxy builds the same proxy wiring as startProxyServer without
@@ -47,7 +52,7 @@ func newTestReverseProxy(s *proxyServer) *httputil.ReverseProxy {
 		Director:       s.directMain,
 		ModifyResponse: fixCookies,
 		Transport:      s.transport,
-		ErrorHandler:   proxyErrorHandler,
+		ErrorHandler:   s.proxyErrorHandler,
 	}
 }
 
@@ -186,7 +191,7 @@ func TestProxyWithoutTargetReturnsConfiguredJSONError(t *testing.T) {
 }
 
 func TestProxyErrorHandlerReturnsUnifiedEnvelope(t *testing.T) {
-	s := &proxyServer{assets: newAssetCache(), transport: proxyTransport()}
+	s := &proxyServer{assets: newAssetCache(), transport: newProxyRoundTripper()}
 	s.mainProxy = newTestReverseProxy(s)
 	// Port 1 is privileged and (in practice) closed: the dial fails fast.
 	s.setProxyTarget("http://127.0.0.1:1")
@@ -294,7 +299,7 @@ func TestEmbeddedDistEndToEnd(t *testing.T) {
 // SPA deep link, a hashed chunk, and the API prefix with no backend configured.
 func TestHandlerServesRealDistOverHTTP(t *testing.T) {
 	sub := requireBuiltDist(t)
-	s := &proxyServer{dist: sub, assets: newAssetCache(), transport: proxyTransport()}
+	s := &proxyServer{dist: sub, assets: newAssetCache(), transport: newProxyRoundTripper()}
 	s.mainProxy = newTestReverseProxy(s)
 	ts := httptest.NewServer(s.handler())
 	defer ts.Close()
@@ -392,5 +397,109 @@ func TestAcceptsGzip(t *testing.T) {
 		if got := acceptsGzip(in); got != want {
 			t.Errorf("acceptsGzip(%q) = %v, want %v", in, got, want)
 		}
+	}
+}
+
+func TestProxyTransportKeepsHTTP11ForWebSockets(t *testing.T) {
+	tr := proxyTransport()
+	if tr.ForceAttemptHTTP2 {
+		t.Fatal("ForceAttemptHTTP2 must stay off: Go's HTTP/2 client rejects the Connection/Upgrade headers of a WebSocket handshake")
+	}
+	if tr.TLSNextProto == nil || len(tr.TLSNextProto) != 0 {
+		t.Fatal("TLSNextProto must be an empty non-nil map so TLS backends never negotiate HTTP/2")
+	}
+}
+
+func TestProxyRoundTripperDowngradesOnlyUpgrades(t *testing.T) {
+	rt := newProxyRoundTripper()
+	if rt.http2 == nil || !rt.http2.ForceAttemptHTTP2 || rt.http2.TLSNextProto != nil {
+		t.Fatal("non-upgrade traffic must keep HTTP/2: API calls should not be forced onto HTTP/1.1")
+	}
+
+	upgrade := &http.Request{Header: http.Header{
+		"Connection": {"Upgrade"},
+		"Upgrade":    {"websocket"},
+	}}
+	if !isUpgradeRequest(upgrade) {
+		t.Fatal("a WebSocket handshake must route to the HTTP/1.1 transport")
+	}
+	plain := &http.Request{Header: http.Header{"Accept": {"application/json"}}}
+	if isUpgradeRequest(plain) {
+		t.Fatal("a plain API request must not be treated as a protocol upgrade")
+	}
+}
+
+func TestClassifyProxyError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"nil", nil, ""},
+		{"dns", &net.DNSError{Err: "no such host", Name: "x"}, "dns"},
+		{"timeout", context.DeadlineExceeded, "timeout"},
+		{"refused", errors.New("dial tcp 127.0.0.1:8998: connect: connection refused"), "refused"},
+		{"other", errors.New("boom"), "other"},
+	}
+	for _, tc := range cases {
+		if got := classifyProxyError(tc.err); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestHealthzReportsLivenessWithoutTarget(t *testing.T) {
+	s := &proxyServer{assets: newAssetCache(), transport: newProxyRoundTripper(), port: 47000}
+	rec := httptest.NewRecorder()
+	s.handleHealthz(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var body struct {
+		OK     bool   `json:"ok"`
+		Port   int    `json:"port"`
+		Target string `json:"target"`
+		Last   string `json:"last_upstream_error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !body.OK || body.Port != 47000 || body.Target != "" || body.Last != "" {
+		t.Fatalf("unexpected body: %+v", body)
+	}
+}
+
+func TestProxyErrorHandlerRecordsUpstreamError(t *testing.T) {
+	s := &proxyServer{assets: newAssetCache(), transport: newProxyRoundTripper()}
+	rec := httptest.NewRecorder()
+	s.proxyErrorHandler(rec, httptest.NewRequest(http.MethodGet, "/api/v1/x", nil), errors.New("dial tcp: connect: connection refused"))
+
+	if got := s.UpstreamError(); got != "refused" {
+		t.Fatalf("UpstreamError() = %q, want refused", got)
+	}
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+}
+
+func TestProbeLoopbackHealthyServer(t *testing.T) {
+	s := &proxyServer{dist: testDist(), assets: newAssetCache(), transport: newProxyRoundTripper()}
+	s.port = 1
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", s.handleHealthz)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	u, _ := url.Parse(srv.URL)
+	port, _ := strconv.Atoi(u.Port())
+	if err := probeLoopback(port); err != nil {
+		t.Fatalf("probe healthy server: %v", err)
+	}
+}
+
+func TestProbeLoopbackClosedPort(t *testing.T) {
+	if err := probeLoopback(1); err == nil {
+		t.Fatal("expected an error probing a closed port")
 	}
 }

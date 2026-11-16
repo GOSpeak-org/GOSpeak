@@ -1,10 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/api/sfu", () => ({
-	resolveSFUProvider: (response: { provider?: string }) =>
-		response.provider || "livekit",
-}));
-
 import type { SFUClient } from "@gospeak/sfu-client/types";
 import {
 	createVoiceJoinCoordinator,
@@ -23,6 +17,39 @@ vi.mock("idb-keyval", () => ({
 	set: vi.fn(async () => {}),
 	del: vi.fn(async () => {}),
 }));
+
+function withTimeout<T>(
+	promise: Promise<T>,
+	ms: number,
+	label: string,
+): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	return Promise.race([
+		promise,
+		new Promise<never>((_, reject) => {
+			timer = setTimeout(
+				() => reject(new Error(`${label}：${ms}ms 未结束`)),
+				ms,
+			);
+		}),
+	]).finally(() => {
+		if (timer !== undefined) clearTimeout(timer);
+	});
+}
+
+async function waitFor(
+	predicate: () => boolean,
+	ms: number,
+	label: string,
+): Promise<void> {
+	const deadline = Date.now() + ms;
+	while (!predicate()) {
+		if (Date.now() > deadline) {
+			throw new Error(`${label}：${ms}ms 未满足`);
+		}
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	}
+}
 
 function makeToken(overrides: Record<string, unknown> = {}) {
 	return {
@@ -191,41 +218,48 @@ describe("runVoiceJoin", () => {
 	it("livekit does not serialize concurrent joins", async () => {
 		let active = 0;
 		let maxActive = 0;
-		let releaseFirst!: () => void;
-		let firstEntered = false;
-		const { deps } = makeDeps({
-			loadClient: vi.fn(async () => {
-				return {
-					joinRoom: vi.fn(async () => {
-						active++;
-						maxActive = Math.max(maxActive, active);
-						if (!firstEntered) {
-							firstEntered = true;
-							await new Promise<void>((r) => {
-								releaseFirst = r;
-							});
-						} else {
-							await new Promise((r) => setTimeout(r, 5));
-						}
-						active--;
-					}),
-					subscribePeers: vi.fn(),
-					leaveRoom: vi.fn(async () => {}),
-					destroy: vi.fn(async () => {}),
-				} as any;
-			}),
+		const entered: string[] = [];
+		let releaseJoins!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			releaseJoins = resolve;
 		});
-		const token = makeToken({ provider: "livekit" });
-		const p1 = runVoiceJoin(token as any, deps as any);
-		for (let i = 0; i < 50 && !firstEntered; i++) {
-			await new Promise((r) => setTimeout(r, 0));
-		}
-		const p2 = runVoiceJoin(token as any, deps as any);
-		await new Promise((r) => setTimeout(r, 20));
-		// livekit serializeJoins=false，允许并发进入 joinRoom
-		expect(maxActive).toBeGreaterThanOrEqual(1);
-		releaseFirst();
-		await Promise.all([p1, p2]);
+		const joinRoom = vi.fn(async (opts: { room?: string }) => {
+			active += 1;
+			maxActive = Math.max(maxActive, active);
+			entered.push(opts.room ?? "");
+			await gate;
+			active -= 1;
+		});
+		const { deps } = makeDeps({
+			loadClient: vi.fn(
+				async () =>
+					({
+						joinRoom,
+						subscribePeers: vi.fn(),
+						leaveRoom: vi.fn(async () => {}),
+						destroy: vi.fn(async () => {}),
+					}) as any,
+			),
+			coordinator: createVoiceJoinCoordinator(),
+		});
+
+		const first = runVoiceJoin(makeToken({ room: "r1" }) as any, deps as any);
+		const second = runVoiceJoin(makeToken({ room: "r2" }) as any, deps as any);
+
+		await waitFor(
+			() => active === 2,
+			2000,
+			"两个不同 joinKey 未能并发进入 joinRoom",
+		);
+		expect(entered.slice().sort()).toEqual(["r1", "r2"]);
+		expect(maxActive).toBe(2);
+
+		releaseJoins();
+		await withTimeout(
+			Promise.all([first, second]),
+			2000,
+			"并发 join 未在超时前返回",
+		);
 	});
 
 	it("aborts before side effects when signal already aborted", async () => {

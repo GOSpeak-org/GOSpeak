@@ -1,5 +1,6 @@
 {
   "name": "@gospeak/web",
+  "version": "1.0.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +9,8 @@
     "build": "vite build && tsc",
     "build:desktop": "GOSPEAK_TARGET=desktop vite build && tsc",
     "dev:desktop": "GOSPEAK_TARGET=desktop vite",
+    "build:mobile": "GOSPEAK_TARGET=mobile vite build && tsc",
+    "dev:mobile": "GOSPEAK_TARGET=mobile vite",
     "typecheck": "tsr generate && tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
@@ -16,8 +19,11 @@
     "check": "biome check"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource-variable/noto-sans-sc": "^5.3.1",
     "@gospeak/components": "workspace:*",
     "@gospeak/desktop": "workspace:*",
+    "@gospeak/mobile-capabilities": "workspace:*",
     "@gospeak/sfu-client": "workspace:*",
     "@tailwindcss/vite": "^4.3.5",
     "@tanstack/react-query": "^5.107.1",

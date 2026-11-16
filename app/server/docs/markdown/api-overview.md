@@ -89,22 +89,118 @@ Authorization: Bearer <your-jwt-token>
 
 ## 接口列表
 
+> 完整路由以 `internal/router/router.go` 与各 `routes/*/routes.go` 为准；下表覆盖当前全部已注册端点（基础路径 `/api/v1`）。✅ = 需 JWT，❌ = 公开。
+
 | 模块 | 路径 | 方法 | 需鉴权 |
 |------|------|------|--------|
 | Auth | `/auth/login` | POST | ❌ |
 | Auth | `/auth/register` | POST | ❌ |
 | Auth | `/auth/refresh_token` | POST | ❌ |
+| Auth | `/auth/reset_password` | POST | ❌ |
 | Auth | `/auth/logout` | POST | ✅ |
 | Auth | `/auth/refresh` | POST | ✅ |
-| Signal | `/signal/token` | POST | ❌ |
-| Signal | `/signal/signal` | POST | ❌ |
-| Signal | `/signal/rooms` | GET | ❌ |
-| Signal | `/signal/participants` | GET | ❌ |
-| User | `/user/profile` | GET | ✅ |
-| User | `/user/list` | GET | ✅ |
-| User | `/user/{id}` | GET | ✅ |
-| User | `/user/{id}` | DELETE | ✅ |
-
+| Auth | `/auth/change_password` | POST | ✅ |
+| Auth | `/auth/first_change_password` | POST | ✅ |
+| Email | `/email/send_code` | POST | ❌ |
+| Email | `/email/verify_code` | POST | ❌ |
+| Email | `/email/config` | POST | ✅ |
+| Email | `/email/update-config` | POST | ✅ |
+| OAuth | `/oauth/login/:provider` | GET | ❌ |
+| OAuth | `/oauth/callback/:provider` | GET | ❌ |
+| OAuth | `/oauth/providers` | GET | ❌ |
+| OAuth | `/oauth/admin/providers` | GET/POST/PUT | ✅ |
+| OAuth | `/oauth/admin/providers/:id` | DELETE | ✅ |
+| Signal | `/signal/webhook` | POST | ❌ |
+| Signal | `/signal/token` | POST | ✅ |
+| Signal | `/signal/rooms` | GET | ✅ |
+| Signal | `/signal/participants` | GET | ✅ |
+| Signal | `/signal/ws-endpoint` | GET | ✅ |
+| Invite | `/invite/preview` | POST | ❌ |
+| Invite | `/invite/register` | POST | ❌ |
+| User | `/user/profile` | POST | ✅ |
+| User | `/user/info` | POST | ✅ |
+| User | `/user/preset-avatars` | GET/POST | ✅ |
+| User | `/user/update-profile` | POST | ✅ |
+| User | `/user/list` | POST | ✅ |
+| User | `/user/get` | POST | ✅ |
+| User | `/user/delete` | POST | ✅ |
+| User | `/user/update-role` | POST | ✅ |
+| User Group | `/user-group/list` | POST | ✅ |
+| User Group | `/user-group/create` | POST | ✅ |
+| User Group | `/user-group/update` | POST | ✅ |
+| User Group | `/user-group/delete` | POST | ✅ |
+| Role | `/role/list` | POST | ✅ |
+| Role | `/role/create` | POST | ✅ |
+| Role | `/role/update` | POST | ✅ |
+| Role | `/role/delete` | POST | ✅ |
+| Permission | `/permission/list` | POST | ✅ |
+| Permission | `/permission/role` | POST | ✅ |
+| Permission | `/permission/sync` | POST | ✅ |
+| Mute | `/mute/create` | POST | ✅ |
+| Mute | `/mute/cancel` | POST | ✅ |
+| Mute | `/mute/status` | POST | ✅ |
+| Mute | `/mute/list` | POST | ✅ |
+| Room | `/room/create` | POST | ✅ |
+| Room | `/room/list` | POST | ✅ |
+| Room | `/room/get` | POST | ✅ |
+| Room | `/room/update` | POST | ✅ |
+| Room | `/room/delete` | POST | ✅ |
+| Message | `/room/messages/list` | POST | ✅ |
+| Message | `/room/messages/search` | POST | ✅ |
+| Message | `/room/messages/react` | POST | ✅ |
+| SFU | `/sfu/config` | POST | ✅ |
+| SFU | `/sfu/config/:provider` | POST | ✅ |
+| SFU | `/sfu/update-config` | POST | ✅ |
+| SFU | `/sfu/switch-provider` | POST | ✅ |
+| SFU | `/sfu/providers` | POST | ✅ |
+| Storage | `/storage/presign` | POST | ✅ |
+| Storage | `/storage/confirm` | POST | ✅ |
+| Storage | `/storage/upload` | POST | ✅ |
+| Storage | `/storage/delete` | POST | ✅ |
+| Storage | `/storage/config` | POST | ✅ |
+| Storage | `/storage/update-config` | POST | ✅ |
+| Storage | `/storage/test-config` | POST | ✅ |
+| Conversation | `/conversation/list` | POST | ✅ |
+| Conversation | `/conversation/messages` | POST | ✅ |
+| Conversation | `/conversation/mark-read` | POST | ✅ |
+| Conversation | `/conversation/send` | POST | ✅ |
+| Domain | `/domain/create` | POST | ✅ |
+| Domain | `/domain/get` | POST | ✅ |
+| Domain | `/domain/list` | POST | ✅ |
+| Domain | `/domain/list-public` | POST | ✅ |
+| Domain | `/domain/my-domains` | POST | ✅ |
+| Domain | `/domain/update` | POST | ✅ |
+| Domain | `/domain/delete` | POST | ✅ |
+| Domain | `/domain/leave` | POST | ✅ |
+| Domain | `/domain/kick` | POST | ✅ |
+| Domain | `/domain/members` | POST | ✅ |
+| Domain | `/domain/roles/list` | POST | ✅ |
+| Domain | `/domain/roles/create` | POST | ✅ |
+| Domain | `/domain/roles/update` | POST | ✅ |
+| Domain | `/domain/roles/delete` | POST | ✅ |
+| Domain | `/domain/members/update-role` | POST | ✅ |
+| Domain | `/domain/my-permissions` | POST | ✅ |
+| Invite | `/domain/invites/list` | POST | ✅ |
+| Invite | `/domain/invites/create` | POST | ✅ |
+| Invite | `/domain/invites/disable` | POST | ✅ |
+| Invite | `/domain/invites/redemptions` | POST | ✅ |
+| Invite | `/invite/join` | POST | ✅ |
+| Invite | `/invite/my-request` | POST | ✅ |
+| Invite | `/invite/cancel-request` | POST | ✅ |
+| Invite | `/domain/join-requests/list` | POST | ✅ |
+| Invite | `/domain/join-requests/review` | POST | ✅ |
+| Invite | `/domain/join-approval/config` | POST | ✅ |
+| Announcement | `/announcement/list` | POST | ✅ |
+| Announcement | `/announcement/unread-count` | POST | ✅ |
+| Announcement | `/announcement/mark-read` | POST | ✅ |
+| Announcement | `/announcement/admin/list` | POST | ✅ |
+| Announcement | `/announcement/admin/create` | POST | ✅ |
+| Announcement | `/announcement/admin/update` | POST | ✅ |
+| Announcement | `/announcement/admin/delete` | POST | ✅ |
+| Audit | `/audit/list` | POST | ✅ |
+| System | `/system/stream` | GET | ✅ |
+| System | `/system/update/current` | GET | ✅ |
+| System | `/system/update/check` | GET | ✅ |
 ---
 
 ## 模块与路由前缀
@@ -114,7 +210,6 @@ Authorization: Bearer <your-jwt-token>
 | 模块 | 路由前缀 | 鉴权 |
 |------|----------|------|
 | Auth | `/api/v1/auth` | 公开 + 受保护 |
-| Guest（访客） | `/api/v1/auth/guest` | 公开（带限流）+ 受保护 |
 | User | `/api/v1/user` | 受保护 |
 | User Group | `/api/v1/user-group` | 受保护 |
 | OAuth | `/api/v1/oauth`（`/oauth/admin` 受保护） | 公开 + 管理员 |
@@ -126,7 +221,7 @@ Authorization: Bearer <your-jwt-token>
 | Message（房间消息） | `/api/v1/room/messages` | 受保护 |
 | Storage | `/api/v1/storage` | 受保护 |
 | Email（验证） | `/api/v1/email` | 公开 + 受保护 |
-| Email Config | `/api/v1/email_config` | 受保护 |
+| Email Config | `/api/v1/email`（`/config`、`/update-config`） | 受保护 |
 | SFU Config | `/api/v1/sfu`（`sfu:manage`） | 受保护 |
 | Conversation | `/api/v1/conversation` | 受保护 |
 | Domain | `/api/v1/domain` | 受保护 |

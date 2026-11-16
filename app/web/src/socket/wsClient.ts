@@ -63,6 +63,12 @@ function resolveWsUrl(url: string): string {
 export interface WSClientOptions {
 	/** 自动重连前重新解析 ws endpoint；鉴权走 HttpOnly cookie。 */
 	refreshEndpoint?: () => Promise<WSEndpointInfo>;
+	/**
+	 * 浏览器在线探测，默认读 `navigator.onLine`。
+	 *
+	 * 离线期间不排程重连（握手必然失败，只会空转），改为等 `online` 事件回来立刻重连。
+	 */
+	isOnline?: () => boolean;
 }
 
 export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
@@ -96,7 +102,13 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 	let currentUrl = "";
 	let shouldReconnect = true;
 	let reconnectAttempts = 0;
+	// 因浏览器离线而没有排程重连：等 online 事件回来时才需要立刻重试
+	let waitingForNetwork = false;
+	let networkListenersAttached = false;
 	const refreshEndpoint = options.refreshEndpoint;
+	const isOnline =
+		options.isOnline ??
+		(() => (typeof navigator === "undefined" ? true : navigator.onLine));
 
 	let state: WSConnectionState = "new";
 	const stateChangeCbs: Array<
@@ -146,6 +158,8 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 	function connect(url: string) {
 		currentUrl = url;
 		shouldReconnect = true;
+		waitingForNetwork = false;
+		attachNetworkListeners();
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 			reconnectTimer = null;
@@ -211,13 +225,16 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 			pendingAcks.clear();
 
 			// Auto-reconnect with exponential backoff + jitter, capped at 15s.
-			if (shouldReconnect && currentUrl) {
-				const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000);
-				const jitter = Math.random() * 300;
-				reconnectAttempts += 1;
-				reconnectTimer = setTimeout(() => {
-					void reconnectWithEndpoint();
-				}, delay + jitter);
+			// currentUrl 可能为空（没有 VITE_SOCKET_URL 时直接连当前 origin 的 /ws），
+			// 不能把它当作「是否该重连」的开关；主动断开由 disconnect() 置
+			// shouldReconnect=false 兜住。
+			if (shouldReconnect) {
+				if (!isOnline()) {
+					// 离线时空转重试只会白烧退避窗口；交给 online 事件恢复
+					waitingForNetwork = true;
+					return;
+				}
+				scheduleReconnect();
 			}
 		};
 
@@ -244,8 +261,49 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 		}
 	}
 
+	function scheduleReconnect() {
+		const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000);
+		const jitter = Math.random() * 300;
+		reconnectAttempts += 1;
+		reconnectTimer = setTimeout(() => {
+			void reconnectWithEndpoint();
+		}, delay + jitter);
+	}
+
+	function handleOffline() {
+		if (!shouldReconnect) return;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+		waitingForNetwork = true;
+	}
+
+	function handleOnline() {
+		if (!shouldReconnect || !waitingForNetwork) return;
+		if (state !== "closed") return;
+		waitingForNetwork = false;
+		// 网络刚恢复，退避窗口没有必要再等
+		reconnectAttempts = 0;
+		void reconnectWithEndpoint();
+	}
+
+	function attachNetworkListeners() {
+		if (networkListenersAttached || typeof window === "undefined") return;
+		window.addEventListener("online", handleOnline);
+		window.addEventListener("offline", handleOffline);
+		networkListenersAttached = true;
+	}
+
+	function detachNetworkListeners() {
+		if (!networkListenersAttached || typeof window === "undefined") return;
+		window.removeEventListener("online", handleOnline);
+		window.removeEventListener("offline", handleOffline);
+		networkListenersAttached = false;
+	}
+
 	async function reconnectWithEndpoint() {
-		if (!shouldReconnect || !currentUrl) return;
+		if (!shouldReconnect) return;
 		const endpoint = await refreshEndpointSafe();
 		if (!shouldReconnect) return;
 		const nextUrl = endpoint?.url || currentUrl;
@@ -255,6 +313,8 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 	function disconnect() {
 		setState("closing");
 		shouldReconnect = false;
+		waitingForNetwork = false;
+		detachNetworkListeners();
 		if (reconnectTimer) {
 			clearTimeout(reconnectTimer);
 			reconnectTimer = null;

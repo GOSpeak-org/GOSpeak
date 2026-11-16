@@ -6,6 +6,7 @@ import axios, {
 } from "axios";
 import { toast } from "@gospeak/components";
 import { refreshSession } from "@/api/authTransport";
+import { unreachableMessage } from "@/utils/apiError";
 
 export interface Result<T = any> {
 	code: number;
@@ -129,6 +130,17 @@ const createInstance = (baseURL?: string) => {
 			) {
 				if (!silent) {
 					toast.warning(error.response.data?.msg || "你已被禁言");
+					markToasted(error);
+				}
+				return Promise.reject(error);
+			}
+
+			// 本地回环代理报告后端不可达（6002）：提示网络/地址，
+			// 不要和普通服务器错误混在一起，避免用户误以为要重新登录。
+			const unreachable = unreachableMessage(error);
+			if (unreachable) {
+				if (!silent) {
+					toast.error(unreachable);
 					markToasted(error);
 				}
 				return Promise.reject(error);

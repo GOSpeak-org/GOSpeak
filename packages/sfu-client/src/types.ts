@@ -90,6 +90,12 @@ export interface SFUClientOptions {
 	publishAudio?: SFUPublishAudioOptions;
 	/** Optional native WS signal socket for the media session. */
 	socket?: SignalSocket | null;
+	/**
+	 * 浏览器在线探测（通常传 `() => navigator.onLine`）。
+	 *
+	 * 返回 false 时重连降到慢速节奏继续等待，而不是放弃；未提供时视为始终在线。
+	 */
+	isOnline?: () => boolean;
 }
 
 export interface JoinParams {

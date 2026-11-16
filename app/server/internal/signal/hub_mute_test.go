@@ -210,3 +210,35 @@ func TestBroadcastMuteUnmute_ComputesRoomsOnce(t *testing.T) {
 		t.Fatalf("BroadcastUnmute KV scans: list=%d get=%d, want 2/2 cumulative (rooms computed once per broadcast)", lists, gets)
 	}
 }
+
+func TestBroadcastMute_NilInfoDoesNotPanic(t *testing.T) {
+	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
+		7: {ID: 7, Name: "alice"},
+	}}, nil)
+	bus := &captureMuteBus{}
+	hub.SetEventBus(bus)
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("BroadcastMute(nil) panicked: %v", r)
+		}
+	}()
+	hub.BroadcastMute(7, nil)
+
+	bus.mu.Lock()
+	defer bus.mu.Unlock()
+	events := bus.ns[EventUserMuted]
+	if len(events) != 1 {
+		t.Fatalf("user:muted events = %d, want 1", len(events))
+	}
+	payload, ok := events[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("user:muted payload type = %T, want map", events[0])
+	}
+	if permanent, ok := payload["permanent"].(bool); !ok || permanent {
+		t.Fatalf("user:muted permanent = %v, want false", payload["permanent"])
+	}
+	if userID, _ := payload["user_id"].(uint); userID != 7 {
+		t.Fatalf("user:muted user_id = %v, want 7", payload["user_id"])
+	}
+}

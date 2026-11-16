@@ -1,7 +1,6 @@
 package livekit
 
 import (
-	"reflect"
 	"testing"
 
 	"GOSpeak/internal/config"
@@ -19,14 +18,19 @@ func TestProviderName(t *testing.T) {
 
 func TestCapabilities(t *testing.T) {
 	caps := (&Service{}).Capabilities()
-	if caps.ServerKick != true {
-		t.Fatalf("ServerKick=%v, want true", caps.ServerKick)
+	want := sfu.Capabilities{
+		ServerMute:  true,
+		ServerKick:  true,
+		DeleteRoom:  true,
+		ListRooms:   true,
+		ListMembers: true,
+		MuteLevel:   sfu.EnforcementHard,
+		KickLevel:   sfu.EnforcementHard,
+		DeleteLevel: sfu.EnforcementHard,
+		ListLevel:   sfu.EnforcementHard,
 	}
-	if caps.ServerMute != true {
-		t.Fatalf("ServerMute=%v, want true", caps.ServerMute)
-	}
-	if !reflect.DeepEqual(caps, sfu.CapabilitiesFor("livekit")) {
-		t.Fatalf("Capabilities() = %+v, want %+v", caps, sfu.CapabilitiesFor("livekit"))
+	if caps != want {
+		t.Fatalf("Capabilities() = %+v, want %+v", caps, want)
 	}
 }
 

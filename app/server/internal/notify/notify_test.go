@@ -3,7 +3,11 @@ package notify
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
+
+	"GOSpeak/internal/protocol"
 )
 
 type recordedPublish struct {
@@ -43,7 +47,7 @@ func TestNotifyUser_TargetsPersonalRoom(t *testing.T) {
 	bus := &fakeBus{}
 	payload := samplePayload{UUID: "a-1", Title: "维护公告"}
 
-	if err := NotifyUser(context.Background(), bus, "user-uuid-1", "announcement:new", payload); err != nil {
+	if err := NotifyUser(context.Background(), bus, "user-uuid-1", protocol.EventAnnouncementNew, payload); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(bus.room) != 1 {
@@ -52,7 +56,7 @@ func TestNotifyUser_TargetsPersonalRoom(t *testing.T) {
 	if bus.room[0].room != "__user:user-uuid-1" {
 		t.Errorf("room = %q, want %q", bus.room[0].room, "__user:user-uuid-1")
 	}
-	if bus.room[0].event != "announcement:new" {
+	if bus.room[0].event != protocol.EventAnnouncementNew {
 		t.Errorf("event = %q", bus.room[0].event)
 	}
 	if len(bus.namespace) != 0 {
@@ -108,7 +112,7 @@ func TestNotifyUser_RejectsBytePayload(t *testing.T) {
 
 func TestNotifyAll_UsesNamespace(t *testing.T) {
 	bus := &fakeBus{}
-	if err := NotifyAll(context.Background(), bus, "announcement:new", samplePayload{UUID: "g"}); err != nil {
+	if err := NotifyAll(context.Background(), bus, protocol.EventAnnouncementNew, samplePayload{UUID: "g"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(bus.namespace) != 1 {
@@ -116,6 +120,30 @@ func TestNotifyAll_UsesNamespace(t *testing.T) {
 	}
 	if len(bus.room) != 0 {
 		t.Fatal("NotifyAll must not publish to a room")
+	}
+}
+
+func TestNotifyUser_WrapsBusError(t *testing.T) {
+	boom := errors.New("bus down")
+	bus := &fakeBus{err: boom}
+	err := NotifyUser(context.Background(), bus, "u1", "evt", samplePayload{})
+	if !errors.Is(err, boom) {
+		t.Fatalf("expected wrapped bus error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "notify user u1") {
+		t.Fatalf("expected user wrapping in %q", err)
+	}
+}
+
+func TestNotifyAll_WrapsBusError(t *testing.T) {
+	boom := errors.New("bus down")
+	bus := &fakeBus{err: boom}
+	err := NotifyAll(context.Background(), bus, "evt", samplePayload{})
+	if !errors.Is(err, boom) {
+		t.Fatalf("expected wrapped bus error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "notify all") {
+		t.Fatalf("expected broadcast wrapping in %q", err)
 	}
 }
 

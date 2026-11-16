@@ -1,4 +1,4 @@
-# 域、频道与访客
+# 域、频道与邀请
 
 ## 域的概念
 
@@ -51,9 +51,15 @@
 https://你的域名/invite/d/<邀请码>
 ```
 
-打开链接即可加入该域。邀请码可以重置——重置后旧链接立即失效，适用于链接外泄的场景。
+域可以开启「入域审核」。开启后：
 
-生成邀请链接需要 `domain:invite` 权限。
+1. 未注册用户打开链接，先通过邀请码完成注册
+2. 注册后提交加入申请，由域管理员审批
+3. 审批通过后成为域成员；审核配置可在域管理端调整
+
+未开启审核时，受邀用户完成注册后直接加入。邀请码可以停用或重置——失效后旧链接立即不可用，适用于链接外泄的场景。
+
+生成邀请链接需要 `domain:invite` 权限，管理邀请码需要 `domain:invite:manage` 权限，审批加入申请需要 `domain:member:review` 权限。
 
 ## 成员管理
 
@@ -66,7 +72,6 @@ https://你的域名/invite/d/<邀请码>
 | `owner` | 建域的人。拥有最高权限，且无法把自己移出域 |
 | `admin` | 域管理员，负责管理频道和成员 |
 | `member` | 普通成员，可正常收听和发言 |
-| `guest` | 访客，权限由域开关决定 |
 
 ### 成员管理操作
 
@@ -74,44 +79,6 @@ https://你的域名/invite/d/<邀请码>
 - **改角色**：为成员分配域内角色，需要 `domain:role:manage`
 - **禁言**：禁止某人在域内发音频
 - **封禁**：加入黑名单，禁止再次加入
-
-## 访客
-
-访客机制用于解决一个具体问题：**允许未注册用户进入收听**。
-
-适合的场景：公开社区开放试听、活动期间临时邀请参与者、通过链接临时进入查看。
-
-### 访客开关
-
-在域设置里有一个「访客」板块，包含三个开关：
-
-| 开关 | 默认 | 打开后 |
-|------|------|--------|
-| 允许访客收听 | 开 | 访客能进来听 |
-| 允许访客发言 | 开 | 访客能说话 |
-| 允许访客发消息 | 关 | 访客能在文字频道发消息 |
-
-### 访客的加入流程
-
-1. 域管理员生成访客邀请码
-2. 访客打开链接，系统分配一个临时账号（`is_guest=true`）
-3. 临时账号的有效期和可用功能，由域的开关决定
-
-访客不需要邮箱、不需要密码，也不能修改自己的资料。
-
-### 封禁访客
-
-访客有独立的封禁列表，与正式账号的封禁互不影响。
-
-封禁一个访客后，同一访客换个浏览器仍能再次进入——因为访客身份不是强绑定的。要彻底拦截，需要关闭访客开关，或要求注册正式账号。
-
-### 清理
-
-访客账号会持续累积。后台提供清理接口，可以按时间批量删除过期的访客账号：
-
-```bash
-POST /api/v1/domain/guest/cleanup
-```
 
 ## 相关接口
 
@@ -126,18 +93,23 @@ POST /api/v1/domain/guest/cleanup
 | POST | `/api/v1/domain/leave` | 退出 |
 | POST | `/api/v1/domain/kick` | 踢人 |
 | POST | `/api/v1/domain/members` | 成员列表 |
-| POST | `/api/v1/domain/reset-invite` | 重置邀请码 |
 
-### 访客
+### 邀请与加入
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/v1/auth/guest` | 用邀请码换访客身份（限流 60 次/小时） |
-| POST | `/api/v1/domain/guest/config` | 读写访客开关 |
-| POST | `/api/v1/domain/guest/ban` | 封禁访客 |
-| POST | `/api/v1/domain/guest/unban` | 解封 |
-| POST | `/api/v1/domain/guest/ban-list` | 封禁列表 |
-| POST | `/api/v1/domain/guest/cleanup` | 清理过期访客 |
+| POST | `/api/v1/invite/preview` | 公开预览邀请码对应域（限流 20 次/小时） |
+| POST | `/api/v1/invite/register` | 凭邀请码注册（限流 20 次/小时） |
+| POST | `/api/v1/invite/join` | 已登录用户凭码加入 |
+| POST | `/api/v1/invite/my-request` | 查看自己的加入申请 |
+| POST | `/api/v1/invite/cancel-request` | 撤回加入申请 |
+| POST | `/api/v1/domain/invites/list` | 域邀请码列表 |
+| POST | `/api/v1/domain/invites/create` | 创建邀请码 |
+| POST | `/api/v1/domain/invites/disable` | 停用邀请码 |
+| POST | `/api/v1/domain/invites/redemptions` | 邀请码使用记录 |
+| POST | `/api/v1/domain/join-requests/list` | 加入申请列表（管理员） |
+| POST | `/api/v1/domain/join-requests/review` | 审批加入申请（管理员） |
+| POST | `/api/v1/domain/join-approval/config` | 入域审核配置（管理员） |
 
 ## 下一步
 

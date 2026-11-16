@@ -35,7 +35,7 @@ describe("NotificationModal", () => {
 
 	it("shows the empty state when there are no notifications", () => {
 		render(<NotificationModal open onClose={() => {}} />);
-		expect(screen.getByText("暂无通知")).toBeTruthy();
+		expect(screen.getByText("暂无通知").textContent).toBe("暂无通知");
 	});
 
 	it("closes when the close button is clicked", async () => {
@@ -88,7 +88,18 @@ describe("NotificationModal", () => {
 				created_at: Date.now(),
 			},
 		];
-		const { container } = render(<NotificationModal open onClose={() => {}} />);
-		expect(container.querySelector("img[onerror]")).toBeNull();
+		render(<NotificationModal open onClose={() => {}} />);
+		const dialog = screen.getByRole("dialog");
+		expect(dialog.textContent).toContain("正文");
+		expect(dialog.textContent).toContain("安全");
+		expect(dialog.querySelector("script")).toBeNull();
+		expect(dialog.querySelectorAll("img[onerror]")).toHaveLength(0);
+		const inlineHandlers = Array.from(dialog.querySelectorAll("*")).flatMap(
+			(el) =>
+				Array.from(el.attributes)
+					.map((attr) => attr.name.toLowerCase())
+					.filter((name) => name.startsWith("on")),
+		);
+		expect(inlineHandlers).toEqual([]);
 	});
 });

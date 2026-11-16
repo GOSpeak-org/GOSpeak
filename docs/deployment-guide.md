@@ -47,7 +47,7 @@ docker compose -f deploy/docker-compose.yml up -d
 ```bash
 pnpm dev:server
 # 等价: cd app/server && air
-# air 会热重载，环境由 -e dev 指定（自动加载仓库根的 deploy/.env）
+# air 热重载；未指定 -e 时默认 dev；LoadEnvFiles 依次读 .env.dev/.env（工作目录）与 deploy/.env
 ```
 
 ### 2.4 启动前端
@@ -91,7 +91,7 @@ pnpm start:dev
 | `DB_PORT` | DB 端口 | `5432` |
 | `DB_USER` | DB 用户 | `gospeak` |
 | `DB_PASSWORD` | DB 密码 | `***` |
-| `DB_PATH` | SQLite 文件路径 | `db/gospeak.db` |
+| `DB_PATH` | SQLite 文件路径 | `db/app.db` |
 
 ### 3.2 NATS（内嵌事件总线）
 
@@ -113,7 +113,7 @@ NATS 总线固定为进程内嵌运行（含 JetStream），承担内部事件�
 | 变量 | 说明 |
 |------|------|
 | `SFU_PROVIDER` | `livekit`（固定值） |
-| `LIVEKIT_HOST` | 后端访问 LiveKit 的地址（admin API）。容器部署固定 `ws://livekit:7880`，Cloud `wss://<id>.livekit.cloud` |
+| `LIVEKIT_HOST` | 后端访问 LiveKit 的地址（admin API）。容器部署填 `ws://livekit:7880`，Cloud 填 `wss://<id>.livekit.cloud` |
 | `LIVEKIT_PUBLIC_URL` | **默认留空**。留空时按请求 Host 自动推导 `wss://<域名>/livekit`（应用内置同源反代，LiveKit 无需独立域名/证书）；仅独立域名或 Cloud 时显式填 |
 | `LIVEKIT_KEY` | API Key |
 | `LIVEKIT_SECRET` | API Secret |
@@ -297,5 +297,5 @@ docker run -d ... gospeak:latest  # 同 5.2 step 4
 - Agent 指南: `AGENTS.md`
 - 一键编排方案: `deploy/docker-compose.yml`
 - 权威部署入口: `deploy/DEPLOY.md`
-- 反代与 HTTPS: `deploy/Caddyfile` + `app/docs/deploy/nginx.md`
+- 反代与 HTTPS: `deploy/Caddyfile` + `app/docs/deploy/reverse-proxy.md`
 - 服务成熟度: `docs/sfu-provider-maturity.md`

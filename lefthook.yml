@@ -19,7 +19,7 @@ pre-push:
   parallel: true
   commands:
     "biome ci":
-      run: npx @biomejs/biome ci --files-ignore-unknown=true ./app/web ./packages ./scripts ./test ./app/desktop
+      run: npx @biomejs/biome ci --files-ignore-unknown=true ./app/web ./packages ./scripts ./test ./app/desktop ./app/mobile
     "hook dependency ratchet":
       # biome 的 useExhaustiveDependencies 是 warn，biome ci 不会因此失败；
       # 棘轮脚本阻止新增告警，与 CI 的 lint job 使用同一基线。
@@ -33,5 +33,7 @@ pre-push:
       run: node scripts/check-radius-tokens.mjs
     "desktop bridge contract":
       run: node scripts/check-desktop-commands.mjs
+    "mobile bridge contract":
+      run: node scripts/check-mobile-bridge.mjs
     "typecheck":
       run: pnpm typecheck
