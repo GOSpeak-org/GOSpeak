@@ -46,6 +46,21 @@ function createDesktopRoot({
 	return root;
 }
 
+function createMobileRoot({
+	version = "1.0.3",
+	packageVersion = version,
+} = {}) {
+	const root = mkdtempSync(join(tmpdir(), "gospeak-version-mobile-"));
+	const dir = join(root, "app", "mobile");
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(
+		join(dir, "package.json"),
+		JSON.stringify({ version: packageVersion }),
+	);
+	writeDeclaration(root, "mobile", version);
+	return root;
+}
+
 test("accepts a synchronized server version and release tag", () => {
 	const root = createServerRoot();
 
@@ -106,6 +121,26 @@ test("detects mygo.config.ts drift that package.json cannot catch", () => {
 
 	assert.deepEqual(result.issues, [
 		"app/desktop/mygo.config.ts version 0.9.0 does not match .github/versions/desktop.yaml 1.0.0",
+	]);
+});
+
+test("accepts a synchronized mobile version", () => {
+	const root = createMobileRoot();
+
+	assert.deepEqual(checkVersionState(root, "", "mobile"), {
+		component: "mobile",
+		declared: "1.0.3",
+		issues: [],
+	});
+});
+
+test("detects mobile package.json drift", () => {
+	const root = createMobileRoot({ packageVersion: "1.0.2" });
+
+	const result = checkVersionState(root, "", "mobile");
+
+	assert.deepEqual(result.issues, [
+		"app/mobile/package.json version 1.0.2 does not match .github/versions/mobile.yaml 1.0.3",
 	]);
 });
 

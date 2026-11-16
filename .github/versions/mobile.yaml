@@ -1,0 +1,6 @@
+# GOSpeak 移动端（app/mobile，Capacitor）版本 —— 显式声明，版本门禁的单一事实来源。
+#
+# 同步约束（check-version.mjs 校验）：app/mobile/package.json 的 version
+# 必须与本文件一致。release-naming.mjs 未定义 mobile tag 前缀，
+# 检查时须显式传 component=mobile。
+version: "1.0.3"

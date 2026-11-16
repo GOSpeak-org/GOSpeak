@@ -21,6 +21,7 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 - **发布类脚本必须配同名 `.test.mjs`**（`build-changelog` / `check-version` / `release-naming` / `release-notes` / `check-desktop-commands`），由 `node --test` 在 CI `test-scripts` job 跑；改脚本必须同步改测试。
 - `check-ui-tokens` / `check-radius-tokens` / `check-hook-deps` 没有单测，靠 CI 直接跑全仓扫描 —— 改它们等于改全仓门禁，先本地跑一遍再提交。
 - 版本单一事实源在 `.github/versions/*.yaml`，不要在脚本里硬编码版本号。
+- `check-version.mjs` 覆盖 server / desktop / mobile：mobile 以 `.github/versions/mobile.yaml` 为声明源，校验 `app/mobile/package.json`；release-naming 未定义 mobile tag，须显式传 `component=mobile`。
 - `check-hook-deps.mjs` 的基线代表已存在的技术债：**下调基线需要先修掉对应告警**，不要为了过门禁放宽。
 - `check-ui-tokens.mjs` 的规则对应 `packages/components/src/theme.css`；规范变更要同时改两处。
 - UI 护栏的豁免要用 `biome-ignore` 并在注释里写理由，不要私自加白名单目录。

@@ -4,9 +4,9 @@
 // 用法：node scripts/check-version.mjs [rootDir] [releaseTag] [component]
 //   rootDir     可选，仓库根目录（默认 process.cwd()）
 //   releaseTag  可选，发布 tag；tag 事件时缺省取 GITHUB_REF_NAME
-//   component   可选，"server" | "desktop"；缺省时按 tag 前缀推断
+//   component   可选，"server" | "desktop" | "mobile"；缺省时按 tag 前缀推断
 //               （gospeak-desktop-v* → desktop，gospeak-server-v* → server），
-//               非 tag 事件为 server
+//               非 tag 事件为 server；mobile 需显式传入
 //
 // 组件与校验规则：
 //   server  源：.github/versions/server.yaml
@@ -16,6 +16,9 @@
 //           校验：app/desktop/package.json 与 app/desktop/mygo.config.ts 的
 //                 version 必须与 yaml 一致；发布 tag
 //                 （gospeak-desktop-v<version>）必须与 yaml 一致。
+//   mobile  源：.github/versions/mobile.yaml
+//           校验：app/mobile/package.json 的 version 必须与 yaml 一致。
+//                 release-naming.mjs 未定义 mobile tag 前缀，不做 tag 推断。
 //
 // mygo.config.ts 是版本号的第三份副本（它决定 .app / dmg / 安装包的文件名），
 // 此前无人校验、可静默漂移，故纳入本脚本。
@@ -50,9 +53,13 @@ function normalizeComponent(component) {
 	const value = String(component ?? "").trim();
 	if (value === "") return undefined;
 	const resolved = COMPONENT_ALIASES[value] ?? value;
-	if (resolved !== "server" && resolved !== "desktop") {
+	if (
+		resolved !== "server" &&
+		resolved !== "desktop" &&
+		resolved !== "mobile"
+	) {
 		throw new Error(
-			`unknown component ${JSON.stringify(component)}; expected "server" or "desktop"`,
+			`unknown component ${JSON.stringify(component)}; expected "server", "desktop", or "mobile"`,
 		);
 	}
 	return resolved;
@@ -136,6 +143,18 @@ function checkDesktop(rootDir, declared, issues) {
 	}
 }
 
+function checkMobile(rootDir, declared, issues) {
+	const packageVersion = parseVersion(
+		readJson(`${rootDir}/app/mobile/package.json`).version,
+		"app/mobile/package.json version",
+	);
+	if (packageVersion !== declared) {
+		issues.push(
+			`app/mobile/package.json version ${packageVersion} does not match .github/versions/mobile.yaml ${declared}`,
+		);
+	}
+}
+
 export function checkVersionState(rootDir, releaseTag_, component) {
 	// 显式参数 > tag 前缀推断 > server 兜底
 	const tag = String(releaseTag_ ?? "").trim();
@@ -147,6 +166,8 @@ export function checkVersionState(rootDir, releaseTag_, component) {
 
 	if (comp === "desktop") {
 		checkDesktop(rootDir, declared, issues);
+	} else if (comp === "mobile") {
+		checkMobile(rootDir, declared, issues);
 	} else {
 		checkServer(rootDir, declared, issues);
 	}
