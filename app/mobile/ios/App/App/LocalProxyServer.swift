@@ -447,7 +447,7 @@ final class LocalProxyServer {
         for (key, value) in request.headers where !LocalProxyServer.hopByHopHeaders.contains(key) {
             urlRequest.setValue(value, forHTTPHeaderField: key)
         }
-        urlRequest.setValue("localhost:\(LocalProxyServer.listenPort)", forHTTPHeaderField: "X-Forwarded-Host")
+        urlRequest.setValue("localhost:\(port)", forHTTPHeaderField: "X-Forwarded-Host")
         urlRequest.setValue("http", forHTTPHeaderField: "X-Forwarded-Proto")
         if !request.body.isEmpty {
             urlRequest.httpBody = request.body
@@ -635,7 +635,7 @@ final class LocalProxyServer {
         if let origin = request.header("origin") {
             lines.append("Origin: \(origin)")
         }
-        lines.append("X-Forwarded-Host: localhost:\(LocalProxyServer.listenPort)")
+        lines.append("X-Forwarded-Host: localhost:\(port)")
         lines.append("X-Forwarded-Proto: http")
         lines.append("")
         lines.append("")
