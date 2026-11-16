@@ -8,7 +8,7 @@
 |------|------|
 | `conditional.ts` | `BUILD_TARGET` `MOBILE_BUILD` `WEB_BUILD` `inMobile()` `assertMobile` `ifMobile` `importMobile` |
 | `bridge.ts` | `pluginMethod` / `getPlugin` / `listenPlugin`，动态加载 `@capacitor/core` |
-| `capabilities/*` | audio-session / audio-route / media-control / push / deeplink / lifecycle |
+| `capabilities/*` | audio-session / audio-route / media-control / push / deeplink / lifecycle / local-notification |
 | `index.ts` | 具名导出 + `createMobile()` 聚合对象 |
 
 ## 条件编译
@@ -27,3 +27,4 @@
 
 - 新增能力：`capabilities/<name>.ts` 导出 `create<Name>()`，内部同时实现 native 与 fallback，并在 `index.ts` 导出（加入 `createMobile()`）。
 - 降级必须**无副作用且可调用**，不要抛异常让调用方崩；失败要有明确返回值或 `console.warn`。
+- `local-notification` 是设备本地通知（被踢/断连等本地事件），**不能替代服务端推送**；离线时别人邀请你仍需要 APNs/FCM 服务端链路。
