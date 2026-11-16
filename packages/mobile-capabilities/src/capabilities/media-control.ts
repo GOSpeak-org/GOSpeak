@@ -1,4 +1,4 @@
-import { getPlugin, listenPlugin, pluginMethod } from "../bridge";
+import { getPlugin, listenPlugin } from "../bridge";
 
 /**
  * 锁屏 / 通知栏媒体控制。
@@ -56,7 +56,7 @@ export function createMediaControl(): MediaControl {
 		} catch (error) {
 			listening = false;
 			console.warn(
-				`[gospeak/mobile] ${pluginMethod("MediaControl", "action")} listener failed`,
+				"[gospeak/mobile] MediaControl.action listener failed",
 				error,
 			);
 		}

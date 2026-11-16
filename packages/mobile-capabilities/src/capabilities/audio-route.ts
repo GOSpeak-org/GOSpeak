@@ -72,7 +72,8 @@ export function createAudioRoute(): AudioRoute {
 			try {
 				const plugin = await getPlugin<AudioRoutePlugin>("AudioSession");
 				await plugin.set({ kind });
-				current = kind;
+				const now = await plugin.current();
+				current = isAudioRouteKind(now?.kind) ? now.kind : kind;
 			} catch (error) {
 				console.warn("[gospeak/mobile] AudioSession.set failed", error);
 			}
