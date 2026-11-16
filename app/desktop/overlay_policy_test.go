@@ -17,6 +17,9 @@ func TestPolicyWants(t *testing.T) {
 		{overlayPolicyAlways, true, false, true},
 		{overlayPolicyManual, true, false, false},
 		{overlayPolicyManual, true, true, false},
+		{"unknown", true, false, false},
+		{"unknown", true, true, false},
+		{"", true, false, false},
 	}
 	for _, c := range cases {
 		if got := policyWants(c.policy, c.connected, c.appActive); got != c.want {

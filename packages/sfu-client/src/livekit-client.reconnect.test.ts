@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	DEFAULT_RECONNECT_BASE_DELAY_MS,
+	DEFAULT_RECONNECT_BUDGET_MS,
+	DEFAULT_RECONNECT_MAX_DELAY_MS,
+	DEFAULT_RECONNECT_OFFLINE_DELAY_MS,
+} from "./reconnect-policy";
 
 const rooms: Array<{ options: Record<string, any> }> = [];
 
@@ -52,21 +58,53 @@ vi.mock("livekit-client", () => {
 describe("LiveKit reconnect wiring", () => {
 	beforeEach(() => {
 		rooms.length = 0;
+		// 抖动固定为 ×1.0，退避才可被断言为精确值（策略默认抖动 ±20%）。
+		vi.spyOn(Math, "random").mockReturnValue(0.5);
 	});
 
-	it("keeps reconnecting past three attempts by using a time budget", async () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("keeps reconnecting with capped backoff until the budget runs out", async () => {
 		const { LiveKitSFUClient } = await import("./livekit-client");
 		new LiveKitSFUClient({ isOnline: () => true });
 
 		const policy = rooms[0].options.reconnectPolicy;
-		for (const retryCount of [3, 4]) {
-			const delay = policy.nextRetryDelayInMs({
-				retryCount,
-				elapsedMs: retryCount * 1200,
-			});
-			expect(typeof delay).toBe("number");
-			expect(delay).toBeGreaterThan(0);
+		const delays: number[] = [];
+		let elapsedMs = 0;
+		for (const retryCount of [0, 1, 2, 3, 4]) {
+			const delay = policy.nextRetryDelayInMs({ retryCount, elapsedMs });
+			expect(delay).not.toBeNull();
+			delays.push(delay as number);
+			elapsedMs += delay as number;
 		}
+
+		expect(delays).toEqual([
+			DEFAULT_RECONNECT_BASE_DELAY_MS,
+			DEFAULT_RECONNECT_BASE_DELAY_MS * 2,
+			DEFAULT_RECONNECT_MAX_DELAY_MS,
+			DEFAULT_RECONNECT_MAX_DELAY_MS,
+			DEFAULT_RECONNECT_MAX_DELAY_MS,
+		]);
+		// 墙钟恰好推进到预算上限：此时才允许放弃自动重连
+		expect(elapsedMs).toBe(DEFAULT_RECONNECT_BUDGET_MS);
+		expect(policy.nextRetryDelayInMs({ retryCount: 5, elapsedMs })).toBeNull();
+	});
+
+	it("stops after three capped 4s backoffs even inside the budget", async () => {
+		const { LiveKitSFUClient } = await import("./livekit-client");
+		new LiveKitSFUClient({ isOnline: () => true });
+
+		const policy = rooms[0].options.reconnectPolicy;
+		// 预算还剩 9s：这里的放弃只能来自封顶次数用尽，而不是预算耗尽
+		const elapsedMs = 6_000;
+		for (const retryCount of [2, 3, 4]) {
+			expect(policy.nextRetryDelayInMs({ retryCount, elapsedMs })).toBe(
+				DEFAULT_RECONNECT_MAX_DELAY_MS,
+			);
+		}
+		expect(policy.nextRetryDelayInMs({ retryCount: 5, elapsedMs })).toBeNull();
 	});
 
 	it("stops auto-reconnect once the time budget is exhausted", async () => {
@@ -74,8 +112,18 @@ describe("LiveKit reconnect wiring", () => {
 		new LiveKitSFUClient({ isOnline: () => true });
 
 		const policy = rooms[0].options.reconnectPolicy;
+		// 预算的最后一毫秒仍然给一次重试（退避被夹到剩余预算），到点才放弃
 		expect(
-			policy.nextRetryDelayInMs({ retryCount: 1, elapsedMs: 120_000 }),
+			policy.nextRetryDelayInMs({
+				retryCount: 1,
+				elapsedMs: DEFAULT_RECONNECT_BUDGET_MS - 1,
+			}),
+		).toBe(1);
+		expect(
+			policy.nextRetryDelayInMs({
+				retryCount: 1,
+				elapsedMs: DEFAULT_RECONNECT_BUDGET_MS,
+			}),
 		).toBeNull();
 	});
 
@@ -88,7 +136,7 @@ describe("LiveKit reconnect wiring", () => {
 		const deep = policy.nextRetryDelayInMs({ retryCount: 4, elapsedMs: 5_000 });
 
 		// 离线时退避不再指数增长：始终是同一个慢速节奏
-		expect(shallow).toBeGreaterThan(0);
-		expect(deep).toBe(shallow);
+		expect(shallow).toBe(DEFAULT_RECONNECT_OFFLINE_DELAY_MS);
+		expect(deep).toBe(DEFAULT_RECONNECT_OFFLINE_DELAY_MS);
 	});
 });

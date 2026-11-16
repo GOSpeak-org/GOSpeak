@@ -13,21 +13,20 @@ import {
 } from "./conditional";
 import { isDesktop } from "./runtime";
 
-// 测试目标由 vitest.config.ts 依据 GOSPEAK_TARGET 注入（默认 web）。
-// 包内不含 @types/node，用 globalThis 取 process，避免 TS2580。
-const expectedTarget =
-	(globalThis as { process?: { env?: Record<string, string | undefined> } })
-		.process?.env?.GOSPEAK_TARGET === "desktop"
-		? "desktop"
-		: "web";
+// 期望值直接取打包器注入的字面量，而不是 process.env：GOSPEAK_TARGET 只是
+// vitest.config.ts 决定注入值的输入，注入值才是 BUILD_TARGET 的事实源。
+const INJECTED_TARGET = __GOSPEAK_TARGET__;
+const injectedDesktop = __GOSPEAK_DESKTOP__;
 
 describe("conditional / 构建目标常量", () => {
-	it("BUILD_TARGET 与注入的 GOSPEAK_TARGET 一致", () => {
-		expect(BUILD_TARGET).toBe(expectedTarget);
+	it("BUILD_TARGET 与注入的 __GOSPEAK_TARGET__ 一致", () => {
+		expect(BUILD_TARGET).toBe(INJECTED_TARGET);
+		expect(["web", "desktop", "mobile"]).toContain(INJECTED_TARGET);
 	});
 
 	it("DESKTOP_BUILD / WEB_BUILD 互斥且自洽", () => {
-		expect(DESKTOP_BUILD).toBe(expectedTarget === "desktop");
+		expect(DESKTOP_BUILD).toBe(INJECTED_TARGET === "desktop");
+		expect(DESKTOP_BUILD).toBe(injectedDesktop);
 		expect(WEB_BUILD).toBe(!DESKTOP_BUILD);
 	});
 });
@@ -36,9 +35,26 @@ describe("conditional / 运行时兼容", () => {
 	it("inDesktop：桌面构建恒 true，否则等于运行时 isDesktop()", () => {
 		if (DESKTOP_BUILD) {
 			expect(inDesktop()).toBe(true);
-		} else {
-			// node 测试环境无 window，isDesktop() 为 false
-			expect(inDesktop()).toBe(isDesktop());
+			return;
+		}
+		// node 测试环境没有 MyGo 注入，runtime 检测必须是 false
+		expect(isDesktop()).toBe(false);
+		expect(inDesktop()).toBe(false);
+	});
+
+	it("inDesktop：Web 构建下 MyGo 宿主存在时回退为 true", () => {
+		const globals = globalThis as { mygo?: unknown };
+		const previous = globals.mygo;
+		globals.mygo = {};
+		try {
+			expect(isDesktop()).toBe(true);
+			expect(inDesktop()).toBe(true);
+		} finally {
+			if (previous === undefined) {
+				delete globals.mygo;
+			} else {
+				globals.mygo = previous;
+			}
 		}
 	});
 

@@ -26,11 +26,11 @@ func TestHudWindowSize(t *testing.T) {
 	prevScale := overlayCfg.scale
 	overlayCfg.scale = 2
 	overlayCfg.mu.Unlock()
-	defer func() {
+	t.Cleanup(func() {
 		overlayCfg.mu.Lock()
 		overlayCfg.scale = prevScale
 		overlayCfg.mu.Unlock()
-	}()
+	})
 
 	w, h := hudWindowSize(3)
 	if w != hudWidth*2 {
@@ -46,15 +46,13 @@ func TestHudScaleFallsBackToAuto(t *testing.T) {
 	prevScale := overlayCfg.scale
 	overlayCfg.scale = 0
 	overlayCfg.mu.Unlock()
-	prevWidth := overlayDisplayWidth
-	overlayDisplayWidth = func() int { return 1920 }
-	defer func() {
+	t.Cleanup(func() {
 		overlayCfg.mu.Lock()
 		overlayCfg.scale = prevScale
 		overlayCfg.mu.Unlock()
-		overlayDisplayWidth = prevWidth
-	}()
+	})
 
+	stubDisplayWidth(t, 1920)
 	if got := hudScale(); got != 1.0 {
 		t.Fatalf("hudScale() = %v, want 1.0 for a 1920-wide display", got)
 	}

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
@@ -69,7 +71,10 @@ func TestListenLoopbackSkipsPortInUse(t *testing.T) {
 	// Occupy the first port of the range so the picker has to move on.
 	blocked, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(proxyPortFirst))
 	if err != nil {
-		t.Skipf("cannot occupy %d: %v", proxyPortFirst, err)
+		if !errors.Is(err, syscall.EADDRINUSE) {
+			t.Fatalf("cannot occupy %d: %v", proxyPortFirst, err)
+		}
+		t.Skipf("port %d is already in use: %v", proxyPortFirst, err)
 	}
 	defer func() { _ = blocked.Close() }()
 

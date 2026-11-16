@@ -95,6 +95,27 @@ type fakeHost struct {
 func (f *fakeHost) Report(string, string)        { f.reports++ }
 func (f *fakeHost) Notify(_ string, body string) { f.notes = append(f.notes, body) }
 
+const supervisorIdleTimeout = 5 * time.Second
+
+// waitForIdle waits for every deferred supervisor action to finish, with a
+// deadline so a stuck action fails the test instead of hanging the package.
+func waitForIdle(t *testing.T, s *supervisor) {
+	t.Helper()
+	deadline := time.Now().Add(supervisorIdleTimeout)
+	for {
+		s.mu.Lock()
+		pending, busy := len(s.pending), s.busy
+		s.mu.Unlock()
+		if pending == 0 && busy == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("supervisor still busy after %v: pending=%d busy=%d", supervisorIdleTimeout, pending, busy)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestSupervisorRestartsProxyOnTwoProbeFailures(t *testing.T) {
 	page := &fakePage{}
 	proxy := &fakeProxy{probeErr: errors.New("down"), oldPort: 47000, newPort: 47001}
@@ -103,7 +124,7 @@ func TestSupervisorRestartsProxyOnTwoProbeFailures(t *testing.T) {
 
 	sup.handle(supervisorEvent{kind: eventProxyProbeFailed})
 	sup.handle(supervisorEvent{kind: eventProxyProbeFailed})
-	sup.waitPending()
+	waitForIdle(t, sup)
 
 	if proxy.restarts != 1 {
 		t.Fatalf("restarts = %d, want 1", proxy.restarts)
@@ -123,13 +144,20 @@ func TestSupervisorReportsAfterBudget(t *testing.T) {
 
 	for i := 0; i < maxRestarts+1; i++ {
 		sup.handle(supervisorEvent{kind: eventPageRenderGone, reason: "gone"})
-		sup.waitPending()
+		waitForIdle(t, sup)
+		wantReloads := min(i+1, maxRestarts)
+		if page.reloads != wantReloads {
+			t.Fatalf("event %d: reloads = %d, want %d", i, page.reloads, wantReloads)
+		}
 	}
 	if host.reports != 1 {
 		t.Fatalf("reports = %d, want 1", host.reports)
 	}
 	if page.reloads != maxRestarts {
 		t.Fatalf("reloads = %d, want %d", page.reloads, maxRestarts)
+	}
+	if len(host.notes) != 0 {
+		t.Fatalf("notes = %v, want none for a page-only restart budget", host.notes)
 	}
 }
 

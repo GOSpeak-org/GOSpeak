@@ -3,7 +3,19 @@ import {
 	createReconnectPolicy,
 	DEFAULT_RECONNECT_BASE_DELAY_MS,
 	DEFAULT_RECONNECT_BUDGET_MS,
+	DEFAULT_RECONNECT_OFFLINE_DELAY_MS,
 } from "./reconnect-policy";
+
+type OnlineSegment = { fromMs: number; online: boolean };
+
+/** 模拟时间线上的在线状态：任何时候都由当前模拟毫秒数决定。 */
+function onlineAt(segments: OnlineSegment[], elapsedMs: number): boolean {
+	let online = segments[0]?.online ?? true;
+	for (const segment of segments) {
+		if (elapsedMs >= segment.fromMs) online = segment.online;
+	}
+	return online;
+}
 
 /**
  * 弱网基线（CI 可跑）：把真实弱网场景压成时间线。
@@ -12,30 +24,41 @@ import {
  * 所以这里断言的是「不会无限磨」，而不是「能一直救」。
  */
 describe("reconnect policy under weak-network timelines", () => {
-	it("fails fast instead of grinding when the network stays broken", () => {
+	it("fails fast instead of grinding across a flapping timeline", () => {
+		let elapsedMs = 0;
+		// 在线 2s → 离线 3s → 恢复在线，但恢复后依然打不通
+		const segments: OnlineSegment[] = [
+			{ fromMs: 0, online: true },
+			{ fromMs: 2_000, online: false },
+			{ fromMs: 5_000, online: true },
+		];
 		const decide = createReconnectPolicy({
-			isOnline: () => true,
+			isOnline: () => onlineAt(segments, elapsedMs),
 			jitterRatio: 0,
 		});
 
 		let retryCount = 0;
-		let elapsedMs = 0;
 		let exhaustedAtMs: number | null = null;
+		let exhaustedReason: string | null = null;
+		const reasons = new Set<string>();
 
 		while (retryCount < 100) {
 			const decision = decide({ retryCount, elapsedMs });
 			if (decision.delayMs === null) {
 				exhaustedAtMs = elapsedMs;
+				exhaustedReason = decision.reason;
 				break;
 			}
+			reasons.add(decision.reason);
+			expect(decision.delayMs).toBeGreaterThan(0);
 			elapsedMs += decision.delayMs;
 			retryCount += 1;
 		}
 
-		expect(exhaustedAtMs).not.toBeNull();
-		expect(exhaustedAtMs as number).toBeGreaterThanOrEqual(
-			DEFAULT_RECONNECT_BUDGET_MS,
-		);
+		expect(exhaustedAtMs).toBe(DEFAULT_RECONNECT_BUDGET_MS);
+		expect(exhaustedReason).toBe("budget-exhausted");
+		// 时间线真的走过了抖动期与离线期，两条分支都被执行
+		expect([...reasons].sort()).toEqual(["offline", "retry"]);
 		// 快速失败的关键：不会再尝试十几次
 		expect(retryCount).toBeLessThanOrEqual(10);
 	});
@@ -63,8 +86,9 @@ describe("reconnect policy under weak-network timelines", () => {
 	});
 
 	it("keeps a slow steady cadence while offline", () => {
+		let online = false;
 		const decide = createReconnectPolicy({
-			isOnline: () => false,
+			isOnline: () => online,
 			jitterRatio: 0,
 		});
 
@@ -74,8 +98,19 @@ describe("reconnect policy under weak-network timelines", () => {
 
 		expect(offlineDecisions.every((d) => d.reason === "offline")).toBe(true);
 		// 离线时不指数增长，始终是同一个慢速节奏
-		const delays = new Set(offlineDecisions.map((d) => d.delayMs));
-		expect(delays.size).toBe(1);
+		expect(offlineDecisions.map((d) => d.delayMs)).toEqual([
+			DEFAULT_RECONNECT_OFFLINE_DELAY_MS,
+			DEFAULT_RECONNECT_OFFLINE_DELAY_MS,
+			DEFAULT_RECONNECT_OFFLINE_DELAY_MS,
+			DEFAULT_RECONNECT_OFFLINE_DELAY_MS,
+		]);
+
+		// 离线期结束后回到在线：策略必须恢复基础退避
+		online = true;
+		expect(decide({ retryCount: 4, elapsedMs: 8_000 })).toEqual({
+			delayMs: DEFAULT_RECONNECT_BASE_DELAY_MS,
+			reason: "retry",
+		});
 	});
 
 	it("survives repeated short offline/online flapping inside one budget", () => {

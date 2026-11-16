@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"sync"
 	"testing"
 
@@ -16,7 +15,19 @@ func testSnapshot(names ...string) OverlaySnapshot {
 	return OverlaySnapshot{RoomName: "r", Members: members, Connected: true}
 }
 
-func newHUD(snap OverlaySnapshot, speaking []string) *hudState {
+// stubDisplayWidth answers the display width for one test, so hudView never
+// reaches mygo's Screen queries, which wait for the main loop a unit test has
+// none of. Restoring per test keeps the global from leaking into its siblings.
+func stubDisplayWidth(t *testing.T, width int) {
+	t.Helper()
+	previous := overlayDisplayWidth
+	overlayDisplayWidth = func() int { return width }
+	t.Cleanup(func() { overlayDisplayWidth = previous })
+}
+
+func newHUD(t *testing.T, snap OverlaySnapshot, speaking []string) *hudState {
+	t.Helper()
+	stubDisplayWidth(t, 1920)
 	s := &hudState{
 		speaking: map[string]bool{},
 		avatarOf: func(string) *ui.Bitmap { return nil },
@@ -31,7 +42,7 @@ func newHUD(snap OverlaySnapshot, speaking []string) *hudState {
 }
 
 func TestHUDShowsMemberNames(t *testing.T) {
-	s := newHUD(testSnapshot("阿伟", "小林", "Kate"), nil)
+	s := newHUD(t, testSnapshot("阿伟", "小林", "Kate"), nil)
 	tt := ui.NewTester(hudView(s), hudWidth, hudHeight(3))
 	for _, want := range []string{"阿伟", "小林", "Kate"} {
 		if !tt.HasText(want) {
@@ -41,7 +52,7 @@ func TestHUDShowsMemberNames(t *testing.T) {
 }
 
 func TestHUDEmptyDrawsNothing(t *testing.T) {
-	s := newHUD(testSnapshot(), nil)
+	s := newHUD(t, testSnapshot(), nil)
 	tt := ui.NewTester(hudView(s), hudWidth, hudHeight(0))
 	if got := tt.Texts(); len(got) != 0 {
 		t.Fatalf("Texts() = %v, want none for an empty room", got)
@@ -49,7 +60,7 @@ func TestHUDEmptyDrawsNothing(t *testing.T) {
 }
 
 func TestHUDSpeakingComesFirst(t *testing.T) {
-	s := newHUD(testSnapshot("阿伟", "小林", "Kate"), []string{"Kate"})
+	s := newHUD(t, testSnapshot("阿伟", "小林", "Kate"), []string{"Kate"})
 	tt := ui.NewTester(hudView(s), hudWidth, hudHeight(3))
 	texts := tt.Texts()
 	kate, awei := -1, -1
@@ -74,7 +85,7 @@ func TestHUDCapsRowsWithOverflow(t *testing.T) {
 	for i := range names {
 		names[i] = string(rune('A' + i))
 	}
-	s := newHUD(testSnapshot(names...), nil)
+	s := newHUD(t, testSnapshot(names...), nil)
 	tt := ui.NewTester(hudView(s), hudWidth, hudHeight(15))
 	if !tt.HasText("+4") {
 		t.Errorf("HUD does not show +4 for 15 members; Texts() = %v", tt.Texts())
@@ -96,7 +107,7 @@ func TestHUDHeight(t *testing.T) {
 }
 
 func TestHUDThemeShadows(t *testing.T) {
-	s := newHUD(testSnapshot("阿伟"), nil)
+	s := newHUD(t, testSnapshot("阿伟"), nil)
 	tt := ui.NewTester(hudView(s), hudWidth, hudHeight(1))
 	if !tt.HasText("阿伟") {
 		t.Fatal("dark frame does not show the member")
@@ -108,7 +119,7 @@ func TestHUDThemeShadows(t *testing.T) {
 }
 
 func TestHUDDragStateFollowsLock(t *testing.T) {
-	s := newHUD(testSnapshot("阿伟"), nil)
+	s := newHUD(t, testSnapshot("阿伟"), nil)
 	if !s.snapshot().locked {
 		t.Fatal("HUD must start locked (no drag handle)")
 	}
@@ -128,7 +139,7 @@ func TestHUDDragStateFollowsLock(t *testing.T) {
 }
 
 func TestHUDSetStateIsConcurrentSafe(t *testing.T) {
-	s := newHUD(testSnapshot(), nil)
+	s := newHUD(t, testSnapshot(), nil)
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(2)
@@ -147,11 +158,4 @@ func TestHUDSetStateIsConcurrentSafe(t *testing.T) {
 	if got := len(s.snapshot().members); got != 2 {
 		t.Fatalf("members = %d, want 2", got)
 	}
-}
-
-// TestMain keeps the HUD tests off mygo's Screen queries, which wait for the
-// main loop that a unit test never runs.
-func TestMain(m *testing.M) {
-	overlayDisplayWidth = func() int { return 1920 }
-	os.Exit(m.Run())
 }
