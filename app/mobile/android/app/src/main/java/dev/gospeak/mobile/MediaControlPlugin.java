@@ -55,9 +55,9 @@ public class MediaControlPlugin extends Plugin {
         filter.addAction(ACTION_UNMUTE);
         filter.addAction(ACTION_HANGUP);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            getContext().registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
-            context.registerReceiver(actionReceiver, filter);
+            getContext().registerReceiver(actionReceiver, filter);
         }
     }
 
@@ -74,7 +74,7 @@ public class MediaControlPlugin extends Plugin {
         Boolean rawMuted = call.getBoolean("muted");
         boolean muted = Boolean.TRUE.equals(rawMuted);
         ensureChannel();
-        Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
+        Notification notification = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(subtitle)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
@@ -114,16 +114,16 @@ public class MediaControlPlugin extends Plugin {
     }
 
     private PendingIntent actionIntent(String action, int requestCode) {
-        Intent intent = new Intent(action).setPackage(context.getPackageName());
+        Intent intent = new Intent(action).setPackage(getContext().getPackageName());
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        return PendingIntent.getBroadcast(context, requestCode, intent, flags);
+        return PendingIntent.getBroadcast(getContext(), requestCode, intent, flags);
     }
 
     private NotificationManager notificationManager() {
-        return (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        return (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
     }
 
     private void ensureChannel() {

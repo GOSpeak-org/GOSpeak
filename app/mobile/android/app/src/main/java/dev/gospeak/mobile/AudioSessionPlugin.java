@@ -18,7 +18,7 @@ public class AudioSessionPlugin extends Plugin {
     @PluginMethod
     public void activate(PluginCall call) {
         try {
-            AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             if (previousMode == null) {
                 previousMode = audio.getMode();
             }
@@ -33,7 +33,7 @@ public class AudioSessionPlugin extends Plugin {
     @PluginMethod
     public void deactivate(PluginCall call) {
         try {
-            AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             if (previousMode != null) {
                 audio.setMode(previousMode);
             }
@@ -49,7 +49,7 @@ public class AudioSessionPlugin extends Plugin {
         JSArray routes = new JSArray();
         routes.put(new JSObject().put("kind", "speaker").put("label", "扬声器"));
         routes.put(new JSObject().put("kind", "earpiece").put("label", "听筒"));
-        AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         if (audio.isBluetoothScoAvailableOffCall()) {
             routes.put(new JSObject().put("kind", "bluetooth").put("label", "蓝牙耳机"));
         }
@@ -63,7 +63,7 @@ public class AudioSessionPlugin extends Plugin {
 
     @PluginMethod
     public void current(PluginCall call) {
-        AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         String kind;
         if (audio.isBluetoothScoOn()) {
             kind = "bluetooth";
@@ -85,7 +85,7 @@ public class AudioSessionPlugin extends Plugin {
         if (kind == null) {
             kind = "speaker";
         }
-        AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
         try {
             if ("speaker".equals(kind)) {
                 audio.stopBluetoothSco();
