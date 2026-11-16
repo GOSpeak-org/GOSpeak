@@ -23,6 +23,7 @@ interface LocalNotificationsPlugin {
 }
 
 export interface LocalNotification {
+	requestPermission(): Promise<void>;
 	notify(options: LocalNotificationOptions): Promise<void>;
 	cancel(id: number): Promise<void>;
 }
@@ -47,6 +48,10 @@ export function createLocalNotification(): LocalNotification {
 	};
 
 	return {
+		async requestPermission() {
+			if (!__GOSPEAK_MOBILE__) return;
+			await ensurePermission();
+		},
 		async notify(options) {
 			if (!__GOSPEAK_MOBILE__) {
 				try {

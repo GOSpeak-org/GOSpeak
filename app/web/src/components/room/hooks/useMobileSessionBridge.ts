@@ -90,6 +90,11 @@ export function useMobileSessionBridge({
 	}, [mobile]);
 
 	useEffect(() => {
+		if (!inMobile() || !isJoined) return;
+		void mobile.localNotification.requestPermission();
+	}, [mobile, isJoined]);
+
+	useEffect(() => {
 		if (!inMobile()) return;
 		const { localNotification } = mobile;
 		return socketStore.onRoomKicked(() => {

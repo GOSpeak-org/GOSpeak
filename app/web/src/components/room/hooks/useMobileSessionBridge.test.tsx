@@ -13,6 +13,7 @@ const m = vi.hoisted(() => ({
 		async (_options: { id: number; title: string; body: string }) => {},
 	),
 	cancel: vi.fn(async (_id: number) => {}),
+	requestPermission: vi.fn(async () => {}),
 	onRoomKicked: vi.fn((_handler: () => void) => () => {}),
 	setIsInputMute: vi.fn((_value: boolean) => {}),
 	connected: vi.fn(() => true),
@@ -30,7 +31,11 @@ vi.mock("@gospeak/mobile-capabilities", () => ({
 			onAction: m.onAction,
 		},
 		lifecycle: { onStateChange: m.onStateChange },
-		localNotification: { notify: m.notify, cancel: m.cancel },
+		localNotification: {
+			requestPermission: m.requestPermission,
+			notify: m.notify,
+			cancel: m.cancel,
+		},
 	}),
 }));
 
