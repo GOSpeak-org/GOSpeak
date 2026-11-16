@@ -9,12 +9,14 @@ COPY app/web/package.json app/web/
 COPY packages/components/package.json packages/components/
 COPY packages/desktop/package.json packages/desktop/
 COPY packages/sfu-client/package.json packages/sfu-client/
+COPY packages/mobile-capabilities/package.json packages/mobile-capabilities/
 # `prepare` 含 lefthook install，依赖 git，Docker 内无需执行
 RUN pnpm install --frozen-lockfile --filter @gospeak/web... --ignore-scripts
 COPY app/web app/web
 COPY packages/components packages/components
 COPY packages/desktop packages/desktop
 COPY packages/sfu-client packages/sfu-client
+COPY packages/mobile-capabilities packages/mobile-capabilities
 RUN pnpm --filter @gospeak/web build
 
 # ── Stage 2: Go backend (embed frontend) ─────────────────────────────────
