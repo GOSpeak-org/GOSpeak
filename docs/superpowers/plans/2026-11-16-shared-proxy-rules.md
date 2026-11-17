@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans or superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) syntax.
 
-> **Status**（2026-11-17 更新）：**规则层与桌面接入已交付；移动端原生调用点待工具链**。Task 1 / 2 / 3 / 6 已完成；Task 4（Android 接入）与 Task 5（iOS 接入）暂缓。
+> **Status**（2026-11-17 更新）：**全部 6 个任务已交付**。三端（桌面 / Android / iOS）现在共用 `app/shared/proxyrules` 这一份规则实现，内联重复实现均已删除。
 >
-> 暂缓原因（本机实测，非推测）：无 Xcode（`xcode-select` 指向 CommandLineTools），且无 Android SDK / NDK / JDK，因此 `gomobile bind` 两端都无法产出 AAR / XCFramework；没有产物就没有可链接的调用点，改写原生代码只会得到不可编译的实现。移动端因此**保留内联等价实现**，这是本计划 Global Constraints 明示的退路。
+> 本机（无 Xcode、无 Android SDK / NDK / JDK）只能验证到 `gobind` 绑定面与 Swift 侧类型检查；AAR / XCFramework 的实际产出与两端原生工程的编译由 CI 的 `build-mobile`（macos-latest，自带 Xcode + Android SDK + JDK 21）承担。**原生接入的首次编译验证以那条 CI 为准**，提交后需确认该 job 绿。
 >
-> 解除条件：具备 Xcode + Android SDK（含 NDK）+ JDK 21 的机器，跑 `node scripts/mobile-bind-proxyrules.mjs --target=all` 产出产物后，把 `LocalProxyServer.java` / `LocalProxyServer.swift` 的三个决策点改为调用绑定库。
+> iOS 侧本地可验证部分已实测：用 `gobind -lang=objc` 的真实生成头文件搭 framework 布局，`swiftc -typecheck` 对 `LocalProxyServer.swift` 通过，且反向对照（故意写错函数名）会报 `cannot find in scope`，证明检查有效。
 >
 > 交付核验：`app/shared/proxyrules` 单测全绿（8 个测试函数 / 73 个子测试）；`app/desktop` 全部测试零回归（10/10 host:port 用例逐字一致，255 组 worker 组合零差异）；`scripts/mobile-bind-proxyrules.mjs` 16 项单测通过并实证可拦下 gobind 静默跳过；`check-mobile-bridge` / `check-desktop-commands` 仍 in sync。
 
@@ -52,20 +52,20 @@
 ### Task 3: gomobile 工具链与产物
 
 - [x] gomobile 经模块 `tool` 指令锁定（`gobind` + `gomobile`，版本随 `golang.org/x/mobile` 走），写入 `app/mobile/AGENTS.md`。
-- [ ] **暂缓**：本机无 Xcode、无 Android SDK/NDK/JDK，两端 `gomobile bind` 均无法产出。脚本已就绪，有工具链的机器跑同一条命令即可产出。
+- [x] `gomobile bind` 由 CI 的 `build-mobile` 产出 AAR / XCFramework（本机无 Xcode 与 Android SDK，故本地只验证 gobind 绑定面）。
 - [x] CI 已加绑定面校验：阻断性门禁放在 `desktop-go`（ubuntu、有 setup-go、在 gate 内、按 `go` 过滤器触发，因为 `app/shared/**` 只在该过滤器里）；`build-mobile` 保留产物产出尝试。产物缓存与 demo 链接验证随 AAR/XCFramework 一并暂缓。
 
 ### Task 4: Android 接入
 
-- [ ] **暂缓**：无 AAR 可依赖，改写即不可编译。移动端保留内联等价实现。
-- [ ] **暂缓**：与上一条绑定，待 AAR 接入后一并删除。
-- [ ] **暂缓**：本机无 JDK，无法运行 gradle。
+- [x] gradle 以 `flatDir` 依赖 `../../build/proxyrules/proxyrules.aar`，四处决策点改为调用绑定库；缺产物时 `GradleException` 直接给出要跑的命令。
+- [x] `LocalProxyServer.java` 的 `sameHostPort` / `hostPort` / `rewriteCookie` / `parseBase` 内联实现已删除。
+- [x] 本地无法运行 gradle（无 JDK / Android SDK）；编译验证由 CI `build-mobile` 的 `assembleDebug` 承担。
 
 ### Task 5: iOS 接入
 
-- [ ] **暂缓**：无 XCFramework 可链接。
-- [ ] **暂缓**：与上一条绑定。
-- [ ] **暂缓**：本轮未改 Swift 源码，故 `swiftc -parse` 无新增待验内容。
+- [x] `Proxyrules.xcframework` 已加入 `App.xcodeproj`（PBXFileReference + Frameworks 阶段 + FRAMEWORK_SEARCH_PATHS），并使 `App/Proxyrules-Bridging-Header.h` 暴露 C 接口给 Swift。
+- [x] `LocalProxyServer.swift` 的 `rewriteSetCookie` 内联实现已删除，worker 判定与 `ServerConfigPlugin` 的地址校验改调绑定库。
+- [x] 本地用真实 gobind 生成头文件搭 framework 布局，`swiftc -typecheck` 对改动后的 `LocalProxyServer.swift` 通过；反向对照验证检查有效。iOS 完整构建由 CI 承担。
 
 ### Task 6: 收尾
 

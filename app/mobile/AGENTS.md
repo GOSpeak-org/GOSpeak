@@ -30,7 +30,10 @@ pnpm --filter @gospeak/mobile run:android   # 同步后跑 Android
 移动端与桌面端的本地反代判定（服务器地址校验、Set-Cookie 重写、worker 可信来源、host:port 归一）只有一份实现：`app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，四个导出函数，无 CGO / 平台依赖）。
 
 - 桌面宿主直接 `import "gospeak/proxyrules"`（`app/desktop/go.mod` 用 `replace` 指向本地目录）。
-- 移动端经 `gomobile bind` 产出的 AAR / XCFramework 调用；**原生调用点尚未接入**，Android/iOS 的 `LocalProxyServer` 目前保留内联等价实现（工具链未就绪时的计划内退路）。
+- 移动端经 `gomobile bind` 产出的 AAR / XCFramework 调用，**原生调用点已接入**，内联等价实现已删除：
+  - Android：`LocalProxyServer` 调 `proxyrules.Proxyrules.{validateBaseURL,isTrustedWorker,rewriteSetCookie}`，AAR 由 `app/build.gradle` 以 `flatDir` 依赖 `../../build/proxyrules`。
+  - iOS：`LocalProxyServer` 调 `ProxyrulesIsTrustedWorker` / `ProxyrulesRewriteSetCookie`，`ServerConfigPlugin` 调 `ProxyrulesValidateBaseURL`（经 `App/Proxyrules-Bridging-Header.h`）。
+- **构建前必须先产出绑定产物**：`pnpm --filter @gospeak/mobile sync`（或 `sync:ios` / `sync:android`）已把 `bind:rules` 串进链路。缺产物时 Gradle 与 Xcode 会以明确信息让你去跑 bind，而不是报 "package proxyrules does not exist"。
 
 ### 工具链与版本锁定
 
@@ -57,7 +60,7 @@ node scripts/mobile-bind-proxyrules.mjs --target=all   # 默认 all；另有 and
 - 产物目录 `app/mobile/build/proxyrules/`，已被根 `.gitignore` 的 `build/` 覆盖，不入库。
 - `gobind`（`-lang=objc` / `-lang=java`）**不需要 Xcode / Android SDK**，是任何机器都能跑的门禁：脚本解析生成的 `Proxyrules.objc.h` 与 `Proxyrules.java`，断言四个导出函数都在，并拒绝任何 `// skipped function ...` 行——gobind 遇到不支持的签名会静默跳过函数且仍 exit 0，只看退出码等于没门禁。
 - `gomobile bind` 缺 Xcode / Android SDK / NDK / JDK 时脚本以 **exit 0** 退出并打印下一步（已知且已文档化的降级）；绑定真的坏了才 exit 1。
-- **本机现状**：`xcode-select -p` 仍指向 CommandLineTools（无 Xcode），且无 Android SDK/NDK/JDK，因此只验证到 gobind；AAR/XCFramework 与原生调用点接入需在有 Xcode 与 Android SDK 的环境完成，同一命令即可产出。
+- **本机现状**：`xcode-select -p` 仍指向 CommandLineTools（无 Xcode），且无 Android SDK/NDK/JDK，因此本地只能验证 gobind；AAR/XCFramework 由 CI 的 `build-mobile`（macos-latest，自带 Xcode 与 Android SDK）产出并编译两端原生工程——原生接入的编译验证以 CI 为准。
 
 ## 约束
 

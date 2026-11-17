@@ -20,6 +20,7 @@
 		C0DEC0DE2FE0000400ABCD01 /* MediaControlPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE2FE0000300ABCD01 /* MediaControlPlugin.swift */; };
 		C0DEC0DE2FE0000600ABCD01 /* LocalProxyServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE2FE0000500ABCD01 /* LocalProxyServer.swift */; };
 		C0DEC0DE2FE0000800ABCD01 /* ServerConfigPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE2FE0000700ABCD01 /* ServerConfigPlugin.swift */; };
+		C0DEC0DE2FE0000A00ABCD01 /* Proxyrules.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0DEC0DE2FE0000900ABCD01 /* Proxyrules.xcframework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,8 @@
 		C0DEC0DE2FE0000300ABCD01 /* MediaControlPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaControlPlugin.swift; sourceTree = "<group>"; };
 		C0DEC0DE2FE0000500ABCD01 /* LocalProxyServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalProxyServer.swift; sourceTree = "<group>"; };
 		C0DEC0DE2FE0000700ABCD01 /* ServerConfigPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfigPlugin.swift; sourceTree = "<group>"; };
+		C0DEC0DE2FE0000900ABCD01 /* Proxyrules.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = Proxyrules.xcframework; path = ../../build/proxyrules/Proxyrules.xcframework; sourceTree = SOURCE_ROOT; };
+		C0DEC0DE2FE0000D00ABCD01 /* Proxyrules-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Proxyrules-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +49,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+				C0DEC0DE2FE0000A00ABCD01 /* Proxyrules.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,6 +83,8 @@
 				C0DEC0DE2FE0000300ABCD01 /* MediaControlPlugin.swift */,
 				C0DEC0DE2FE0000500ABCD01 /* LocalProxyServer.swift */,
 				C0DEC0DE2FE0000700ABCD01 /* ServerConfigPlugin.swift */,
+				C0DEC0DE2FE0000900ABCD01 /* Proxyrules.xcframework */,
+				C0DEC0DE2FE0000D00ABCD01 /* Proxyrules-Bridging-Header.h */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -91,11 +97,30 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		C0DEC0DE2FE0000B00ABCD01 /* Verify proxyrules framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Verify proxyrules framework";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "FRAMEWORK=\"$SRCROOT/../../build/proxyrules/Proxyrules.xcframework\"\nif [ ! -d \"$FRAMEWORK\" ]; then\n  echo \"error: 缺少 Proxyrules.xcframework：$FRAMEWORK\"\n  echo \"error: 先运行 node scripts/mobile-bind-proxyrules.mjs --target=ios（需要 Xcode）\"\n  echo \"error: pnpm --filter @gospeak/mobile sync:ios 已包含此步\"\n  exit 1\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
 			buildPhases = (
+				C0DEC0DE2FE0000B00ABCD01 /* Verify proxyrules framework */,
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
@@ -317,6 +342,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 10003;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../../build/proxyrules/Proxyrules.xcframework/ios-arm64",
+					"$(SRCROOT)/../../build/proxyrules/Proxyrules.xcframework/ios-arm64_x86_64-simulator",
+				);
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -328,6 +358,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.gospeak.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OBJC_BRIDGING_HEADER = "App/Proxyrules-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -339,6 +370,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 10003;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../../build/proxyrules/Proxyrules.xcframework/ios-arm64",
+					"$(SRCROOT)/../../build/proxyrules/Proxyrules.xcframework/ios-arm64_x86_64-simulator",
+				);
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -349,6 +385,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = dev.gospeak.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_OBJC_BRIDGING_HEADER = "App/Proxyrules-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

@@ -419,13 +419,14 @@ public final class LocalProxyServer {
             return null;
         }
         try {
+            // 地址校验规则唯一实现在 app/shared/proxyrules，与桌面端同源。
+            proxyrules.Proxyrules.validateBaseURL(base);
+        } catch (Exception error) {
+            return null;
+        }
+        try {
             URI uri = URI.create(base);
-            String scheme = uri.getScheme();
-            if (uri.getHost() == null
-                || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
-                return null;
-            }
-            return uri;
+            return uri.getHost() == null ? null : uri;
         } catch (IllegalArgumentException error) {
             return null;
         }
@@ -550,8 +551,10 @@ public final class LocalProxyServer {
                 sendSimple(clientOutput, 400, "text/plain; charset=utf-8", "unsupported target scheme".getBytes(StandardCharsets.UTF_8));
                 return;
             }
-            // Fail closed: /wsworker may only reach the configured backend host:port.
-            if (!sameHostPort(upstream, base)) {
+            // Fail closed: /wsworker 只能到达与已配置后端同 host:port 的目标。
+            // 判定规则唯一实现在 app/shared/proxyrules（与桌面端同源），容许列表为空，
+            // 因此这里的行为与桌面的"仅 baseURL 通道"一致。
+            if (!proxyrules.Proxyrules.isTrustedWorker(upstream.toString(), base.toString(), "")) {
                 sendSimple(clientOutput, 403, "text/plain; charset=utf-8", "target host not allowed".getBytes(StandardCharsets.UTF_8));
                 return;
             }
@@ -645,7 +648,7 @@ public final class LocalProxyServer {
                     continue;
                 }
                 if ("set-cookie".equals(lower)) {
-                    value = rewriteCookie(value);
+                    value = proxyrules.Proxyrules.rewriteSetCookie(value);
                 }
                 responseHeaders.add(name + ": " + value);
             }
@@ -744,25 +747,6 @@ public final class LocalProxyServer {
             return i;
         }
         return -1;
-    }
-
-    private static boolean sameHostPort(URI first, URI second) {
-        String a = hostPort(first);
-        String b = hostPort(second);
-        return a != null && a.equals(b);
-    }
-
-    private static String hostPort(URI uri) {
-        String host = uri.getHost();
-        if (host == null) {
-            return null;
-        }
-        int port = uri.getPort();
-        if (port < 0) {
-            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-            port = ("https".equals(scheme) || "wss".equals(scheme)) ? 443 : 80;
-        }
-        return host.toLowerCase(Locale.ROOT) + ":" + port;
     }
 
     private static String queryValue(String query, String wanted) {
@@ -916,7 +900,7 @@ public final class LocalProxyServer {
                 }
                 for (String value : header.getValue()) {
                     if ("set-cookie".equals(lower)) {
-                        value = rewriteCookie(value);
+                        value = proxyrules.Proxyrules.rewriteSetCookie(value);
                     }
                     headers.add(header.getKey() + ": " + value);
                 }
@@ -931,22 +915,6 @@ public final class LocalProxyServer {
             headers.add("Cache-Control: no-store");
         }
         send(output, status, headers, "HEAD".equals(request.method) ? new byte[0] : body);
-    }
-
-    private static String rewriteCookie(String cookie) {
-        StringBuilder result = new StringBuilder();
-        for (String segment : cookie.split(";")) {
-            String part = segment.trim();
-            String lower = part.toLowerCase(Locale.ROOT);
-            if (lower.startsWith("domain=") || lower.equals("secure") || lower.startsWith("secure=")) {
-                continue;
-            }
-            if (result.length() > 0) {
-                result.append("; ");
-            }
-            result.append(part);
-        }
-        return result.toString();
     }
 
     private static void sendHandshake(OutputStream output, int status, List<String> headers, byte[] leftover) {
