@@ -184,13 +184,15 @@ jobs:
     if: >-
       ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
           needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
-    # 原生编译已实跑通过（Android assembleDebug + iOS simulator build 均绿），
+    # 原生编译跑真实构建（Android assembleDebug + iOS simulator build），
     # 产物 gospeak-android-debug / gospeak-ios-simulator 供下载验证。
     #
-    # 不阻塞 CI：macos-latest 排队常达 5-10 分钟，把它挂在 gate 上会让任意一次
-    # 提交的合并门禁随 runner 队列抖动（实测同一提交墙钟 7min 与 17min 两档）。
-    # 原生壳的回归由 release 前的人工验证兜底，日常提交只保留信号不设门禁。
-    continue-on-error: true
+    # 不设 continue-on-error：失败必须是红的。先前它被压成 success，
+    # 长期掩盖了 version:sync 的 ENOENT，也让人误以为原生构建一直是好的。
+    #
+    # 但仍不进 gate 的 needs：macos-latest 排队常达 5-10 分钟（实测同一提交
+    # 墙钟 7min 与 17min 两档），挂上去会把队列抖动转嫁成合并阻塞。
+    # 结论：失败显眼，但不阻塞合并。
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -209,7 +211,8 @@ jobs:
           cache: true
       - name: Verify proxyrules binding surface
         # gobind 断言绑定面；gomobile bind 产出 AAR / XCFramework 供两端原生工程链接。
-        # 本 job 是 continue-on-error，缺工具链时脚本以 exit 0 报告下一步，不制造红色噪音。
+        # 缺平台工具链时脚本以 exit 0 报告下一步（已知且已文档化的降级）；绑定真坏了才 exit 1。
+        # 本 job 已不设 continue-on-error，所以真坏了会红。
         run: node scripts/mobile-bind-proxyrules.mjs --target=all
       - name: Sync native projects
         run: pnpm --filter @gospeak/mobile sync
@@ -477,8 +480,9 @@ jobs:
   gate:
     name: CI Gate
     if: always()
-    # build-mobile 不在 needs 内：它 continue-on-error 且跑在 macos-latest，
-    # 纳入 gate 只会把 macOS 排队时间转嫁成合并阻塞。
+    # build-mobile 不在 needs 内：它跑在 macos-latest，纳入 gate 只会把 macOS
+    # 排队时间转嫁成合并阻塞。注意它已去掉 continue-on-error——失败会让整次 run
+    # 变红以便被发现，但不会卡住这个 gate。
     needs: [lint, typecheck, build-js, build-server, test-server, test-web, test-packages, test-scripts, desktop-go, workflow-lint]
     runs-on: ubuntu-latest
     steps:
