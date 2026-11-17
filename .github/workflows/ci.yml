@@ -178,90 +178,6 @@ jobs:
           path: app/web/dist
           retention-days: 3
 
-  build-mobile:
-    name: Build Mobile (Capacitor)
-    needs: changes
-    if: >-
-      ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
-          needs.changes.outputs.js == 'true' || needs.changes.outputs.ci == 'true' }}
-    # 原生编译：当前只构建 Android（assembleDebug），产物 gospeak-android-debug
-    # 供下载验证。**iOS 构建暂时禁用**，被注释的步骤保留原样，原因与恢复方式见该处。
-    #
-    # 不设 continue-on-error：失败必须是红的。先前它被压成 success，
-    # 长期掩盖了 version:sync 的 ENOENT，也让人误以为原生构建一直是好的。
-    #
-    # 但仍不进 gate 的 needs：macos-latest 排队常达 5-10 分钟（实测同一提交
-    # 墙钟 7min 与 17min 两档），挂上去会把队列抖动转嫁成合并阻塞。
-    # 结论：失败显眼，但不阻塞合并。
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/pnpm-install
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
-          # 用 17 会在 :capacitor-android:compileDebugJavaWithJavac 报 invalid source release。
-          java-version: '21'
-      - uses: actions/setup-go@v7
-        with:
-          # macos-latest 镜像不自带 Go；绑定工具链需要 >= 1.26（模块 go 指令为 1.26.0）。
-          go-version-file: app/shared/proxyrules/go.mod
-          cache-dependency-path: app/shared/proxyrules/go.sum
-          cache: true
-      - name: Verify proxyrules binding surface
-        # gobind 断言绑定面；gomobile bind 仍产出 AAR 与 XCFramework。
-        # 注意：iOS 构建虽已禁用，XCFramework 仍然产出——它让 iOS 侧随时可以恢复构建，
-        # 也顺带证明 gomobile bind -target=ios 本身没有坏。
-        # 缺平台工具链时脚本以 exit 0 报告下一步（已知且已文档化的降级）；绑定真坏了才 exit 1。
-        # 本 job 已不设 continue-on-error，所以真坏了会红。
-        run: node scripts/mobile-bind-proxyrules.mjs --target=all
-      - name: Sync native projects
-        run: pnpm --filter @gospeak/mobile sync
-      - name: Build Android (assembleDebug)
-        run: cd app/mobile/android && ./gradlew assembleDebug --no-daemon
-      - name: Upload Android debug APK
-        # iOS 步骤若将来恢复，仍应保持在本步之后：iOS 失败时 APK 也能先上传成功。
-        uses: actions/upload-artifact@v7
-        with:
-          name: gospeak-android-debug
-          path: app/mobile/android/app/build/outputs/apk/debug/*.apk
-          retention-days: 7
-      # ---------------------------------------------------------------
-      # iOS 构建：暂时禁用（按需求先关掉，命令原样保留在下面）。
-      #
-      # 为什么保留而不是删除：iOS 侧的原生接入（XCFramework + bridging header）
-      # 已经落地并实跑通过一次（run 44006296505），命令留着即可随时恢复；
-      # XCFramework 仍在上一「Verify proxyrules binding surface」步骤里产出。
-      #
-      # 注意：禁用期间 **iOS 原生代码不再被 CI 编译**，改动 app/mobile/ios/ 或
-      # pbxproj 不会有人拦。恢复方式：把下面三段取消注释即可，无需其它改动。
-      # ---------------------------------------------------------------
-      # - name: Build iOS (simulator, unsigned)
-      #   # iOS 工程走 SPM（App/CapApp-SPM/Package.swift），没有 CocoaPods 的
-      #   # .xcworkspace，因此必须用 -project 而不是 -workspace。
-      #   run: |
-      #     xcodebuild -project app/mobile/ios/App/App.xcodeproj \
-      #       -scheme App -configuration Debug \
-      #       -destination 'generic/platform=iOS Simulator' \
-      #       -derivedDataPath /tmp/gospeak-ios-derived \
-      #       CODE_SIGNING_ALLOWED=NO build
-      # - name: Package iOS simulator app
-      #   # 用 ditto 而不是普通 zip：ditto 会保留 .app 的 bundle 目录结构、可执行位和
-      #   # 符号链接，解压后仍是可安装的 App.app；裸 zip 容易把 bundle 拍平。
-      #   run: |
-      #     test -d /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
-      #       || { echo "iOS simulator App.app missing"; exit 1; }
-      #     ditto -c -k --sequesterRsrc --keepParent \
-      #       /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
-      #       /tmp/gospeak-ios-simulator.zip
-      # - name: Upload iOS simulator app
-      #   uses: actions/upload-artifact@v7
-      #   with:
-      #     name: gospeak-ios-simulator
-      #     path: /tmp/gospeak-ios-simulator.zip
-      #     retention-days: 7
-
   build-server:
     name: Build Server (Go)
     needs: [changes, build-js]
@@ -446,11 +362,12 @@ jobs:
         working-directory: app/shared/proxyrules
         run: go vet ./... && go test ./... -count=1
       - name: Verify proxyrules binding surface
-        # 放在这里而不是只放 build-mobile：build-mobile 只按 js/ci 触发，而 app/shared/**
-        # 只在 go 过滤器里，只改共享规则层的提交不会触发它——门禁就形同虚设。
+        # 放在这里而不是依赖移动端构建：移动端已拆成独立手动 workflow
+        # （.github/workflows/build-mobile.yml），常规提交根本不会跑它；而 app/shared/**
+        # 只在 go 过滤器里——阻断性校验必须留在这里，否则门禁形同虚设。
         # 只跑 gobind（纯代码生成，任何机器都能跑）；不在这里尝试 gomobile bind：
         # ubuntu runner 的 NDK 与 gomobile 默认 API 不兼容，尝试 bind 只会制造假红。
-        # 真正的 AAR/XCFramework 产出由 build-mobile（macos + Xcode + NDK）负责。
+        # 真正的 AAR/XCFramework 产出由手动触发的移动端构建（macos + Xcode + NDK）负责。
         run: node scripts/mobile-bind-proxyrules.mjs --target=all --surface-only
       - uses: ./.github/actions/pnpm-install
       - name: Build web (desktop target)
@@ -492,9 +409,8 @@ jobs:
   gate:
     name: CI Gate
     if: always()
-    # build-mobile 不在 needs 内：它跑在 macos-latest，纳入 gate 只会把 macOS
-    # 排队时间转嫁成合并阻塞。注意它已去掉 continue-on-error——失败会让整次 run
-    # 变红以便被发现，但不会卡住这个 gate。
+    # 移动端原生构建已拆到独立手动 workflow（.github/workflows/build-mobile.yml），
+    # 不参与本 CI，也不在 gate 的 needs 内——macOS 排队与 APK 构建都不会拖慢合并。
     needs: [lint, typecheck, build-js, build-server, test-server, test-web, test-packages, test-scripts, desktop-go, workflow-lint]
     runs-on: ubuntu-latest
     steps:

@@ -154,6 +154,7 @@ WS 事件协议只有一个定义处：`app/server/internal/protocol`。
 
 - **Conventional Commits**（`feat:` / `fix:` / `refactor:` / `docs:` / `chore:` …），由 commitlint + lefthook 强制。
 - **分支**：`release`（生产，默认分支）/ `dev`（开发）/ `feature/*`。PR 前确认 lint、typecheck、build 通过。
+- **从 `release` 签出分支再合入**：改动一律从最新的 `origin/release` 签出新分支（`git fetch origin && git switch -c <branch> origin/release`），不要基于已分叉的本地旧分支直接开 PR；合入目标默认 `release`。历史分支与 `release` 分叉时，应把工作区改动变基到最新 `release` 之上，而不是带着分叉历史合并。
 - **文档单一事实源**：同一事实只在一处陈述。**不要把易变清单（路由表、模型字段、env 全表、事件全表）复制进指南**——这正是历史上文档腐化的原因。
 - **文档与代码同 PR 更新**：改路由/模型/env/事件时，同步更新对应的 `AGENTS.md` 指针或说明。
 - **不留过期文档**：能力被删除或设计被取代时，连同文档一起删除（历史留在 git log），不要让“已废弃”的文档继续留在树里。

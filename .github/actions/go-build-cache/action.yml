@@ -8,13 +8,21 @@ inputs:
     description: Namespace to separate server/desktop build caches
     required: true
     default: server
+  cache-path:
+    # Go's GOCACHE default differs by OS: ~/.cache/go-build on Linux,
+    # ~/Library/Caches/go-build on macOS. Caching a non-existent path
+    # silently no-ops, so resolve the OS default when not overridden.
+    description: GOCACHE directory to cache; auto-detected per OS when empty
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
     - name: Restore Go build cache
       uses: actions/cache@v4
       with:
-        path: ~/.cache/go-build
+        # Auto-detect Go's OS-specific GOCACHE default; allow explicit override.
+        path: ${{ inputs.cache-path || (runner.os == 'macOS' && '~/Library/Caches/go-build' || '~/.cache/go-build') }}
         # Go build cache is content-addressed: source changes add entries rather
         # than reusing wrong artifacts, so key only needs the dependency set.
         key: gocache-${{ inputs.cache-prefix }}-${{ runner.os }}-${{ hashFiles(inputs.go-sum-path) }}
