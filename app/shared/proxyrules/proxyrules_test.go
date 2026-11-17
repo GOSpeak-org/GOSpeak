@@ -172,6 +172,31 @@ func TestRewriteSetCookie(t *testing.T) {
 			"a=1; Securely",
 			"a=1; Securely; SameSite=Lax",
 		},
+		{
+			"domain with a space before the equals is dropped",
+			"a=1; domain =x.com",
+			"a=1; SameSite=Lax",
+		},
+		{
+			"secure with a space before the equals is dropped",
+			"a=1; secure =1; Path=/",
+			"a=1; Path=/; SameSite=Lax",
+		},
+		{
+			"uppercase domain with spaces on both sides is dropped",
+			"a=1; DOMAIN = x.com; Path=/",
+			"a=1; Path=/; SameSite=Lax",
+		},
+		{
+			"mixed case domain with spaces on both sides is dropped",
+			"a=1; Domain = x.com",
+			"a=1; SameSite=Lax",
+		},
+		{
+			"samesite with spaces around the equals is normalized",
+			"a=1; samesite = none",
+			"a=1; SameSite=Lax",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -368,6 +393,14 @@ func TestIsTrustedWorker(t *testing.T) {
 			"unparsable allowlist entries are skipped",
 			"ws://backend.example/ws", "http://backend.example",
 			"[::1", true,
+		},
+		{
+			"target with a leading space is rejected",
+			" ws://backend.example/ws", "http://backend.example", "", false,
+		},
+		{
+			"target with a leading tab is rejected",
+			"\tws://backend.example/ws", "http://backend.example", "", false,
 		},
 	}
 	for _, tc := range cases {

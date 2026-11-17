@@ -38,16 +38,15 @@ func RewriteSetCookie(value string) string {
 		if part == "" {
 			continue
 		}
-		lower := strings.ToLower(part)
-		if lower == "domain" || strings.HasPrefix(lower, "domain=") {
+		name := part
+		if i := strings.IndexByte(part, '='); i >= 0 {
+			name = part[:i]
+		}
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name == "domain" || name == "secure" {
 			continue
 		}
-		if lower == "secure" || strings.HasPrefix(lower, "secure=") {
-			continue
-		}
-		if strings.HasPrefix(lower, "samesite=") {
-			// A second SameSite would be malformed; the first one wins, matching
-			// how http.Cookie parses a repeated attribute.
+		if name == "samesite" {
 			if sameSiteSet {
 				continue
 			}
@@ -64,7 +63,7 @@ func RewriteSetCookie(value string) string {
 }
 
 func IsTrustedWorker(target, baseURL, allowed string) bool {
-	u, err := url.Parse(strings.TrimSpace(target))
+	u, err := url.Parse(target)
 	if err != nil || u.Host == "" {
 		return false
 	}
