@@ -7,7 +7,8 @@
 // 用法：node scripts/mobile-version.mjs [rootDir]
 
 import { readFileSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SEMVER = /^(\d+)\.(\d+)\.(\d+)/;
 
@@ -88,7 +89,11 @@ if (
 	process.argv[1] &&
 	import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-	const root = process.argv[2] ?? process.cwd();
+	// 默认根目录取本脚本所在目录的上一级（仓库根），不要用 process.cwd()：
+	// pnpm --filter 会在包目录（app/mobile）下执行脚本，用 cwd 会去找
+	// app/mobile/.github/versions/mobile.yaml 而报 ENOENT。
+	const root =
+		process.argv[2] ?? resolve(dirname(fileURLToPath(import.meta.url)), "..");
 	const { version, code } = syncMobileVersion(root);
 	console.log(
 		`mobile version synced: ${version} (android versionCode ${code})`,
