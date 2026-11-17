@@ -12,15 +12,21 @@
 #   app/desktop/package.json 的 version
 #   app/desktop/mygo.config.ts 的 version（决定安装包文件名）
 # 两者都必须与本文件一致。
-version: "1.0.3"
+version: "1.1.0-rc.1"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时以最近的 gospeak-desktop-v* tag 为基线按 commit 生成
 # （首个桌面版本无基线，会使用简短默认说明）。
 notes: |
-  GOSpeak Desktop 1.0.3 —— 内嵌前端随 1.0.3 更新（桌面宿主本身无变更）。
+  GOSpeak Desktop 1.1.0-rc.1 —— 内嵌前端随 1.1.0-rc.1 更新，桌面回环反代改用共享规则实现。
 
   ## 随前端更新
-  - 语音房进房中断时不再抛出 TDZ ReferenceError，真实错误可正常提示
-  - 私聊离线发送走 HTTP 兜底，失败回滚并提示，不再卡在「发送中」
-  - 其余前端改动与 1.0.3 服务端发布保持一致
+  - 平台样式适配层：桌面标题栏仅右侧操作区可拖拽，整条栏仍能拖动窗口；
+    失焦时停止 hover 高亮；滚动条补丁只作用于桌面指针
+  - 系统偏好：color-scheme 跟随明暗、reduced-motion 全局降级
+  - 非 JSON 错误响应不再弹出空白错误提示
+
+  ## 宿主
+  - 回环反代的地址校验、Set-Cookie 改写与 worker 白名单改用
+    app/shared/proxyrules 共享实现，行为不变
+  - 其余前端改动与 1.1.0-rc.1 服务端发布保持一致
