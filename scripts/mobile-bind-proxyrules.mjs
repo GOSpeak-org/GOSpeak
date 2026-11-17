@@ -60,8 +60,8 @@ export const ENVIRONMENT_RULES = [
 		id: "android-ndk",
 		target: "android",
 		pattern:
-			/could not locate android ndk|android ndk was not found|no ndk|ndk root/i,
-		summary: "缺少 Android NDK",
+			/could not locate android ndk|android ndk was not found|no ndk|ndk root|which is unusable|unsupported api version/i,
+		summary: "Android NDK 不可用（缺失或 API 版本不受支持）",
 		nextSteps: [
 			'sdkmanager --install "ndk;27.0.12077973"',
 			'export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.0.12077973"',
@@ -172,6 +172,13 @@ export function checkBindingSurface({
 	const want = expectedSymbols(expected, lang);
 	const missing = want.filter((name) => !exports.has(name));
 	return { lang, expected: want, missing, ok: missing.length === 0 };
+}
+
+// --surface-only：只跑 gobind 断言绑定面，完全不尝试 gomobile bind。
+// 给"能在任何机器上跑、且必须在 gate 里跑"的场景用（例如 ubuntu 的 desktop-go），
+// 那里没有 Xcode、NDK 也可能与 gomobile 的默认 API 不兼容，尝试 bind 只会制造假红。
+export function wantsSurfaceOnly(argv) {
+	return argv.includes("--surface-only");
 }
 
 export function parseTargets(argv) {
@@ -290,17 +297,21 @@ function generateBindings({ root, moduleDir, gobind, lang, pathPrefix }) {
 	};
 }
 
+// gomobile 的 -androidapi 默认取 minAndroidAPI = 16，而现代 NDK 的 meta/platforms.json
+// 只覆盖 21..35，不显式指定就会报 "unsupported API version 16" 而 bind 失败。
+// 取 24 与 app/mobile/android 的 minSdkVersion 一致。
+const ANDROID_API = 24;
+
 function bindTarget({ root, moduleDir, gomobile, target, pathPrefix }) {
 	const out =
 		target === "ios"
 			? join(root, OUTPUT_DIR, "Proxyrules.xcframework")
 			: join(root, OUTPUT_DIR, "proxyrules.aar");
 	rmSync(out, { recursive: true, force: true });
-	const result = run(
-		gomobile.command,
-		[...gomobile.args, "bind", `-target=${target}`, "-o", out, "."],
-		{ cwd: moduleDir, pathPrefix },
-	);
+	const args = [...gomobile.args, "bind", `-target=${target}`];
+	if (target === "android") args.push(`-androidapi=${ANDROID_API}`);
+	args.push("-o", out, ".");
+	const result = run(gomobile.command, args, { cwd: moduleDir, pathPrefix });
 	return { target, out, ...result };
 }
 
@@ -423,16 +434,21 @@ function main(argv) {
 		);
 	}
 
-	const gomobile = resolveTool(moduleDir, "gomobile");
-	if (!gomobile) {
-		console.warn(
-			"::warning::未找到 gomobile，跳过 gomobile bind（gobind 校验已独立完成）",
-		);
-		printSteps(GOMBILE_INSTALL);
-		summary.push("gomobile bind skipped (gomobile 未安装)");
+	const surfaceOnly = wantsSurfaceOnly(argv);
+	let gomobile = null;
+	if (surfaceOnly) {
+		console.log("surface-only: 跳过 gomobile bind（只校验 gobind 绑定面）");
+	} else {
+		gomobile = resolveTool(moduleDir, "gomobile");
+		if (!gomobile) {
+			console.warn(
+				"::warning::未找到 gomobile，跳过 gomobile bind（gobind 校验已独立完成）",
+			);
+			printSteps(GOMBILE_INSTALL);
+			summary.push("gomobile bind skipped (gomobile 未安装)");
+		}
 	}
-
-	for (const target of targets) {
+	for (const target of surfaceOnly ? [] : targets) {
 		if (!gomobile) break;
 		const result = bindTarget({
 			root,

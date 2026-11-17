@@ -201,8 +201,14 @@ jobs:
           # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
           # 用 17 会在 :capacitor-android:compileDebugJavaWithJavac 报 invalid source release。
           java-version: '21'
+      - uses: actions/setup-go@v7
+        with:
+          # macos-latest 镜像不自带 Go；绑定工具链需要 >= 1.26（模块 go 指令为 1.26.0）。
+          go-version-file: app/shared/proxyrules/go.mod
+          cache-dependency-path: app/shared/proxyrules/go.sum
+          cache: true
       - name: Verify proxyrules binding surface
-        # 只校验绑定面（gobind 符号集合），AAR/XCFramework 是否产出取决于 runner 上的工具链；
+        # gobind 断言绑定面；gomobile bind 产出 AAR / XCFramework 供两端原生工程链接。
         # 本 job 是 continue-on-error，缺工具链时脚本以 exit 0 报告下一步，不制造红色噪音。
         run: node scripts/mobile-bind-proxyrules.mjs --target=all
       - name: Sync native projects
@@ -427,8 +433,10 @@ jobs:
       - name: Verify proxyrules binding surface
         # 放在这里而不是只放 build-mobile：build-mobile 只按 js/ci 触发，而 app/shared/**
         # 只在 go 过滤器里，只改共享规则层的提交不会触发它——门禁就形同虚设。
-        # gobind 是纯代码生成，不需要 Xcode / Android SDK，ubuntu 即可跑，且本 job 在 gate 内。
-        run: node scripts/mobile-bind-proxyrules.mjs --target=all
+        # 只跑 gobind（纯代码生成，任何机器都能跑）；不在这里尝试 gomobile bind：
+        # ubuntu runner 的 NDK 与 gomobile 默认 API 不兼容，尝试 bind 只会制造假红。
+        # 真正的 AAR/XCFramework 产出由 build-mobile（macos + Xcode + NDK）负责。
+        run: node scripts/mobile-bind-proxyrules.mjs --target=all --surface-only
       - uses: ./.github/actions/pnpm-install
       - name: Build web (desktop target)
         run: pnpm --filter @gospeak/web build:desktop

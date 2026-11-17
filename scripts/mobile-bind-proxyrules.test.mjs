@@ -11,6 +11,7 @@ import {
 	parseObjcExports,
 	parseSkippedFunctions,
 	parseTargets,
+	wantsSurfaceOnly,
 } from "./mobile-bind-proxyrules.mjs";
 
 const IOS_NO_XCODE = 'gomobile: -target="ios" requires Xcode\n';
@@ -20,6 +21,9 @@ const ANDROID_NO_SDK =
 
 const ANDROID_NO_NDK =
 	"gomobile: could not locate Android NDK: stat /Users/noelorin/Library/Android/sdk/ndk: no such file or directory; Android NDK was not found in the Android SDK\n";
+
+const ANDROID_NDK_API_MISMATCH =
+	"gomobile: ANDROID_NDK_HOME specifies /usr/local/lib/android/sdk/ndk/27.3.13750724, which is unusable: unsupported API version 16 (not in 21..35)\n";
 
 const ANDROID_NO_JAVAC =
 	'gomobile: exec: "javac": executable file not found in $PATH\n';
@@ -99,6 +103,12 @@ test("classifyGomobileFailure treats a missing Android SDK as an environment gap
 
 test("classifyGomobileFailure treats a missing Android NDK as an environment gap", () => {
 	const verdict = classifyGomobileFailure(ANDROID_NO_NDK, "android");
+	assert.equal(verdict.kind, "environment-missing");
+	assert.equal(verdict.id, "android-ndk");
+});
+
+test("classifyGomobileFailure treats an unusable NDK API level as an environment gap", () => {
+	const verdict = classifyGomobileFailure(ANDROID_NDK_API_MISMATCH, "android");
 	assert.equal(verdict.kind, "environment-missing");
 	assert.equal(verdict.id, "android-ndk");
 });
@@ -205,6 +215,13 @@ test("parseExportedFunctions reads top-level exported functions only", () => {
 		[...parseExportedFunctions(GO_SOURCE)].sort(),
 		[...EXPORTED_FUNCTIONS].sort(),
 	);
+});
+
+test("wantsSurfaceOnly is opt-in and ignores the target flag", () => {
+	assert.equal(wantsSurfaceOnly([]), false);
+	assert.equal(wantsSurfaceOnly(["--target=all"]), false);
+	assert.equal(wantsSurfaceOnly(["--surface-only"]), true);
+	assert.equal(wantsSurfaceOnly(["--target=all", "--surface-only"]), true);
 });
 
 test("parseTargets defaults to both platforms and validates the value", () => {
