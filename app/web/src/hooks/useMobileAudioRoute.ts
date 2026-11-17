@@ -23,7 +23,7 @@ export function useMobileAudioRoute() {
 		void route.list().then((list) => {
 			if (alive) setOptions(list);
 		});
-		setCurrent(route.current());
+		void route.refresh().then(() => setCurrent(route.current()));
 		return () => {
 			alive = false;
 		};
@@ -31,6 +31,7 @@ export function useMobileAudioRoute() {
 
 	const select = async (kind: AudioRouteKind) => {
 		await route.set(kind);
+		await route.refresh();
 		setCurrent(route.current());
 	};
 

@@ -71,6 +71,13 @@ describe.skipIf(MOBILE_BUILD)("createAudioRoute in web fallback", () => {
 		await route.set("earpiece");
 		expect(registerPlugin).not.toHaveBeenCalled();
 	});
+
+	it("resolves refresh without touching the plugin in fallback", async () => {
+		const route = createAudioRoute();
+		await expect(route.refresh()).resolves.toBeUndefined();
+		expect(route.current()).toBe("speaker");
+		expect(registerPlugin).not.toHaveBeenCalled();
+	});
 });
 
 describe.runIf(MOBILE_BUILD)("createAudioRoute on the native plugin", () => {
@@ -145,6 +152,42 @@ describe.runIf(MOBILE_BUILD)("createAudioRoute on the native plugin", () => {
 		expect(route.current()).toBe("speaker");
 		expect(warn).toHaveBeenCalledWith(
 			"[gospeak/mobile] AudioSession.set failed",
+			expect.any(Error),
+		);
+	});
+
+	it("refresh 读取原生 current 并更新缓存", async () => {
+		const route = createAudioRoute();
+		plugin.current.mockResolvedValueOnce({ kind: "bluetooth" });
+
+		expect(route.current()).toBe("speaker");
+		await route.refresh();
+
+		expect(plugin.current).toHaveBeenCalledTimes(1);
+		expect(route.current()).toBe("bluetooth");
+	});
+
+	it("keeps the cached route when refresh reports an unknown kind", async () => {
+		const route = createAudioRoute();
+		plugin.current.mockResolvedValueOnce({ kind: "earpiece" });
+		await route.set("earpiece");
+		plugin.current.mockResolvedValueOnce({ kind: "airplay" });
+
+		await route.refresh();
+
+		expect(route.current()).toBe("earpiece");
+	});
+
+	it("warns and keeps the cached route when refresh fails", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		plugin.current.mockRejectedValueOnce(new Error("UNIMPLEMENTED"));
+
+		const route = createAudioRoute();
+		await expect(route.refresh()).resolves.toBeUndefined();
+
+		expect(route.current()).toBe("speaker");
+		expect(warn).toHaveBeenCalledWith(
+			"[gospeak/mobile] AudioSession.current failed",
 			expect.any(Error),
 		);
 	});

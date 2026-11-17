@@ -9,11 +9,17 @@ const m = vi.hoisted(() => ({
 	]),
 	current: vi.fn(() => "speaker" as const),
 	set: vi.fn(async (_kind: string) => {}),
+	refresh: vi.fn(async () => {}),
 }));
 
 vi.mock("@gospeak/mobile-capabilities", () => ({
 	inMobile: () => true,
-	createAudioRoute: () => ({ list: m.list, current: m.current, set: m.set }),
+	createAudioRoute: () => ({
+		list: m.list,
+		current: m.current,
+		set: m.set,
+		refresh: m.refresh,
+	}),
 }));
 
 describe("useMobileAudioRoute", () => {
@@ -30,6 +36,7 @@ describe("useMobileAudioRoute", () => {
 			await result.current.select("bluetooth");
 		});
 		expect(m.set).toHaveBeenCalledWith("bluetooth");
+		expect(m.refresh).toHaveBeenCalled();
 		expect(result.current.current).toBe("speaker");
 	});
 });
