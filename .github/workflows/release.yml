@@ -220,16 +220,27 @@ jobs:
           echo "::notice::release_tag=$release_tag desktop_included=$desktop_included"
           head -20 /tmp/release-notes.md
 
-      - name: Create GitHub Release if missing
+      - name: Create or refresh GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           release_tag="${{ steps.body.outputs.release_tag }}"
+
           if gh release view "$release_tag" >/dev/null 2>&1; then
-            echo "Release $release_tag already exists; leaving it unchanged."
+            # 服务端与服务端 tag 的两条发布链是并行跑的：先到的那条建 release，
+            # 后到的这条只对齐正文（桌面端表格是后到的那条才拿得到的），
+            # 不重复创建，也不动 Latest 归属。
+            gh release view "$release_tag" --json body -q .body > /tmp/release-body-live.md
+            if cmp -s /tmp/release-body-live.md /tmp/release-notes.md; then
+              echo "Release $release_tag already up to date."
+              exit 0
+            fi
+            echo "Release $release_tag exists; refreshing body."
+            gh release edit "$release_tag" --notes-file /tmp/release-notes.md
             exit 0
           fi
+
           target_sha="$(git rev-parse "${release_tag}^{commit}")"
           args=(
             "$release_tag"
@@ -240,7 +251,17 @@ jobs:
           # Latest 只按发布先后决定：不传 --prerelease、也不传 --latest=false，
           # GitHub 自动把「最近一次发布的非草稿 release」标成 Latest，
           # /releases/latest、文档下载卡与桌面端「前往下载页」都跟着走。
-          gh release create "${args[@]}"
+          if ! gh release create "${args[@]}" 2>/tmp/create-err.txt; then
+            # 两条发布链同时创建时的竞态：对方先建好了，按「已存在」处理，
+            # 正文由下面的对齐逻辑保证。
+            if grep -qi 'already exists' /tmp/create-err.txt; then
+              echo "::notice::Release $release_tag was created by a concurrent run; refreshing body."
+              gh release edit "$release_tag" --notes-file /tmp/release-notes.md
+              exit 0
+            fi
+            cat /tmp/create-err.txt >&2
+            exit 1
+          fi
 
   # ── Build Web Once（两个组件共用：desktop 以条件编译目标构建）──────────────
   build-web:
