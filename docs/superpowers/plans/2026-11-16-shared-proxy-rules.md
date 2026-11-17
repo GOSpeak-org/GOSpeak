@@ -4,7 +4,7 @@
 
 > **Status**（2026-11-17 更新）：**全部 6 个任务已交付**。三端（桌面 / Android / iOS）现在共用 `app/shared/proxyrules` 这一份规则实现，内联重复实现均已删除。
 >
-> 本机（无 Xcode、无 Android SDK / NDK / JDK）只能验证到 `gobind` 绑定面与 Swift 侧类型检查；AAR / XCFramework 的实际产出与两端原生工程的编译由 CI 的 `build-mobile`（macos-latest，自带 Xcode + Android SDK + JDK 21）承担。**原生接入的首次编译验证以那条 CI 为准**，提交后需确认该 job 绿。
+> **原生接入已由 CI 实测编译通过**（run 44006296505 @ f230a949，全 13 个 job 绿）：`gomobile bind` 产出 AAR / XCFramework → `gradlew assembleDebug` 通过、APK 上传 → `xcodebuild`（iOS Simulator）通过、App 打包上传。本机（无 Xcode / Android SDK / NDK / JDK）只验证到 `gobind` 绑定面与 Swift 类型检查，够不到实际编译。
 >
 > iOS 侧本地可验证部分已实测：用 `gobind -lang=objc` 的真实生成头文件搭 framework 布局，`swiftc -typecheck` 对 `LocalProxyServer.swift` 通过，且反向对照（故意写错函数名）会报 `cannot find in scope`，证明检查有效。
 >
