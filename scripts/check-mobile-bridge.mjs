@@ -117,6 +117,42 @@ export function checkMethods({ ts, native }) {
 	return { missing, unused, ok: missing.length === 0 };
 }
 
+export function extractRegisteredPlugins(source, platform) {
+	const plugins = new Set();
+	if (platform === "swift") {
+		const classToName = new Map();
+		for (const match of source.matchAll(
+			/(?:public\s+)?class\s+(\w+)[^{]*\{[\s\S]*?jsName\s*=\s*"([A-Z]\w*)"/g,
+		)) {
+			classToName.set(match[1], match[2]);
+		}
+		for (const match of source.matchAll(
+			/bridge\.plugin\(withName:\s*"([A-Za-z]\w*)"\)\s*==\s*nil\s*\{[^{}]*?bridge\.registerPluginInstance\(\s*(\w+)\(\)\s*\)/g,
+		)) {
+			plugins.add(match[1]);
+			const name = classToName.get(match[2]);
+			if (name) plugins.add(name);
+		}
+	} else if (platform === "java") {
+		for (const pattern of [
+			/registerPlugin\(\s*new\s+(\w+)\(\)\s*\)/g,
+			/registerPlugin\(\s*(\w+)\.class\s*\)/g,
+		]) {
+			for (const match of source.matchAll(pattern)) {
+				plugins.add(match[1].replace(/Plugin$/, ""));
+			}
+		}
+	}
+	return plugins;
+}
+
+export function checkPluginRegistration({ declared, ios, android }) {
+	return {
+		iosMissing: [...declared].filter((p) => !ios.has(p)).sort(),
+		androidMissing: [...declared].filter((p) => !android.has(p)).sort(),
+	};
+}
+
 function readDir(dir, extensions) {
 	try {
 		return readdirSync(dir)
@@ -371,6 +407,46 @@ if (
 			);
 		}
 	}
-	if (failed) process.exit(1);
-	console.log("mobile bridge methods are in sync");
+	const declared = new Set(
+		[...extractTsMethods(readDir(TS_DIR, [".ts"]))]
+			.filter((m) => CUSTOM_PLUGINS.has(m.split(".")[0]))
+			.map((m) => m.split(".")[0]),
+	);
+	const iosRegistered = new Set();
+	for (const file of readDir(IOS_DIR, [".swift"])) {
+		for (const plugin of extractRegisteredPlugins(file.source, "swift")) {
+			iosRegistered.add(plugin);
+		}
+	}
+	const androidMain = join(ANDROID_DIR, "MainActivity.java");
+	const androidRegistered = extractRegisteredPlugins(
+		existsSync(androidMain) ? readFileSync(androidMain, "utf8") : "",
+		"java",
+	);
+	const registration = checkPluginRegistration({
+		declared,
+		ios: iosRegistered,
+		android: androidRegistered,
+	});
+	for (const platform of [
+		{
+			name: "android",
+			file: androidMain,
+			missing: registration.androidMissing,
+		},
+		{
+			name: "ios",
+			file: join(IOS_DIR, "SceneDelegate.swift"),
+			missing: registration.iosMissing,
+		},
+	]) {
+		for (const plugin of platform.missing) {
+			console.error(
+				`::error::[${platform.name}] ${platform.file} 未注册插件: ${plugin}`,
+			);
+			failed = true;
+		}
+	}
+	if (failed) process.exitCode = 1;
+	else console.log("mobile bridge methods are in sync");
 }
