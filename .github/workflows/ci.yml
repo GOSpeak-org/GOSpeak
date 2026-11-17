@@ -424,6 +424,11 @@ jobs:
         # 共享规则层被桌面与移动端同时依赖，必须独立跑测试，否则"一份测试三端共用"无人执行。
         working-directory: app/shared/proxyrules
         run: go vet ./... && go test ./... -count=1
+      - name: Verify proxyrules binding surface
+        # 放在这里而不是只放 build-mobile：build-mobile 只按 js/ci 触发，而 app/shared/**
+        # 只在 go 过滤器里，只改共享规则层的提交不会触发它——门禁就形同虚设。
+        # gobind 是纯代码生成，不需要 Xcode / Android SDK，ubuntu 即可跑，且本 job 在 gate 内。
+        run: node scripts/mobile-bind-proxyrules.mjs --target=all
       - uses: ./.github/actions/pnpm-install
       - name: Build web (desktop target)
         run: pnpm --filter @gospeak/web build:desktop

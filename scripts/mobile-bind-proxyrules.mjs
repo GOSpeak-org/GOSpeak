@@ -29,8 +29,8 @@ export const EXPORTED_FUNCTIONS = [
 ];
 
 const GOMBILE_INSTALL = [
-	"go install golang.org/x/mobile/cmd/gomobile@latest",
-	"或在本模块内使用已锁定的版本：go tool gomobile bind ...",
+	"cd app/shared/proxyrules && go mod download golang.org/x/mobile",
+	"版本由 go.mod 的 tool 指令锁定，用 go tool gomobile bind ... 即可，无需全局安装",
 ];
 
 export const ENVIRONMENT_RULES = [
@@ -305,7 +305,9 @@ function bindTarget({ root, moduleDir, gomobile, target, pathPrefix }) {
 }
 
 function printSteps(steps, indent = "        ") {
-	for (const step of steps) console.log(`${indent}- ${step}`);
+	// 走 stderr：这些步骤属于紧邻的 ::warning::/::error::，同流输出才不会在 CI 日志里
+	// 被 stdout 的缓冲推到注解之前、与所属告警脱节。
+	for (const step of steps) console.error(`${indent}- ${step}`);
 }
 
 function main(argv) {
@@ -348,6 +350,9 @@ function main(argv) {
 	const gopathBin = goEnv(moduleDir, "GOPATH")
 		? join(goEnv(moduleDir, "GOPATH"), "bin")
 		: "";
+	// gomobile bind 在检查 Xcode/SDK 之前先 exec.LookPath("gobind")，而 go tool 缓存的
+	// 二进制目录里确实存在名为 gobind 的文件；不把该目录放进 PATH 会先报
+	// "gobind was not found. Please run gomobile init"，把真正的环境结论盖掉。
 	const pathPrefix = [dirname(gobind.binary), gopathBin]
 		.filter(Boolean)
 		.join(":");
@@ -437,6 +442,12 @@ function main(argv) {
 			pathPrefix,
 		});
 		if (result.status === 0) {
+			if (!existsSync(result.out)) {
+				console.error(
+					`::error::[${target}] gomobile bind 退出 0 但没有产出 ${relative(root, result.out)}`,
+				);
+				return 1;
+			}
 			console.log(
 				`gomobile bind ${target}: 产物 ${relative(root, result.out)}`,
 			);
