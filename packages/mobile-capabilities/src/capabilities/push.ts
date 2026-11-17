@@ -39,6 +39,7 @@ export function createPush(): Push {
 			const plugin = await getPlugin<PushPlugin>("PushNotifications");
 			const result = await plugin.requestPermissions();
 			if (result.receive !== "granted") {
+				started = false;
 				console.warn(
 					"[gospeak/mobile] push permission not granted",
 					result.receive,
