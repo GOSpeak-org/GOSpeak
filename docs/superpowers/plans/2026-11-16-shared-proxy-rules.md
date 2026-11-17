@@ -53,7 +53,7 @@
 
 - [x] gomobile 经模块 `tool` 指令锁定（`gobind` + `gomobile`，版本随 `golang.org/x/mobile` 走），写入 `app/mobile/AGENTS.md`。
 - [ ] **暂缓**：本机无 Xcode、无 Android SDK/NDK/JDK，两端 `gomobile bind` 均无法产出。脚本已就绪，有工具链的机器跑同一条命令即可产出。
-- [~] **部分**：CI 已加绑定面校验步骤（`build-mobile`，continue-on-error，不入 gate）；产物缓存与 demo 链接验证随 AAR/XCFramework 一并暂缓。
+- [x] CI 已加绑定面校验：阻断性门禁放在 `desktop-go`（ubuntu、有 setup-go、在 gate 内、按 `go` 过滤器触发，因为 `app/shared/**` 只在该过滤器里）；`build-mobile` 保留产物产出尝试。产物缓存与 demo 链接验证随 AAR/XCFramework 一并暂缓。
 
 ### Task 4: Android 接入
 
