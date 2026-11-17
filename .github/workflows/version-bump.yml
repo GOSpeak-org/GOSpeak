@@ -1,7 +1,10 @@
 # GOSpeak Version Bump —— push 触发的发版守门员 + 发布编排。
 #
 # 版本号在 .github/versions/server.yaml 与 .github/versions/desktop.yaml 中
-# 显式声明。**每次 push 到 release 都会触发本 workflow**，但对每个组件判断
+# 显式声明，两端必须一致：一版只产出一个 GitHub Release（挂在服务端 tag 上），
+# 桌面端 tag 只做构建触发与版本门禁。
+#
+# **每次 push 到 release 都会触发本 workflow**，但对每个组件判断
 # 「声明的版本号是否已经发布过」：
 #
 #   当前声明版本对应的 tag（gospeak-server-v<version> /
@@ -71,6 +74,19 @@ jobs:
             echo "server=$(read_version .github/versions/server.yaml)"
             echo "desktop=$(read_version .github/versions/desktop.yaml)"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Require lockstep component versions
+        env:
+          SERVER_VERSION: ${{ steps.versions.outputs.server }}
+          DESKTOP_VERSION: ${{ steps.versions.outputs.desktop }}
+        run: |
+          set -euo pipefail
+          # 桌面端产物上传到 gospeak-server-v<version> 这一个 Release；两端版本
+          # 不一致时桌面端会找不到可挂载的 release，因此发版要求同版本。
+          if [ "$SERVER_VERSION" != "$DESKTOP_VERSION" ]; then
+            echo "::error::server.yaml ($SERVER_VERSION) 与 desktop.yaml ($DESKTOP_VERSION) 版本不一致；一版一个 Release 要求两端同版本"
+            exit 1
+          fi
 
       - name: Detect published tags
         id: tags

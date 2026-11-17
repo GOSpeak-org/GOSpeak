@@ -3,6 +3,9 @@
 # 发版流程：修改本文件的 version 并合入 release 后，version-bump.yml 会自动打上
 # `gospeak-server-v<version>` tag，release.yml / docker.yml 随之构建发布。
 #
+# 该 tag 同时是这个版本唯一的 GitHub Release：桌面端安装包也上传到这里
+# （桌面端 tag 只做构建触发与版本门禁，不再单独建 Release）。
+#
 # 命名规范（scripts/release-naming.mjs）：
 #   tag      gospeak-server-v<version>
 #   二进制   gospeak-server-v<version>-<os>-<arch>[.exe]

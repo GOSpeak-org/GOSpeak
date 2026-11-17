@@ -5,7 +5,7 @@ import { withBase } from 'vitepress'
 const REPO = 'NoelOrin/GOSpeak'
 const RELEASES_URL = `https://github.com/${REPO}/releases`
 const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`
-const RELEASES_LIST_API = `https://api.github.com/repos/${REPO}/releases?per_page=30`
+const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO}/releases/latest`
 
 interface AssetEntry {
   url: string
@@ -119,22 +119,22 @@ async function fetchLatestRelease() {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 8000)
   try {
-    const res = await fetch(RELEASES_LIST_API, {
+    // 只取 /releases/latest：预发布候选版本（-rc.N）不抢 latest，因此这里
+    // 天然拿到最近一个正式版，不会把未定稿的候选版推荐给访客。
+    const res = await fetch(LATEST_RELEASE_API, {
       headers: { Accept: 'application/vnd.github+json' },
       signal: controller.signal,
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const releases = await res.json()
-    for (const release of releases ?? []) {
-      if (release.draft || release.prerelease) continue
-      const map = collectDesktopAssets(release)
-      if (!map) continue
-      tag.value = release.tag_name
-      publishedAt.value = release.published_at ?? ''
-      assets.value = map
+    const release = await res.json()
+    const map = collectDesktopAssets(release ?? {})
+    if (!map) {
+      failed.value = true
       return
     }
-    failed.value = true
+    tag.value = release.tag_name
+    publishedAt.value = release.published_at ?? ''
+    assets.value = map
   } catch {
     failed.value = true
   } finally {

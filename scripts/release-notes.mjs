@@ -1,20 +1,22 @@
 #!/usr/bin/env node
-// GitHub Release 正文生成器 —— 对齐 SyncTV 的发布页形态：
+// GitHub Release 正文生成器 —— 一版一个 Release（对齐 SyncTV 的发布页形态）。
+//
+// 版本对应的**唯一** Release 挂在 `gospeak-server-v<version>` tag 上，服务端
+// 二进制与桌面端安装包都作为附件进入同一个 Release：
 //
 //   1. 正文顶部是「桌面端下载表格」：用户点一下就拿到 dmg / deb / exe
-//   2. 中间是部署指引（服务端走镜像 + 文档，不给二进制直链）
-//   3. 分隔线之后是「服务端 release notes」
+//   2. 中间是桌面端安装说明与部署指引
+//   3. 分隔线之后依次是桌面端、服务端的 release notes
 //
-// 服务端二进制不写进正文表格，而是作为 release 附件挂在 Assets 列表里；
-// 桌面端安装包既挂在 Assets 里，也在正文表格中给出显式下载按钮
-// （正文表格是给普通用户看的，Assets 列表是给运维/脚本取的）。
+// 桌面端 tag（`gospeak-desktop-v<version>`）仍然存在，但只承担构建触发与版本
+// 门禁，不再单独创建 Release —— 否则 Releases 页会为同一版本出现两条同名条目。
 //
 // 所有产物名由 scripts/release-naming.mjs 派生，本文件不手拼文件名。
 //
 // 用法：
-//   node scripts/release-notes.mjs server  --version 1.0.0 --repo o/r --desktop-version 1.0.0 \
-//        [--desktop-release-exists] [--notes-file /tmp/decl-notes.txt]
-//   node scripts/release-notes.mjs desktop --version 1.0.0 --repo o/r [--notes-file ...]
+//   node scripts/release-notes.mjs release --version 1.0.0 --repo o/r \
+//        [--desktop-version 1.0.0] [--desktop-included] \
+//        [--notes-file server-notes.md] [--desktop-notes-file desktop-notes.md]
 //
 // 输出写到 stdout。
 
@@ -38,6 +40,11 @@ const PLATFORM_BADGE = {
 
 function downloadUrl(repo, tag, asset) {
 	return `https://github.com/${repo}/releases/download/${tag}/${asset}`;
+}
+
+/** 本版本的统一 Release tag：服务端 tag 承载两端产物。 */
+export function releaseTagForVersion(version) {
+	return releaseTag("server", version);
 }
 
 /**
@@ -106,25 +113,30 @@ function renderCell(ext, repo, tag, asset) {
 	return `[${badge}](${downloadUrl(repo, tag, asset)})<br>\`${asset}\``;
 }
 
-/** 桌面端下载表格（Markdown）。 */
-export function renderDesktopTable(version, repo) {
-	const tag = releaseTag("desktop", version);
+/**
+ * 桌面端下载表格（Markdown）。
+ *
+ * `tag` 默认是本版本的统一 Release（服务端 tag）；桌面端安装包与校验和都在
+ * 同一个 Release 的 Assets 里，因此下载直链必须指向它，而不是桌面端 tag。
+ */
+export function renderDesktopTable(version, repo, tag) {
+	const releaseAnchor = tag ?? releaseTagForVersion(version);
 	const rows = desktopArtifacts(version).map((row) => {
 		const recommended = renderCell(
 			row.primary.ext,
 			repo,
-			tag,
+			releaseAnchor,
 			row.primaryAsset,
 		);
 		const alternative = row.alternativeAsset
-			? `[Portable ${row.alternative.ext.toUpperCase()}](${downloadUrl(repo, tag, row.alternativeAsset)})`
+			? `[Portable ${row.alternative.ext.toUpperCase()}](${downloadUrl(repo, releaseAnchor, row.alternativeAsset)})`
 			: "-";
 		return `| **${row.platform}** | ${row.device} | ${recommended} | ${alternative} | ${row.bestFor} |`;
 	});
 
 	const sums = checksumName("desktop", version);
 	rows.push(
-		`| **校验和** | 全部文件 | [${BADGE("SHA-256", "24292F", "github")}](${downloadUrl(repo, tag, sums)})<br>\`${sums}\` | - | 完整性校验 |`,
+		`| **校验和** | 全部文件 | [${BADGE("SHA-256", "24292F", "github")}](${downloadUrl(repo, releaseAnchor, sums)})<br>\`${sums}\` | - | 完整性校验 |`,
 	);
 
 	return [
@@ -154,85 +166,76 @@ function renderDeploySection(repo, tag) {
 		"|:---|:---|",
 		`| **Docker Compose** | [在服务器 / NAS / 虚拟机上部署](https://github.com/${repo}/blob/${tag}/deploy/DEPLOY.md) |`,
 		`| **容器镜像** | \`ghcr.io/${repo.toLowerCase()}:${tag.replace(/^gospeak-server-v/, "")}\` |`,
-		`| **二进制** | 见本页底部 Assets 列表（按 \`gospeak-server-\` 前缀） |`,
+		"| **二进制** | 见本页底部 Assets 列表（按 `gospeak-server-` 前缀） |",
 		"",
 		`[浏览 ${tag} 的部署文档](https://github.com/${repo}/tree/${tag}/deploy)`,
 	].join("\n");
 }
 
 /**
- * 服务端 release 正文：桌面端下载表格 → 部署指引 → 分隔线 → 服务端 release notes。
+ * 统一 Release 正文：桌面端下载表格 → 安装说明 → 部署指引 → 桌面端 notes
+ * → 分隔线 → 服务端 notes。
  *
- * desktopReleaseExists=false 时不渲染下载表格，只给 Releases 页链接，
- * 避免指向一个还不存在的 release 造成 404。
+ * desktopIncluded=false（本版本没有桌面端产物）时不渲染下载表格，只给
+ * Releases 页链接，避免指向并不存在的附件造成 404。
  */
-export function renderServerBody({
+export function renderReleaseBody({
 	version,
 	repo,
 	desktopVersion,
-	desktopReleaseExists,
-	notes,
+	desktopIncluded,
+	desktopNotes,
+	serverNotes,
 }) {
+	const tag = releaseTagForVersion(version);
 	const parts = [];
 
 	parts.push("## 下载 GOSpeak 桌面端");
 	parts.push("");
-	if (desktopReleaseExists && desktopVersion) {
-		const desktopTag = releaseTag("desktop", desktopVersion);
+	if (desktopIncluded && desktopVersion) {
 		parts.push(
-			`> [!TIP]`,
-			`> 桌面端 \`${desktopTag}\` 与服务端 \`${releaseTag("server", version)}\` 配套发布。`,
-			`> [查看完整桌面端发布](https://github.com/${repo}/releases/tag/${desktopTag})`,
+			"> [!TIP]",
+			`> 本版本的服务端二进制与桌面端安装包同属 ${tag}，无需另找桌面端发布页。`,
 		);
 		parts.push("");
-		parts.push(renderDesktopTable(desktopVersion, repo));
+		parts.push(renderDesktopTable(desktopVersion, repo, tag));
 	} else {
 		parts.push(
-			`桌面端安装包见 [Releases](https://github.com/${repo}/releases) 页面中 \`gospeak-desktop-v\` 开头的版本。`,
+			`桌面端安装包见 [Releases](https://github.com/${repo}/releases) 页面中 \`gospeak-desktop-\` 前缀的产物。`,
 		);
 	}
 	parts.push("");
 	parts.push(renderInstallNotes());
 	parts.push("");
-	parts.push(renderDeploySection(repo, releaseTag("server", version)));
+	parts.push(renderDeploySection(repo, tag));
+
+	if (desktopIncluded && (desktopNotes ?? "").trim()) {
+		parts.push("");
+		parts.push("## 桌面端 release notes");
+		parts.push("");
+		parts.push(desktopNotes.trim());
+	}
+
 	parts.push("");
 	parts.push("---");
 	parts.push("");
 	parts.push("## 服务端 release notes");
 	parts.push("");
-	parts.push((notes ?? "").trim() || "* 本次发布无额外说明。");
+	parts.push((serverNotes ?? "").trim() || "* 本次发布无额外说明。");
 	parts.push("");
 
 	return parts.join("\n");
 }
 
-/** 桌面端 release 正文：下载表格 → 安装说明 → 桌面端 release notes。 */
-export function renderDesktopBody({ version, repo, notes }) {
-	return [
-		"## 下载 GOSpeak 桌面端",
-		"",
-		renderDesktopTable(version, repo),
-		"",
-		renderInstallNotes(),
-		"",
-		"---",
-		"",
-		"## 桌面端 release notes",
-		"",
-		(notes ?? "").trim() || "* 本次发布无额外说明。",
-		"",
-	].join("\n");
-}
-
 function parseArgs(argv) {
-	const [component, ...rest] = argv;
-	const options = { component };
+	const [mode, ...rest] = argv;
+	const options = { mode };
 	for (let i = 0; i < rest.length; i += 1) {
 		const arg = rest[i];
 		if (!arg.startsWith("--")) continue;
 		const key = arg.slice(2);
-		if (key === "desktop-release-exists") {
-			options.desktopReleaseExists = true;
+		if (key === "desktop-included") {
+			options.desktopIncluded = true;
 			continue;
 		}
 		const value = rest[i + 1];
@@ -245,31 +248,32 @@ function parseArgs(argv) {
 	return options;
 }
 
+function readNotes(path) {
+	if (!path) return "";
+	try {
+		return readFileSync(path, "utf8");
+	} catch {
+		return "";
+	}
+}
+
 function main() {
 	const options = parseArgs(process.argv.slice(2));
-	const { component, version, repo } = options;
-	if (component !== "server" && component !== "desktop") {
-		throw new Error(
-			`component must be "server" or "desktop", got ${JSON.stringify(component)}`,
-		);
+	const { mode, version, repo } = options;
+	if (mode !== "release") {
+		throw new Error(`mode must be "release", got ${JSON.stringify(mode)}`);
 	}
 	if (!version) throw new Error("--version is required");
 	if (!repo) throw new Error("--repo is required");
 
-	const notes = options["notes-file"]
-		? readFileSync(options["notes-file"], "utf8")
-		: "";
-
-	const body =
-		component === "server"
-			? renderServerBody({
-					version,
-					repo,
-					desktopVersion: options["desktop-version"],
-					desktopReleaseExists: options.desktopReleaseExists === true,
-					notes,
-				})
-			: renderDesktopBody({ version, repo, notes });
+	const body = renderReleaseBody({
+		version,
+		repo,
+		desktopVersion: options["desktop-version"],
+		desktopIncluded: options.desktopIncluded === true,
+		desktopNotes: readNotes(options["desktop-notes-file"]),
+		serverNotes: readNotes(options["notes-file"]),
+	});
 
 	process.stdout.write(body);
 }

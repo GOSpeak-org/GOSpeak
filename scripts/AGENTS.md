@@ -8,7 +8,7 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 |------|------|----------|
 | `check-version.mjs` | 版本一致性：以 `.github/versions/*.yaml` 为单一事实源 | CI `test-scripts` / 发布 |
 | `release-naming.mjs` | 产物命名规范 `gospeak-<component>-v<semver>[-os-arch][.ext]` | release 工作流 |
-| `release-notes.mjs` | GitHub Release 正文（桌面下载表格 + 部署指引 + server notes） | release 工作流 |
+| `release-notes.mjs` | 统一 Release 正文（桌面下载表格 + 部署指引 + 两端 notes；一版一个 Release） | release 工作流 |
 | `build-changelog.mjs` | 按版本生成 CHANGELOG 段并幂等插入顶部 | 发版 |
 | `check-ui-tokens.mjs` | UI token 护栏（任意圆角/字号/文字透明度/`ds-*`/图标尺寸） | CI lint + pre-push |
 | `check-radius-tokens.mjs` | 圆角 token 专门护栏（被上面复用） | CI lint + pre-push |
