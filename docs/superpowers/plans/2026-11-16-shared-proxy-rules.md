@@ -6,6 +6,8 @@
 >
 > **原生接入已由 CI 实测编译通过**（run 44006296505 @ f230a949，全 13 个 job 绿）：`gomobile bind` 产出 AAR / XCFramework → `gradlew assembleDebug` 通过、APK 上传 → `xcodebuild`（iOS Simulator）通过、App 打包上传。本机（无 Xcode / Android SDK / NDK / JDK）只验证到 `gobind` 绑定面与 Swift 类型检查，够不到实际编译。
 >
+> **后续状态**：iOS 构建已在 CI 中**暂时禁用**（按需关闭，步骤以注释形式保留），`build-mobile` 现在只构建 Android。XCFramework 仍在绑定面步骤里产出，iOS 侧命令随时可恢复；但禁用期间改 iOS 原生代码不再有 CI 拦截。
+>
 > iOS 侧本地可验证部分已实测：用 `gobind -lang=objc` 的真实生成头文件搭 framework 布局，`swiftc -typecheck` 对 `LocalProxyServer.swift` 通过，且反向对照（故意写错函数名）会报 `cannot find in scope`，证明检查有效。
 >
 > 交付核验：`app/shared/proxyrules` 单测全绿（8 个测试函数 / 73 个子测试）；`app/desktop` 全部测试零回归（10/10 host:port 用例逐字一致，255 组 worker 组合零差异）；`scripts/mobile-bind-proxyrules.mjs` 16 项单测通过并实证可拦下 gobind 静默跳过；`check-mobile-bridge` / `check-desktop-commands` 仍 in sync。

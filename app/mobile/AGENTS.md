@@ -60,7 +60,8 @@ node scripts/mobile-bind-proxyrules.mjs --target=all   # 默认 all；另有 and
 - 产物目录 `app/mobile/build/proxyrules/`，已被根 `.gitignore` 的 `build/` 覆盖，不入库。
 - `gobind`（`-lang=objc` / `-lang=java`）**不需要 Xcode / Android SDK**，是任何机器都能跑的门禁：脚本解析生成的 `Proxyrules.objc.h` 与 `Proxyrules.java`，断言四个导出函数都在，并拒绝任何 `// skipped function ...` 行——gobind 遇到不支持的签名会静默跳过函数且仍 exit 0，只看退出码等于没门禁。
 - `gomobile bind` 缺 Xcode / Android SDK / NDK / JDK 时脚本以 **exit 0** 退出并打印下一步（已知且已文档化的降级）；绑定真的坏了才 exit 1。
-- **本机现状**：`xcode-select -p` 仍指向 CommandLineTools（无 Xcode），且无 Android SDK/NDK/JDK，因此本地只能验证 gobind；AAR/XCFramework 由 CI 的 `build-mobile`（macos-latest，自带 Xcode 与 Android SDK）产出并编译两端原生工程——原生接入的编译验证以 CI 为准。
+- **本机现状**：`xcode-select -p` 仍指向 CommandLineTools（无 Xcode），且无 Android SDK/NDK/JDK，因此本地只能验证 gobind；AAR/XCFramework 由 CI 的 `build-mobile` 产出。
+- **CI 现状**：`build-mobile` 目前**只构建 Android**（`assembleDebug` + 上传 APK），**iOS 构建已暂时禁用**（`.github/workflows/ci.yml` 里保留注释形式，解开即恢复）。因此改 `app/mobile/ios/` 或 `App.xcodeproj` 目前**不会被 CI 拦住**，只能靠本地 `swiftc -typecheck` 与 release 前的人工验证。iOS 原生接入本身不是未验证状态——它在 run 44006296505 实跑通过过一次。
 
 ## 约束
 
