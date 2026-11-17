@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +11,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+
+	"gospeak/proxyrules"
 )
 
 // ServerConfig exposes the backend base URL the desktop client connects to.
@@ -87,24 +87,9 @@ func (ServerConfig) GetBaseURL() string {
 // validateBaseURL reports whether raw is acceptable as a backend base URL.
 // An empty value is valid and means "no server configured". Anything else must
 // be an absolute http(s) URL with a host; the message is shown to the user.
+// The rule itself lives in the shared proxyrules module (also used by mobile).
 func validateBaseURL(raw string) error {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("invalid server URL: %v", err)
-	}
-	switch u.Scheme {
-	case "http", "https":
-	default:
-		return errors.New("invalid server URL: must be an absolute http(s) URL")
-	}
-	if u.Host == "" {
-		return errors.New("invalid server URL: must be an absolute http(s) URL")
-	}
-	return nil
+	return proxyrules.ValidateBaseURL(raw)
 }
 
 // SetBaseURL persists a new backend base URL and immediately connects to it:

@@ -44,6 +44,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gospeak/proxyrules"
 )
 
 //go:embed all:webui/dist
@@ -233,7 +235,7 @@ func (s *proxyServer) trustedWorkerHosts() []string {
 	t := s.target
 	s.mu.RUnlock()
 	if t != nil {
-		if hp, ok := normalizedHostPort(t.Scheme, t.Host); ok {
+		if hp, err := proxyrules.NormalizedHostPort(t.Scheme, t.Host); err == nil {
 			hosts = append(hosts, hp)
 		}
 	}
@@ -379,56 +381,28 @@ func loopbackOriginAllowed(r *http.Request) bool {
 	return strings.EqualFold(u.Scheme, want)
 }
 
-// workerHostAllowed matches the target against the injected allowlist. Entries
-// are normalized host:port pairs, so an allowed host on one port does not open
+// workerHostAllowed asks the shared rule whether the target's host:port is
+// trusted. The allowlist is the injected one (advertised worker hosts plus the
+// configured base URL host); the configured base URL is handed to the shared
+// rule as its own channel too, so the overlap is idempotent. Entries are
+// normalized host:port pairs, so an allowed host on one port does not open
 // every other port of that host (the SSRF payloads all relied on that).
 func (s *proxyServer) workerHostAllowed(scheme, hostport string) bool {
 	if s.allowedWorkerHosts == nil {
 		return false
 	}
-	want, ok := normalizedHostPort(scheme, hostport)
-	if !ok {
-		return false
+	s.mu.RLock()
+	t := s.target
+	s.mu.RUnlock()
+	baseURL := ""
+	if t != nil {
+		baseURL = t.String()
 	}
-	for _, allowed := range s.allowedWorkerHosts() {
-		if allowed == want {
-			return true
-		}
-	}
-	return false
-}
-
-// normalizedHostPort canonicalizes "host[:port]" to a lower-case host:port,
-// filling the scheme's default port. An unparsable value returns false.
-func normalizedHostPort(scheme, hostport string) (string, bool) {
-	h := strings.ToLower(strings.TrimSpace(hostport))
-	if h == "" {
-		return "", false
-	}
-	host, port := h, ""
-	if strings.HasPrefix(h, "[") {
-		end := strings.Index(h, "]")
-		if end < 0 {
-			return "", false
-		}
-		host, port = h[:end+1], strings.TrimPrefix(h[end+1:], ":")
-	} else if i := strings.LastIndexByte(h, ':'); i >= 0 {
-		host, port = h[:i], h[i+1:]
-	}
-	if host == "" {
-		return "", false
-	}
-	if port == "" {
-		switch scheme {
-		case "http", "ws":
-			port = "80"
-		case "https", "wss":
-			port = "443"
-		default:
-			return "", false
-		}
-	}
-	return host + ":" + port, true
+	return proxyrules.IsTrustedWorker(
+		scheme+"://"+hostport,
+		baseURL,
+		strings.Join(s.allowedWorkerHosts(), ","),
+	)
 }
 
 // workerHostAllowlist records the worker hosts the trusted backend handed out.
@@ -658,7 +632,7 @@ func (s *proxyServer) recordWorkerEndpoint(resp *http.Response) {
 	} else if scheme == "wss" {
 		scheme = "https"
 	}
-	if hp, ok := normalizedHostPort(scheme, u.Host); ok {
+	if hp, err := proxyrules.NormalizedHostPort(scheme, u.Host); err == nil {
 		s.workerHosts.allow(hp)
 	}
 }
@@ -666,18 +640,17 @@ func (s *proxyServer) recordWorkerEndpoint(resp *http.Response) {
 // fixCookies rewrites backend Set-Cookie headers so they stick to the loopback
 // origin: a Secure cookie cannot be stored over plain http, and a Domain
 // attribute would break host-only scoping. SameSite is normalized to Lax (the
-// page talks to us same-origin, so Lax is all that is needed).
+// page talks to us same-origin, so Lax is all that is needed). The rewriting
+// is string-level in the shared proxyrules module: it keeps the backend's
+// attribute order and any extension attributes, which browsers accept the same.
 func fixCookies(resp *http.Response) error {
-	cookies := resp.Cookies()
-	if len(cookies) == 0 {
+	values := resp.Header.Values("Set-Cookie")
+	if len(values) == 0 {
 		return nil
 	}
 	resp.Header.Del("Set-Cookie")
-	for _, c := range cookies {
-		c.Secure = false
-		c.Domain = ""
-		c.SameSite = http.SameSiteLaxMode
-		resp.Header.Add("Set-Cookie", c.String())
+	for _, v := range values {
+		resp.Header.Add("Set-Cookie", proxyrules.RewriteSetCookie(v))
 	}
 	return nil
 }
