@@ -36,7 +36,11 @@ export default function AppTitleBar({
 			<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
 				<span className="text-xs font-medium">{title}</span>
 			</div>
-			<div className="ml-auto flex shrink-0 items-center gap-1">
+			{/* 右侧操作区显式 no-drag：MyGo 只自动排除 button / a / input 这类交互元素，
+			    区块内的留白和状态点仍会被当成拖拽区，点下去会误拖窗口。
+			    栏的其余部分（字标、标题、空白）保持 --app-region: drag，
+			    窗口照样靠标题栏拖动。 */}
+			<div className="ml-auto flex shrink-0 items-center gap-1 [--app-region:no-drag]">
 				{showConnection && <ConnectionIndicator />}
 				<button
 					type="button"

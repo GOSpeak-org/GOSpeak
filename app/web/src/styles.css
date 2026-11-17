@@ -7,7 +7,29 @@
 @import "./assets/styles/global.css";
 @import "./assets/styles/auth-shell.css";
 @import "./assets/styles/workspace-surface.css";
+@import "./assets/styles/platform.css";
 @config "../tailwind.config.ts";
+
+/*
+ * hover 只在真正支持悬停的指针上生效：触屏点按后不会把 hover 态"粘"在元素上，
+ * 也不需要在 140 处调用点逐个包 media query。桌面鼠标下渲染与改动前一致。
+ * group-hover 是独立变体，需要同样收敛，否则 3 处 group-hover 仍会在触屏上残留。
+ */
+@custom-variant hover {
+	@media (hover: hover) {
+		&:hover {
+			@slot;
+		}
+	}
+}
+
+@custom-variant group-hover {
+	@media (hover: hover) {
+		&:is(:where(.group):hover *) {
+			@slot;
+		}
+	}
+}
 
 /* 音量/滑块统一由 @gospeak/components 的 Radix Slider 渲染，
    不再保留原生 range 的全局补丁样式（曾让横向滑块被误当竖向处理）。 */

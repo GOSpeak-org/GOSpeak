@@ -131,7 +131,7 @@ function MobileStageTabs({
 				<button
 					key={tab}
 					type="button"
-					className={`flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
+					className={`flex h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors ${
 						stageTab === tab
 							? "bg-card text-foreground shadow-sm"
 							: "text-faint-foreground"

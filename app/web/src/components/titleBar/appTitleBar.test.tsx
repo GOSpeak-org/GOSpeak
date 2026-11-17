@@ -21,6 +21,12 @@ describe("AppTitleBar", () => {
 		const bar = container.firstElementChild as HTMLElement;
 		expect(bar.className).toContain("[--app-region:drag]");
 		expect(bar.className).toContain("app-titlebar");
+		// 只有右侧操作区让出拖拽，整条栏仍可拖动窗口
+		expect(
+			screen
+				.getByRole("button", { name: "切换到深色" })
+				.closest("[class*='no-drag']"),
+		).not.toBeNull();
 	});
 
 	it("主题按钮切换深色模式", async () => {

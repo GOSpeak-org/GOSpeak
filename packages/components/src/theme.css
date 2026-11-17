@@ -32,6 +32,9 @@
  *   text-faint-foreground   弱化文字（亮 42% / 暗 38%）：占位符、脚注、空状态提示
  */
 :root {
+	/* 原生控件（滚动条、输入框、日期选择器）跟随主题，
+	   否则深色主题下这些系统部件仍是浅色皮肤，和页面明显割裂 */
+	color-scheme: light;
 	/* 字体统一由打包字体决定，不落到各平台 system-ui（见 app/web/src/styles.css） */
 	--font-sans:
 		"Inter Variable", "Noto Sans SC Variable", ui-sans-serif, system-ui,
@@ -73,6 +76,7 @@
 }
 
 .dark {
+	color-scheme: dark;
 	/* 中性底色带 0.006~0.009 的品牌 indigo 色相，肉眼视为中性灰，但与 primary 同族 */
 	--background: oklch(21% 0.006 277);
 	/* 不用纯白：深底上的 100% 白会溢光，94% 留出余地 */
@@ -199,4 +203,24 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+}
+
+/*
+ * 高对比度偏好（系统「对比度：更高」）：只抬文字与描边的对比，
+ * 不动色相与表面阶梯——文首四条派生规则仍然成立，
+ * 只是把「次要 / 弱化」两档压到仍可读、描边加到仍可见。
+ */
+@media (prefers-contrast: more) {
+	:root {
+		--muted-foreground: oklch(0% 0 0 / 78%);
+		--faint-foreground: oklch(0% 0 0 / 62%);
+		--border: oklch(62% 0 0);
+		--input: oklch(62% 0 0);
+	}
+	.dark {
+		--muted-foreground: oklch(94% 0.006 277 / 82%);
+		--faint-foreground: oklch(94% 0.006 277 / 66%);
+		--border: oklch(48% 0.008 277);
+		--input: oklch(48% 0.008 277);
+	}
 }
