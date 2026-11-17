@@ -113,6 +113,15 @@ function renderCell(ext, repo, tag, asset) {
 	return `[${badge}](${downloadUrl(repo, tag, asset)})<br>\`${asset}\``;
 }
 
+/** 通用下载链接（无徽章，用于 Docker 这类非文件产物）。 */
+function renderTextCell(label, href) {
+	return href ? `[${label}](${href})` : label;
+}
+
+function renderChecksumCell(repo, tag, sums) {
+	return `[${BADGE("SHA-256", "24292F", "github")}](${downloadUrl(repo, tag, sums)})<br>\`${sums}\``;
+}
+
 /**
  * 桌面端下载表格（Markdown）。
  *
@@ -136,12 +145,132 @@ export function renderDesktopTable(version, repo, tag) {
 
 	const sums = checksumName("desktop", version);
 	rows.push(
-		`| **校验和** | 全部文件 | [${BADGE("SHA-256", "24292F", "github")}](${downloadUrl(repo, releaseAnchor, sums)})<br>\`${sums}\` | - | 完整性校验 |`,
+		`| **校验和** | 全部文件 | ${renderChecksumCell(repo, releaseAnchor, sums)} | - | 完整性校验 |`,
 	);
 
 	return [
 		"| 平台 | 架构 | 推荐下载 | 备选 | 适用 |",
 		"|:---|:---|:---:|:---|:---|",
+		...rows,
+	].join("\n");
+}
+
+/**
+ * 服务端可下载产物清单。target 与 release.yml 的构建矩阵一一对应，
+ * 改矩阵时必须同步这里（单测会校验文件名仍符合命名规范）。
+ */
+export function serverArtifacts(version) {
+	return [
+		{
+			os: "Linux",
+			arch: "amd64",
+			target: "linux-amd64",
+			ext: "",
+			bestFor: "服务器 / NAS / 虚拟机",
+		},
+		{
+			os: "Linux",
+			arch: "arm64",
+			target: "linux-arm64",
+			ext: "",
+			bestFor: "ARM64 服务器与开发板",
+		},
+		{
+			os: "Linux",
+			arch: "armv7",
+			target: "linux-armv7",
+			ext: "",
+			bestFor: "树莓派等 32 位 ARM",
+		},
+		{
+			os: "macOS",
+			arch: "Apple Silicon",
+			target: "darwin-arm64",
+			ext: "",
+			bestFor: "本机试用 / 开发",
+		},
+		{
+			os: "macOS",
+			arch: "Intel",
+			target: "darwin-amd64",
+			ext: "",
+			bestFor: "Intel 芯片 Mac",
+		},
+		{
+			os: "FreeBSD",
+			arch: "amd64",
+			target: "freebsd-amd64",
+			ext: "",
+			bestFor: "FreeBSD 服务器",
+		},
+		{
+			os: "FreeBSD",
+			arch: "arm64",
+			target: "freebsd-arm64",
+			ext: "",
+			bestFor: "ARM64 FreeBSD",
+		},
+		{
+			os: "OpenBSD",
+			arch: "amd64",
+			target: "openbsd-amd64",
+			ext: "",
+			bestFor: "OpenBSD 服务器",
+		},
+		{
+			os: "Windows",
+			arch: "x64",
+			target: "windows-amd64",
+			ext: "exe",
+			bestFor: "64 位 Windows",
+		},
+		{
+			os: "Windows",
+			arch: "arm64",
+			target: "windows-arm64",
+			ext: "exe",
+			bestFor: "ARM64 Windows",
+		},
+	].map((row) => ({
+		...row,
+		asset: artifactForTarget("server", version, row.target, row.ext),
+	}));
+}
+
+/** 容器镜像地址：ghcr.io/<owner>/<repo>:<version>。 */
+export function containerImage(version, repo) {
+	return `ghcr.io/${repo.toLowerCase()}:${version}`;
+}
+
+/** 容器镜像包页面（docker pull 之外的图形入口）。 */
+export function containerPackageUrl(repo) {
+	return `https://github.com/${repo}/pkgs/container/gospeak`;
+}
+
+/**
+ * 服务端下载表格：每个构建矩阵一行，末尾固定多一行 Docker（镜像不随
+ * matrix 变化，放在最后一眼就能看到推荐部署方式）。
+ */
+export function renderServerTable(version, repo, tag) {
+	const releaseAnchor = tag ?? releaseTagForVersion(version);
+	const rows = serverArtifacts(version).map(
+		(row) =>
+			`| **${row.os}** | ${row.arch} | ${renderCell(row.ext || "bin", repo, releaseAnchor, row.asset)} | ${row.bestFor} |`,
+	);
+
+	const image = containerImage(version, repo);
+	rows.push(
+		`| **Docker** | 多架构 | ${renderTextCell(`\`${image}\``, containerPackageUrl(repo))}<br>\`docker pull ${image}\` | 推荐部署方式，免装依赖 |`,
+	);
+
+	const sums = checksumName("server", version);
+	rows.push(
+		`| **校验和** | 全部文件 | ${renderChecksumCell(repo, releaseAnchor, sums)} | 完整性校验 |`,
+	);
+
+	return [
+		"| 平台 | 架构 | 下载 | 适用 |",
+		"|:---|:---|:---:|:---|",
 		...rows,
 	].join("\n");
 }
@@ -158,26 +287,25 @@ function renderInstallNotes() {
 	].join("\n");
 }
 
-function renderDeploySection(repo, tag) {
+function renderDeploySection(repo, tag, version) {
 	return [
 		"## 部署 GOSpeak 服务端",
 		"",
-		"| 方式 | 文档 |",
-		"|:---|:---|",
-		`| **Docker Compose** | [在服务器 / NAS / 虚拟机上部署](https://github.com/${repo}/blob/${tag}/deploy/DEPLOY.md) |`,
-		`| **容器镜像** | \`ghcr.io/${repo.toLowerCase()}:${tag.replace(/^gospeak-server-v/, "")}\` |`,
-		"| **二进制** | 见本页底部 Assets 列表（按 `gospeak-server-` 前缀） |",
+		`- **Docker Compose**（推荐）：[在服务器 / NAS / 虚拟机上部署](https://github.com/${repo}/blob/${tag}/deploy/DEPLOY.md)`,
+		`- **容器镜像**：\`docker pull ${containerImage(version, repo)}\`，多架构自动匹配`,
+		"- **二进制**：见上方服务端下载表格，下载后 `chmod +x` 直接运行 `./gospeak-server-* server -e prod`",
 		"",
 		`[浏览 ${tag} 的部署文档](https://github.com/${repo}/tree/${tag}/deploy)`,
 	].join("\n");
 }
 
 /**
- * 统一 Release 正文：桌面端下载表格 → 安装说明 → 部署指引 → 桌面端 notes
- * → 分隔线 → 服务端 notes。
+ * 统一 Release 正文：服务端下载表格（含 Docker 行）→ 桌面端下载表格 →
+ * 安装说明 → 桌面端 notes → 分隔线 → 服务端 notes。
  *
- * desktopIncluded=false（本版本没有桌面端产物）时不渲染下载表格，只给
- * Releases 页链接，避免指向并不存在的附件造成 404。
+ * 两个表格都在顶部：普通用户先看到客户端，运维先看到服务端二进制与镜像。
+ * desktopIncluded=false（本版本没有桌面端产物）时桌面端表格换成 Releases 页
+ * 链接，避免指向并不存在的附件造成 404。
  */
 export function renderReleaseBody({
 	version,
@@ -190,14 +318,22 @@ export function renderReleaseBody({
 	const tag = releaseTagForVersion(version);
 	const parts = [];
 
-	parts.push("## 下载 GOSpeak 桌面端");
+	parts.push("## 下载 GOSpeak");
+	parts.push("");
+	parts.push("> [!TIP]");
+	parts.push(
+		`> 本版本的服务端二进制、容器镜像与桌面端安装包同属 ${tag}，无需另找发布页。`,
+	);
+	parts.push("");
+
+	parts.push("### 服务端");
+	parts.push("");
+	parts.push(renderServerTable(version, repo, tag));
+	parts.push("");
+
+	parts.push("### 桌面端");
 	parts.push("");
 	if (desktopIncluded && desktopVersion) {
-		parts.push(
-			"> [!TIP]",
-			`> 本版本的服务端二进制与桌面端安装包同属 ${tag}，无需另找桌面端发布页。`,
-		);
-		parts.push("");
 		parts.push(renderDesktopTable(desktopVersion, repo, tag));
 	} else {
 		parts.push(
@@ -207,7 +343,7 @@ export function renderReleaseBody({
 	parts.push("");
 	parts.push(renderInstallNotes());
 	parts.push("");
-	parts.push(renderDeploySection(repo, tag));
+	parts.push(renderDeploySection(repo, tag, version));
 
 	if (desktopIncluded && (desktopNotes ?? "").trim()) {
 		parts.push("");
