@@ -91,6 +91,12 @@ export {
 	type HostLogEntry,
 } from "./capabilities/clientlog";
 
+export {
+	checkScreenRecording,
+	guideScreenRecording,
+	type ScreenRecordingStatus,
+} from "./capabilities/screenCapture";
+
 import { createWindowControls } from "./capabilities/window";
 import { createSystemTray } from "./capabilities/tray";
 import { createAutoStart } from "./capabilities/autostart";

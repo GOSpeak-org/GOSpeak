@@ -23,6 +23,21 @@ func (p *quitPermission) hidesWindowClose() bool { return !p.active.Load() }
 
 var quitting = newQuitPermission()
 
+// hideOnClose builds an OnClose handler that hides a window instead of closing
+// it, except while a native quit is in progress. MyGo's quit sequence treats a
+// prevented OnClose as a veto and cancels the whole quit (prepareQuit), so even
+// a hidden helper window such as the overlay must let its close go through on
+// Cmd+Q, Dock Quit or the app menu.
+func hideOnClose(hide func()) func(*mygo.CloseEvent) {
+	return func(e *mygo.CloseEvent) {
+		if !quitting.hidesWindowClose() {
+			return
+		}
+		e.PreventDefault()
+		hide()
+	}
+}
+
 // showMainWindow brings the main window back from the tray, restoring it when
 // minimized, and gives it focus.
 func showMainWindow() {
@@ -81,13 +96,7 @@ func initLifecycle() {
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) { flushOverlayConfig() })
 
 	if mainWindow != nil {
-		mainWindow.OnClose(func(e *mygo.CloseEvent) {
-			if !quitting.hidesWindowClose() {
-				return
-			}
-			e.PreventDefault()
-			hideMainWindow()
-		})
+		mainWindow.OnClose(hideOnClose(hideMainWindow))
 	}
 
 	// Dock icon click (macOS) reopens the hidden window.
