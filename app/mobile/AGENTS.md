@@ -25,6 +25,44 @@ pnpm --filter @gospeak/mobile run:android   # 同步后跑 Android
 - 安全区：`viewport-fit=cover` + `#app` 的 `env(safe-area-inset-*)` 内缩，`contentInset` 保持 `never` 以免双重留白。
 - 键盘：`plugins.Keyboard.resize: native`（iOS 默认值）——**必须装 `@capacitor/keyboard`**，否则 WKWebView 不缩放、键盘直接盖住底部输入框；`autoBackdropColor: auto` 让键盘底部留白跟随主题。
 
+## 共享反代规则层（app/shared/proxyrules）
+
+移动端与桌面端的本地反代判定（服务器地址校验、Set-Cookie 重写、worker 可信来源、host:port 归一）只有一份实现：`app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，四个导出函数，无 CGO / 平台依赖）。
+
+- 桌面宿主直接 `import "gospeak/proxyrules"`（`app/desktop/go.mod` 用 `replace` 指向本地目录）。
+- 移动端经 `gomobile bind` 产出的 AAR / XCFramework 调用，**原生调用点已接入**，内联等价实现已删除：
+  - Android：`LocalProxyServer` 调 `proxyrules.Proxyrules.{validateBaseURL,isTrustedWorker,rewriteSetCookie}`，AAR 由 `app/build.gradle` 以 `flatDir` 依赖 `../../build/proxyrules`。
+  - iOS：`LocalProxyServer` 调 `ProxyrulesIsTrustedWorker` / `ProxyrulesRewriteSetCookie`，`ServerConfigPlugin` 调 `ProxyrulesValidateBaseURL`（经 `App/Proxyrules-Bridging-Header.h`）。
+- **构建前必须先产出绑定产物**：`pnpm --filter @gospeak/mobile sync`（或 `sync:ios` / `sync:android`）已把 `bind:rules` 串进链路。缺产物时 Gradle 与 Xcode 会以明确信息让你去跑 bind，而不是报 "package proxyrules does not exist"。
+
+### 工具链与版本锁定
+
+`app/shared/proxyrules/go.mod` 的 `tool` 指令锁定了绑定工具，版本随模块走，不再依赖全局安装：
+
+```go
+tool (
+	golang.org/x/mobile/cmd/gobind
+	golang.org/x/mobile/cmd/gomobile
+)
+```
+
+- 绑定工具版本：`golang.org/x/mobile v0.0.0-20261011034528-197770444867`。
+- 模块声明 `go 1.26.0`；本机默认 `go` 是 1.24.5，靠 `GOTOOLCHAIN=auto` 解析到 go1.26.0。
+- 在模块目录内用 `go tool gobind` / `go tool gomobile` 即可，不依赖 `$(go env GOPATH)/bin` 是否装过。
+  `go tool gomobile version` 会打印 "binary is out of date, re-install it"，这是 gomobile 的自检对比，`bind` 不受影响（已实测）。
+
+### 校验与产物
+
+```bash
+node scripts/mobile-bind-proxyrules.mjs --target=all   # 默认 all；另有 android / ios
+```
+
+- 产物目录 `app/mobile/build/proxyrules/`，已被根 `.gitignore` 的 `build/` 覆盖，不入库。
+- `gobind`（`-lang=objc` / `-lang=java`）**不需要 Xcode / Android SDK**，是任何机器都能跑的门禁：脚本解析生成的 `Proxyrules.objc.h` 与 `Proxyrules.java`，断言四个导出函数都在，并拒绝任何 `// skipped function ...` 行——gobind 遇到不支持的签名会静默跳过函数且仍 exit 0，只看退出码等于没门禁。
+- `gomobile bind` 缺 Xcode / Android SDK / NDK / JDK 时脚本以 **exit 0** 退出并打印下一步（已知且已文档化的降级）；绑定真的坏了才 exit 1。
+- **本机现状**：`xcode-select -p` 仍指向 CommandLineTools（无 Xcode），且无 Android SDK/NDK/JDK，因此本地只能验证 gobind；AAR/XCFramework 由 CI 的 `build-mobile` 产出。
+- **CI 现状**：`build-mobile` 目前**只构建 Android**（`assembleDebug` + 上传 APK），**iOS 构建已暂时禁用**（`.github/workflows/ci.yml` 里保留注释形式，解开即恢复）。因此改 `app/mobile/ios/` 或 `App.xcodeproj` 目前**不会被 CI 拦住**，只能靠本地 `swiftc -typecheck` 与 release 前的人工验证。iOS 原生接入本身不是未验证状态——它在 run 44006296505 实跑通过过一次。
+
 ## 约束
 
 - 原生插件方法名与 `@gospeak/mobile-capabilities` 的 `pluginMethod()` 必须逐字一致，`scripts/check-mobile-bridge.mjs` 会拦。

@@ -1,6 +1,12 @@
-import { CornerDownRight, MessageSquarePlus, Trash2 } from "lucide-react";
+import {
+	CornerDownRight,
+	MessageSquarePlus,
+	MoreHorizontal,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import Avatar from "@/components/common/avatar";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { useUserStore } from "@/stores/userStore";
@@ -23,6 +29,10 @@ export default function MessageItem({
 }: MessageItemProps) {
 	const user = useUserStore((s) => s.user);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	// 触屏没有 hover：常驻的"消息操作"入口展开操作条；
+	// 桌面仍是 hover 浮出（见下方 group-hover）。
+	const coarsePointer = useCoarsePointer();
+	const [actionsOpen, setActionsOpen] = useState(false);
 
 	const isOwn =
 		!!user &&
@@ -124,7 +134,27 @@ export default function MessageItem({
 				</div>
 			)}
 
-			<div className="bg-card border-border invisible absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded-sm border p-0.5 shadow-md group-hover:visible">
+			{/* 触屏没有 hover，给一个常驻入口；桌面操作条仍由 group-hover 浮出 */}
+			{coarsePointer && (
+				<button
+					type="button"
+					aria-label="消息操作"
+					className="text-faint-foreground active:bg-muted absolute top-1 right-1 z-10 flex size-8 cursor-pointer items-center justify-center rounded-sm"
+					onClick={() => setActionsOpen((v) => !v)}
+				>
+					<MoreHorizontal size={16} />
+				</button>
+			)}
+
+			<div
+				className={`bg-card border-border absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded-sm border p-0.5 shadow-md ${
+					coarsePointer
+						? actionsOpen
+							? "visible"
+							: "invisible"
+						: "invisible group-hover:visible"
+				}`}
+			>
 				<ReactionBar roomUuid={msg.room_uuid} messageUuid={msg.uuid} />
 				<button
 					type="button"

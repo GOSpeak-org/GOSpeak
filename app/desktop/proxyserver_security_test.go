@@ -13,6 +13,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"gospeak/proxyrules"
 )
 
 func securityTestDist() fstest.MapFS {
@@ -557,9 +559,10 @@ func TestNormalizedHostPort(t *testing.T) {
 		{"http", "[::1", "", false},
 	}
 	for _, tc := range cases {
-		got, ok := normalizedHostPort(tc.scheme, tc.hostport)
+		got, err := proxyrules.NormalizedHostPort(tc.scheme, tc.hostport)
+		ok := err == nil
 		if ok != tc.ok || got != tc.want {
-			t.Errorf("normalizedHostPort(%q, %q) = %q,%v want %q,%v",
+			t.Errorf("NormalizedHostPort(%q, %q) = %q,%v want %q,%v",
 				tc.scheme, tc.hostport, got, ok, tc.want, tc.ok)
 		}
 	}

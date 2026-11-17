@@ -30,16 +30,19 @@
 		color 120ms ease,
 		background 120ms ease;
 }
-.ds-icon-btn:hover {
-	background: var(--muted);
-	color: var(--foreground);
+/* hover 只给真正能悬停的指针：触屏点按后不会把高亮"粘"在按钮上 */
+@media (hover: hover) {
+	.ds-icon-btn:hover {
+		background: var(--muted);
+		color: var(--foreground);
+	}
+	.ds-icon-btn.text-muted-foreground:hover {
+		color: var(--foreground);
+	}
 }
 /* 次级图标按钮：默认柔和色（两段类名，优先级高于 .ds-icon-btn 单类） */
 .ds-icon-btn.text-muted-foreground {
 	color: var(--muted-foreground);
-}
-.ds-icon-btn.text-muted-foreground:hover {
-	color: var(--foreground);
 }
 .ds-icon-btn[data-active="true"] {
 	color: var(--foreground);

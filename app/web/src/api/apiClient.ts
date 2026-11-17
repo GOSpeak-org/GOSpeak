@@ -89,11 +89,20 @@ const createInstance = (baseURL?: string) => {
 	// 响应拦截 — 统一处理接口错误 toast，组件不再重复处理
 	axiosInstance.interceptors.response.use(
 		(res: AxiosResponse<Result>) => {
-			// 业务失败码也统一 toast（当前后端走 HTTP 4xx/5xx，此分支保底）
-			if (res.data && res.data.code !== 0) {
+			// 业务失败码也统一 toast（当前后端走 HTTP 4xx/5xx，此分支保底）。
+			// 只有带数值 code 的 JSON 才算业务响应：反代/网关返回纯文本或 HTML 时
+			// （如 502、SPA 回退页），res.data 是字符串，code 为 undefined，
+			// 旧写法会命中这个分支并弹出没有文案的空 toast。
+			const body = res.data as unknown as { code?: unknown; msg?: unknown };
+			const businessCode = body?.code;
+			if (typeof businessCode === "number" && businessCode !== 0) {
 				const silent = res.config?.skipErrorToast === true;
 				if (!silent) {
-					toast.error(res.data.msg);
+					const msg =
+						typeof body.msg === "string" && body.msg.trim() !== ""
+							? body.msg
+							: `请求失败（错误码 ${businessCode}）`;
+					toast.error(msg);
 				}
 				// 记录给 APIClient.request 的 reject 用，保证调用方能判断是否已提示
 				(res.config as ToastMarked).__toastShown = !silent;

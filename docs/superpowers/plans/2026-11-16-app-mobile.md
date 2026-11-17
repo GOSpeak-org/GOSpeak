@@ -2584,5 +2584,5 @@ git commit -m "chore(mobile): add bridge contract guard and mobile docs"
 | Task 5 真机后台 WebRTC 音频 PoC | 暂缓（用户指示） | 混合方案是否成立的前提。执行方式见 Task 5；通过后按 spec 继续，不通过需回用户处重新决策（下沉原生媒体层或改路线）。 |
 | 服务端推送（APNs / FCM） | 暂缓（用户指示） | 后端当前没有 token 表与上报接口，客户端 `push` 能力仅保留 token 接收。需另出后端设计后接入。 |
 | 本地推送 | 已补齐 | 取代不了服务端推送：仅在 App 运行/刚切后台时有效，覆盖「被踢」「语音断连」。 |
-| CI 原生编译 job | 观察中 | `build-mobile` 已接入（macOS runner 编 iOS + Android），首次以 `continue-on-error` 上线；CI 实跑通过一次后移除该开关并纳入 `gate`。 |
+| CI 原生编译 job | 已调整 | `build-mobile`（macOS runner 编 iOS + Android）**已移除 `continue-on-error`**：失败必须是红的（它曾把 `version:sync` 的 ENOENT 压成 success，长期掩盖真实故障）。仍**不**纳入 `gate` 的 needs——macOS 排队 7-17 分钟会抖动合并门禁。即「失败显眼，但不阻塞合并」。 |
 | iOS 锁屏自定义按钮 | 未做 | 沿用系统媒体控件；Android 已有 静音 / 挂断 按钮。 |

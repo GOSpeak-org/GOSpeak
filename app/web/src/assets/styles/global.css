@@ -47,34 +47,35 @@ select:-webkit-autofill {
 	transition: background-color 99999s ease-in-out 0s;
 }
 
-/* 桌面窗口失焦时标题栏跟随原生非活动态（MyGo 在 <html> 上打标记） */
-:root[data-mygo-window-inactive] .app-titlebar {
-	color: var(--faint-foreground);
-}
+/* 滚动条统一（仅桌面指针）：macOS 默认是覆盖式且不占布局宽度，Windows / Linux
+   的经典滚动条宽 14~17px、带轨道与箭头，一出现就挤压内容并露出系统风格。这里
+   统一切成透明轨道 + 主题色滑块，两个方向一致；Radix ScrollArea 的 viewport 自带
+   [data-radix-scroll-area-viewport] 规则，优先级高于这里的 * 选择器。
 
-/* 滚动条统一：macOS 默认是覆盖式且不占布局宽度，Windows / Linux 的经典滚动条
-   宽 14~17px、带轨道与箭头，一出现就挤压内容并露出系统风格。这里统一切成
-   透明轨道 + 主题色滑块，两个方向一致；Radix ScrollArea 的 viewport 自带
-   [data-radix-scroll-area-viewport] 规则，优先级高于这里的 * 选择器。 */
-* {
-	scrollbar-width: thin;
-	scrollbar-color: var(--border) transparent;
-}
-*::-webkit-scrollbar {
-	width: 10px;
-	height: 10px;
-}
-*::-webkit-scrollbar-track,
-*::-webkit-scrollbar-corner {
-	background: transparent;
-}
-*::-webkit-scrollbar-thumb {
-	background: var(--border);
-	border: 2px solid transparent;
-	border-radius: var(--radius-full);
-	background-clip: padding-box;
-}
-*::-webkit-scrollbar-thumb:hover {
-	background: var(--muted-foreground);
-	background-clip: padding-box;
+   触屏设备（Android / iOS WebView）本来就是覆盖式滚动条，强加 10px 的滑轨只会
+   在滚动时压住内容，所以整块按 (hover: hover) 收窄，触屏保留原生滚动条。
+   桌面窗口失焦态的规则在 platform.css（与平台适配放在一起）。 */
+@media (hover: hover) and (pointer: fine) {
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--border) transparent;
+	}
+	*::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+	*::-webkit-scrollbar-track,
+	*::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	*::-webkit-scrollbar-thumb {
+		background: var(--border);
+		border: 2px solid transparent;
+		border-radius: var(--radius-full);
+		background-clip: padding-box;
+	}
+	*::-webkit-scrollbar-thumb:hover {
+		background: var(--muted-foreground);
+		background-clip: padding-box;
+	}
 }

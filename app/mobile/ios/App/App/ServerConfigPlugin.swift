@@ -20,10 +20,10 @@ public class ServerConfigPlugin: CAPPlugin, CAPBridgedPlugin {
         let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if !value.isEmpty {
-            guard let components = URLComponents(string: value),
-                  let scheme = components.scheme?.lowercased(),
-                  scheme == "http" || scheme == "https",
-                  components.host != nil else {
+            // 地址校验规则唯一实现在 app/shared/proxyrules（经 gomobile 绑定），与桌面/安卓同源。
+            var validationError: NSError?
+            let accepted = ProxyrulesValidateBaseURL(value, &validationError)
+            if !accepted || validationError != nil {
                 call.reject("invalid server URL: must be an absolute http(s) URL")
                 return
             }

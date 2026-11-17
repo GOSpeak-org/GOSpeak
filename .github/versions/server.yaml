@@ -10,29 +10,27 @@
 #
 # 同步约束（release.yml 的 version-check 会校验）：根 VERSION 与根 package.json
 # 的 version 必须与本文件一致。
-version: "1.0.3"
+version: "1.1.0-rc.1"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时由 scripts/build-changelog.mjs 按 conventional commits 生成，
 # 基线只取本组件的历史 tag。
 notes: |
-  GOSpeak 1.0.3 —— 全项目 review 必修项与安全加固。
+  GOSpeak 1.1.0-rc.1 —— 三端样式平台适配与共享反代规则层。
+
+  ## 新增
+  - 平台样式适配层：构建目标写入 <html data-platform>，Web / 桌面 / 移动三端的
+    样式差异收敛到一处，业务分支仍只用 inDesktop() / inMobile()
+  - 三端共享反代纯规则 app/shared/proxyrules：地址校验、Set-Cookie 改写与
+    worker 白名单只有一份实现，桌面宿主直接 import，移动端经 gomobile 绑定调用
+  - 系统偏好兜底：color-scheme 跟随明暗、reduced-motion 全局降级、
+    prefers-contrast 提升对比
 
   ## 修复
-  - 会话参与者 last_message_id 列宽改为 36 并纳入自动迁移，
-    36 位消息 UUID 不再被 MySQL/Postgres 截断
-  - 语音房进房被中断时 client 的 TDZ ReferenceError 掩盖真实进房错误
-  - 私聊在 WS 离线时改走 HTTP 兜底，失败回滚乐观消息并提示，
-    不再永久卡在「发送中」
-  - 本地存储首次「测试连接」不再误报 STORAGE_ERROR
+  - 非 JSON 错误响应不再弹出空白错误提示
+  - Set-Cookie 属性改为按名称匹配、worker 目标按原始 URL 解析，
+    反代白名单判定更准确
 
-  ## 安全加固
-  - JWT 黑名单查询失败改为 fail-closed；密钥年龄读取失败跳过本轮轮换，
-    避免历史密钥被快速挤出
-  - OAuth 出站仅允许 https（回环地址例外），拨号前拒绝链路本地地址与
-    云元数据地址，Exchange 统一带超时
-  - 本地存储写入按声明大小封顶并清理半成品；
-    S3 预签名将 ContentLength 纳入签名，超量上传被对象存储拒绝
-  - WS handler 增加 panic 隔离；uploads 静态服务按 EvalSymlinks 解析后的
-    真实路径校验，关闭软链穿越
-  - 存储配置保存前判断是否已加密，防止二次加密
+  ## 移动端
+  - Android / iOS 原生侧删除内联反代实现，统一调用共享规则
+  - gomobile 绑定面纳入 CI 门禁：gobind 静默跳过导出函数会被拦下

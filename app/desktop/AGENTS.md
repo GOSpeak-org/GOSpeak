@@ -19,6 +19,7 @@ Go 1.27 + MyGo 0.8.3 原生宿主。**自带前端**（embed `webui/dist`），�
 - `/wsworker?target=<ws-url>` 转发到 SFU/信令 worker，**目标受 allowlist 限制**（只允许信任后端下发的 host）；`stripWorkerCookies` 防凭据外泄。
 - `/healthz` 暴露端口与上游错误，供看门狗与崩溃窗使用；`recordUpstreamError` 分类记录。
 - WS upgrade 有专门的 round tripper 与超时处理，改动容易把 `/ws` 打成 502。
+- 三类纯规则（服务器地址校验、`Set-Cookie` 改写、worker 白名单归一）实现在 `app/shared/proxyrules`，桌面只是调用方。改规则去那里改，并跑 `cd app/shared/proxyrules && go test ./...`；桌面侧对应测试（`TestValidateBaseURL`、`TestNormalizedHostPort`、`TestWorker*`）会验证行为未漂移。
 
 ## 自愈
 

@@ -6,6 +6,7 @@ import { RouteErrorComponent } from "@/components/common/errorBoundary";
 import { SkeletonPage } from "@/components/common/Skeletons";
 import { requestAudioPermission } from "@/hooks/media";
 import { initTheme } from "@/stores/themeStore";
+import { applyPlatformAttributes } from "@/utils/platform";
 import { installClientLog } from "@/utils/clientLog";
 import { installDesktopLogSink } from "@/utils/clientLogDesktop";
 import { installFatalWatcher } from "@/utils/clientLogFatal";
@@ -59,6 +60,10 @@ declare module "@tanstack/react-router" {
 		router: typeof router;
 	}
 }
+
+// 平台属性：CSS 侧的触控 / 桌面窗口 / 系统偏好规则按目标分支，
+// 必须在首次渲染前写入，避免首帧按基线规则绘制后再跳变。
+applyPlatformAttributes();
 
 // 主题必须在应用根部应用一次：登录/注册/访客页没有 Header，
 // 只在 Header 里 initTheme 会让这些页面永远停在浅色。

@@ -7,8 +7,8 @@ android {
         applicationId "dev.gospeak.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10003
-        versionName "1.0.3"
+        versionCode 10100
+        versionName "1.1.0-rc.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -24,14 +24,26 @@ android {
     }
 }
 
+// proxyrules 的 AAR 由 gomobile bind 产出（node scripts/mobile-bind-proxyrules.mjs
+// --target=android），不入库；缺它时给出可执行的指引，而不是让 javac 报
+// "package proxyrules does not exist"。
+def proxyrulesAar = file('../../build/proxyrules/proxyrules.aar')
+if (!proxyrulesAar.exists()) {
+    throw new GradleException(
+        "缺少 proxyrules.aar：" + proxyrulesAar +
+        "\n先运行 node scripts/mobile-bind-proxyrules.mjs --target=android" +
+        "（需要 Android SDK + NDK + JDK；pnpm --filter @gospeak/mobile sync:android 已包含此步）")
+}
+
 repositories {
     flatDir{
-        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs', '../../build/proxyrules'
     }
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation(name: 'proxyrules', ext: 'aar')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"

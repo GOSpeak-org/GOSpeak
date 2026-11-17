@@ -465,7 +465,8 @@ final class LocalProxyServer {
                     if LocalProxyServer.hopByHopHeaders.contains(lower) { continue }
                     if stringValue.contains("\r") || stringValue.contains("\n") { continue }
                     if lower == "set-cookie" {
-                        headers.append(("Set-Cookie", LocalProxyServer.rewriteSetCookie(stringValue)))
+                        // 规则唯一实现在 app/shared/proxyrules（经 gomobile 绑定），与桌面/安卓同源。
+                        headers.append(("Set-Cookie", ProxyrulesRewriteSetCookie(stringValue)))
                     } else {
                         headers.append((name, stringValue))
                     }
@@ -502,19 +503,6 @@ final class LocalProxyServer {
         components.percentEncodedQuery = request.query.isEmpty ? nil : request.query
         components.fragment = nil
         return components.url
-    }
-
-    // URLSession 合并同名头，这里按属性切分后去掉 Domain/Secure，让会话 Cookie 落在回环 origin 上。
-    private static func rewriteSetCookie(_ value: String) -> String {
-        var kept: [String] = []
-        for raw in value.components(separatedBy: ";") {
-            let part = raw.trimmingCharacters(in: .whitespaces)
-            let lower = part.lowercased()
-            if lower.hasPrefix("domain=") || lower == "domain" { continue }
-            if lower == "secure" { continue }
-            kept.append(part)
-        }
-        return kept.joined(separator: "; ")
     }
 
     private static func reasonPhrase(_ code: Int) -> String {
@@ -575,8 +563,9 @@ final class LocalProxyServer {
                 reply(connection, response: .plain(status: 403, reason: "Forbidden", body: "target host not allowed"))
                 return
             }
-            // /wsworker 的 target 来自页面，只有与已配置后端同 host:port 才放行，默认拒绝。
-            if targetEndpoint.host != backend.host || targetEndpoint.port != backend.port {
+            // /wsworker 的 target 来自页面，只有可信 target 才放行，默认拒绝。
+            // 判定规则唯一实现在 app/shared/proxyrules（与桌面/安卓同源）。
+            if !ProxyrulesIsTrustedWorker(rawTarget, base, "") {
                 reply(connection, response: .plain(status: 403, reason: "Forbidden", body: "target host not allowed"))
                 return
             }
