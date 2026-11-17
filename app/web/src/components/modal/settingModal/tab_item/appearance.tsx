@@ -74,7 +74,7 @@ function AppearanceForm() {
 						{activeTheme}
 					</span>
 				</p>
-				<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+				<div className="grid grid-cols-2 gap-2 @md:grid-cols-3 @2xl:grid-cols-4">
 					{themes.map((option) => (
 						<ThemeCard
 							key={option.name}

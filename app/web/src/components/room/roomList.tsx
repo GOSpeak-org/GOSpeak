@@ -45,7 +45,7 @@ function RoomItemSkeleton() {
 
 function RoomListLoading({ label }: { label: string }) {
 	return (
-		<div className="flex flex-col gap-3 px-2 py-4" aria-live="polite">
+		<div className="flex flex-col gap-3 py-4" aria-live="polite">
 			<RoomItemSkeleton />
 			<div className="text-muted-foreground text-center text-xs">{label}</div>
 		</div>
@@ -82,7 +82,7 @@ function RoomListFallback({ state }: { state: WSConnectionState }) {
 		);
 	}
 	return (
-		<div className="flex flex-col gap-3 px-2 py-4" aria-live="polite">
+		<div className="flex flex-col gap-3 py-4" aria-live="polite">
 			<div className="text-muted-foreground flex flex-col items-center gap-2 py-2 text-xs">
 				<span>连接失败，请检查服务器状态</span>
 				<Button variant="ghost" size="sm" onClick={() => socketStore.connect()}>
@@ -98,7 +98,7 @@ function RoomListHeader({ onOpenCreate }: { onOpenCreate: () => void }) {
 	const domainCache = useDomainStore((s) => s.domainCache);
 	const currentDomain = domainCache[currentDomainUUID ?? ""];
 	return (
-		<div className="mt-2 flex justify-between">
+		<div className="mt-2 flex justify-between px-2">
 			<h3 className="min-w-0 flex-1 truncate font-bold">
 				{currentDomain?.name || "选择域"}
 			</h3>
@@ -207,12 +207,13 @@ export default function RoomList() {
 
 	return (
 		<>
-			<div className="box-border flex h-full min-h-0 flex-col px-2 select-none">
+			<div className="box-border flex h-full min-h-0 flex-col select-none">
 				<RoomListHeader onOpenCreate={openCreateRoomModal} />
-				<Divider className="mx-1 my-1" />
-				{/* pr-1.5 与滚动条同宽：滚动条浮在这段留白上，不压住右侧人数，
-				    宽度恒定所以出现/隐藏滚动条都不会让行左右跳动 */}
-				<ScrollArea className="min-h-0 flex-1" viewportClassName="pb-1 pr-1.5">
+				<Divider className="my-1" />
+				{/* 外框留白统一给到 viewport（px-2）：滚动条绝对定位在 ScrollArea 的
+				    右边缘，落在留白里而不是压在行上，行盒左右都是 8px，和标题行、
+				    底部的语音条/用户栏对齐。 */}
+				<ScrollArea className="min-h-0 flex-1" viewportClassName="px-2 pb-1">
 					<div className="flex flex-col space-y-1">
 						{connected ? (
 							visibleRooms.length > 0 ? (

@@ -2,6 +2,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { CornerDownLeft, MessageSquareText, Smile } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { PrivateMessageDTO } from "@/api/conversation";
+import ChatEmptyState from "@/components/chat/chatEmptyState";
 import Avatar from "@/components/common/avatar";
 import AsyncState from "@/components/common/AsyncState";
 import { SkeletonListRows } from "@/components/common/Skeletons";
@@ -44,7 +45,7 @@ export default function ChatWindow() {
 	const peerName =
 		activeConversation?.other_display_name ||
 		activeConversation?.other_identity ||
-		"私聊";
+		"选择一个会话";
 
 	const rows = buildRows(messages);
 
@@ -111,6 +112,23 @@ export default function ChatWindow() {
 	}
 
 	const items = virtualizer.getVirtualItems();
+
+	// 未选中会话时展示与语音域一致的完整空态，而不是一行漂浮的文字。
+	if (!active) {
+		return (
+			<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
+				<header className="border-border flex h-12 shrink-0 items-center gap-2 border-b px-3">
+					<span className="bg-muted text-foreground flex size-7 shrink-0 items-center justify-center rounded-sm">
+						<MessageSquareText size={16} />
+					</span>
+					<span className="text-foreground truncate text-sm font-semibold">
+						选择一个会话
+					</span>
+				</header>
+				<ChatEmptyState />
+			</div>
+		);
+	}
 
 	const iconBtn =
 		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-40";

@@ -18,6 +18,16 @@ export interface UpdateInfo {
 	supported: boolean;
 }
 
+/** Info about the newest GitHub release and the installer for this platform. */
+export interface ReleaseInfo {
+	available: boolean;
+	version: string;
+	notes: string;
+	current: string;
+	assetName: string;
+	url: string;
+}
+
 export interface Updater {
 	/** Check the release feed for a newer version. */
 	check(): Promise<UpdateInfo>;
@@ -36,6 +46,10 @@ export interface Updater {
 	 * for builds that cannot self-update (supported=false).
 	 */
 	openReleasePage(): Promise<void>;
+	/** Check GitHub Releases for a newer desktop release and its matching installer. */
+	checkRelease(): Promise<ReleaseInfo>;
+	/** Download the chosen installer to ~/Downloads, reporting progress on updater.progress. */
+	downloadRelease(url: string): Promise<void>;
 }
 
 const webFallback: Updater = {
@@ -54,6 +68,17 @@ const webFallback: Updater = {
 		return "dev";
 	},
 	async openReleasePage() {},
+	async checkRelease() {
+		return {
+			available: false,
+			version: "",
+			notes: "",
+			current: "dev",
+			assetName: "",
+			url: "",
+		};
+	},
+	async downloadRelease() {},
 };
 
 const native: Updater = {
@@ -64,6 +89,10 @@ const native: Updater = {
 	currentVersion: () =>
 		bridge.invoke<string>(command("Updater", "CurrentVersion")),
 	openReleasePage: () => bridge.invoke(command("Updater", "OpenReleasePage")),
+	checkRelease: () =>
+		bridge.invoke<ReleaseInfo>(command("Updater", "CheckRelease")),
+	downloadRelease: (url) =>
+		bridge.invoke(command("Updater", "DownloadRelease"), url),
 };
 
 /** Returns native updater inside the desktop host, web fallback otherwise. */

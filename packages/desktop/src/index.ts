@@ -76,6 +76,7 @@ export {
 	createUpdater,
 	type Updater,
 	type UpdateInfo,
+	type ReleaseInfo,
 } from "./capabilities/updater";
 
 export {

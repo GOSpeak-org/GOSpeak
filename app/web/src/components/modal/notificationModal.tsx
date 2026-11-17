@@ -1,6 +1,11 @@
 import { Dialog, DialogContent, DialogTitle } from "@gospeak/components";
 import { Bell, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+	LoadingRegion,
+	SkeletonNotificationDetail,
+	SkeletonNotificationList,
+} from "@/components/common/Skeletons";
 import MarkdownText from "@/components/textRoom/MarkdownText";
 import type { AnnouncementDTO } from "@/protocol/announcement";
 import {
@@ -45,6 +50,7 @@ export default function NotificationModal({
 	if (!open) return null;
 
 	const current = items.find((item) => item.uuid === selected) ?? items[0];
+	const showSkeleton = loading && items.length === 0;
 
 	const select = (item: AnnouncementDTO) => {
 		setSelected(item.uuid);
@@ -74,8 +80,10 @@ export default function NotificationModal({
 
 				<div className="flex min-h-0 flex-1">
 					<div className="border-border w-72 shrink-0 overflow-y-auto border-r">
-						{loading && items.length === 0 ? (
-							<div className="text-faint-foreground p-4 text-sm">加载中...</div>
+						{showSkeleton ? (
+							<LoadingRegion label="正在加载通知列表">
+								<SkeletonNotificationList />
+							</LoadingRegion>
 						) : items.length === 0 ? (
 							<div className="text-faint-foreground p-8 text-center text-sm">
 								暂无通知
@@ -112,7 +120,11 @@ export default function NotificationModal({
 					</div>
 
 					<div className="min-w-0 flex-1 overflow-y-auto p-5">
-						{current ? (
+						{showSkeleton ? (
+							<LoadingRegion label="正在加载通知详情">
+								<SkeletonNotificationDetail />
+							</LoadingRegion>
+						) : current ? (
 							<>
 								<h2 className="mb-1 text-lg font-semibold">{current.title}</h2>
 								<div className="text-faint-foreground mb-4 text-xs">

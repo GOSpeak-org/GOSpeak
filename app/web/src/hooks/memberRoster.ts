@@ -27,6 +27,10 @@ export interface RosterInput {
 	/** 本域全部房间的在线身份（含其他房间） */
 	onlineIdentities: string[];
 	myName: string | undefined;
+	/** 本地当前用户资料：头像/昵称以登录态为权威，避免域成员接口缺字段导致占位头像 */
+	myUser: { avatar?: string; display_name?: string } | null | undefined;
+	/** socket 已连接：连接即视为在线，当前用户不应显示「离线」 */
+	connected: boolean;
 }
 
 const putMeFirst = (list: RosterMember[]): RosterMember[] =>
@@ -38,6 +42,8 @@ export function buildMemberRoster({
 	liveMembers,
 	onlineIdentities,
 	myName,
+	myUser,
+	connected,
 }: RosterInput): MemberRoster {
 	const liveByIdentity = new Map(liveMembers.map((m) => [m.identity, m]));
 	const onlineSet = new Set(onlineIdentities);
@@ -56,26 +62,34 @@ export function buildMemberRoster({
 	for (const dm of domainMembers ?? []) {
 		if (!dm.name) continue;
 		const live = liveByIdentity.get(dm.name);
+		const isMe = dm.name === myName;
 		push({
 			identity: dm.name,
 			name: dm.name,
-			display_name: dm.nickname || dm.display_name || dm.name,
-			avatar: live?.avatar || dm.avatar || "",
-			online: onlineSet.has(dm.name),
-			is_me: dm.name === myName,
+			display_name: isMe
+				? myUser?.display_name || dm.nickname || dm.display_name || dm.name
+				: dm.nickname || dm.display_name || dm.name,
+			avatar: isMe
+				? myUser?.avatar || live?.avatar || dm.avatar || ""
+				: live?.avatar || dm.avatar || "",
+			online: onlineSet.has(dm.name) || (isMe && connected),
+			is_me: isMe,
 			is_mic_muted: !!live?.is_mic_muted,
 			is_muted: !!live?.is_muted,
 		});
 	}
 
 	for (const m of liveMembers) {
+		const isMe = m.identity === myName;
 		push({
 			identity: m.identity,
 			name: m.name,
-			display_name: m.display_name || m.name || m.identity,
-			avatar: m.avatar ?? "",
+			display_name: isMe
+				? myUser?.display_name || m.display_name || m.name || m.identity
+				: m.display_name || m.name || m.identity,
+			avatar: isMe ? myUser?.avatar || m.avatar || "" : (m.avatar ?? ""),
 			online: true,
-			is_me: m.identity === myName,
+			is_me: isMe,
 			is_mic_muted: !!m.is_mic_muted,
 			is_muted: !!m.is_muted,
 		});

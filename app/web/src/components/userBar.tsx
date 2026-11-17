@@ -38,7 +38,7 @@ export default function UserBar({
 	return (
 		<div
 			className={clsx(
-				"flex items-center justify-between px-1.5 pb-1.5 select-none",
+				"flex items-center justify-between px-2 pb-1.5 select-none",
 				className,
 			)}
 		>

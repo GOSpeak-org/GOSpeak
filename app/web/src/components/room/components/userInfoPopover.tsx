@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { fetchUserInfo } from "@/api/user";
 import Avatar from "@/components/common/avatar";
 import { LoadingRegion } from "@/components/common/Skeletons";
@@ -9,6 +9,12 @@ interface UserInfoPopoverProps {
 	identity: string;
 	pos: { x: number; y: number };
 	onClose: () => void;
+	/** 列表已有的成员资料：作为首帧内容，避免骨架屏闪烁 */
+	initialMember?: {
+		avatar?: string;
+		display_name?: string;
+		name?: string;
+	} | null;
 }
 
 const POPOVER_WIDTH = 224;
@@ -19,6 +25,7 @@ export default function UserInfoPopover({
 	identity,
 	pos,
 	onClose,
+	initialMember,
 }: UserInfoPopoverProps) {
 	const {
 		data: userData,
@@ -30,9 +37,8 @@ export default function UserInfoPopover({
 		retry: false,
 	});
 
-	const [cardPos, setCardPos] = useState({ left: pos.x, top: pos.y });
-
-	useEffect(() => {
+	// 位置同步计算：首帧即落在最终位置，避免「先出现在点击点再跳转」的闪烁
+	const cardPos = useMemo(() => {
 		const vw = window.innerWidth;
 		const vh = window.innerHeight;
 		let left = pos.x + OFFSET;
@@ -43,7 +49,7 @@ export default function UserInfoPopover({
 		if (pos.y + OFFSET + POPOVER_HEIGHT > vh) {
 			top = pos.y - POPOVER_HEIGHT - OFFSET;
 		}
-		setCardPos({ left, top });
+		return { left, top };
 	}, [pos.x, pos.y]);
 
 	useEffect(() => {
@@ -51,6 +57,20 @@ export default function UserInfoPopover({
 		window.addEventListener("scroll", onScroll, true);
 		return () => window.removeEventListener("scroll", onScroll, true);
 	}, [onClose]);
+
+	const hasInitial = !!initialMember;
+	const showSkeleton = isLoading && !hasInitial;
+	const showError = !isLoading && (isError || !userData) && !hasInitial;
+
+	// 首帧用列表资料，接口返回后覆盖为权威值
+	const displayName =
+		userData?.display_name ||
+		initialMember?.display_name ||
+		userData?.name ||
+		initialMember?.name ||
+		identity;
+	const handle = userData?.name || initialMember?.name || identity;
+	const avatar = userData?.avatar ?? initialMember?.avatar ?? "";
 
 	return (
 		<>
@@ -60,7 +80,7 @@ export default function UserInfoPopover({
 				className="border-border bg-card fixed z-50 w-56 overflow-hidden rounded-lg border shadow-xl"
 				style={{ left: `${cardPos.left}px`, top: `${cardPos.top}px` }}
 			>
-				{isLoading ? (
+				{showSkeleton ? (
 					<LoadingRegion label="正在加载用户信息">
 						<div className="flex flex-col items-center gap-3 p-4">
 							<Skeleton className="size-16 rounded-full" />
@@ -68,28 +88,25 @@ export default function UserInfoPopover({
 							<Skeleton className="h-3 w-16" />
 						</div>
 					</LoadingRegion>
-				) : isError || !userData ? (
+				) : showError ? (
 					<div className="text-faint-foreground p-4 text-sm">
 						{isError ? "加载失败" : "用户不存在"}
 					</div>
 				) : (
 					<div className="flex flex-col items-center gap-3 p-4">
 						<Avatar
-							src={userData.avatar}
-							name={userData.display_name || userData.name}
-							alt={userData.name}
+							src={avatar}
+							name={displayName}
+							alt={handle}
 							className="size-16"
 							textClass="text-xl"
 						/>
 						<div className="text-center">
-							<div className="text-sm font-bold">
-								{userData.display_name || userData.name}
-							</div>
-							<div className="text-faint-foreground text-xs">
-								@{userData.name}
-							</div>
-							<div className="bg-muted text-foreground mt-1 inline-block rounded-full px-2 py-0.5 text-2xs">
-								{userData.role}
+							<div className="text-sm font-bold">{displayName}</div>
+							<div className="text-faint-foreground text-xs">@{handle}</div>
+							{/* 固定占位，接口返回前不塌陷、返回后不跳动 */}
+							<div className="bg-muted text-foreground mt-1 inline-block min-w-8 rounded-full px-2 py-0.5 text-2xs">
+								{userData?.role || "\u00A0"}
 							</div>
 						</div>
 					</div>

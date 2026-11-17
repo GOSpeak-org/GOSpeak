@@ -47,6 +47,51 @@ func originOf(baseURL string) []string {
 	return []string{u.Scheme + "://" + u.Host}
 }
 
+// externalTarget returns raw when it points outside the app's own page, and
+// "" for relative, same-origin and internal (about:/blob:/data:) URLs.
+func externalTarget(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if u.Scheme == "" {
+		// A protocol-relative URL such as //example.com is external.
+		if u.Host != "" {
+			return raw
+		}
+		return ""
+	}
+	switch u.Scheme {
+	case "about", "blob", "data":
+		return ""
+	}
+	app, err := url.Parse(appPageBase())
+	if err == nil && u.Scheme == app.Scheme && u.Host == app.Host {
+		return ""
+	}
+	return raw
+}
+
+// openableExternal limits what we hand to the OS: web links and the common
+// handoff schemes, never file:, javascript: or other local schemes.
+func openableExternal(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	if u.Scheme == "" {
+		return u.Host != ""
+	}
+	switch u.Scheme {
+	case "http", "https", "mailto", "tel":
+		return true
+	}
+	return false
+}
+
 // titleBarHeight is the height of the title bar the page draws under the
 // window controls: the same 28px as the web build's Header (px-2 py-0.5 with
 // a py-1 text-xs button), so both builds look alike. Keep in sync with the
@@ -87,13 +132,36 @@ func openMainWindow() {
 		// position when the saved display is gone.
 		Width:     1200,
 		Height:    800,
-		MinWidth:  960,
+		MinWidth:  880,
 		MinHeight: 640,
 		StateKey:  "main",
 	})
-	// The page's <title> no longer renames the native window.
+	// The page's <title> no longer renames the native window. Its context
+	// menu is off except over editable fields, which keep cut/copy/paste.
+	// External links never load in the WebView: they go to the system browser.
 	if p := mainWindow.Page(); p != nil {
 		p.OnPageTitleUpdated(func(e *mygo.TitleEvent) { e.PreventDefault() })
+		p.OnContextMenu(func(e *mygo.ContextMenuEvent) {
+			if !e.Editable {
+				e.PreventDefault()
+			}
+		})
+		p.SetWindowOpenHandler(func(req mygo.WindowOpenRequest) *mygo.WindowOptions {
+			if target := externalTarget(req.URL); target != "" && openableExternal(target) {
+				go mygo.Shell.OpenExternal(target)
+			}
+			return nil
+		})
+		p.OnWillNavigate(func(e *mygo.NavigateEvent) {
+			target := externalTarget(e.URL)
+			if target == "" {
+				return
+			}
+			e.PreventDefault()
+			if e.UserInitiated && openableExternal(target) {
+				go mygo.Shell.OpenExternal(target)
+			}
+		})
 	}
 }
 

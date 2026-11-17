@@ -1,5 +1,6 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: 骨架占位行/块数量固定，无业务主键可用
 import { Skeleton } from "@gospeak/components";
+import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
 /** 加载区域的语义外壳：role=status + sr-only 文案，骨架块自身对读屏隐藏。 */
@@ -82,6 +83,54 @@ export function SkeletonListRows({
 	);
 }
 
+/** 通知列表骨架：几何对齐通知条目（标题行 + 级别/时间行）。 */
+export function SkeletonNotificationList({ rows = 6 }: { rows?: number }) {
+	return (
+		<div data-skeleton="notification-list" className="flex flex-col">
+			{Array.from({ length: rows }, (_, i) => (
+				<div
+					key={i}
+					className="border-border flex flex-col items-start gap-1.5 border-b px-3 py-2.5"
+				>
+					<Skeleton className="h-3.5 w-2/3" />
+					<Skeleton className="h-2.5 w-1/2" />
+				</div>
+			))}
+		</div>
+	);
+}
+
+/** 通知详情骨架：标题 + 元信息 + 正文段落。外层容器的 p-5 已提供内边距。 */
+export function SkeletonNotificationDetail() {
+	return (
+		<div data-skeleton="notification-detail" className="flex flex-col gap-2">
+			<Skeleton className="h-6 w-1/2" />
+			<Skeleton className="h-3 w-1/3" />
+			<div className="mt-4 flex flex-col gap-2.5">
+				<Skeleton className="h-3.5 w-full" />
+				<Skeleton className="h-3.5 w-full" />
+				<Skeleton className="h-3.5 w-4/5" />
+				<Skeleton className="h-3.5 w-2/3" />
+			</div>
+		</div>
+	);
+}
+
+/**
+ * 图标栏骨架：几何与 OptionSquare（size-12 / rounded-xl / gap-2）完全一致。
+ * 侧栏是 w-16 的纯图标轨道，不能复用带头像+两行文字的 SkeletonListRows——
+ * 那会把文字挤出轨道只剩圆圈，且加载完成时行数塌陷导致整条轨道跳动。
+ */
+export function SkeletonIconRail({ count = 1 }: { count?: number }) {
+	return (
+		<div data-skeleton="icon-rail" className="flex flex-col items-center gap-2">
+			{Array.from({ length: count }, (_, i) => (
+				<Skeleton key={i} className="size-12 shrink-0 rounded-xl" />
+			))}
+		</div>
+	);
+}
+
 /** 卡片网格骨架：用于域卡片等网格布局。 */
 export function SkeletonCardGrid({
 	cards = 4,
@@ -138,6 +187,23 @@ export function SkeletonForm({
 					<Skeleton className="h-9 w-full rounded-sm" />
 				</div>
 			))}
+		</div>
+	);
+}
+
+/**
+ * 应用级启动等待动画：路由 beforeLoad / chunk 加载时居中显示。
+ * 桌面端标题栏高度由 --mygo-titlebar-height 扣掉，转圈始终落在可视区正中。
+ */
+export function AppLoadingSpinner() {
+	return (
+		<div
+			role="status"
+			aria-label="正在加载"
+			className="flex min-h-[calc(100dvh-var(--mygo-titlebar-height,0px))] w-full items-center justify-center"
+		>
+			<LoaderCircle className="text-primary size-8 animate-spin" />
+			<span className="sr-only">正在加载</span>
 		</div>
 	);
 }

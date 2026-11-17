@@ -214,7 +214,7 @@ export function DiscoverPage() {
 
 	return (
 		<div className="min-h-full w-full flex-1 overflow-y-auto">
-			<ManagePage className="min-h-full w-full">
+			<ManagePage className="mx-auto min-h-full w-full max-w-[1440px]">
 				<ManageHeader
 					icon={<Compass size={20} />}
 					title="发现域"
@@ -231,7 +231,7 @@ export function DiscoverPage() {
 					}
 				/>
 
-				<div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+				<div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)]">
 					<ManageSection
 						title="查找并加入"
 						description="搜索公开域或粘贴邀请码"
@@ -288,17 +288,23 @@ export function DiscoverPage() {
 					</ManageSection>
 				</div>
 
-				<ManageSection
-					title="我的域"
-					description="快捷进入已加入的语音域"
-					padded={false}
-				>
-					<DiscoverMyDomains />
-				</ManageSection>
+				<div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(400px,3fr)]">
+					<ManageSection
+						title="我的域"
+						description="快捷进入已加入的语音域"
+						padded={false}
+					>
+						<DiscoverMyDomains />
+					</ManageSection>
 
-				<ManageSection title="分享链接" description="为你的域创建并分享邀请码">
-					<InviteCodeManager />
-				</ManageSection>
+					<ManageSection
+						title="分享链接"
+						description="为你的域创建并分享邀请码"
+						bodyClass="overflow-x-auto"
+					>
+						<InviteCodeManager />
+					</ManageSection>
+				</div>
 			</ManagePage>
 
 			{previewOpen && (

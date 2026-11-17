@@ -285,7 +285,7 @@ function DesktopForm() {
 
 	return (
 		<Page
-			title="桌面端"
+			title="应用设置"
 			desc="仅在 GOSpeak 桌面端（MyGo 宿主）中可用。游戏内覆盖层、开机自启等原生能力。"
 		>
 			<Section
@@ -445,7 +445,7 @@ function DesktopForm() {
 
 const desktopTab: SettingTabConfig = {
 	id: "desktop",
-	label: "桌面端",
+	label: "应用设置",
 	icon: "monitor",
 	component: DesktopForm,
 };

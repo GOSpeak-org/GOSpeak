@@ -9,10 +9,22 @@ export interface ThemeOption {
 	label: string;
 }
 
-// daisyUI 多主题已随组件库更换移除；token 只映射 acid（亮）/ dark（暗）两套。
-export const lightThemes: ThemeOption[] = [{ name: "acid", label: "Acid" }];
+// 主题 token 定义在 packages/components/src/theme.css，按 data-theme 取值。
+// 三组新增家族均为浅/深成对：aurora/midnight、ember/cinder、forest/grove。
+// 卡片色块由自身 data-theme 自动预览，无需在 UI 里写死颜色。
+export const lightThemes: ThemeOption[] = [
+	{ name: "acid", label: "Acid" },
+	{ name: "aurora", label: "Aurora" },
+	{ name: "ember", label: "Ember" },
+	{ name: "forest", label: "Forest" },
+];
 
-export const darkThemes: ThemeOption[] = [{ name: "dark", label: "Dark" }];
+export const darkThemes: ThemeOption[] = [
+	{ name: "dark", label: "Dark" },
+	{ name: "midnight", label: "Midnight" },
+	{ name: "cinder", label: "Cinder" },
+	{ name: "grove", label: "Grove" },
+];
 
 function getInitialDark(): boolean {
 	const saved = localStorage.getItem(STORAGE_DARK);
