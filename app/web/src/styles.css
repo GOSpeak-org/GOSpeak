@@ -31,5 +31,14 @@
 	}
 }
 
+/*
+ * 兼容性边界（与上面两条变体一起看）：
+ * - 媒体查询本身：hover 变体 Chrome 41+ / Firefox 64+ / Safari 9+；
+ *   混合设备按主输入设备判定——鼠标为主时是 hover 行为，触控为主时才是触屏行为。
+ * - 这里只收敛了无名 group。将来若用命名 group（group/name + group-hover/name），
+ *   走的是 Tailwind 内置变体、没有 media 包裹，触屏上会重新粘住，需要在这里补对应变体。
+ * - 触屏相关规则在 assets/styles/platform.css，同样按 (hover: hover) 分级。
+ */
+
 /* 音量/滑块统一由 @gospeak/components 的 Radix Slider 渲染，
    不再保留原生 range 的全局补丁样式（曾让横向滑块被误当竖向处理）。 */
