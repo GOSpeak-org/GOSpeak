@@ -50,6 +50,7 @@ jobs:
               - 'app/desktop/**/*.go'
               - 'app/desktop/go.mod'
               - 'app/desktop/go.sum'
+              - 'app/shared/**'
             js:
               - 'app/web/**'
               - 'app/mobile/**'
@@ -200,6 +201,10 @@ jobs:
           # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
           # 用 17 会在 :capacitor-android:compileDebugJavaWithJavac 报 invalid source release。
           java-version: '21'
+      - name: Verify proxyrules binding surface
+        # 只校验绑定面（gobind 符号集合），AAR/XCFramework 是否产出取决于 runner 上的工具链；
+        # 本 job 是 continue-on-error，缺工具链时脚本以 exit 0 报告下一步，不制造红色噪音。
+        run: node scripts/mobile-bind-proxyrules.mjs --target=all
       - name: Sync native projects
         run: pnpm --filter @gospeak/mobile sync
       - name: Build Android (assembleDebug)
@@ -415,6 +420,10 @@ jobs:
       - name: Vet
         working-directory: app/desktop
         run: go vet ./...
+      - name: Test shared proxyrules
+        # 共享规则层被桌面与移动端同时依赖，必须独立跑测试，否则"一份测试三端共用"无人执行。
+        working-directory: app/shared/proxyrules
+        run: go vet ./... && go test ./... -count=1
       - uses: ./.github/actions/pnpm-install
       - name: Build web (desktop target)
         run: pnpm --filter @gospeak/web build:desktop

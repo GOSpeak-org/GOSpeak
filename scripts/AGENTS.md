@@ -14,11 +14,13 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 | `check-radius-tokens.mjs` | 圆角 token 专门护栏（被上面复用） | CI lint + pre-push |
 | `check-hook-deps.mjs` | `useExhaustiveDependencies` 棘轮：只许减少、不许新增告警 | CI lint + pre-push |
 | `check-desktop-commands.mjs` | Go `mygo.Bind` ↔ TS 命令字符串一致性 | CI lint + pre-push |
+| `mobile-bind-proxyrules.mjs` | proxyrules 的 gomobile 绑定面：gobind 导出符号集合断言 + 可选 AAR/XCFramework 产出 | CI `build-mobile`（continue-on-error）/ 手动 |
 | `dev-livekit.sh` | 本地 LiveKit 开发启动（宿主机二进制 `.local/bin/livekit-server`） | 手动 |
 
 ## 约定
 
 - **发布类脚本必须配同名 `.test.mjs`**（`build-changelog` / `check-version` / `release-naming` / `release-notes` / `check-desktop-commands`），由 `node --test` 在 CI `test-scripts` job 跑；改脚本必须同步改测试。
+- `mobile-bind-proxyrules.mjs` 的单测覆盖 stderr 分类（缺 Xcode/Android SDK/NDK/JDK → exit 0）与 gobind 产物解析（`skipped function` → exit 1），由 CI `test-scripts` 的 `node --test scripts/*.test.mjs` 自动带上。
 - `check-ui-tokens` / `check-radius-tokens` / `check-hook-deps` 没有单测，靠 CI 直接跑全仓扫描 —— 改它们等于改全仓门禁，先本地跑一遍再提交。
 - 版本单一事实源在 `.github/versions/*.yaml`，不要在脚本里硬编码版本号。
 - `check-version.mjs` 覆盖 server / desktop / mobile：mobile 以 `.github/versions/mobile.yaml` 为声明源，校验 `app/mobile/package.json`；release-naming 未定义 mobile tag，须显式传 `component=mobile`。

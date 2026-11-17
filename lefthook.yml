@@ -10,6 +10,11 @@ pre-commit:
       glob: "app/server/**/*.go"
       run: cd app/server && go vet ./...
 
+    "go vet proxyrules":
+      # 桌面与移动端共用的规则层是独立 module，不被 app/server 的 go vet 覆盖。
+      glob: "app/shared/**/*.go"
+      run: cd app/shared/proxyrules && go vet ./...
+
 commit-msg:
   commands:
     "commitlint":

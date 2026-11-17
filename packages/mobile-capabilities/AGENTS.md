@@ -23,6 +23,14 @@
 - TS 侧 `pluginMethod("Plugin", "method")` 必须与原生 `@CapacitorPlugin(name=)` / `CAPPluginMethod(name:)` / `@PluginMethod fun` 逐字一致。
 - `scripts/check-mobile-bridge.mjs` 在 CI 与 pre-push 校验，写错会在运行期得到 "not implemented"。
 
+## 共享反代规则层
+
+`capabilities/server` 只负责持久化服务器地址；地址是否可信、Set-Cookie 如何重写、worker 来源如何判定，统一由 `app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，四个导出函数）决定：桌面端直接 import，移动端经 `gomobile bind` 调用。
+
+- 移动端原生调用点尚未接入，Android/iOS 的 `LocalProxyServer` 保留内联等价实现；改规则仍以 `app/shared/proxyrules` 为单一事实源。
+- 绑定面用 `node scripts/mobile-bind-proxyrules.mjs`（默认 `--target=all`）校验：gobind 不需要 Xcode/Android SDK，本机永远能跑；缺平台工具链时 exit 0 并打印下一步。
+- 工具链版本锁定方式与产物路径见 `app/mobile/AGENTS.md` 的「共享反代规则层」。
+
 ## 约定
 
 - 新增能力：`capabilities/<name>.ts` 导出 `create<Name>()`，内部同时实现 native 与 fallback，并在 `index.ts` 导出（加入 `createMobile()`）。

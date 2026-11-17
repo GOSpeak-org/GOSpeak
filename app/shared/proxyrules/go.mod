@@ -2,7 +2,10 @@ module gospeak/proxyrules
 
 go 1.26.0
 
-tool golang.org/x/mobile/cmd/gobind
+tool (
+	golang.org/x/mobile/cmd/gobind
+	golang.org/x/mobile/cmd/gomobile
+)
 
 require (
 	golang.org/x/mobile v0.0.0-20261011034528-197770444867 // indirect
