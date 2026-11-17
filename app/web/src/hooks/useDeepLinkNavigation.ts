@@ -3,6 +3,17 @@ import { createDeepLink } from "@gospeak/mobile-capabilities";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 
+interface PathNavigator {
+	navigate: (options: { to: string }) => unknown;
+}
+
+export function navigateByPath(router: PathNavigator, target: unknown): void {
+	if (typeof target !== "string" || !target.startsWith("/")) return;
+	const current = `${window.location.pathname}${window.location.search}`;
+	if (current === target) return;
+	void router.navigate({ to: target });
+}
+
 /**
  * 把宿主收到的深链（gospeak://invite/d/CODE，宿主已归一化为 /invite/d/CODE）
  * 变成应用内跳转。桌面走 MyGo 桥接，移动端走 Capacitor App 插件。
@@ -14,12 +25,7 @@ export function useDeepLinkNavigation() {
 	const router = useRouter();
 
 	useEffect(() => {
-		const go = (target: unknown) => {
-			if (typeof target !== "string" || !target.startsWith("/")) return;
-			const current = `${window.location.pathname}${window.location.search}`;
-			if (current === target) return;
-			void router.navigate({ to: target });
-		};
+		const go = (target: unknown) => navigateByPath(router, target);
 
 		const unsubscribers: (() => void)[] = [];
 

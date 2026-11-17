@@ -34,30 +34,44 @@ export function createPush(): Push {
 	const start = async () => {
 		if (started || !__GOSPEAK_MOBILE__) return;
 		started = true;
+		const unsubscribers: (() => void)[] = [];
 		try {
 			const plugin = await getPlugin<PushPlugin>("PushNotifications");
-			await plugin.requestPermissions();
-			await listenPlugin<{ value?: string }>(
-				"PushNotifications",
-				"registration",
-				(payload) => {
-					const token =
-						typeof payload?.value === "string" ? payload.value : null;
-					if (!token) return;
-					cachedToken = token;
-					for (const handler of tokenHandlers) handler(token);
-				},
+			const result = await plugin.requestPermissions();
+			if (result.receive !== "granted") {
+				console.warn(
+					"[gospeak/mobile] push permission not granted",
+					result.receive,
+				);
+				return;
+			}
+			unsubscribers.push(
+				await listenPlugin<{ value?: string }>(
+					"PushNotifications",
+					"registration",
+					(payload) => {
+						const token =
+							typeof payload?.value === "string" ? payload.value : null;
+						if (!token) return;
+						cachedToken = token;
+						for (const handler of tokenHandlers) handler(token);
+					},
+				),
 			);
-			await listenPlugin<{ notification?: { data?: unknown } }>(
-				"PushNotifications",
-				"pushNotificationActionPerformed",
-				(payload) => {
-					const data = normalizePushData(payload?.notification?.data);
-					for (const handler of openHandlers) handler(data);
-				},
+			unsubscribers.push(
+				await listenPlugin<{ notification?: { data?: unknown } }>(
+					"PushNotifications",
+					"pushNotificationActionPerformed",
+					(payload) => {
+						const data = normalizePushData(payload?.notification?.data);
+						for (const handler of openHandlers) handler(data);
+					},
+				),
 			);
 			await plugin.register();
 		} catch (error) {
+			for (const off of unsubscribers) off();
+			unsubscribers.length = 0;
 			started = false;
 			console.warn("[gospeak/mobile] push registration failed", error);
 		}
