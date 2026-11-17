@@ -14,7 +14,7 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 | `check-radius-tokens.mjs` | 圆角 token 专门护栏（被上面复用） | CI lint + pre-push |
 | `check-hook-deps.mjs` | `useExhaustiveDependencies` 棘轮：只许减少、不许新增告警 | CI lint + pre-push |
 | `check-desktop-commands.mjs` | Go `mygo.Bind` ↔ TS 命令字符串一致性 | CI lint + pre-push |
-| `mobile-bind-proxyrules.mjs` | proxyrules 的 gomobile 绑定面：gobind 导出符号集合断言 + 可选 AAR/XCFramework 产出（`--surface-only` 只跑前者，供任何机器在 gate 里跑） | CI `build-mobile`（macos，不入 gate）/ CI `desktop-go`（`--surface-only`，在 gate 内）/ 手动 |
+| `mobile-bind-proxyrules.mjs` | proxyrules 的 gomobile 绑定面：gobind 导出符号集合断言 + 可选 AAR/XCFramework 产出（`--surface-only` 只跑前者，供任何机器在 gate 里跑） | 独立手动 workflow `build-mobile.yml`（macos，不入 CI gate）/ CI `desktop-go`（`--surface-only`，在 gate 内）/ 手动 |
 | `dev-livekit.sh` | 本地 LiveKit 开发启动（宿主机二进制 `.local/bin/livekit-server`） | 手动 |
 
 ## 约定
