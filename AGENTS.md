@@ -80,6 +80,7 @@ agent_test_logs/     agent 测试记录（规范见 agent_test_logs/AGENTS.md）
 | 前端技术约定细节 | `app/web/docs/AGENTS.md` |
 | 设计 token（圆角/字号/图标尺寸） | `packages/components/src/theme.css` |
 | 桌面桥接命令 | Go 侧 `mygo.Bind(...)` 声明（`app/desktop/*.go`）+ TS 侧 `packages/desktop/src/bridge.ts`；一致性由 `scripts/check-desktop-commands.mjs` 校验 |
+| 三端共享反代纯规则（地址校验 / `Set-Cookie` 改写 / worker 白名单） | `app/shared/proxyrules/`（纯 Go，桌面直接 import，移动端经 gomobile bind） |
 | 部署方式 | `deploy/DEPLOY.md`、`docs/deployment-guide.md` |
 | 每个模块的开发约定 | 各目录下的 `AGENTS.md`（见第 7 节） |
 
