@@ -1,10 +1,11 @@
 import { Button } from "@gospeak/components";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AsyncState from "@/components/common/AsyncState";
 import { SkeletonListRows } from "@/components/common/Skeletons";
 import PasswordInput from "@/components/common/passwordInput";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import type { MessageDTO } from "@/types/message";
 import { dayKey, formatDateLabel } from "@/utils/chatTime";
@@ -52,14 +53,16 @@ export default function MessageList({
 }: MessageListProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const prevScrollHeightRef = useRef(0);
+	const coarsePointer = useCoarsePointer();
+	const allMessages = useChatStore((s) => s.messages);
 
-	const visibleMessages: MessageDTO[] = (() => {
+	const visibleMessages: MessageDTO[] = useMemo(() => {
 		if (searchActive && messages) return messages;
 		if (threadParent) {
-			const root = threadParent;
-			const all = useChatStore.getState().messages;
+			const byUuid = new Map<string, MessageDTO>();
 			const byParent = new Map<string, MessageDTO[]>();
-			for (const m of all) {
+			for (const m of allMessages) {
+				byUuid.set(m.uuid, m);
 				if (!m.reply_to) continue;
 				const children = byParent.get(m.reply_to) || [];
 				children.push(m);
@@ -69,19 +72,22 @@ export default function MessageList({
 			const seen = new Set<string>();
 			const append = (uuid: string) => {
 				if (seen.has(uuid)) return;
-				const message = all.find((m) => m.uuid === uuid);
+				const message = byUuid.get(uuid);
 				if (!message) return;
 				seen.add(uuid);
 				out.push(message);
 				for (const child of byParent.get(uuid) || []) append(child.uuid);
 			};
-			append(root);
+			append(threadParent);
 			return out.sort((a, b) => a.created_at.localeCompare(b.created_at));
 		}
-		return useChatStore.getState().messages;
-	})();
+		return allMessages;
+	}, [allMessages, messages, searchActive, threadParent]);
 
-	const rows = buildRows(visibleMessages, !searchActive);
+	const rows = useMemo(
+		() => buildRows(visibleMessages, !searchActive),
+		[visibleMessages, searchActive],
+	);
 
 	const virtualizer = useVirtualizer({
 		count: rows.length,
@@ -213,6 +219,7 @@ export default function MessageList({
 										) : (
 											<MessageItem
 												msg={row.msg}
+												coarsePointer={coarsePointer}
 												onReply={onReply}
 												onOpenThread={onOpenThread}
 											/>

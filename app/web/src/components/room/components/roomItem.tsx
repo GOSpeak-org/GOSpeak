@@ -1,5 +1,13 @@
 import clsx from "clsx";
-import { Hash, Lock, LogOut, Mic, Pencil, Trash2 } from "lucide-react";
+import {
+	Ellipsis,
+	Hash,
+	Lock,
+	LogOut,
+	Mic,
+	Pencil,
+	Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@gospeak/components";
 import { chatStore, useChatStore } from "@/stores/chatStore";
@@ -37,6 +45,7 @@ export function RoomItem({
 		socketStore.selectedRoomInfo()?.name === room.name &&
 		socketStore.selectedRoomInfo()?.domain_uuid === room.domain_uuid;
 	const [showPasswordModal, setShowPasswordModal] = useState(false);
+	const [membersExpanded, setMembersExpanded] = useState(false);
 	const [truncated, setTruncated] = useState(false);
 	const [tip, setTip] = useState<{
 		text: string;
@@ -210,10 +219,10 @@ export function RoomItem({
 	return (
 		<>
 			<div className="flex w-full shrink-0 flex-col overflow-hidden">
-				<div className="w-full min-w-0">
+				<div className="flex w-full min-w-0 items-center">
 					<button
 						className={clsx(
-							"hover:bg-muted active:bg-selected flex w-full cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75",
+							"hover:bg-muted active:bg-selected flex min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75",
 							isActive ? "bg-muted" : "",
 							isSelected && !isActive ? "bg-muted" : "",
 						)}
@@ -263,16 +272,41 @@ export function RoomItem({
 							</div>
 						</div>
 					</button>
+					<button
+						type="button"
+						aria-label="更多操作"
+						className="hover:bg-muted flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-sm"
+						onClick={(event) => {
+							event.stopPropagation();
+							openContextMenu(event);
+						}}
+					>
+						<Ellipsis size={18} />
+					</button>
 				</div>
 
+				{room.members && room.members.length > 0 && (
+					<button
+						type="button"
+						className="text-faint-foreground hover:text-foreground flex h-7 w-full cursor-pointer items-center justify-center gap-1 text-xs transition-colors"
+						aria-expanded={membersExpanded}
+						onClick={(event) => {
+							event.stopPropagation();
+							setMembersExpanded((v) => !v);
+						}}
+					>
+						{membersExpanded ? "收起成员" : `成员 ${room.members.length}`}
+					</button>
+				)}
 				<div className="flex w-full flex-col">
-					{room.members?.map((member) => (
-						<MemberItemButton
-							key={member.identity}
-							member={member}
-							onSelectMember={onSelectMember}
-						/>
-					))}
+					{membersExpanded &&
+						room.members?.map((member) => (
+							<MemberItemButton
+								key={member.identity}
+								member={member}
+								onSelectMember={onSelectMember}
+							/>
+						))}
 				</div>
 				{showPasswordModal && (
 					<PasswordModal

@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { CornerDownLeft, MessageSquareText, Smile } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PrivateMessageDTO } from "@/api/conversation";
 import ChatEmptyState from "@/components/chat/chatEmptyState";
 import Avatar from "@/components/common/avatar";
@@ -12,6 +12,8 @@ import { dayKey, formatDateLabel, formatMessageTime } from "@/utils/chatTime";
 type Row =
 	| { kind: "date"; key: string; label: string }
 	| { kind: "msg"; key: string; msg: PrivateMessageDTO };
+
+const EMPTY_MESSAGES: PrivateMessageDTO[] = [];
 
 function buildRows(list: PrivateMessageDTO[]): Row[] {
 	const rows: Row[] = [];
@@ -34,9 +36,10 @@ function buildRows(list: PrivateMessageDTO[]): Row[] {
 export default function ChatWindow() {
 	const active = useChatStore((s) => s.activeConversationID);
 	const conversations = useChatStore((s) => s.conversations);
-	const pmMessages = useChatStore((s) => s.pmMessages);
+	const messages = useChatStore((s) =>
+		active ? (s.pmMessages[active] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
+	);
 	const loadingMessages = useChatStore((s) => s.loadingMessages);
-	const messages: PrivateMessageDTO[] = active ? pmMessages[active] || [] : [];
 	const isLoading = active ? !!loadingMessages[active] : false;
 
 	const activeConversation = conversations.find(
@@ -47,7 +50,7 @@ export default function ChatWindow() {
 		activeConversation?.other_identity ||
 		"选择一个会话";
 
-	const rows = buildRows(messages);
+	const rows = useMemo(() => buildRows(messages), [messages]);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const atBottomRef = useRef(true);

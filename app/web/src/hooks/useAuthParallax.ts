@@ -9,9 +9,12 @@ type ParallaxStyleVars = CSSProperties & Record<`--${string}`, string>;
  */
 export function useAuthParallax(shellRef: RefObject<HTMLDivElement | null>) {
 	useEffect(() => {
-		const reducedMotion =
-			typeof window !== "undefined" &&
-			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if (typeof window === "undefined") return;
+		const noHover = window.matchMedia("(hover: none)").matches;
+		if (noHover) return;
+		const reducedMotion = window.matchMedia(
+			"(prefers-reduced-motion: reduce)",
+		).matches;
 		if (reducedMotion) return;
 
 		let targetX = 0;
@@ -22,6 +25,7 @@ export function useAuthParallax(shellRef: RefObject<HTMLDivElement | null>) {
 		const onMove = (e: MouseEvent) => {
 			targetX = e.clientX / window.innerWidth - 0.5;
 			targetY = e.clientY / window.innerHeight - 0.5;
+			if (raf === 0) raf = requestAnimationFrame(tick);
 		};
 		const tick = () => {
 			curX += (targetX - curX) * 0.08;
@@ -30,6 +34,15 @@ export function useAuthParallax(shellRef: RefObject<HTMLDivElement | null>) {
 			if (el) {
 				el.style.setProperty("--px", curX.toFixed(4));
 				el.style.setProperty("--py", curY.toFixed(4));
+			}
+			if (
+				Math.abs(targetX - curX) < 0.001 &&
+				Math.abs(targetY - curY) < 0.001
+			) {
+				curX = 0;
+				curY = 0;
+				raf = 0;
+				return;
 			}
 			raf = requestAnimationFrame(tick);
 		};

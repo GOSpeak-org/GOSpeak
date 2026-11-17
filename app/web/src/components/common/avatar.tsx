@@ -66,6 +66,8 @@ export default function Avatar({
 				alt={alt ?? name ?? ""}
 				onError={() => setFailed(true)}
 				draggable={false}
+				loading="lazy"
+				decoding="async"
 				className="size-full rounded-full object-cover"
 			/>
 		</div>

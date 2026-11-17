@@ -1,7 +1,8 @@
 import { toast, Button, ScrollArea, Skeleton } from "@gospeak/components";
 import { useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { CirclePlus, RotateCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RoomRecord } from "@/api/room";
 import { deleteRoom } from "@/api/room";
 import Divider from "@/components/common/divider";
@@ -205,6 +206,14 @@ export default function RoomList() {
 		socketStore.listRooms();
 	};
 
+	const viewportRef = useRef<HTMLDivElement>(null);
+	const virtualizer = useVirtualizer({
+		count: connected && visibleRooms.length > 0 ? visibleRooms.length : 0,
+		getScrollElement: () => viewportRef.current,
+		estimateSize: () => 68,
+		overscan: 8,
+	});
+
 	return (
 		<>
 			<div className="box-border flex h-full min-h-0 flex-col select-none">
@@ -213,27 +222,42 @@ export default function RoomList() {
 				{/* 外框留白统一给到 viewport（px-2）：滚动条绝对定位在 ScrollArea 的
 				    右边缘，落在留白里而不是压在行上，行盒左右都是 8px，和标题行、
 				    底部的语音条/用户栏对齐。 */}
-				<ScrollArea className="min-h-0 flex-1" viewportClassName="px-2 pb-1">
-					<div className="flex flex-col space-y-1">
+				<ScrollArea
+					className="min-h-0 flex-1"
+					viewportClassName="px-2 pb-1"
+					viewportRef={viewportRef}
+				>
+					<div
+						className="relative flex w-full flex-col"
+						style={{ height: virtualizer.getTotalSize() }}
+					>
 						{connected ? (
 							visibleRooms.length > 0 ? (
-								visibleRooms.map((room) => (
-									<RoomItem
-										key={`${room.domain_uuid}:${room.name}`}
-										room={room}
-										isActive={
-											currentRoom === room.name &&
-											(room.domain_uuid || "") === (currentDomainUUID || "")
-										}
-										selectedMember={selectedMember}
-										onSelectMember={(identity, x, y) =>
-											setSelectedMember({ identity, x, y })
-										}
-										onCloseMember={() => setSelectedMember(null)}
-										onEditRoom={setEditingRoom}
-										onDeleteRoom={openDeleteRoom}
-									/>
-								))
+								virtualizer.getVirtualItems().map((virtualRow) => {
+									const room = visibleRooms[virtualRow.index];
+									return (
+										<div
+											key={`${room.domain_uuid}:${room.name}`}
+											className="absolute top-0 left-0 w-full"
+											style={{ transform: `translateY(${virtualRow.start}px)` }}
+										>
+											<RoomItem
+												room={room}
+												isActive={
+													currentRoom === room.name &&
+													(room.domain_uuid || "") === (currentDomainUUID || "")
+												}
+												selectedMember={selectedMember}
+												onSelectMember={(identity, x, y) =>
+													setSelectedMember({ identity, x, y })
+												}
+												onCloseMember={() => setSelectedMember(null)}
+												onEditRoom={setEditingRoom}
+												onDeleteRoom={openDeleteRoom}
+											/>
+										</div>
+									);
+								})
 							) : roomsLoading ? (
 								<RoomListLoading label="正在加载房间..." />
 							) : (

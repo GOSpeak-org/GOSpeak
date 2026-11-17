@@ -8,6 +8,7 @@ import {
 	ShieldCheck,
 	Users,
 } from "lucide-react";
+import { inMobile } from "@gospeak/mobile-capabilities";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ErrorBoundary } from "@/components/common/errorBoundary";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -280,7 +281,7 @@ function MobileLayout(
 }
 
 function ManageNavMobile() {
-	// 移动端管理导航复用桌面组件（其布局响应式处理横竖排）
+	// 移动端管理导航复用桌面组件（始终纵向排列，滚动由外层容器处理）
 	return <ManageNav />;
 }
 
@@ -316,7 +317,7 @@ function DesktopLayout(state: LayoutState) {
 				</div>
 				<div
 					ref={splitDragRef}
-					className="bg-border hover:bg-primary w-1 shrink-0 cursor-col-resize transition-colors"
+					className="bg-border hover:bg-primary w-1 shrink-0 cursor-col-resize touch-none transition-colors"
 					title="拖动调整列表宽度"
 				/>
 				{/* next：主内容 + 域工作区 */}
@@ -371,7 +372,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const [stageTab, setStageTab] = useState<MobileStageTab>("voice");
 	const [isMobile, setIsMobile] = useState(
 		typeof window !== "undefined" &&
-			window.matchMedia("(max-width: 767px)").matches,
+			(inMobile() || window.matchMedia("(max-width: 767px)").matches),
 	);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -394,7 +395,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		const mq = window.matchMedia("(max-width: 767px)");
-		const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+		const onChange = (e: MediaQueryListEvent) =>
+			setIsMobile(inMobile() || e.matches);
 		mq.addEventListener("change", onChange);
 		return () => mq.removeEventListener("change", onChange);
 	}, []);
@@ -440,25 +442,32 @@ export default function Layout({ children }: { children: ReactNode }) {
 		const handle = splitDragRef.current;
 		if (!handle) return;
 
-		let onMouseMove: ((e: MouseEvent) => void) | null = null;
-		let onMouseUp: (() => void) | null = null;
+		let dragging = false;
+		let pointerId: number | null = null;
+		let startX = 0;
+		let startWidth = MIN_SPLIT_WIDTH;
 		let cleanupDrag: (() => void) | null = null;
 
 		const stopDrag = () => {
-			if (onMouseMove) document.removeEventListener("mousemove", onMouseMove);
-			if (onMouseUp) document.removeEventListener("mouseup", onMouseUp);
-			onMouseMove = null;
-			onMouseUp = null;
+			if (!dragging) return;
+			dragging = false;
+			if (pointerId !== null && handle.hasPointerCapture(pointerId)) {
+				handle.releasePointerCapture(pointerId);
+			}
+			pointerId = null;
 			cleanupDrag?.();
 			cleanupDrag = null;
 		};
 
-		const onMouseDown = (e: MouseEvent) => {
+		const onPointerDown = (e: PointerEvent) => {
 			if (e.button !== 0) return;
 			e.preventDefault();
 			stopDrag();
-			const startX = e.clientX;
-			const startWidth =
+			dragging = true;
+			pointerId = e.pointerId;
+			handle.setPointerCapture(e.pointerId);
+			startX = e.clientX;
+			startWidth =
 				Number.parseInt(splitWidthRef.current, 10) || MIN_SPLIT_WIDTH;
 
 			// 拖动时禁止选中文本，并统一鼠标样式
@@ -470,22 +479,28 @@ export default function Layout({ children }: { children: ReactNode }) {
 				document.body.style.userSelect = prevUserSelect;
 				document.body.style.cursor = prevCursor;
 			};
-
-			onMouseMove = (ev: MouseEvent) => {
-				const w = clampSplitWidth(startWidth + (ev.clientX - startX));
-				const width = `${w}px`;
-				splitWidthRef.current = width;
-				setSplitWidth(width);
-				localStorage.setItem("splitWidth", width);
-			};
-			onMouseUp = () => stopDrag();
-			document.addEventListener("mousemove", onMouseMove);
-			document.addEventListener("mouseup", onMouseUp);
 		};
 
-		handle.addEventListener("mousedown", onMouseDown);
+		const onPointerMove = (ev: PointerEvent) => {
+			if (!dragging) return;
+			const w = clampSplitWidth(startWidth + (ev.clientX - startX));
+			const width = `${w}px`;
+			splitWidthRef.current = width;
+			setSplitWidth(width);
+			localStorage.setItem("splitWidth", width);
+		};
+
+		const onPointerUp = () => stopDrag();
+
+		handle.addEventListener("pointerdown", onPointerDown);
+		handle.addEventListener("pointermove", onPointerMove);
+		handle.addEventListener("pointerup", onPointerUp);
+		handle.addEventListener("pointercancel", onPointerUp);
 		return () => {
-			handle.removeEventListener("mousedown", onMouseDown);
+			handle.removeEventListener("pointerdown", onPointerDown);
+			handle.removeEventListener("pointermove", onPointerMove);
+			handle.removeEventListener("pointerup", onPointerUp);
+			handle.removeEventListener("pointercancel", onPointerUp);
 			stopDrag();
 		};
 	}, [isMobile]);

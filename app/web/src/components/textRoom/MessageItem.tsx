@@ -4,9 +4,8 @@ import {
 	MoreHorizontal,
 	Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import Avatar from "@/components/common/avatar";
-import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { useUserStore } from "@/stores/userStore";
@@ -17,21 +16,20 @@ import ReactionBar from "./ReactionBar";
 
 interface MessageItemProps {
 	msg: MessageDTO;
+	coarsePointer: boolean;
 	onReply?: (uuid: string) => void;
 	onOpenThread?: (uuid: string) => void;
 }
 
 /** Discord 风格消息行：左侧 40px 头像、用户名+时间戳、hover 浮出操作条 */
-export default function MessageItem({
+function MessageItem({
 	msg,
+	coarsePointer,
 	onReply,
 	onOpenThread,
 }: MessageItemProps) {
 	const user = useUserStore((s) => s.user);
 	const [confirmDelete, setConfirmDelete] = useState(false);
-	// 触屏没有 hover：常驻的"消息操作"入口展开操作条；
-	// 桌面仍是 hover 浮出（见下方 group-hover）。
-	const coarsePointer = useCoarsePointer();
 	const [actionsOpen, setActionsOpen] = useState(false);
 
 	const isOwn =
@@ -198,3 +196,5 @@ export default function MessageItem({
 		</div>
 	);
 }
+
+export default memo(MessageItem);

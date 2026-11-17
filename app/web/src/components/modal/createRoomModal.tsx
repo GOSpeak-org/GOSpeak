@@ -178,7 +178,7 @@ export default function CreateRoomModal({
 		<Dialog open onOpenChange={(v) => !v && onClose()}>
 			<DialogContent
 				showClose={false}
-				className="max-w-3xl gap-0 rounded-lg p-0"
+				className="flex max-h-[100dvh] max-w-3xl flex-col gap-0 overflow-hidden rounded-lg p-0"
 			>
 				<button
 					type="button"
@@ -187,14 +187,14 @@ export default function CreateRoomModal({
 				>
 					<X size={16} />
 				</button>
-				<div className="border-border border-b px-6 py-5">
+				<div className="border-border shrink-0 border-b px-6 py-5">
 					<DialogTitle className="text-lg font-semibold">新建房间</DialogTitle>
 					<p className="text-muted-foreground mt-1 text-sm">
 						填写基础配置后创建房间。房间说明、人数上限和接入策略会随房间信息一起保存。
 					</p>
 				</div>
 
-				<div className="grid gap-6 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+				<div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 py-5 lg:grid-cols-[minmax(0,1fr)_260px]">
 					<div>
 						<Form
 							fields={fields}
