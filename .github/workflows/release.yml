@@ -237,11 +237,9 @@ jobs:
             --title "GOSpeak v$RELEASE_VERSION"
             --notes-file /tmp/release-notes.md
           )
-          # 带预发布后缀（-rc.1 等）的版本不再打 Pre-release 标记，但也不抢
-          # Latest：/releases/latest 与文档下载仍指向最近一个正式版。
-          if [[ "$RELEASE_VERSION" == *-* ]] || [[ "$RELEASE_VERSION" == *+* ]]; then
-            args+=(--latest=false)
-          fi
+          # Latest 只按发布先后决定：不传 --prerelease、也不传 --latest=false，
+          # GitHub 自动把「最近一次发布的非草稿 release」标成 Latest，
+          # /releases/latest、文档下载卡与桌面端「前往下载页」都跟着走。
           gh release create "${args[@]}"
 
   # ── Build Web Once（两个组件共用：desktop 以条件编译目标构建）──────────────
