@@ -26,6 +26,8 @@ services:
   gospeak:
     restart: unless-stopped
     # 直接使用 GHCR 发布镜像（免构建）；自建镜像时用 GOSPEAK_IMAGE 覆盖
+    # 默认 latest 跟随最近一次发布（含 -rc 预发布）；生产稳妥选版本线标签 :1，
+    # 固定版本用 :1.1.0 这类精确标签
     image: ${GOSPEAK_IMAGE:-ghcr.io/noelorin/gospeak:latest}
     pull_policy: ${GOSPEAK_PULL_POLICY:-missing}
     container_name: gospeak-app

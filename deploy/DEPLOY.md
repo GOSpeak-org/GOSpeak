@@ -3,7 +3,7 @@
 > 唯一权威部署入口。  
 > 入口文件：`deploy/docker-compose.yml`  
 > 配置文件：`deploy/.env`（唯一配置文件，compose 插值与应用环境变量共用）  
-> 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/noelorin/gospeak:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）；要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
+> 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/noelorin/gospeak:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/noelorin/gospeak:1`，要固定版本用 `ghcr.io/noelorin/gospeak:1.1.0` 这类精确标签。要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
 
 核心结论先放在前面：
 

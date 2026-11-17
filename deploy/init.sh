@@ -99,7 +99,7 @@ check_consistency() {
   # Caddyfile：edge 档位的唯一入口配置，必须存在且用环境变量拼站点地址，
   # 否则 GOSPEAK_DOMAIN 为空时会写死一个不存在的域名。
   if [[ ! -f "$CADDYFILE" ]]; then
-    echo "  [x] 缺少 $CADDYFILE（edge 档位需要它）" >&2; rc=1
+    echo "  [x] 缺少 ${CADDYFILE}（edge 档位需要它）" >&2; rc=1
   elif ! grep -qF '{$GOSPEAK_DOMAIN' "$CADDYFILE"; then
     echo "  [x] $CADDYFILE 未引用 {\$GOSPEAK_DOMAIN，无法随 .env 切换域名" >&2; rc=1
   else
@@ -144,7 +144,7 @@ check_consistency() {
 
   # ── B. 本地部署就绪（CI 无 .env，跳过）──
   if [[ ! -f "$ENV_FILE" ]]; then
-    echo "  [-] 未找到 $ENV_FILE，跳过部署就绪检查（CI 场景正常）"
+    echo "  [-] 未找到 ${ENV_FILE}，跳过部署就绪检查（CI 场景正常）"
     return $rc
   fi
 
@@ -165,7 +165,7 @@ check_consistency() {
   if [[ -z "$domain" ]]; then
     echo "  [-] GOSPEAK_DOMAIN 未设置：Caddy 只监听 80（局域网或已有反代）"
   else
-    echo "  [ok] GOSPEAK_DOMAIN=$domain（edge 档位将自动申请证书）"
+    echo "  [ok] GOSPEAK_DOMAIN=${domain}（edge 档位将自动申请证书）"
   fi
 
   # 浏览器侧地址：默认留空 = 应用按请求 Host 推导 wss://<域名>/livekit。
@@ -177,9 +177,9 @@ check_consistency() {
   else
     case "$public_url" in
       ws://*|wss://*)
-        echo "  [ok] LIVEKIT_PUBLIC_URL=$public_url（独立域名 / LiveKit Cloud）" ;;
+        echo "  [ok] LIVEKIT_PUBLIC_URL=${public_url}（独立域名 / LiveKit Cloud）" ;;
       *)
-        echo "  [x] LIVEKIT_PUBLIC_URL 必须以 ws:// 或 wss:// 开头（当前: $public_url）" >&2
+        echo "  [x] LIVEKIT_PUBLIC_URL 必须以 ws:// 或 wss:// 开头（当前: ${public_url}）" >&2
         rc=1 ;;
     esac
   fi
@@ -215,7 +215,7 @@ normalize_livekit_yaml() {
   fi
 
   mv "$tmp" "$LIVEKIT_YAML"
-  echo "  [ok] 已归一 $LIVEKIT_YAML（移除硬编码 keys / webhook.api_key）"
+  echo "  [ok] 已归一 ${LIVEKIT_YAML}（移除硬编码 keys / webhook.api_key）"
 }
 
 # ── --check：只校验 ─────────────────────────────────────────────────────────
@@ -250,7 +250,7 @@ if [[ -f "$ENV_FILE" ]]; then
   PREV_DOMAIN="$(env_get GOSPEAK_DOMAIN "$ENV_FILE")"
 fi
 
-echo "==> 写出 $ENV_FILE（以 $ENV_TPL 为模板，替换全部密钥）"
+echo "==> 写出 ${ENV_FILE}（以 ${ENV_TPL} 为模板，替换全部密钥）"
 # 用模板生成而非内联 heredoc，保证 .env 与 .env.example 字段永远一致；
 # 新增配置项只需改模板，不会出现 init.sh 漏字段。
 sed \
@@ -275,7 +275,7 @@ if [[ -n "$DOMAIN" ]]; then
     profiles="${profiles:+$profiles,}edge"
     sed -i.bak "s|^COMPOSE_PROFILES=.*|COMPOSE_PROFILES=$profiles|" "$ENV_FILE"
     rm -f "$ENV_FILE.bak"
-    echo "  [ok] COMPOSE_PROFILES=$profiles（已自动启用内置 Caddy）"
+    echo "  [ok] COMPOSE_PROFILES=${profiles}（已自动启用内置 Caddy）"
   fi
 else
   echo "  [ok] GOSPEAK_DOMAIN 留空（Caddy 只听 80；不开 edge 档位可忽略）"
