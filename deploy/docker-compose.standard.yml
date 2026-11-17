@@ -23,7 +23,8 @@ x-restart: &restart
 services:
   # ── 应用 ──────────────────────────────────────────────────────────────
   # 默认本地构建；也可直接用 release tag 发布的 GHCR 镜像（免构建）：
-  #   GOSPEAK_IMAGE=ghcr.io/noelorin/gospeak:latest  # 或具体版本如 :1.2.3
+  #   GOSPEAK_IMAGE=ghcr.io/noelorin/gospeak:latest  # 跟随最近一次发布（含 -rc）
+  # 稳妥用版本线 :1 / :1.1，固定版本用 :1.2.3
   gospeak:
     <<: *restart
     profiles: ["app"]

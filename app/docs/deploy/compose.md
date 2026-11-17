@@ -222,6 +222,10 @@ GOSPEAK_PULL_POLICY=missing
 
 `missing` 表示本地不存在镜像时才拉取，`always` 表示每次都拉取最新版本。
 
+**关于 `latest`**：默认的 `ghcr.io/noelorin/gospeak:latest` 跟随最近一次发布，
+**包括 `-rc` 预发布**。预发布一经发布就会顶掉 `latest`，因此它不适合作长期默认；
+想要稳定版请把 `GOSPEAK_IMAGE` 固定成版本线（`:1`、`:1.1`）或精确版本（`:1.1.0`）。
+
 ## 更新版本
 
 ```bash
