@@ -3,4 +3,4 @@
 # 同步约束（check-version.mjs 校验）：app/mobile/package.json 的 version
 # 必须与本文件一致。release-naming.mjs 未定义 mobile tag 前缀，
 # 检查时须显式传 component=mobile。
-version: "1.1.0-rc.1"
+version: "1.1.0-rc.2"

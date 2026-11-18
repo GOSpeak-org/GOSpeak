@@ -8,7 +8,7 @@ import UserInfoPopover from "./userInfoPopover";
 // ---------- MemberListItem ----------
 interface MemberItemProps {
 	member: RosterMember;
-	onSelect: (identity: string, x: number, y: number) => void;
+	onSelect: (member: RosterMember, x: number, y: number) => void;
 	isSelected: boolean;
 }
 
@@ -22,7 +22,12 @@ function MemberListItem(props: MemberItemProps) {
 			className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
 				props.isSelected ? "bg-border/50" : "hover:bg-border/50"
 			} ${member.online ? "" : "opacity-60"}`}
-			onClick={(e) => props.onSelect(member.identity, e.clientX, e.clientY)}
+			onClick={(e) => {
+				const rect = e.currentTarget.getBoundingClientRect();
+				const x = e.detail === 0 ? rect.right : e.clientX;
+				const y = e.detail === 0 ? rect.bottom : e.clientY;
+				props.onSelect(member, x, y);
+			}}
 		>
 			<span className="relative shrink-0">
 				<Avatar
@@ -63,7 +68,7 @@ function MemberGroup({
 	members: RosterMember[];
 	emptyHint?: string;
 	selectedIdentity: string | null;
-	onSelect: (identity: string, x: number, y: number) => void;
+	onSelect: (member: RosterMember, x: number, y: number) => void;
 }) {
 	if (members.length === 0 && !emptyHint) return null;
 	return (
@@ -95,17 +100,20 @@ export default function MemberSidebar({
 }: {
 	fullWidth?: boolean;
 }) {
-	const [selectedIdentity, setSelectedIdentity] = useState<{
+	const [selected, setSelected] = useState<{
 		identity: string;
 		x: number;
 		y: number;
+		member: RosterMember;
 	} | null>(null);
 
-	const closePopover = () => setSelectedIdentity(null);
+	const closePopover = () => setSelected(null);
 
-	const handleSelect = (identity: string, x: number, y: number) => {
-		setSelectedIdentity((prev) =>
-			prev?.identity === identity ? null : { identity, x, y },
+	const handleSelect = (member: RosterMember, x: number, y: number) => {
+		setSelected((prev) =>
+			prev?.identity === member.identity
+				? null
+				: { identity: member.identity, x, y, member },
 		);
 	};
 
@@ -133,13 +141,13 @@ export default function MemberSidebar({
 							title="在线"
 							members={roster.online}
 							emptyHint="暂无在线成员"
-							selectedIdentity={selectedIdentity?.identity ?? null}
+							selectedIdentity={selected?.identity ?? null}
 							onSelect={handleSelect}
 						/>
 						<MemberGroup
 							title="离线"
 							members={roster.offline}
-							selectedIdentity={selectedIdentity?.identity ?? null}
+							selectedIdentity={selected?.identity ?? null}
 							onSelect={handleSelect}
 						/>
 					</>
@@ -149,11 +157,12 @@ export default function MemberSidebar({
 					</div>
 				)}
 			</div>
-			{selectedIdentity && (
+			{selected && (
 				<UserInfoPopover
-					identity={selectedIdentity.identity}
-					pos={{ x: selectedIdentity.x, y: selectedIdentity.y }}
+					identity={selected.identity}
+					pos={{ x: selected.x, y: selected.y }}
 					onClose={closePopover}
+					initialMember={selected.member}
 				/>
 			)}
 		</div>

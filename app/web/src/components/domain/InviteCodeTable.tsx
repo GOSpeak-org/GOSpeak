@@ -68,6 +68,7 @@ export default function InviteCodeTable({
 										<Button
 											variant="ghost"
 											size="sm"
+											aria-label="复制邀请码"
 											onClick={() => onCopy(invite)}
 										>
 											<Copy size={14} />
@@ -76,6 +77,7 @@ export default function InviteCodeTable({
 									<Button
 										variant="ghost"
 										size="sm"
+										aria-label="查看使用记录"
 										onClick={() => onShowRedemptions(invite)}
 									>
 										<History size={14} />

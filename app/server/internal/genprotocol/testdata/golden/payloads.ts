@@ -125,6 +125,7 @@ export interface RoomInfo {
 	members: MemberInfo[];
 	count: number;
 	created_at: number;
+	created_by?: string;
 }
 
 export interface RoomKickedPayload {

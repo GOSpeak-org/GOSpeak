@@ -62,6 +62,8 @@ const rolePermissions: Record<string, string[]> = {
 
 /** 可进入 /manage 壳层的任一权限（页面内再做细粒度守卫）。 */
 export const MANAGE_ENTRY_PERMISSIONS = [
+	"domain:read",
+	"domain:manage",
 	"user:read",
 	"user:update",
 	"user:delete",

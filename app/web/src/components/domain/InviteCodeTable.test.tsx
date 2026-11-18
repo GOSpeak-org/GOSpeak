@@ -69,6 +69,19 @@ describe("InviteCodeTable", () => {
 		expect(screen.queryByText("禁用")).toBeNull();
 	});
 
+	it("gives icon-only actions accessible names", () => {
+		render(
+			<InviteCodeTable
+				invites={[invite()]}
+				onDisable={() => {}}
+				onShowRedemptions={() => {}}
+				onCopy={() => {}}
+			/>,
+		);
+		expect(screen.getByRole("button", { name: "复制邀请码" })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "查看使用记录" })).toBeTruthy();
+	});
+
 	it("calls onDisable with the invite id", () => {
 		const onDisable = vi.fn();
 		render(

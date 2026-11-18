@@ -72,8 +72,13 @@ export function listProviders(): Promise<OAuthProvider[]> {
 	});
 }
 
-export function listEnabledProviders(): Promise<EnabledProvider[]> {
-	return apiClient.get<EnabledProvider[]>({ url: "/api/v1/oauth/providers" });
+export function listEnabledProviders(opts?: {
+	skipErrorToast?: boolean;
+}): Promise<EnabledProvider[]> {
+	return apiClient.get<EnabledProvider[]>({
+		url: "/api/v1/oauth/providers",
+		skipErrorToast: opts?.skipErrorToast,
+	});
 }
 
 export function createProvider(
@@ -102,7 +107,9 @@ export function deleteProvider(id: number): Promise<null> {
 
 /** 公开：获取已启用 OAuth 提供商（登录页使用，无需登录）。 */
 export async function getEnabledProviders(): Promise<EnabledProvider[]> {
-	return listEnabledProviders();
+	// 登录页只把它作为可选入口；后端离线时由 useQuery 静默失败，
+	// 不能让每个失败请求都弹一条“服务器错误”。
+	return listEnabledProviders({ skipErrorToast: true });
 }
 
 /** 浏览器跳转 OAuth 授权页；state 由服务端 cookie 生成/校验。 */

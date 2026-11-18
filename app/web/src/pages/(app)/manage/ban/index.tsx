@@ -55,6 +55,7 @@ export default function BanPage() {
 	const [targetUserId, setTargetUserId] = useState<number | "">("");
 	const [banning, setBanning] = useState(false);
 	const [confirmBan, setConfirmBan] = useState(false);
+	const [banError, setBanError] = useState("");
 	const [unbanningId, setUnbanningId] = useState<number | null>(null);
 
 	const allUsers = usersData?.users || [];
@@ -87,6 +88,7 @@ export default function BanPage() {
 	const handleBan = async () => {
 		const uid = targetUserId;
 		if (!uid) return;
+		setBanError("");
 		setBanning(true);
 		try {
 			await runOptimistic({
@@ -95,8 +97,9 @@ export default function BanPage() {
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () => updateUserRole(uid, BAN_ROLE),
 				settle: reconcile,
-				onError: (error) => toastActionError(error, "封禁失败"),
+				onError: (error) => setBanError(toastActionError(error, "封禁失败")),
 				onSuccess: () => {
+					setConfirmBan(false);
 					setTargetUserId("");
 					toast.success("用户已封禁");
 				},
@@ -146,7 +149,7 @@ export default function BanPage() {
 					</div>
 				) : (
 					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
+						<table className="w-full min-w-max text-sm">
 							<thead>
 								<tr className={manageTableHeadClass}>
 									<th className="px-3 py-2 text-left">ID</th>
@@ -217,15 +220,18 @@ export default function BanPage() {
 						确认封禁「
 						{targetUser?.display_name || targetUser?.name || `#${targetUserId}`}
 						」？封禁后该用户无法登录与访问，可在上方列表解除。
+						{banError && (
+							<span className="text-destructive mt-2 block">{banError}</span>
+						)}
 					</span>
 				}
 				confirmText="封禁"
 				loading={banning}
-				onClose={() => setConfirmBan(false)}
-				onConfirm={() => {
+				onClose={() => {
 					setConfirmBan(false);
-					void handleBan();
+					setBanError("");
 				}}
+				onConfirm={handleBan}
 			/>
 		</ManagePage>
 	);

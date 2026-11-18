@@ -60,6 +60,15 @@ export default function OptionSquare({
 				onDoubleClick={() => {
 					if (requiresDoubleClick) void onDoubleClick?.();
 				}}
+				onKeyDown={(event) => {
+					if (
+						requiresDoubleClick &&
+						(event.key === "Enter" || event.key === " ")
+					) {
+						event.preventDefault();
+						void onDoubleClick?.();
+					}
+				}}
 				onMouseEnter={(event) => showTooltip(event, label)}
 				onMouseLeave={hideTooltip}
 				onFocus={(event) => showTooltip(event, label)}
@@ -76,7 +85,7 @@ export default function OptionSquare({
 					"active:scale-[0.96] active:brightness-90 active:duration-75",
 					"focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
 					"motion-reduce:transition-none motion-reduce:active:scale-100",
-					active ? "bg-neutral/15 text-foreground shadow-sm" : "",
+					active ? "shadow-sm" : "",
 				)}
 			>
 				{children}
@@ -88,7 +97,7 @@ export default function OptionSquare({
 				{active && (
 					<span
 						aria-hidden="true"
-						className="bg-neutral pointer-events-none absolute bottom-0.5 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full"
+						className="bg-primary pointer-events-none absolute bottom-0.5 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full"
 					/>
 				)}
 			</button>

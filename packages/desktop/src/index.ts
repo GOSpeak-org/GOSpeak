@@ -76,6 +76,7 @@ export {
 	createUpdater,
 	type Updater,
 	type UpdateInfo,
+	type ReleaseInfo,
 } from "./capabilities/updater";
 
 export {
@@ -89,6 +90,12 @@ export {
 	type ClientLog,
 	type HostLogEntry,
 } from "./capabilities/clientlog";
+
+export {
+	checkScreenRecording,
+	guideScreenRecording,
+	type ScreenRecordingStatus,
+} from "./capabilities/screenCapture";
 
 import { createWindowControls } from "./capabilities/window";
 import { createSystemTray } from "./capabilities/tray";

@@ -17,12 +17,16 @@ func setupDomainServiceTestDB(t *testing.T) (*DomainService, *gorm.DB) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Domain{}, &model.DomainMember{}, &model.Room{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{}, &model.Domain{}, &model.DomainMember{}, &model.Room{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	repo := repository.NewDomainRepository(db)
 	roleRepo := repository.NewDomainRoleRepository(db)
-	svc := NewDomainService(repo, roleRepo, nil)
+	svc, err := NewDomainService(repo, roleRepo, nil, repository.NewDomainCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new domain service: %v", err)
+	}
 	return svc, db
 }
 
@@ -282,6 +286,9 @@ func TestDomainService_HasDomainPermission(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("seed member: %v", err)
 	}
+	if err := svc.ReloadPolicy(); err != nil {
+		t.Fatalf("reload policy: %v", err)
+	}
 	if !svc.HasDomainPermission(domain.UUID, "owner-1", model.PermRoomDelete) {
 		t.Error("owner must have room:delete")
 	}
@@ -306,6 +313,9 @@ func TestDomainService_AdminHasAllAssignablePermissions(t *testing.T) {
 		DomainUUID: domain.UUID, UserUUID: "admin-1", RoleName: model.DomainRoleAdmin,
 	}).Error; err != nil {
 		t.Fatalf("seed admin member: %v", err)
+	}
+	if err := svc.ReloadPolicy(); err != nil {
+		t.Fatalf("reload policy: %v", err)
 	}
 
 	// 模拟存量库 admin 权限行缺失/不完整，admin 仍应默认拥有全部可分配域权限。

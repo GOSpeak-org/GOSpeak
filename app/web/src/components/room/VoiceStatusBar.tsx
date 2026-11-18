@@ -11,10 +11,19 @@ import {
 	SCREEN_SHARE_QUALITY_ORDER,
 	SCREEN_SHARE_QUALITY_PRESETS,
 } from "@gospeak/sfu-client";
+import {
+	checkScreenRecording,
+	guideScreenRecording,
+	inDesktop,
+} from "@gospeak/desktop";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { MonitorUp, PhoneOff, Signal } from "lucide-react";
 import { useEffect } from "react";
+import {
+	preflightBlockMessage,
+	shareFailureMessage,
+} from "./screenSharePermission";
 import { useDomainStore } from "@/stores/domainStore";
 import { useScreenShareStore } from "@/stores/screenShareStore";
 import ScreenShareSettingsStore, {
@@ -158,20 +167,30 @@ export default function VoiceStatusBar({ className }: { className?: string }) {
 								: "text-muted-foreground hover:bg-card hover:text-foreground",
 						)}
 						onClick={() => {
-							if (!sfuClient?.setScreenShareEnabled) return;
-							// 浏览器选择框被取消时 LiveKit 会抛错，保持原来的共享状态即可；
-							// 但真正的采集失败（权限/设备）需要让用户知道
-							void sfuClient
-								.setScreenShareEnabled(!localSharing)
-								.catch((error: unknown) => {
-									const name = (error as { name?: string })?.name;
-									if (name === "NotAllowedError") return;
-									toast.error(
-										error instanceof Error && error.message
-											? `屏幕共享失败：${error.message}`
-											: "屏幕共享失败",
-									);
-								});
+							const setScreenShareEnabled = sfuClient?.setScreenShareEnabled;
+							if (!setScreenShareEnabled) return;
+							const enable = !localSharing;
+							void (async () => {
+								// 桌面 WebView 的 getDisplayMedia 没有系统选择器：必须先由宿主
+								// 检查/引导 macOS 屏幕录制权限，否则会被静默拒绝。
+								if (enable && inDesktop()) {
+									let status = await checkScreenRecording();
+									if (status === "denied" || status === "unknown") {
+										status = await guideScreenRecording();
+									}
+									const blocked = preflightBlockMessage(status);
+									if (blocked) {
+										toast.error(blocked);
+										return;
+									}
+								}
+								try {
+									await setScreenShareEnabled.call(sfuClient, enable);
+								} catch (error) {
+									const message = shareFailureMessage(error, inDesktop());
+									if (message) toast.error(message);
+								}
+							})();
 						}}
 						title={localSharing ? "停止共享屏幕" : "共享屏幕"}
 						aria-label={localSharing ? "停止共享屏幕" : "共享屏幕"}

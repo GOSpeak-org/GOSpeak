@@ -79,7 +79,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
 	fetchProfile: async () => {
 		try {
-			const profile = await getProfile();
+			const profile = await getProfile({ skipErrorToast: true });
 			const updated = { ...get().user, ...profile } as UserInfo;
 			localStorage.setItem(STORAGE_USER, JSON.stringify(updated));
 			set({ user: updated, userStale: false });

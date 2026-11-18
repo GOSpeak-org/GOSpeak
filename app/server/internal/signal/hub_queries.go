@@ -1,9 +1,9 @@
 package signal
 
 import (
+	"GOSpeak/internal/logger"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
-	"GOSpeak/internal/logger"
 	"errors"
 	"fmt"
 	"strings"
@@ -290,6 +290,7 @@ func (h *Hub) roomInfoLocked(roomName string) RoomInfo {
 		Members:     h.memberSnapshotLocked(roomName),
 		Count:       len(room.Members),
 		CreatedAt:   room.CreatedAt.UnixMilli(),
+		CreatedBy:   room.CreatedBy,
 	}
 }
 

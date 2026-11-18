@@ -1,4 +1,4 @@
-import { Button, Slider } from "@gospeak/components";
+import { Slider } from "@gospeak/components";
 import { useAudioDeviceStore } from "@/stores/audioDeviceStore";
 import {
 	useVoiceChatActions,
@@ -11,8 +11,7 @@ function VoiceForm() {
 	const muteOnJoin = useAudioDeviceStore((s) => s.muteOnJoin);
 	const notificationSounds = useAudioDeviceStore((s) => s.notificationSounds);
 	const data = useVoiceChatStore();
-	const { setInputVolume, setOutputVolume, setIsInputMute, setIsOutMute } =
-		useVoiceChatActions();
+	const { setInputVolume, setOutputVolume } = useVoiceChatActions();
 
 	return (
 		<Page title="语音行为" desc="进房默认状态、本机输入/输出音量与提示音。">
@@ -52,22 +51,6 @@ function VoiceForm() {
 						aria-label="扬声器输出音量"
 					/>
 				</Field>
-				<div className="grid gap-2 sm:grid-cols-2">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => setIsInputMute(!data.isInputMute)}
-					>
-						{data.isInputMute ? "取消麦克风静音" : "静音麦克风"}
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => setIsOutMute(!data.isOutMute)}
-					>
-						{data.isOutMute ? "取消扬声器静音" : "静音扬声器"}
-					</Button>
-				</div>
 			</Section>
 		</Page>
 	);

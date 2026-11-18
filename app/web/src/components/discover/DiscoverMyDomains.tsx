@@ -74,7 +74,7 @@ function DiscoverMyDomains() {
 					</p>
 				)}
 				{domains.length > 0 && (
-					<div className="grid gap-2 md:grid-cols-2">
+					<div className="grid gap-2 md:grid-cols-2 xl:grid-cols-1">
 						{domains.map((domain) => (
 							<div
 								key={domain.uuid}

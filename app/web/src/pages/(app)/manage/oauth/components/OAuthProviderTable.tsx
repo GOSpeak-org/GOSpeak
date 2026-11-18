@@ -45,7 +45,7 @@ export default function OAuthProviderTable({
 				</div>
 			) : (
 				<div className="overflow-x-auto">
-					<table className="w-full text-sm">
+					<table className="w-full min-w-max text-sm">
 						<thead>
 							<tr className={manageTableHeadClass}>
 								<th className="px-3 py-2 text-left">名称</th>

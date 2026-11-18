@@ -4,9 +4,8 @@ import {
 	MoreHorizontal,
 	Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { memo, useState } from "react";
 import Avatar from "@/components/common/avatar";
-import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { useUserStore } from "@/stores/userStore";
@@ -17,21 +16,20 @@ import ReactionBar from "./ReactionBar";
 
 interface MessageItemProps {
 	msg: MessageDTO;
+	coarsePointer: boolean;
 	onReply?: (uuid: string) => void;
 	onOpenThread?: (uuid: string) => void;
 }
 
 /** Discord 风格消息行：左侧 40px 头像、用户名+时间戳、hover 浮出操作条 */
-export default function MessageItem({
+function MessageItem({
 	msg,
+	coarsePointer,
 	onReply,
 	onOpenThread,
 }: MessageItemProps) {
 	const user = useUserStore((s) => s.user);
 	const [confirmDelete, setConfirmDelete] = useState(false);
-	// 触屏没有 hover：常驻的"消息操作"入口展开操作条；
-	// 桌面仍是 hover 浮出（见下方 group-hover）。
-	const coarsePointer = useCoarsePointer();
 	const [actionsOpen, setActionsOpen] = useState(false);
 
 	const isOwn =
@@ -147,12 +145,12 @@ export default function MessageItem({
 			)}
 
 			<div
-				className={`bg-card border-border absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded-sm border p-0.5 shadow-md ${
+				className={`bg-card border-border absolute top-1 right-4 z-10 flex items-center gap-0.5 rounded-sm border p-0.5 shadow-md transition-opacity ${
 					coarsePointer
 						? actionsOpen
-							? "visible"
-							: "invisible"
-						: "invisible group-hover:visible"
+							? "pointer-events-auto opacity-100"
+							: "pointer-events-none opacity-0"
+						: "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
 				}`}
 			>
 				<ReactionBar roomUuid={msg.room_uuid} messageUuid={msg.uuid} />
@@ -161,6 +159,7 @@ export default function MessageItem({
 					className="ds-icon-btn size-7"
 					onClick={() => onReply?.(msg.uuid)}
 					title="回复"
+					aria-label="回复"
 				>
 					<MessageSquarePlus size={16} />
 				</button>
@@ -169,6 +168,7 @@ export default function MessageItem({
 					className="ds-icon-btn size-7"
 					onClick={() => onOpenThread?.(msg.uuid)}
 					title="打开线程"
+					aria-label="打开线程"
 				>
 					<CornerDownRight size={16} />
 				</button>
@@ -178,6 +178,7 @@ export default function MessageItem({
 						className="ds-icon-btn hover:text-destructive size-7"
 						onClick={() => setConfirmDelete(true)}
 						title="删除消息"
+						aria-label="删除消息"
 					>
 						<Trash2 size={14} />
 					</button>
@@ -198,3 +199,5 @@ export default function MessageItem({
 		</div>
 	);
 }
+
+export default memo(MessageItem);

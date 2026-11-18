@@ -30,6 +30,8 @@
 | `audit:read` | 查询审计日志（未进入默认权限种子，需手工授予） | |
 | `domain:create` / `domain:read` / `domain:manage` / `domain:delete` / `domain:invite` / `domain:kick` / `domain:role:manage` / `domain:invite:manage` / `domain:member:review` | 语音服务器（Domain）管理系列 | `internal/permcode/domain_permcode.go` |
 
+> 域内角色权限（`domain:<uuid>:role:<name>` 经 Casbin `dom` 维度隔离）在「角色权限」页的**域内角色**页签配置，只作用于所选域；上表 `domain:*` 权限码是平台级开关，对所有域生效。
+
 ---
 
 ## 二、角色定义

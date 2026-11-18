@@ -687,7 +687,8 @@ if (typeof window !== "undefined") {
 }
 
 // 原 solid effect：当前域变化时刷新房间列表（已连接状态下）
-useDomainStore.subscribe(() => {
+useDomainStore.subscribe((state, prev) => {
+	if (state.currentDomainUUID === prev.currentDomainUUID) return;
 	if (useSocketStore.getState().connected) {
 		listRooms();
 	}

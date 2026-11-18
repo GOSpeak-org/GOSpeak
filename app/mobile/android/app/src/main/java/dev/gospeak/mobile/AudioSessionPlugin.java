@@ -14,6 +14,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class AudioSessionPlugin extends Plugin {
 
     private Integer previousMode = null;
+    private boolean previousSpeakerphone = false;
 
     @PluginMethod
     public void activate(PluginCall call) {
@@ -21,9 +22,10 @@ public class AudioSessionPlugin extends Plugin {
             AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             if (previousMode == null) {
                 previousMode = audio.getMode();
+                previousSpeakerphone = audio.isSpeakerphoneOn();
             }
             audio.setMode(AudioManager.MODE_IN_COMMUNICATION);
-            audio.setSpeakerphoneOn(false);
+            audio.setSpeakerphoneOn(true);
             call.resolve();
         } catch (Exception error) {
             call.reject("failed to activate audio session: " + error.getMessage());
@@ -36,6 +38,7 @@ public class AudioSessionPlugin extends Plugin {
             AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
             if (previousMode != null) {
                 audio.setMode(previousMode);
+                audio.setSpeakerphoneOn(previousSpeakerphone);
             }
             previousMode = null;
             call.resolve();

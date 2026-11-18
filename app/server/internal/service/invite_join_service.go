@@ -1,7 +1,9 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"log"
 	"strings"
 	"unicode/utf8"
 
@@ -65,6 +67,16 @@ type InviteJoinService struct {
 	userRepo    *repository.UserRepository
 	emailConfig *EmailConfigService
 	emailVerify *EmailVerificationService
+	bus         cacheBus
+	onMemberAdded func(domainUUID, userUUID string)
+}
+
+func (s *InviteJoinService) SetEventBus(b cacheBus) {
+	s.bus = b
+}
+
+func (s *InviteJoinService) SetMemberAddedHook(fn func(domainUUID, userUUID string)) {
+	s.onMemberAdded = fn
 }
 
 func NewInviteJoinService(
@@ -202,6 +214,17 @@ func (s *InviteJoinService) RegisterAndJoin(req *InviteRegisterRequest) (*Invite
 	if err != nil {
 		return nil, err
 	}
+	if status == JoinStatusJoined {
+		if s.onMemberAdded != nil {
+			s.onMemberAdded(domain.UUID, user.UUID)
+		}
+		if s.bus != nil {
+			if err := s.bus.PublishInternal(context.Background(), EventDomainMemberAdded,
+				DomainMemberAddedPayload{DomainUUID: domain.UUID, UserUUID: user.UUID}); err != nil {
+				log.Printf("[InviteJoin] publish member added: %v", err)
+			}
+		}
+	}
 	return &InviteJoinResponse{
 		Token: access, RefreshToken: refresh,
 		ExpiresIn: pkg.AccessTokenExpiresIn(),
@@ -287,6 +310,15 @@ func (s *InviteJoinService) Join(userUUID string, req *InviteJoinRequest) (*Invi
 			return nil, appErr
 		}
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, txErr.Error())
+	}
+	if s.onMemberAdded != nil {
+		s.onMemberAdded(domain.UUID, userUUID)
+	}
+	if s.bus != nil {
+		if err := s.bus.PublishInternal(context.Background(), EventDomainMemberAdded,
+			DomainMemberAddedPayload{DomainUUID: domain.UUID, UserUUID: userUUID}); err != nil {
+			log.Printf("[InviteJoin] publish member added: %v", err)
+		}
 	}
 	return &InviteJoinResponse{Domain: domain, Status: JoinStatusJoined}, nil
 }

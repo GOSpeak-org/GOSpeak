@@ -10,9 +10,11 @@ interface MemberSidebarProps {
 
 function MemberRow({
 	member,
+	selected,
 	onClick,
 }: {
 	member: RosterMember;
+	selected: boolean;
 	onClick: () => void;
 }) {
 	return (
@@ -20,7 +22,9 @@ function MemberRow({
 			type="button"
 			className={`hover:bg-border/50 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
 				member.online ? "" : "opacity-60"
-			}`}
+			} ${selected ? "bg-muted" : ""}`}
+			data-active={selected || undefined}
+			aria-current={selected ? "true" : undefined}
 			onClick={onClick}
 		>
 			<span className="relative shrink-0">
@@ -54,11 +58,13 @@ function MemberGroup({
 	title,
 	members,
 	emptyHint,
+	selectedIdentity,
 	onSelect,
 }: {
 	title: string;
 	members: RosterMember[];
 	emptyHint?: string;
+	selectedIdentity: string | null;
 	onSelect: (member: RosterMember) => void;
 }) {
 	if (members.length === 0 && !emptyHint) return null;
@@ -72,6 +78,7 @@ function MemberGroup({
 				<MemberRow
 					key={member.identity}
 					member={member}
+					selected={member.identity === selectedIdentity}
 					onClick={() => onSelect(member)}
 				/>
 			))}
@@ -85,7 +92,7 @@ function MemberGroup({
 }
 
 export default function MemberSidebar({ onStartChat }: MemberSidebarProps) {
-	const [, setSelectedIdentity] = useState<string | null>(null);
+	const [selectedIdentity, setSelectedIdentity] = useState<string | null>(null);
 	const connected = useSocketStore((s) => s.connected);
 	const roster = useMemberRoster();
 
@@ -115,11 +122,13 @@ export default function MemberSidebar({ onStartChat }: MemberSidebarProps) {
 							title="在线"
 							members={roster.online}
 							emptyHint="暂无在线成员"
+							selectedIdentity={selectedIdentity}
 							onSelect={handleClick}
 						/>
 						<MemberGroup
 							title="离线"
 							members={roster.offline}
+							selectedIdentity={selectedIdentity}
 							onSelect={handleClick}
 						/>
 					</>

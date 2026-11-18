@@ -95,9 +95,12 @@ export async function resetPassword(
 	});
 }
 
-export async function getProfile(): Promise<BackendUser> {
+export async function getProfile(opts?: {
+	skipErrorToast?: boolean;
+}): Promise<BackendUser> {
 	const data = await apiClient.post<BackendUser>({
 		url: "/api/v1/user/profile",
+		skipErrorToast: opts?.skipErrorToast,
 	});
 
 	if (!data) throw new Error("profile data is missing");

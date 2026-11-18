@@ -28,6 +28,7 @@ func newRoomDomainManageEnv(t *testing.T, userUUID, roleName, createdBy string, 
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
+		&model.User{},
 		&model.Room{},
 		&model.Domain{},
 		&model.DomainMember{},
@@ -60,7 +61,10 @@ func newRoomDomainManageEnv(t *testing.T, userUUID, roleName, createdBy string, 
 	if err := db.Create(&room).Error; err != nil {
 		t.Fatalf("seed room: %v", err)
 	}
-	domainSvc := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil)
+	domainSvc, err := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil, repository.NewDomainCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new domain service: %v", err)
+	}
 	return db, domain, domainSvc, room.ID
 }
 
@@ -125,7 +129,10 @@ func TestRoomHandler_Delete_DomainPermissionDoesNotFallBackToGlobal(t *testing.T
 	if err := permRepo.SeedRolePermissionsIfEmpty("user", []string{model.PermRoomDelete}); err != nil {
 		t.Fatalf("seed global role permission: %v", err)
 	}
-	permSvc := service.NewPermissionService(permRepo)
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new permission service: %v", err)
+	}
 	if err := permSvc.LoadCache(); err != nil {
 		t.Fatalf("load permission cache: %v", err)
 	}
@@ -155,7 +162,8 @@ func TestRoomHandler_Update_BotClaimsMissingPermissionDoesNotFallBackToGlobal(t 
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Room{}, &model.Permission{}, &model.RolePermission{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},&model.Room{}, &model.Permission{}, &model.RolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	room := model.Room{Name: "lobby", DomainUUID: "", CreatedBy: "someone-else"}
@@ -172,7 +180,10 @@ func TestRoomHandler_Update_BotClaimsMissingPermissionDoesNotFallBackToGlobal(t 
 	if err := permRepo.SeedRolePermissionsIfEmpty("user", []string{model.PermRoomUpdate}); err != nil {
 		t.Fatalf("seed global role permission: %v", err)
 	}
-	permSvc := service.NewPermissionService(permRepo)
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new permission service: %v", err)
+	}
 	if err := permSvc.LoadCache(); err != nil {
 		t.Fatalf("load permission cache: %v", err)
 	}
@@ -212,7 +223,10 @@ func TestRoomHandler_Get_DomainReadPermissionRequired(t *testing.T) {
 	if err := permRepo.SeedRolePermissionsIfEmpty("user", []string{model.PermRoomRead}); err != nil {
 		t.Fatalf("seed global role permission: %v", err)
 	}
-	permSvc := service.NewPermissionService(permRepo)
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new permission service: %v", err)
+	}
 	if err := permSvc.LoadCache(); err != nil {
 		t.Fatalf("load permission cache: %v", err)
 	}
@@ -251,7 +265,10 @@ func TestRoomHandler_List_DomainReadPermissionRequired(t *testing.T) {
 	if err := permRepo.SeedRolePermissionsIfEmpty("user", []string{model.PermRoomRead}); err != nil {
 		t.Fatalf("seed global role permission: %v", err)
 	}
-	permSvc := service.NewPermissionService(permRepo)
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new permission service: %v", err)
+	}
 	if err := permSvc.LoadCache(); err != nil {
 		t.Fatalf("load permission cache: %v", err)
 	}

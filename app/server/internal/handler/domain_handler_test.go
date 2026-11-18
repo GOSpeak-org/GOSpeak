@@ -26,12 +26,16 @@ func setupDomainHandlerTestDB(t *testing.T) (*gorm.DB, *service.DomainService) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Domain{}, &model.DomainMember{}, &model.Room{}, &model.User{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},&model.Domain{}, &model.DomainMember{}, &model.Room{},  &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	domainRepo := repository.NewDomainRepository(db)
 	domainRoleRepo := repository.NewDomainRoleRepository(db)
-	domainSvc := service.NewDomainService(domainRepo, domainRoleRepo, nil)
+	domainSvc, err := service.NewDomainService(domainRepo, domainRoleRepo, nil, repository.NewDomainCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new domain service: %v", err)
+	}
 	return db, domainSvc
 }
 
@@ -643,6 +647,9 @@ func TestDomainHandler_Update_AllowsDomainRolePermission(t *testing.T) {
 	); err != nil {
 		t.Fatalf("create role: %v", err)
 	}
+	if err := domainSvc.ReloadPolicy(); err != nil {
+		t.Fatalf("reload policy: %v", err)
+	}
 	router := setupDomainHandlerRouter(t, domainSvc)
 
 	resp := postDomainJSON(t, router, "/api/v1/domain/update",
@@ -669,7 +676,8 @@ func TestDomainHandler_Update_AllowsGlobalPermissionFallback(t *testing.T) {
 	}
 
 	permRepo := repository.NewPermissionRepository(db)
-	if err := db.AutoMigrate(&model.Permission{}, &model.RolePermission{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},&model.Permission{}, &model.RolePermission{}); err != nil {
 		t.Fatalf("migrate permissions: %v", err)
 	}
 	for _, perm := range model.DefaultPermissions {
@@ -680,7 +688,10 @@ func TestDomainHandler_Update_AllowsGlobalPermissionFallback(t *testing.T) {
 	if err := permRepo.SeedRolePermissionsIfEmpty("platform-admin", []string{model.PermDomainManage}); err != nil {
 		t.Fatalf("seed role permission: %v", err)
 	}
-	permSvc := service.NewPermissionService(permRepo)
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new permission service: %v", err)
+	}
 	if err := permSvc.LoadCache(); err != nil {
 		t.Fatalf("load permission cache: %v", err)
 	}

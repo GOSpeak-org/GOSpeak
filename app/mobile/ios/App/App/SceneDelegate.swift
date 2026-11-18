@@ -53,4 +53,7 @@ fileprivate func registerCustomPlugins(on bridge: CAPBridgeProtocol?) {
     if bridge.plugin(withName: "MediaControl") == nil {
         bridge.registerPluginInstance(MediaControlPlugin())
     }
+    if bridge.plugin(withName: "ServerConfig") == nil {
+        bridge.registerPluginInstance(ServerConfigPlugin())
+    }
 }

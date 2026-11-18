@@ -4,7 +4,7 @@ import {
 	Lock,
 	MessageSquareText,
 	Mic,
-	Search,
+	// Search, 搜索入口暂停用
 	Users,
 	X,
 } from "lucide-react";
@@ -58,13 +58,13 @@ export default function DomainWorkspace({
 	const textRoom = useChatStore((s) => s.textRoom);
 	const textRoomName = useChatStore((s) => s.textRoomName);
 
-	// 文字频道搜索：合并到面板头部后，此处的搜索即工作区唯一入口
-	const query = useTextRoomUiStore((s) => s.query);
-	const setQuery = useTextRoomUiStore((s) => s.setQuery);
-	const runSearch = useTextRoomUiStore((s) => s.runSearch);
-	const clearSearch = useTextRoomUiStore((s) => s.clearSearch);
-	const searchActive = useTextRoomUiStore((s) => s.searchActive);
-	const searching = useTextRoomUiStore((s) => s.searching);
+	// 文字频道搜索：入口已停用，保留选择器便于后续恢复
+	// const query = useTextRoomUiStore((s) => s.query);
+	// const setQuery = useTextRoomUiStore((s) => s.setQuery);
+	// const runSearch = useTextRoomUiStore((s) => s.runSearch);
+	// const clearSearch = useTextRoomUiStore((s) => s.clearSearch);
+	// const searchActive = useTextRoomUiStore((s) => s.searchActive);
+	// const searching = useTextRoomUiStore((s) => s.searching);
 
 	// 切换文字频道时清掉上一个房间的搜索 / 线程 / 回复状态
 	// biome-ignore lint/correctness/useExhaustiveDependencies: textRoom 为有意触发器（切频道即重置）
@@ -252,6 +252,7 @@ export default function DomainWorkspace({
 										{textRoomName ?? "文字聊天"}
 									</span>
 									<div className="ml-auto flex shrink-0 items-center gap-1">
+										{/*
 										<form
 											className="border border-border bg-muted focus-within:w-56 flex h-7 w-32 items-center gap-1 rounded-sm px-2 transition-all duration-150"
 											onSubmit={(e) => {
@@ -293,6 +294,7 @@ export default function DomainWorkspace({
 												/>
 											)}
 										</form>
+*/}
 										<button
 											type="button"
 											className="ds-icon-btn text-muted-foreground"

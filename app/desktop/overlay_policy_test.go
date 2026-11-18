@@ -58,3 +58,29 @@ func TestToggleVisibilityOverridesAlwaysPolicy(t *testing.T) {
 		t.Fatal("hiding via hotkey in always policy must record an override, or the next push shows it again")
 	}
 }
+
+// TestOverlayAppActiveUsesCache guards the fix for the settings-page freeze:
+// overlayAppActive must read the cached activation state and never post a
+// blocking round-trip to mygo's main loop. A direct App.IsActive() call here
+// cannot be exercised in a unit test (it needs a running app), so we assert
+// the observable contract — the value is whatever the activation callbacks
+// cached — which would not hold if the function queried the live app again.
+func TestOverlayAppActiveUsesCache(t *testing.T) {
+	overlayCfg.mu.Lock()
+	prev := overlayCfg.appActive
+	overlayCfg.mu.Unlock()
+	defer func() {
+		overlayCfg.mu.Lock()
+		overlayCfg.appActive = prev
+		overlayCfg.mu.Unlock()
+	}()
+
+	for _, want := range []bool{false, true} {
+		overlayCfg.mu.Lock()
+		overlayCfg.appActive = want
+		overlayCfg.mu.Unlock()
+		if got := overlayAppActive(); got != want {
+			t.Errorf("overlayAppActive() = %v, want cached value %v", got, want)
+		}
+	}
+}

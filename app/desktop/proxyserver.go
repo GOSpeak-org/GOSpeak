@@ -97,22 +97,35 @@ type proxyServer struct {
 // TCP/TLS handshake every few requests; it also honours HTTP(S)_PROXY, which on
 // a developer machine can hijack loopback→backend traffic that the user never
 // meant to route through a proxy. Neither is what a desktop client wants.
+//
+// Two pools are built from it: one that never proxies (the direct route) and
+// one that follows the OS/environment proxy (the fallback route). upstreamRouter
+// decides which one a request takes.
 func proxyTransport() *http.Transport {
+	return newProxyTransport(nil)
+}
+
+func newProxyTransport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
 	return &http.Transport{
-		Proxy: nil, // talk to the configured backend directly, never via env proxy
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
+		Proxy: proxy,
+		// 每个解析地址单独限时：一个被黑洞的 Cloudflare 边缘 IP 不能吃掉整个
+		// 拨号预算，让健康的兄弟地址永远轮不到（见 proxyroute.go 的 dialRace）。
+		DialContext: multiDialContext(
+			&net.Dialer{Timeout: perAttemptDial, KeepAlive: 30 * time.Second},
+			perAttemptDial,
+			dialStagger,
+		),
 		// 只走 HTTP/1.1：WebSocket 握手带 Connection/Upgrade，Go 的 HTTP/2
 		// 客户端直接拒绝这类头。proxyRoundTripper 只把升级请求交给这里，
 		// 普通 API 仍走 h2。
-		ForceAttemptHTTP2:     false,
-		TLSNextProto:          map[string]func(string, *tls.Conn) http.RoundTripper{},
-		MaxIdleConns:          64,
-		MaxIdleConnsPerHost:   16,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
+		ForceAttemptHTTP2:   false,
+		TLSNextProto:        map[string]func(string, *tls.Conn) http.RoundTripper{},
+		MaxIdleConns:        64,
+		MaxIdleConnsPerHost: 16,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 5 * time.Second,
+		// 后端连上但不回响应时必须尽快失败给页面，而不是让 axios 干等 50s。
+		ResponseHeaderTimeout: upstreamHeaderTimeout,
 		ExpectContinueTimeout: time.Second,
 	}
 }
@@ -121,10 +134,31 @@ func proxyTransport() *http.Transport {
 // ordinary API/upload/RTC requests keep HTTP/2 multiplexing when the backend
 // speaks it.
 func proxyHTTP2Transport() *http.Transport {
-	tr := proxyTransport()
+	return newHTTP2Transport(nil)
+}
+
+func newHTTP2Transport(proxy func(*http.Request) (*url.URL, error)) *http.Transport {
+	tr := newProxyTransport(proxy)
 	tr.ForceAttemptHTTP2 = true
 	tr.TLSNextProto = nil // let crypto/tls negotiate h2 again
+	tr.Protocols = http1AndHTTP2()
+	// HTTP/2 has no ResponseHeaderTimeout, so a half-open connection would hang
+	// until the page's 50s timeout. Ping an idle connection and drop it when the
+	// peer stops answering.
+	tr.HTTP2 = &http.HTTP2Config{
+		SendPingTimeout: 30 * time.Second,
+		PingTimeout:     10 * time.Second,
+	}
 	return tr
+}
+
+// http1AndHTTP2 lets the TLS handshake offer h2 while keeping h1 as the
+// fallback for a backend that does not speak it.
+func http1AndHTTP2() *http.Protocols {
+	p := new(http.Protocols)
+	p.SetHTTP1(true)
+	p.SetHTTP2(true)
+	return p
 }
 
 // proxyRoundTripper downgrades a request to HTTP/1.1 only when it needs to be
@@ -138,9 +172,13 @@ type proxyRoundTripper struct {
 }
 
 func newProxyRoundTripper() *proxyRoundTripper {
+	return newProxyRoundTripperWith(nil)
+}
+
+func newProxyRoundTripperWith(proxy func(*http.Request) (*url.URL, error)) *proxyRoundTripper {
 	return &proxyRoundTripper{
-		http11: proxyTransport(),
-		http2:  proxyHTTP2Transport(),
+		http11: newProxyTransport(proxy),
+		http2:  newHTTP2Transport(proxy),
 	}
 }
 
@@ -188,10 +226,22 @@ func startProxyServer() (*proxyServer, string, error) {
 	s := &proxyServer{
 		dist:        sub,
 		assets:      newAssetCache(),
-		transport:   newProxyRoundTripper(),
 		workerProxy: map[string]*httputil.ReverseProxy{},
 		workerHosts: &workerHostAllowlist{},
 	}
+	// 直连优先，直连在请求发出前就失败（DNS / 拨号 / TLS 握手）才切系统代理；
+	// 切换后粘住一段时间，直连探测恢复再切回（见 proxyroute.go）。
+	sysProxy := newSystemProxy()
+	s.transport = newUpstreamRouter(
+		func() *url.URL {
+			s.mu.RLock()
+			defer s.mu.RUnlock()
+			return s.target
+		},
+		newProxyRoundTripper(),
+		newProxyRoundTripperWith(sysProxy.hook()),
+		sysProxy,
+	)
 	// The only hosts /wsworker may reach: whatever the trusted backend handed
 	// out (ws-endpoint) plus the host of the server the user configured. Both
 	// are normalized host:port so the allowlist pins the port as well.
@@ -532,7 +582,25 @@ func (s *proxyServer) handleHealthz(w http.ResponseWriter, r *http.Request) {
 		"port":                s.port,
 		"target":              target,
 		"last_upstream_error": s.UpstreamError(),
+		"route":               s.RouteName(),
+		"route_fallbacks":     s.RouteFallbacks(),
 	})
+}
+
+// RouteName reports which upstream hop is in use: "direct" or "proxy".
+func (s *proxyServer) RouteName() string {
+	if router, ok := s.transport.(*upstreamRouter); ok {
+		return router.RouteName()
+	}
+	return "direct"
+}
+
+// RouteFallbacks reports how many times the session left the direct route.
+func (s *proxyServer) RouteFallbacks() int {
+	if router, ok := s.transport.(*upstreamRouter); ok {
+		return router.FallbackCount()
+	}
+	return 0
 }
 
 // UpstreamError returns the class of the last backend failure: "" | dns | tls |

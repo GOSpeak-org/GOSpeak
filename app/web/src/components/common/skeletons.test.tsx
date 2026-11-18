@@ -1,10 +1,14 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	AppLoadingSpinner,
 	LoadingRegion,
 	SkeletonCardGrid,
 	SkeletonForm,
+	SkeletonIconRail,
 	SkeletonListRows,
+	SkeletonNotificationDetail,
+	SkeletonNotificationList,
 	SkeletonPage,
 	SkeletonTableRows,
 } from "./Skeletons";
@@ -44,6 +48,37 @@ describe("Skeletons", () => {
 		);
 	});
 
+	it("SkeletonNotificationList 每行渲染标题 + 元信息共 2 块", () => {
+		const { container } = render(<SkeletonNotificationList rows={4} />);
+		expect(
+			container.querySelectorAll('[data-skeleton="notification-list"] > div'),
+		).toHaveLength(4);
+		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
+			8,
+		);
+	});
+
+	it("SkeletonNotificationDetail 渲染标题 + 元信息 + 4 行正文", () => {
+		const { container } = render(<SkeletonNotificationDetail />);
+		const detail = container.querySelector(
+			'[data-skeleton="notification-detail"]',
+		);
+		expect(detail).not.toBeNull();
+		expect(detail?.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(6);
+	});
+
+	it("SkeletonIconRail 占位块与 OptionSquare 同几何且数量不塌陷", () => {
+		const { container } = render(<SkeletonIconRail count={3} />);
+		const rail = container.querySelector('[data-skeleton="icon-rail"]');
+		expect(rail).not.toBeNull();
+		const blocks = rail?.querySelectorAll('[data-slot="skeleton"]') ?? [];
+		expect(blocks).toHaveLength(3);
+		for (const block of blocks) {
+			expect(block.className).toContain("size-12");
+			expect(block.className).toContain("rounded-xl");
+		}
+	});
+
 	it("SkeletonCardGrid 每张卡渲染头像 + 两行文字 + 底部行共 4 块", () => {
 		const { container } = render(<SkeletonCardGrid cards={4} />);
 		expect(
@@ -62,6 +97,13 @@ describe("Skeletons", () => {
 		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
 			6,
 		);
+	});
+
+	it("AppLoadingSpinner 以居中转圈暴露 status 语义", () => {
+		const { getByRole } = render(<AppLoadingSpinner />);
+		const region = getByRole("status");
+		expect(region.getAttribute("aria-label")).toBe("正在加载");
+		expect(region.querySelector(".animate-spin")).not.toBeNull();
 	});
 
 	it("SkeletonPage 保留页面加载骨架的可访问性契约", () => {

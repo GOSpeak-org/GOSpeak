@@ -4,10 +4,9 @@ import {
 	CornerDownRight,
 	CirclePlus,
 	Maximize2,
-	Smile,
 	X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTypingReporter } from "@/hooks/useTypingReporter";
 import { useUpload } from "@/hooks/useUpload";
 import { chatStore, useChatStore } from "@/stores/chatStore";
@@ -29,11 +28,13 @@ export default function MessageInput() {
 	const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
 	const { upload, uploading, progress } = useUpload("chat");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const mentionRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const replyTo = useTextRoomUiStore((s) => s.replyTo);
 	const threadParent = useTextRoomUiStore((s) => s.threadParent);
 	const setReplyTo = useTextRoomUiStore((s) => s.setReplyTo);
+	const exitThread = useTextRoomUiStore((s) => s.exitThread);
 	const roomName = useChatStore((s) => s.textRoomName);
 	const domainUUID = useChatStore((s) => s.textRoomDomainUUID);
 	const chatFullscreen = useWorkspaceUiStore((s) => s.chatFullscreen);
@@ -59,6 +60,31 @@ export default function MessageInput() {
 	};
 
 	const replyTarget = threadParent || replyTo;
+	const mentionOptions = mentionCandidates();
+
+	useEffect(() => {
+		if (!mentionOpen) return;
+		const onMouseDown = (e: MouseEvent) => {
+			const target = e.target as Node;
+			if (
+				mentionRef.current?.contains(target) ||
+				textareaRef.current?.contains(target)
+			) {
+				return;
+			}
+			setMentionOpen(false);
+		};
+		const onScroll = () => setMentionOpen(false);
+		const onResize = () => setMentionOpen(false);
+		document.addEventListener("mousedown", onMouseDown);
+		window.addEventListener("scroll", onScroll, true);
+		window.addEventListener("resize", onResize);
+		return () => {
+			document.removeEventListener("mousedown", onMouseDown);
+			window.removeEventListener("scroll", onScroll, true);
+			window.removeEventListener("resize", onResize);
+		};
+	}, [mentionOpen]);
 
 	function resetTextareaHeight() {
 		const el = textareaRef.current;
@@ -134,6 +160,11 @@ export default function MessageInput() {
 	}
 
 	function handleKeyDown(e: React.KeyboardEvent) {
+		if (e.key === "Escape" && mentionOpen) {
+			e.preventDefault();
+			setMentionOpen(false);
+			return;
+		}
 		const candidates = mentionCandidates();
 		if (mentionOpen && candidates.length > 0) {
 			if (e.key === "ArrowDown") {
@@ -206,12 +237,21 @@ export default function MessageInput() {
 				if (e.dataTransfer?.files) void handleFiles(e.dataTransfer.files);
 			}}
 		>
-			{mentionOpen && mentionCandidates().length > 0 && (
-				<div className="bg-popover border-border absolute bottom-full left-4 z-20 mb-2 w-56 overflow-hidden rounded-lg border shadow-xl">
-					{mentionCandidates().map((name, index) => (
+			{mentionOpen && mentionOptions.length > 0 && (
+				<div
+					ref={mentionRef}
+					id="mention-listbox"
+					role="listbox"
+					aria-label="成员提及候选"
+					className="bg-popover border-border absolute bottom-full left-4 z-20 mb-2 w-56 overflow-hidden rounded-lg border shadow-xl"
+				>
+					{mentionOptions.map((name, index) => (
 						<button
 							key={name}
 							type="button"
+							id={`mention-option-${index}`}
+							role="option"
+							aria-selected={index === mentionIndex}
 							className={`text-foreground hover:bg-muted block w-full cursor-pointer px-3 py-2 text-left text-sm transition-colors ${index === mentionIndex ? "bg-selected" : ""}`}
 							onMouseDown={(e) => e.preventDefault()}
 							onClick={() => applyMention(name)}
@@ -246,7 +286,10 @@ export default function MessageInput() {
 					<button
 						type="button"
 						className="hover:text-foreground ml-auto shrink-0 cursor-pointer transition-colors"
-						onClick={() => setReplyTo(null)}
+						onClick={() => {
+							if (threadParent) exitThread();
+							else setReplyTo(null);
+						}}
 						aria-label="取消回复"
 					>
 						<X size={14} />
@@ -265,6 +308,12 @@ export default function MessageInput() {
 					disabled={false}
 					className="text-foreground placeholder:text-faint-foreground max-h-36 min-h-[36px] w-full flex-1 resize-none bg-transparent py-2 text-sm leading-5 outline-none disabled:cursor-not-allowed disabled:opacity-50"
 					rows={1}
+					aria-controls="mention-listbox"
+					aria-activedescendant={
+						mentionOpen && mentionOptions.length > 0
+							? `mention-option-${mentionIndex}`
+							: undefined
+					}
 				/>
 
 				<div className="flex shrink-0 items-center gap-0.5 pb-1">
@@ -272,6 +321,7 @@ export default function MessageInput() {
 						type="button"
 						className={iconBtn}
 						title="发送"
+						aria-label="发送"
 						disabled={!content.trim() || uploading}
 						onClick={handleSend}
 					>
@@ -280,18 +330,8 @@ export default function MessageInput() {
 					<button
 						type="button"
 						className={iconBtn}
-						title="插入表情"
-						onClick={() => {
-							setContent((prev) => `${prev}😊`);
-							textareaRef.current?.focus();
-						}}
-					>
-						<Smile size={20} />
-					</button>
-					<button
-						type="button"
-						className={iconBtn}
 						title="上传附件"
+						aria-label="上传附件"
 						disabled={uploading}
 						onClick={() => fileInputRef.current?.click()}
 					>
@@ -306,6 +346,7 @@ export default function MessageInput() {
 						className={iconBtn}
 						data-active={chatFullscreen}
 						title={chatFullscreen ? "退出全屏" : "全屏"}
+						aria-label={chatFullscreen ? "退出全屏" : "全屏"}
 						aria-pressed={chatFullscreen}
 						onClick={toggleChatFullscreen}
 					>

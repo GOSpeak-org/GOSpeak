@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import Avatar from "@/components/common/avatar";
 import MicControl from "@/components/chat/micControl";
 import SpeakerControl from "@/components/chat/speakerControl";
@@ -29,7 +30,15 @@ export default function UserBar({
 	const isSpeechRestricted = speechRestricted;
 	const speechRestrictionReason = speechRestrictionInfo?.reason;
 
-	const data = useVoiceChatStore();
+	const { outputVolume, inputVolume, isOutMute, isInputMute } =
+		useVoiceChatStore(
+			useShallow((s) => ({
+				outputVolume: s.outputVolume,
+				inputVolume: s.inputVolume,
+				isOutMute: s.isOutMute,
+				isInputMute: s.isInputMute,
+			})),
+		);
 	const { setOutputVolume, setInputVolume, setIsInputMute, setIsOutMute } =
 		useVoiceChatActions();
 
@@ -38,7 +47,7 @@ export default function UserBar({
 	return (
 		<div
 			className={clsx(
-				"flex items-center justify-between px-1.5 pb-1.5 select-none",
+				"flex items-center justify-between px-2 pb-1.5 select-none",
 				className,
 			)}
 		>
@@ -92,21 +101,21 @@ export default function UserBar({
 
 				<div className="flex items-center gap-1">
 					<SpeakerControl
-						volume={data.outputVolume}
+						volume={outputVolume}
 						onChange={(v) => {
 							setOutputVolume(v);
 							setMasterVolume(v / 100);
 						}}
-						isMute={data.isOutMute}
+						isMute={isOutMute}
 						onCheck={(checked) => {
 							setIsOutMute(checked);
 							setMasterMuted(checked);
 						}}
 					/>
 					<MicControl
-						volume={data.inputVolume}
+						volume={inputVolume}
 						onChange={setInputVolume}
-						isMute={data.isInputMute}
+						isMute={isInputMute}
 						disabled={isSpeechRestricted}
 						disabledTip={
 							speechRestrictionReason

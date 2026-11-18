@@ -1,14 +1,19 @@
 import clsx from "clsx";
-import { Hash, Lock, LogOut, Mic, Pencil, Trash2 } from "lucide-react";
+import {
+	Ellipsis,
+	Hash,
+	Lock,
+	LogOut,
+	Mic,
+	Pencil,
+	Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@gospeak/components";
 import { chatStore, useChatStore } from "@/stores/chatStore";
-import { useDomainStore } from "@/stores/domainStore";
 import { type RoomInfo, socketStore } from "@/stores/socketStore";
-import { useUserStore } from "@/stores/userStore";
-import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
-import { canDeleteRoomItem, canEditRoomItem } from "../roomListUtils";
+import { canManageRoomItem } from "../roomListUtils";
 import MemberItemButton from "./memberItemButton";
 import PasswordModal from "./passwordModal";
 
@@ -37,6 +42,7 @@ export function RoomItem({
 		socketStore.selectedRoomInfo()?.name === room.name &&
 		socketStore.selectedRoomInfo()?.domain_uuid === room.domain_uuid;
 	const [showPasswordModal, setShowPasswordModal] = useState(false);
+	const [membersExpanded, setMembersExpanded] = useState(false);
 	const [truncated, setTruncated] = useState(false);
 	const [tip, setTip] = useState<{
 		text: string;
@@ -53,32 +59,8 @@ export function RoomItem({
 	const nameRef = useRef<HTMLSpanElement>(null);
 	const contextMenuRef = useRef<HTMLDivElement>(null);
 
-	const user = useUserStore((s) => s.user);
-	const domainState = useDomainStore((s) => s.domainCache);
-	const memberState = useDomainStore((s) => s.memberCache);
-	const currentDomainUUID = socketStore.currentDomainUUID();
-
-	const canEdit = canEditRoomItem(
-		user,
-		currentDomainUUID ? (domainState[currentDomainUUID] ?? null) : null,
-		currentDomainUUID
-			? memberState[currentDomainUUID]?.find(
-					(member) => member.user_uuid === user?.uuid,
-				)?.role_name
-			: undefined,
-		hasPermission("room:update"),
-	);
-
-	const canDelete = canDeleteRoomItem(
-		user,
-		currentDomainUUID ? (domainState[currentDomainUUID] ?? null) : null,
-		currentDomainUUID
-			? memberState[currentDomainUUID]?.find(
-					(member) => member.user_uuid === user?.uuid,
-				)?.role_name
-			: undefined,
-		hasPermission("room:delete"),
-	);
+	const canEdit = canManageRoomItem(room, "room:update");
+	const canDelete = canManageRoomItem(room, "room:delete");
 
 	const isInRoom = () => {
 		if (room.type === "text") {
@@ -210,15 +192,13 @@ export function RoomItem({
 	return (
 		<>
 			<div className="flex w-full shrink-0 flex-col overflow-hidden">
-				<div className="w-full min-w-0">
+				<div className="flex w-full min-w-0 items-center">
 					<button
 						className={clsx(
-							"hover:bg-muted active:bg-selected flex w-full cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75",
+							"hover:bg-muted active:bg-selected flex min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75",
 							isActive ? "bg-muted" : "",
 							isSelected && !isActive ? "bg-muted" : "",
 						)}
-						aria-haspopup="menu"
-						aria-expanded={!!contextMenu}
 						onContextMenu={openContextMenu}
 						onMouseEnter={showTip}
 						onMouseLeave={() => {
@@ -226,7 +206,12 @@ export function RoomItem({
 							setClickHint(null);
 						}}
 						onClick={(event) => {
-							if (window.matchMedia("(max-width: 767px)").matches) {
+							// detail === 0 表示键盘激活（Enter/Space），直接加入；
+							// 桌面指针单击仍保留"双击进入"提示，双击加入。
+							if (
+								event.detail === 0 ||
+								window.matchMedia("(max-width: 767px)").matches
+							) {
 								handleJoin();
 								return;
 							}
@@ -263,16 +248,41 @@ export function RoomItem({
 							</div>
 						</div>
 					</button>
+					<button
+						type="button"
+						aria-label="更多操作"
+						className="hover:bg-muted flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-sm"
+						onClick={(event) => {
+							event.stopPropagation();
+							openContextMenu(event);
+						}}
+					>
+						<Ellipsis size={20} />
+					</button>
 				</div>
 
+				{room.members && room.members.length > 0 && (
+					<button
+						type="button"
+						className="text-faint-foreground hover:text-foreground flex h-7 w-full cursor-pointer items-center justify-center gap-1 text-xs transition-colors"
+						aria-expanded={membersExpanded}
+						onClick={(event) => {
+							event.stopPropagation();
+							setMembersExpanded((v) => !v);
+						}}
+					>
+						{membersExpanded ? "收起成员" : `成员 ${room.members.length}`}
+					</button>
+				)}
 				<div className="flex w-full flex-col">
-					{room.members?.map((member) => (
-						<MemberItemButton
-							key={member.identity}
-							member={member}
-							onSelectMember={onSelectMember}
-						/>
-					))}
+					{membersExpanded &&
+						room.members?.map((member) => (
+							<MemberItemButton
+								key={member.identity}
+								member={member}
+								onSelectMember={onSelectMember}
+							/>
+						))}
 				</div>
 				{showPasswordModal && (
 					<PasswordModal
@@ -304,6 +314,15 @@ export function RoomItem({
 					className="border-border bg-card fixed z-[9999] min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
 					style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
 				>
+					<button
+						type="button"
+						role="menuitem"
+						className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
+						onClick={handleJoin}
+					>
+						<Mic size={14} />
+						<span>进入房间</span>
+					</button>
 					{canEdit && (
 						<button
 							type="button"

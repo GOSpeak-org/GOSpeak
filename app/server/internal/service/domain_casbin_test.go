@@ -64,9 +64,9 @@ func newDomainCasbinTestDB(t *testing.T) (*gorm.DB, *model.Domain, *model.Domain
 		t.Fatalf("create editor role: %v", err)
 	}
 
-	domainSvc := NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil)
-	if err := domainSvc.UseCasbin(repository.NewDomainCasbinAdapter(db)); err != nil {
-		t.Fatalf("use casbin: %v", err)
+	domainSvc, err := NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil, repository.NewDomainCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new domain service: %v", err)
 	}
 	return db, domainA, domainB, domainSvc
 }

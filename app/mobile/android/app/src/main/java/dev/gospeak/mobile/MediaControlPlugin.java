@@ -22,7 +22,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class MediaControlPlugin extends Plugin {
 
     private static final String CHANNEL_ID = "gospeak_voice";
-    private static final int NOTIFICATION_ID = 1001;
+    static final int NOTIFICATION_ID = 1001;
 
     private static final String ACTION_MUTE = "dev.gospeak.mobile.action.MUTE";
     private static final String ACTION_UNMUTE = "dev.gospeak.mobile.action.UNMUTE";
@@ -73,31 +73,24 @@ public class MediaControlPlugin extends Plugin {
         }
         Boolean rawMuted = call.getBoolean("muted");
         boolean muted = Boolean.TRUE.equals(rawMuted);
-        ensureChannel();
-        Notification notification = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(subtitle)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(new NotificationCompat.Action(
-                android.R.drawable.ic_btn_speak_now,
-                muted ? "取消静音" : "静音",
-                actionIntent(muted ? ACTION_UNMUTE : ACTION_MUTE, 1)
-            ))
-            .addAction(new NotificationCompat.Action(
-                android.R.drawable.ic_menu_call,
-                "挂断",
-                actionIntent(ACTION_HANGUP, 2)
-            ))
-            .build();
+        Notification notification = buildNotification(getContext(), title, subtitle, muted);
         notificationManager().notify(NOTIFICATION_ID, notification);
+        Intent serviceIntent = new Intent(getContext(), ForegroundAudioService.class);
+        serviceIntent.putExtra(ForegroundAudioService.EXTRA_TITLE, title);
+        serviceIntent.putExtra(ForegroundAudioService.EXTRA_SUBTITLE, subtitle);
+        serviceIntent.putExtra(ForegroundAudioService.EXTRA_MUTED, muted);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(serviceIntent);
+        } else {
+            getContext().startService(serviceIntent);
+        }
         call.resolve();
     }
 
     @PluginMethod
     public void clear(PluginCall call) {
         notificationManager().cancel(NOTIFICATION_ID);
+        getContext().stopService(new Intent(getContext(), ForegroundAudioService.class));
         call.resolve();
     }
 
@@ -113,24 +106,46 @@ public class MediaControlPlugin extends Plugin {
         call.resolve();
     }
 
-    private PendingIntent actionIntent(String action, int requestCode) {
-        Intent intent = new Intent(action).setPackage(getContext().getPackageName());
+    static Notification buildNotification(Context context, String title, String subtitle, boolean muted) {
+        ensureChannel(context);
+        return new NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(subtitle)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(new NotificationCompat.Action(
+                android.R.drawable.ic_btn_speak_now,
+                muted ? "取消静音" : "静音",
+                actionIntent(context, muted ? ACTION_UNMUTE : ACTION_MUTE, 1)
+            ))
+            .addAction(new NotificationCompat.Action(
+                android.R.drawable.ic_menu_call,
+                "挂断",
+                actionIntent(context, ACTION_HANGUP, 2)
+            ))
+            .build();
+    }
+
+    private static PendingIntent actionIntent(Context context, String action, int requestCode) {
+        Intent intent = new Intent(action).setPackage(context.getPackageName());
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        return PendingIntent.getBroadcast(getContext(), requestCode, intent, flags);
+        return PendingIntent.getBroadcast(context, requestCode, intent, flags);
     }
 
     private NotificationManager notificationManager() {
         return (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
     }
 
-    private void ensureChannel() {
+    private static void ensureChannel(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return;
         }
-        NotificationManager manager = notificationManager();
+        NotificationManager manager =
+            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager.getNotificationChannel(CHANNEL_ID) != null) {
             return;
         }

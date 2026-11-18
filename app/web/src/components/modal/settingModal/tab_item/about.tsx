@@ -1,5 +1,10 @@
 import { Button } from "@gospeak/components";
-import { createClientLog, inDesktop } from "@gospeak/desktop";
+import {
+	createClientLog,
+	createUpdater,
+	inDesktop,
+	type ReleaseInfo,
+} from "@gospeak/desktop";
 import { useEffect, useState } from "react";
 import { currentEntries } from "@/utils/clientLog";
 import { exportLogFile } from "@/utils/exportLog";
@@ -12,10 +17,20 @@ type ExportState =
 	| { status: "done"; file: string }
 	| { status: "error"; message: string };
 
+type UpdateState =
+	| "idle"
+	| "checking"
+	| "available"
+	| "latest"
+	| "noasset"
+	| "downloading"
+	| "done"
+	| "error";
+
 /**
  * 关于 / 日志。
  *
- * 导出按钮在 Web 与桌面端共用同一个实现（`exportLogFile`），差异只在交付方式：
+ * 导出按钮在 Web 与桌面端共用同一个实现（exportLogFile），差异只在交付方式：
  * Web 走浏览器下载，桌面端由宿主接管下载并落到下载目录。
  */
 function AboutForm() {
@@ -23,6 +38,13 @@ function AboutForm() {
 	const [count, setCount] = useState(0);
 	const [logsPath, setLogsPath] = useState("");
 	const desktop = inDesktop();
+	const updater = createUpdater();
+
+	const [updateStatus, setUpdateStatus] = useState<UpdateState>("idle");
+	const [release, setRelease] = useState<ReleaseInfo | null>(null);
+	const [progress, setProgress] = useState(0);
+	const [updateError, setUpdateError] = useState("");
+	const [savedFile, setSavedFile] = useState("");
 
 	useEffect(() => {
 		setCount(currentEntries().length);
@@ -32,6 +54,57 @@ function AboutForm() {
 			.then(setLogsPath)
 			.catch(() => {});
 	}, [desktop]);
+
+	// 下载进度由宿主通过 updater.progress 广播（0..1）。
+	// updater 由 createUpdater() 返回模块级稳定对象，onProgress 身份不变。
+	useEffect(() => {
+		if (!desktop) return;
+		return updater.onProgress(setProgress);
+	}, [desktop, updater.onProgress]);
+
+	const checkUpdate = async () => {
+		setUpdateStatus("checking");
+		setUpdateError("");
+		setRelease(null);
+		setSavedFile("");
+		try {
+			const info = await updater.checkRelease();
+			setRelease(info);
+			if (!info.available) {
+				setUpdateStatus("latest");
+			} else if (!info.assetName || !info.url) {
+				setUpdateStatus("noasset");
+			} else {
+				setUpdateStatus("available");
+			}
+		} catch (e) {
+			setUpdateStatus("error");
+			setUpdateError(e instanceof Error ? e.message : String(e));
+		}
+	};
+
+	const download = async () => {
+		if (!release?.url) return;
+		setUpdateStatus("downloading");
+		setProgress(0);
+		setUpdateError("");
+		try {
+			await updater.downloadRelease(release.url);
+			setUpdateStatus("done");
+			setSavedFile(release.assetName);
+		} catch (e) {
+			setUpdateStatus("error");
+			setUpdateError(e instanceof Error ? e.message : String(e));
+		}
+	};
+
+	const openRelease = async () => {
+		try {
+			await updater.openReleasePage();
+		} catch {
+			// 宿主不支持时静默，发布页链接仍在提示里
+		}
+	};
 
 	const runExport = async () => {
 		setState({ status: "working" });
@@ -71,6 +144,83 @@ function AboutForm() {
 						<span className="font-medium">{desktop ? "桌面端" : "浏览器"}</span>
 					</div>
 				</div>
+
+				{desktop && (
+					<div className="flex flex-col gap-2">
+						<div className="flex flex-wrap items-center gap-2">
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={
+									updateStatus === "checking" || updateStatus === "downloading"
+								}
+								onClick={() => void checkUpdate()}
+							>
+								{updateStatus === "checking" ? "正在检查…" : "检查更新"}
+							</Button>
+							{updateStatus === "available" && (
+								<Button size="sm" onClick={() => void download()}>
+									下载更新
+								</Button>
+							)}
+							{(updateStatus === "error" || updateStatus === "noasset") && (
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => void openRelease()}
+								>
+									前往发布页
+								</Button>
+							)}
+						</div>
+
+						{updateStatus === "latest" && (
+							<p className="text-xs">已是最新版本</p>
+						)}
+						{updateStatus === "noasset" && (
+							<p className="text-xs">
+								发现新版本 {release?.version}
+								，但当前平台暂无匹配安装包，请前往发布页手动下载。
+							</p>
+						)}
+						{updateStatus === "error" && (
+							<p className="text-destructive text-xs" title={updateError}>
+								检查/下载失败：{updateError}
+							</p>
+						)}
+						{updateStatus === "done" && (
+							<p className="text-xs">已下载到 ~/Downloads/{savedFile}</p>
+						)}
+
+						{updateStatus === "available" && release && (
+							<div className="border-border bg-muted/40 rounded-sm border px-3 py-2">
+								<div className="text-sm">
+									发现新版本
+									<span className="ml-2 font-medium">{release.version}</span>
+								</div>
+								{release.notes ? (
+									<div className="text-faint-foreground mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs">
+										{release.notes}
+									</div>
+								) : null}
+							</div>
+						)}
+
+						{updateStatus === "downloading" && (
+							<>
+								<div className="bg-border h-1.5 w-full overflow-hidden rounded-sm">
+									<div
+										className="bg-primary h-full transition-[width]"
+										style={{ width: `${Math.round(progress * 100)}%` }}
+									/>
+								</div>
+								<p className="text-faint-foreground text-xs">
+									正在下载 {release?.assetName}… {Math.round(progress * 100)}%
+								</p>
+							</>
+						)}
+					</div>
+				)}
 			</Section>
 
 			<Section

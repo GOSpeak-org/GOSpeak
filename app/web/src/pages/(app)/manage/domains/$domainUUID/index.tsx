@@ -40,13 +40,13 @@ import EditRoomModal from "@/components/modal/editRoomModal";
 import { domainStore, useDomainStore } from "@/stores/domainStore";
 import { useUserStore } from "@/stores/userStore";
 import { hasDomainPermission } from "@/utils/domainPermissions";
-import { hasAnyPermission, hasPermission } from "@/utils/permissions";
+import { hasPermission } from "@/utils/permissions";
 import { runOptimistic } from "@/utils/optimistic";
 import { domainNameSchema, fieldError } from "@/utils/formSchemas";
 import { apiErrorMessage } from "@/utils/apiError";
 import { toastActionError } from "@/utils/toast";
 import { DomainSettingsForm } from "./components/DomainSettingsForm";
-import DomainRolePanel from "./components/DomainRolePanel";
+import DomainRolePanel from "@/components/manage/DomainRolePanel";
 
 export const Route = createFileRoute("/(app)/manage/domains/$domainUUID/")({
 	component: RouteComponent,
@@ -253,9 +253,6 @@ function RouteComponent() {
 	);
 
 	const canManageRooms =
-		isOwner ||
-		currentRole === "admin" ||
-		hasAnyPermission("room:update", "room:delete") ||
 		hasDomainPermission(uuid, "room:update") ||
 		hasDomainPermission(uuid, "room:delete");
 
@@ -526,8 +523,11 @@ function RouteComponent() {
 		domainStore.setCurrentDomain(uuid);
 	}
 
+	// 动态域页走 KeepAliveOutlet 的 Outlet 兜底，没有常驻页那层 absolute 滚动容器，
+	// 这里必须是 h-full：父级高度确定，min-h-full 会让根节点随内容长高、
+	// overflow-y-auto 永远不触发滚动，最后被外层 overflow-hidden 裁掉。
 	return (
-		<div className="min-h-full w-full flex-1 overflow-y-auto">
+		<div className="h-full w-full flex-1 overflow-y-auto">
 			<ManagePage className="min-h-full w-full">
 				<ManageHeader
 					icon={<Settings2 size={20} />}
@@ -746,8 +746,6 @@ function RouteComponent() {
 						>
 							<DomainRoomTable
 								rooms={rooms}
-								currentUserName={currentUser?.name}
-								canManage={canManageRooms}
 								loading={roomLoading}
 								refreshing={roomRefreshing}
 								error={roomError}

@@ -20,6 +20,7 @@ import InviteCodeTable from "@/components/domain/InviteCodeTable";
 import InviteRedemptionsPanel from "@/components/domain/InviteRedemptionsPanel";
 import InviteShareModal from "@/components/domain/InviteShareModal";
 import { domainStore, useDomainStore } from "@/stores/domainStore";
+import { hasDomainPermission } from "@/utils/domainPermissions";
 import { domainInviteUrl } from "@/utils/domainInvite";
 import { usePublicBaseUrl } from "@/utils/publicBaseUrl";
 import { toastActionError } from "@/utils/toast";
@@ -40,11 +41,16 @@ export default function InviteCodeManager() {
 		void domainStore.loadMyDomains().catch(() => {});
 	}, []);
 
-	const { data: domains, isLoading: domainsLoading } = useQuery({
+	const { data: allDomains, isLoading: domainsLoading } = useQuery({
 		queryKey: ["my-domains-detailed-invite", myDomainUUIDs.join(",")],
 		queryFn: getMyDomainsDetailed,
 		enabled: isActive,
 	});
+	// 邀请码写操作要求 domain:invite:manage（见后端 invite_handler）。
+	// 只把用户真正能管理的域列入选择器，避免展示必然 403 的操作。
+	const domains = (allDomains ?? []).filter((d) =>
+		hasDomainPermission(d.uuid, "domain:invite:manage"),
+	);
 
 	useEffect(() => {
 		if (!activeDomain && domains && domains.length > 0) {
@@ -85,7 +91,11 @@ export default function InviteCodeManager() {
 		expiresInHours: number;
 		maxUses: number;
 	}) {
-		if (!activeDomain) return;
+		if (
+			!activeDomain ||
+			!hasDomainPermission(activeDomain, "domain:invite:manage")
+		)
+			return;
 		try {
 			await createInvite({
 				domain_uuid: activeDomain,
@@ -101,7 +111,11 @@ export default function InviteCodeManager() {
 	}
 
 	async function handleDisable(inviteID: number) {
-		if (!activeDomain) return;
+		if (
+			!activeDomain ||
+			!hasDomainPermission(activeDomain, "domain:invite:manage")
+		)
+			return;
 		try {
 			await disableInvite(activeDomain, inviteID);
 			toast.success("邀请码已禁用");
@@ -115,11 +129,11 @@ export default function InviteCodeManager() {
 		return <p className="text-muted-foreground text-sm">加载域列表…</p>;
 	}
 
-	if (!domains || domains.length === 0) {
+	if (domains.length === 0) {
 		return (
 			<div className="text-faint-foreground flex flex-col items-center justify-center gap-2 py-8">
 				<Link2 size={24} />
-				<p className="text-sm">你还没有加入任何域，暂无邀请码可管理。</p>
+				<p className="text-sm">你没有可管理邀请码的域，需要域邀请管理权限。</p>
 			</div>
 		);
 	}
@@ -146,7 +160,11 @@ export default function InviteCodeManager() {
 									: "border-border hover:bg-muted"
 							}`}
 						>
-							<DomainIcon name={d.name} iconUrl={d.icon_url} />
+							<DomainIcon
+								name={d.name}
+								iconUrl={d.icon_url}
+								interactive={false}
+							/>
 							{d.name}
 						</button>
 					))}

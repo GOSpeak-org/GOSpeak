@@ -38,7 +38,9 @@ export function useMemberRoster(): MemberRoster {
 	const memberError = useDomainStore((s) =>
 		domainUUID ? s.memberErrors[domainUUID] : null,
 	);
-	const myName = useUserStore((s) => s.user?.name);
+	const myUser = useUserStore((s) => s.user);
+	const myName = myUser?.name;
+	const connected = useSocketStore((s) => s.connected);
 	const { liveMembers, onlineIdentities } = useCurrentRoomInfo();
 
 	useEffect(() => {
@@ -61,8 +63,10 @@ export function useMemberRoster(): MemberRoster {
 				liveMembers,
 				onlineIdentities,
 				myName,
+				myUser: myUser ?? undefined,
+				connected,
 			}),
-		[domainMembers, liveMembers, onlineIdentities, myName],
+		[domainMembers, liveMembers, onlineIdentities, myName, myUser, connected],
 	);
 
 	return {

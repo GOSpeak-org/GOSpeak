@@ -7,6 +7,10 @@ import {
 	extractSwiftMethods,
 	extractTsMethods,
 } from "./check-mobile-bridge.mjs";
+import {
+	checkPluginRegistration,
+	extractRegisteredPlugins,
+} from "./check-mobile-bridge.mjs";
 
 test("extractTsMethods collects pluginMethod calls", () => {
 	const source = 'pluginMethod("AudioSession", "activate");';
@@ -78,4 +82,28 @@ test("checkMethods passes when native is a superset", () => {
 		native: new Set(["AudioSession.activate", "AudioSession.list"]),
 	});
 	assert.equal(result.ok, true);
+});
+
+test("extractRegisteredPlugins 收集 Swift 与 Java 的插件注册", () => {
+	const swift = `if bridge.plugin(withName: "AudioSession") == nil {
+	    bridge.registerPluginInstance(AudioSessionPlugin())
+	}
+	if bridge.plugin(withName: "ServerConfig") == nil {
+	    bridge.registerPluginInstance(ServerConfigPlugin())
+	}`;
+	const java = "registerPlugin(new ServerConfigPlugin());";
+	const ios = extractRegisteredPlugins(swift, "swift");
+	const android = extractRegisteredPlugins(java, "java");
+	assert.deepEqual([...ios].sort(), ["AudioSession", "ServerConfig"]);
+	assert.deepEqual([...android], ["ServerConfig"]);
+});
+
+test("checkPluginRegistration 报出未注册插件", () => {
+	const result = checkPluginRegistration({
+		declared: new Set(["AudioSession", "MediaControl", "ServerConfig"]),
+		ios: new Set(["AudioSession", "MediaControl"]),
+		android: new Set(["AudioSession", "MediaControl", "ServerConfig"]),
+	});
+	assert.deepEqual(result.iosMissing, ["ServerConfig"]);
+	assert.deepEqual(result.androidMissing, []);
 });

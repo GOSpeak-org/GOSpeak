@@ -80,6 +80,12 @@ var overlayCfg = struct {
 	scale   float64
 	visible bool
 	locked  bool
+	// appActive is a cached copy of mygo.App.IsActive(). It is written only
+	// from the activation callbacks (main thread) and read from any goroutine.
+	// Reading App.IsActive() per evaluation posts to the main loop and blocks
+	// until it is drained; the policy loop and PushState call this often, so
+	// that hop can stall the app. The callbacks cover every activation change.
+	appActive bool
 	// manualOverride is the hotkey's explicit show/hide in "auto" policy; it
 	// wins over the computed decision until the computed decision flips.
 	manualOverride *bool
@@ -473,10 +479,18 @@ func evaluateOverlayPolicy() {
 	setOverlayVisible(target)
 }
 
-// overlayAppActive reports whether GOSpeak is the app the user is in. It is a
-// variable so tests can answer without a running app: mygo's App.IsActive
-// waits for the main loop.
-var overlayAppActive = func() bool { return mygo.App.IsActive() }
+// overlayAppActive reports whether GOSpeak is the app the user is in. It reads
+// the value cached by the activation callbacks instead of calling
+// mygo.App.IsActive() directly: that call posts to the main loop and blocks
+// until it is drained, which deadlocks the app when the policy is evaluated
+// from a main-loop callback (OnDidBecomeActive/OnDidResignActive) and stalls
+// it under the frequent PushState/ticker evaluations. It stays a variable so
+// tests can answer without a running app.
+var overlayAppActive = func() bool {
+	overlayCfg.mu.Lock()
+	defer overlayCfg.mu.Unlock()
+	return overlayCfg.appActive
+}
 
 // overlayPolicyInterval is the fallback poll for "auto". Activation events
 // (OnDidBecomeActive / OnDidResignActive) drive it on macOS, but mygo v0.8.3
@@ -492,6 +506,15 @@ func startOverlayPolicyLoop() {
 		ticker := time.NewTicker(overlayPolicyInterval)
 		defer ticker.Stop()
 		for range ticker.C {
+			// On platforms without activation events (Windows/Linux) the cached
+			// state would otherwise go stale. Refresh it here, off the main loop:
+			// this goroutine can block on the round-trip without stalling the UI.
+			// macOS keeps its value from the activation callbacks, which are more
+			// precise; a one-second poll here is harmless there too.
+			active := mygo.App.IsActive()
+			overlayCfg.mu.Lock()
+			overlayCfg.appActive = active
+			overlayCfg.mu.Unlock()
 			evaluateOverlayPolicy()
 		}
 	}()
@@ -688,12 +711,11 @@ func createOverlayWindow() *mygo.Window {
 		StateKey: "overlay",
 		Hidden:   true,
 	})
-	// 覆盖层从不销毁，只隐藏：Escape 关闭 NSPanel 的路径必须在这里拦下，
+	// 覆盖层平时只隐藏不销毁：Escape 关闭 NSPanel 的路径必须拦下，
 	// DisableClose 管不到它（mygo 的 ShouldClose 不看 Closable）。
-	w.OnClose(func(e *mygo.CloseEvent) {
-		e.PreventDefault()
-		w.Hide()
-	})
+	// 但原生退出（Cmd+Q 等）时不能拦：mygo 把任何 OnClose 的 PreventDefault
+	// 当作对整个退出的否决，后台隐藏的覆盖层会让应用永远退不出去。
+	w.OnClose(hideOnClose(w.Hide))
 	w.SetIgnoreMouseEvents(locked)
 	w.SetContentProtection(protect)
 	return w
@@ -752,8 +774,26 @@ func initOverlay() {
 	// "auto" shows the overlay while GOSpeak is not the active app. Activation
 	// events cover macOS; the ticker covers Windows/Linux, where mygo fires no
 	// activation event, and any focus change neither source reports.
-	mygo.App.OnDidBecomeActive(func() { evaluateOverlayPolicy() })
-	mygo.App.OnDidResignActive(func() { evaluateOverlayPolicy() })
+	//
+	// Cache the active state here (this runs on the main loop and IsActive is
+	// safe) and refresh it on every activation change. The policy evaluator
+	// then only reads the cache and never posts a blocking round-trip back to
+	// the main loop, which is what made the settings page freeze the app.
+	overlayCfg.mu.Lock()
+	overlayCfg.appActive = mygo.App.IsActive()
+	overlayCfg.mu.Unlock()
+	mygo.App.OnDidBecomeActive(func() {
+		overlayCfg.mu.Lock()
+		overlayCfg.appActive = true
+		overlayCfg.mu.Unlock()
+		evaluateOverlayPolicy()
+	})
+	mygo.App.OnDidResignActive(func() {
+		overlayCfg.mu.Lock()
+		overlayCfg.appActive = false
+		overlayCfg.mu.Unlock()
+		evaluateOverlayPolicy()
+	})
 	startOverlayPolicyLoop()
 	// Moving the overlay to a display of another resolution changes its zoom.
 	mygo.Screen.OnDisplaysChanged(func() {

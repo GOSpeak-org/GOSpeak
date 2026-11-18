@@ -2,7 +2,6 @@ import {
 	Hash,
 	Headphones,
 	MessageSquare,
-	Search,
 	Users,
 	Volume2,
 	X,
@@ -29,12 +28,6 @@ export default function ChannelHeader({
 	const toggleMembers = useWorkspaceUiStore((s) => s.toggleMembers);
 	const textRoom = useChatStore((s) => s.textRoom);
 	const textRoomName = useChatStore((s) => s.textRoomName);
-	const query = useTextRoomUiStore((s) => s.query);
-	const setQuery = useTextRoomUiStore((s) => s.setQuery);
-	const runSearch = useTextRoomUiStore((s) => s.runSearch);
-	const clearSearch = useTextRoomUiStore((s) => s.clearSearch);
-	const searchActive = useTextRoomUiStore((s) => s.searchActive);
-	const searching = useTextRoomUiStore((s) => s.searching);
 	const threadParent = useTextRoomUiStore((s) => s.threadParent);
 	const exitThread = useTextRoomUiStore((s) => s.exitThread);
 
@@ -68,48 +61,6 @@ export default function ChannelHeader({
 				)}
 
 				{textRoom && (
-					<form
-						className="border border-border bg-muted focus-within:w-60 flex h-6 w-36 items-center gap-1 rounded-sm px-1.5 transition-all duration-150"
-						onSubmit={(e) => {
-							e.preventDefault();
-							void runSearch();
-						}}
-					>
-						<input
-							type="search"
-							value={query}
-							placeholder="搜索"
-							className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
-							onChange={(e) => setQuery(e.currentTarget.value)}
-							onKeyDown={(e) => {
-								// Esc 清空并退出搜索结果，不必去点那个小叉
-								if (e.key === "Escape") {
-									e.preventDefault();
-									setQuery("");
-									clearSearch();
-								}
-							}}
-						/>
-						{searchActive ? (
-							<button
-								type="button"
-								className="text-muted-foreground hover:text-foreground flex size-4 shrink-0 cursor-pointer items-center justify-center"
-								onClick={clearSearch}
-								aria-label="清除搜索"
-							>
-								{searching ? (
-									<span className="border-border border-t text-foreground size-3 animate-spin rounded-full border-2" />
-								) : (
-									<X size={12} />
-								)}
-							</button>
-						) : (
-							<Search size={14} className="text-muted-foreground shrink-0" />
-						)}
-					</form>
-				)}
-
-				{textRoom && (
 					<button
 						type="button"
 						className="ds-icon-btn"
@@ -117,6 +68,7 @@ export default function ChannelHeader({
 						onClick={toggleChat}
 						title="显示/隐藏文字聊天"
 						aria-label="显示/隐藏文字聊天"
+						aria-pressed={chatOpen}
 					>
 						<MessageSquare size={20} />
 					</button>
@@ -128,6 +80,7 @@ export default function ChannelHeader({
 					onClick={toggleMembers}
 					title="显示成员列表"
 					aria-label="显示成员列表"
+					aria-pressed={membersOpen}
 				>
 					<Users size={20} />
 				</button>

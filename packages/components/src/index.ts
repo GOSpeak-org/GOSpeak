@@ -24,6 +24,25 @@ export {
 	HoverCardContent,
 	HoverCardTrigger,
 } from "./components/hover-card";
+export {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuPortal,
+	DropdownMenuRadioGroup,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuTrigger,
+} from "./components/dropdown-menu";
+export {
+	Popover,
+	PopoverAnchor,
+	PopoverClose,
+	PopoverContent,
+	PopoverTrigger,
+} from "./components/popover";
 export { Input } from "./components/input";
 export {
 	RadioGroup,

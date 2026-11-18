@@ -68,6 +68,7 @@ export default function MutePage() {
 	const [reason, setReason] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [confirmMute, setConfirmMute] = useState(false);
+	const [muteError, setMuteError] = useState("");
 	const [cancellingId, setCancellingId] = useState<number | null>(null);
 
 	const userMap = new Map<number, string>(
@@ -102,6 +103,7 @@ export default function MutePage() {
 			toast.warning("请选择有效的禁言时长");
 			return;
 		}
+		setMuteError("");
 		setSubmitting(true);
 		const now = new Date().toISOString();
 		const optimisticRecord: MuteRecord = {
@@ -130,8 +132,9 @@ export default function MutePage() {
 				request: () =>
 					createMute({ user_id: uid, duration, permanent, reason }),
 				settle: reconcile,
-				onError: (error) => toastActionError(error, "禁言失败"),
+				onError: (error) => setMuteError(toastActionError(error, "禁言失败")),
 				onSuccess: () => {
+					setConfirmMute(false);
 					setUserId("");
 					setDuration(3600);
 					setPermanent(false);
@@ -193,7 +196,7 @@ export default function MutePage() {
 					</div>
 				) : (
 					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
+						<table className="w-full min-w-max text-sm">
 							<thead>
 								<tr className={manageTableHeadClass}>
 									<th className="px-3 py-2 text-left">用户</th>
@@ -329,15 +332,18 @@ export default function MutePage() {
 							? "永久禁言"
 							: `禁言 ${Math.max(1, Math.round(duration / 60))} 分钟`}
 						？该用户在禁言期间无法发言，可在上方列表提前解除。
+						{muteError && (
+							<span className="text-destructive mt-2 block">{muteError}</span>
+						)}
 					</span>
 				}
 				confirmText="禁言"
 				loading={submitting}
-				onClose={() => setConfirmMute(false)}
-				onConfirm={() => {
+				onClose={() => {
 					setConfirmMute(false);
-					void handleMute();
+					setMuteError("");
 				}}
+				onConfirm={handleMute}
 			/>
 		</ManagePage>
 	);

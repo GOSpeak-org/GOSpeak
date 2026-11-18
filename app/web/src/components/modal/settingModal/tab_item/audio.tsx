@@ -295,7 +295,7 @@ function AudioForm() {
 			</Section>
 
 			<Section title="输入模式">
-				<div className="grid gap-2 sm:grid-cols-2">
+				<div className="grid gap-2 @md:grid-cols-2">
 					{INPUT_MODE_OPTIONS.map((opt) => (
 						<button
 							key={opt.value}
@@ -317,7 +317,7 @@ function AudioForm() {
 			</Section>
 
 			<Section title="采集质量">
-				<div className="grid gap-3 sm:grid-cols-2">
+				<div className="grid gap-3 @md:grid-cols-2">
 					<Field label="音质（比特率）">
 						<Select
 							value={String(store.audioBitrate)}

@@ -1,5 +1,13 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import RoomDetail from "./roomDetail";
 
 class ResizeObserverStub {
@@ -16,6 +24,12 @@ Object.defineProperty(globalThis, "ResizeObserver", {
 const mocks = vi.hoisted(() => ({
 	setMemberOutputVolume: vi.fn(),
 	setMemberMute: vi.fn(),
+	hasPermission: vi.fn((_code?: string) => false),
+	socketStoreCurrentRoom: vi.fn((): string | null => null),
+	kickMember: vi.fn(),
+	createMute: vi.fn(),
+	fetchUserInfo: vi.fn(),
+	toastActionError: vi.fn(),
 	socket: {
 		rooms: [] as Array<{
 			name: string;
@@ -59,8 +73,8 @@ vi.mock("@/stores/socketStore", () => ({
 	useSocketStore: (selector: (s: unknown) => unknown) => selector(mocks.socket),
 	socketStore: {
 		currentDomainUUID: () => null,
-		currentRoom: () => null,
-		kickMember: vi.fn(),
+		currentRoom: mocks.socketStoreCurrentRoom,
+		kickMember: mocks.kickMember,
 	},
 }));
 vi.mock("@/stores/userStore", () => {
@@ -76,6 +90,41 @@ vi.mock("@/stores/voiceChatStore", () => ({
 		setMemberOutputVolume: mocks.setMemberOutputVolume,
 		setMemberMute: mocks.setMemberMute,
 	}),
+}));
+vi.mock("@/utils/permissions", () => ({
+	hasPermission: (code: string) => mocks.hasPermission(code),
+}));
+vi.mock("@/api/mute", () => ({ createMute: mocks.createMute }));
+vi.mock("@/api/user", () => ({ fetchUserInfo: mocks.fetchUserInfo }));
+vi.mock("@/utils/toast", () => ({ toastActionError: mocks.toastActionError }));
+// 二次确认弹窗本身不改动；这里只验证「踢出房间」确实经过确认步骤。
+vi.mock("@/components/common/ConfirmModal", () => ({
+	default: ({
+		open,
+		title,
+		message,
+		confirmText,
+		onConfirm,
+		onClose,
+	}: {
+		open: boolean;
+		title?: string;
+		message: ReactNode;
+		confirmText?: string;
+		onConfirm: () => void;
+		onClose: () => void;
+	}) =>
+		open ? (
+			<div role="dialog" aria-label={title}>
+				{message}
+				<button type="button" onClick={onClose}>
+					取消
+				</button>
+				<button type="button" onClick={onConfirm}>
+					{confirmText}
+				</button>
+			</div>
+		) : null,
 }));
 vi.mock("@/handler_audio", () => ({
 	setMutedByIdentity: vi.fn(),
@@ -125,6 +174,10 @@ function joinWithMembers() {
 beforeEach(() => {
 	mocks.socket.rooms = [];
 	mocks.socket.currentRoom = "测试";
+	mocks.socketStoreCurrentRoom.mockReturnValue("测试");
+	mocks.hasPermission.mockReturnValue(false);
+	mocks.fetchUserInfo.mockReset();
+	mocks.createMute.mockReset();
 	mocks.voice.otherMemberState = {};
 });
 
@@ -211,5 +264,202 @@ describe("RoomDetail / 成员卡片音量控件", () => {
 		fireEvent.click(screen.getByRole("button", { name: "静音" }));
 
 		expect(mocks.setMemberMute).toHaveBeenCalledWith("bob", true);
+	});
+});
+
+/** Radix DropdownMenu 在 pointerdown 打开，jsdom 下需显式派发。 */
+const openMemberMenu = (trigger: HTMLElement) =>
+	fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false });
+
+describe("RoomDetail / 成员卡片更多操作菜单", () => {
+	it("点击 ... 展开菜单，再点收起", () => {
+		joinWithMembers();
+		render(<RoomDetail />);
+		const trigger = screen.getByRole("button", { name: /更多操作/ });
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		openMemberMenu(trigger);
+		expect(screen.getByRole("menu")).toBeTruthy();
+		expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+		openMemberMenu(trigger);
+		expect(screen.queryByRole("menu")).toBeNull();
+		expect(trigger.getAttribute("aria-expanded")).toBe("false");
+	});
+
+	it("菜单通过 portal 渲染在 overflow-hidden 卡片之外，并使用 z token", () => {
+		joinWithMembers();
+		const { container } = render(<RoomDetail />);
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+
+		const menu = screen.getByRole("menu");
+		const card = container.querySelector(".overflow-hidden");
+		expect(card?.contains(menu)).toBe(false);
+		expect(menu.className).toContain("z-popover");
+	});
+
+	it("按 Esc 关闭菜单", () => {
+		joinWithMembers();
+		render(<RoomDetail />);
+		const trigger = screen.getByRole("button", { name: /更多操作/ });
+
+		openMemberMenu(trigger);
+		expect(screen.getByRole("menu")).toBeTruthy();
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(screen.queryByRole("menu")).toBeNull();
+	});
+
+	it("菜单浮层使用 Radix portal（外部点击/scroll/resize 关闭由原语保证）", () => {
+		joinWithMembers();
+		render(<RoomDetail />);
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+
+		const menu = screen.getByRole("menu");
+		expect(menu.closest("[data-radix-popper-content-wrapper]")).toBeTruthy();
+		expect(menu.className).toContain("z-popover");
+	});
+
+	it("同一时刻只展开一个菜单", () => {
+		reset({
+			phase: "ready",
+			phaseLabel: "已连接",
+			isJoined: true,
+			isLoading: false,
+		});
+		mocks.socket.rooms = [
+			{
+				name: "测试",
+				domain_uuid: null,
+				members: [
+					bob,
+					{
+						...bob,
+						id: "3",
+						identity: "alice",
+						name: "alice",
+						display_name: "Alice",
+					},
+				],
+			},
+		];
+		render(<RoomDetail />);
+		const triggers = screen.getAllByRole("button", { name: /更多操作/ });
+		expect(triggers.length).toBe(2);
+
+		openMemberMenu(triggers[0]);
+		expect(screen.getAllByRole("menu").length).toBe(1);
+		openMemberMenu(triggers[1]);
+		expect(screen.getAllByRole("menu").length).toBe(1);
+		expect(triggers[0].getAttribute("aria-expanded")).toBe("false");
+		expect(triggers[1].getAttribute("aria-expanded")).toBe("true");
+	});
+
+	it("无 signal:kick 权限时不显示踢出房间，但保留静音", () => {
+		joinWithMembers();
+		render(<RoomDetail />);
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+
+		expect(screen.getByRole("menuitem", { name: "静音" })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: "踢出房间" })).toBeNull();
+	});
+
+	it("有权限时踢出房间走二次确认，确认后才调用 kickMember", () => {
+		joinWithMembers();
+		mocks.hasPermission.mockImplementation(
+			(code?: string) => code === "signal:kick",
+		);
+		render(<RoomDetail />);
+
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "踢出房间" }));
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		expect(mocks.kickMember).not.toHaveBeenCalled();
+		const dialog = screen.getByRole("dialog", { name: "移出语音房间" });
+		expect(dialog.textContent).toContain("Bob");
+
+		fireEvent.click(screen.getByRole("button", { name: "移出" }));
+		expect(mocks.kickMember).toHaveBeenCalledWith("测试", "bob");
+	});
+
+	it("静音菜单项沿用原有静音能力并关闭菜单", () => {
+		joinWithMembers();
+		render(<RoomDetail />);
+
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "静音" }));
+
+		expect(mocks.setMemberMute).toHaveBeenCalledWith("bob", true);
+		expect(screen.queryByRole("menu")).toBeNull();
+	});
+});
+
+describe("RoomDetail / 成员卡片禁言", () => {
+	it("有 mute:manage 权限时显示禁言菜单项", () => {
+		joinWithMembers();
+		mocks.hasPermission.mockImplementation(
+			(code?: string) => code === "mute:manage",
+		);
+		render(<RoomDetail />);
+
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+
+		expect(screen.getByRole("menuitem", { name: "禁言" })).toBeTruthy();
+	});
+
+	it("无 mute:manage 权限时不显示禁言菜单项", () => {
+		joinWithMembers();
+		render(<RoomDetail />);
+
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+
+		expect(screen.queryByRole("menuitem", { name: "禁言" })).toBeNull();
+	});
+
+	it("点击禁言先弹确认框，取消不产生请求或状态变更", () => {
+		joinWithMembers();
+		mocks.hasPermission.mockImplementation(
+			(code?: string) => code === "mute:manage",
+		);
+		render(<RoomDetail />);
+
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "禁言" }));
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		const dialog = screen.getByRole("dialog", { name: "禁言用户" });
+		expect(dialog.textContent).toContain("Bob");
+		expect(mocks.fetchUserInfo).not.toHaveBeenCalled();
+		expect(mocks.createMute).not.toHaveBeenCalled();
+
+		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+
+		expect(screen.queryByRole("dialog", { name: "禁言用户" })).toBeNull();
+		expect(mocks.fetchUserInfo).not.toHaveBeenCalled();
+		expect(mocks.createMute).not.toHaveBeenCalled();
+	});
+
+	it("确认禁言后按 identity 查询用户并调用现有 createMute 接口", async () => {
+		joinWithMembers();
+		mocks.hasPermission.mockImplementation(
+			(code?: string) => code === "mute:manage",
+		);
+		mocks.fetchUserInfo.mockResolvedValue({ id: 42, name: "bob" });
+		render(<RoomDetail />);
+
+		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "禁言" }));
+		const dialog = screen.getByRole("dialog", { name: "禁言用户" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "禁言" }));
+
+		await waitFor(() => {
+			expect(mocks.fetchUserInfo).toHaveBeenCalledWith("bob");
+			expect(mocks.createMute).toHaveBeenCalledWith({
+				user_id: 42,
+				duration: 3600,
+				permanent: false,
+				reason: "",
+			});
+		});
 	});
 });

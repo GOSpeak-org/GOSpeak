@@ -6,7 +6,7 @@ vi.mock("@/api/apiClient", () => {
 });
 
 import apiClient from "@/api/apiClient";
-import { login, register } from "@/api/auth";
+import { getProfile, login, register } from "@/api/auth";
 
 const postMock = vi.mocked(apiClient.post);
 
@@ -65,5 +65,14 @@ describe("authApi", () => {
 		await expect(
 			register({ username: "u", password: "p".repeat(8) }),
 		).rejects.toThrow("register data is missing");
+	});
+
+	it("getProfile leaves error reporting to userStore.fetchProfile", async () => {
+		postMock.mockResolvedValueOnce({} as never);
+		await getProfile({ skipErrorToast: true });
+		expect(postMock).toHaveBeenCalledWith({
+			url: "/api/v1/user/profile",
+			skipErrorToast: true,
+		});
 	});
 });

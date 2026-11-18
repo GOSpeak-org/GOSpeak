@@ -1,7 +1,29 @@
 import { Checkbox } from "@gospeak/components";
+import clsx from "clsx";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { DomainRole } from "@/api/domain";
+
+const PERMISSION_GROUP_LABELS: Record<string, string> = {
+	domain: "域",
+	room: "房间",
+	message: "消息",
+};
+
+function groupPermissions(codes: string[]) {
+	const groups = new Map<string, string[]>();
+	for (const code of codes) {
+		const prefix = code.split(":")[0] || "other";
+		const list = groups.get(prefix) ?? [];
+		list.push(code);
+		groups.set(prefix, list);
+	}
+	return Array.from(groups, ([prefix, items]) => ({
+		prefix,
+		label: PERMISSION_GROUP_LABELS[prefix] ?? prefix,
+		items,
+	}));
+}
 
 export default function DomainRolePanel(props: {
 	roles: DomainRole[];
@@ -65,7 +87,7 @@ export default function DomainRolePanel(props: {
 						<button
 							key={role.name}
 							type="button"
-							className={`hover:bg-muted flex cursor-pointer items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors ${selected === role.name ? "bg-muted" : ""}`}
+							className={`flex cursor-pointer items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors ${selected === role.name ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
 							onClick={() => selectRole(role)}
 						>
 							<span className="truncate">{role.name}</span>
@@ -132,22 +154,45 @@ export default function DomainRolePanel(props: {
 									</button>
 								</div>
 							</div>
-							<div className="grid max-md:grid-cols-1 grid-cols-2 gap-2 xl:grid-cols-3">
-								{props.assignable.map((code) => (
-									<label
-										key={code}
-										className="border-border flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-muted/40"
-									>
-										<Checkbox
-											checked={selectedCodes.has(code)}
-											disabled={isFixedRole()}
-											onCheckedChange={(checked) =>
-												toggle(code, checked === true)
-											}
-											className="mt-0.5"
-										/>
-										<span className="break-all font-mono text-xs">{code}</span>
-									</label>
+							<div className="flex flex-col gap-3">
+								{groupPermissions(props.assignable).map((group) => (
+									<div key={group.prefix}>
+										<div className="text-muted-foreground mb-1.5 flex items-center gap-2 text-xs font-semibold">
+											<span className="bg-primary h-3 w-0.5 rounded-full" />
+											{group.label}
+											<span className="text-faint-foreground font-normal">
+												{group.items.length} 项
+											</span>
+										</div>
+										<div className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-3">
+											{group.items.map((code) => {
+												const checked = selectedCodes.has(code);
+												return (
+													<label
+														key={code}
+														className={clsx(
+															"flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors",
+															checked
+																? "bg-primary/10 text-foreground"
+																: "hover:bg-muted/60 text-muted-foreground",
+															isFixedRole() && "cursor-not-allowed",
+														)}
+													>
+														<Checkbox
+															checked={checked}
+															disabled={isFixedRole()}
+															onCheckedChange={(next) =>
+																toggle(code, next === true)
+															}
+														/>
+														<span className="min-w-0 truncate font-mono text-xs">
+															{code}
+														</span>
+													</label>
+												);
+											})}
+										</div>
+									</div>
 								))}
 							</div>
 						</>

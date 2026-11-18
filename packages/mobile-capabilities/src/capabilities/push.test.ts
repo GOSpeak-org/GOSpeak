@@ -213,4 +213,25 @@ describe.runIf(MOBILE_BUILD)("createPush on the native plugin", () => {
 		expect(plugin.requestPermissions).toHaveBeenCalledTimes(2);
 		expect(plugin.register).toHaveBeenCalledTimes(1);
 	});
+
+	it("retries after a denied permission without registering listeners", async () => {
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		plugin.requestPermissions.mockResolvedValueOnce({ receive: "denied" });
+
+		const push = createPush();
+		await expect(push.register()).resolves.toBeNull();
+
+		expect(plugin.addListener).not.toHaveBeenCalled();
+		expect(plugin.register).not.toHaveBeenCalled();
+		expect(warn).toHaveBeenCalledWith(
+			"[gospeak/mobile] push permission not granted",
+			"denied",
+		);
+
+		await expect(push.register()).resolves.toBeNull();
+
+		expect(plugin.requestPermissions).toHaveBeenCalledTimes(2);
+		expect(plugin.addListener).toHaveBeenCalledTimes(2);
+		expect(plugin.register).toHaveBeenCalledTimes(1);
+	});
 });

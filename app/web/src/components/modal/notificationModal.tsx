@@ -1,6 +1,11 @@
 import { Dialog, DialogContent, DialogTitle } from "@gospeak/components";
-import { Bell, X } from "lucide-react";
+import { ArrowLeft, Bell, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+	LoadingRegion,
+	SkeletonNotificationDetail,
+	SkeletonNotificationList,
+} from "@/components/common/Skeletons";
 import MarkdownText from "@/components/textRoom/MarkdownText";
 import type { AnnouncementDTO } from "@/protocol/announcement";
 import {
@@ -45,6 +50,7 @@ export default function NotificationModal({
 	if (!open) return null;
 
 	const current = items.find((item) => item.uuid === selected) ?? items[0];
+	const showSkeleton = loading && items.length === 0;
 
 	const select = (item: AnnouncementDTO) => {
 		setSelected(item.uuid);
@@ -55,9 +61,9 @@ export default function NotificationModal({
 		<Dialog open onOpenChange={(v) => !v && onClose()}>
 			<DialogContent
 				showClose={false}
-				className="flex h-[min(80vh,640px)] max-w-4xl flex-col gap-0 overflow-hidden p-0"
+				className="flex h-[min(80dvh,640px)] max-w-4xl flex-col gap-0 overflow-hidden p-0 @container"
 			>
-				<div className="border-border flex items-center justify-between border-b px-4 py-3">
+				<div className="border-border flex items-center justify-between border-b px-4 py-3 pt-[env(safe-area-inset-top)]">
 					<div className="flex items-center gap-2">
 						<Bell size={16} />
 						<DialogTitle className="text-base font-semibold">通知</DialogTitle>
@@ -73,9 +79,13 @@ export default function NotificationModal({
 				</div>
 
 				<div className="flex min-h-0 flex-1">
-					<div className="border-border w-72 shrink-0 overflow-y-auto border-r">
-						{loading && items.length === 0 ? (
-							<div className="text-faint-foreground p-4 text-sm">加载中...</div>
+					<div
+						className={`border-border w-full shrink-0 overflow-y-auto border-r @md:w-72 ${selected ? "hidden @md:block" : "block"}`}
+					>
+						{showSkeleton ? (
+							<LoadingRegion label="正在加载通知列表">
+								<SkeletonNotificationList />
+							</LoadingRegion>
 						) : items.length === 0 ? (
 							<div className="text-faint-foreground p-8 text-center text-sm">
 								暂无通知
@@ -111,8 +121,24 @@ export default function NotificationModal({
 						)}
 					</div>
 
-					<div className="min-w-0 flex-1 overflow-y-auto p-5">
-						{current ? (
+					<div
+						className={`min-w-0 flex-1 overflow-y-auto p-5 ${selected ? "block" : "hidden @md:block"}`}
+					>
+						{selected && (
+							<button
+								type="button"
+								onClick={() => setSelected(null)}
+								className="hover:bg-muted mb-3 flex size-9 cursor-pointer items-center justify-center rounded-sm @md:hidden"
+								aria-label="返回通知列表"
+							>
+								<ArrowLeft size={20} />
+							</button>
+						)}
+						{showSkeleton ? (
+							<LoadingRegion label="正在加载通知详情">
+								<SkeletonNotificationDetail />
+							</LoadingRegion>
+						) : current ? (
 							<>
 								<h2 className="mb-1 text-lg font-semibold">{current.title}</h2>
 								<div className="text-faint-foreground mb-4 text-xs">

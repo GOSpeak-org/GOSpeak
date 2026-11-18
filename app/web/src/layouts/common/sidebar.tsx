@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Bell, Home, MessageSquare, Settings, ShieldCheck } from "lucide-react";
 import { useEffect } from "react";
 import OptionSquare from "@/components/common/optionSquare";
-import { LoadingRegion, SkeletonListRows } from "@/components/common/Skeletons";
+import { LoadingRegion, SkeletonIconRail } from "@/components/common/Skeletons";
 import DomainIcon from "@/components/domain/DomainIcon";
 import { firstAccessibleManagePath } from "@/components/manage/manageNav";
 import { getMyDomainsDetailed } from "@/api/domain";
@@ -64,7 +64,7 @@ export default function Sidebar({
 			    不会把图标挤出侧栏、压到左下用户栏上 */}
 			<ScrollArea
 				className="min-h-0 flex-1"
-				viewportClassName="px-2 pb-3"
+				viewportClassName={`px-2 pb-3 ${__GOSPEAK_DESKTOP__ ? "pt-2" : ""}`}
 				type="auto"
 			>
 				<div className="flex flex-col items-center gap-2">
@@ -103,7 +103,7 @@ export default function Sidebar({
 					<div className="bg-border my-1 h-px w-full shrink-0" />
 					{isLoading ? (
 						<LoadingRegion label="正在加载域">
-							<SkeletonListRows rows={4} className="w-full" />
+							<SkeletonIconRail count={Math.max(1, myDomainUUIDs.length)} />
 						</LoadingRegion>
 					) : (
 						(domains ?? []).map((domain) => (

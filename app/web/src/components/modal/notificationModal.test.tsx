@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -36,6 +36,23 @@ describe("NotificationModal", () => {
 	it("shows the empty state when there are no notifications", () => {
 		render(<NotificationModal open onClose={() => {}} />);
 		expect(screen.getByText("暂无通知").textContent).toBe("暂无通知");
+	});
+
+	it("renders skeletons instead of a bare loading label while loading", () => {
+		state.loading = true;
+		render(<NotificationModal open onClose={() => {}} />);
+		const dialog = screen.getByRole("dialog");
+		expect(
+			dialog.querySelector('[data-skeleton="notification-list"]'),
+		).not.toBeNull();
+		expect(
+			dialog.querySelector('[data-skeleton="notification-detail"]'),
+		).not.toBeNull();
+		expect(within(dialog).getByLabelText("正在加载通知列表")).toBeTruthy();
+		expect(within(dialog).getByLabelText("正在加载通知详情")).toBeTruthy();
+		expect(dialog.textContent).not.toContain("加载中");
+		expect(screen.queryByText("暂无通知")).toBeNull();
+		expect(screen.queryByText("选择一条通知查看详情")).toBeNull();
 	});
 
 	it("closes when the close button is clicked", async () => {
