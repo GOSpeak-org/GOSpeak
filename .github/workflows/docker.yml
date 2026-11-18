@@ -139,7 +139,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # 不在发布链导出 GHA 缓存：mode=max 要把双平台全部中间层传回 GitHub，
+          # 单次实测 207s；而发布构建的 ldflags 含 VERSION/COMMIT，每次都变，
+          # 导出的层下次也命中不了。缓存由 PR 的 verify job 持续填充即可。
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             COMMIT=${{ steps.commit.outputs.sha }}

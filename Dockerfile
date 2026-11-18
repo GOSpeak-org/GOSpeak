@@ -24,20 +24,20 @@ RUN pnpm --filter @gospeak/web build
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go-builder
 WORKDIR /build
 ARG TARGETARCH
-ARG VERSION=dev
-ARG COMMIT=unknown
 
 COPY app/server/go.mod app/server/go.sum ./
 RUN go mod download
 COPY app/server/ ./
-# VERSION 是版本权威来源；未传 build-arg 时运行期回退读取该文件
-COPY VERSION ./
 # 将前端产物同步到 go:embed 目录，打进二进制
 COPY --from=web-builder /src/app/web/dist/ ./internal/webui/dist/
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -ldflags="-s -w -X 'GOSpeak/internal/buildinfo.Version=${VERSION}' -X 'GOSpeak/internal/buildinfo.Commit=${COMMIT}'" -o /gospeak .
+# 不在 ldflags 注入版本/commit：它们每次发版都变，会让这一层缓存永远 miss，
+# 实测冷编译 205s。版本与 commit 改由 final stage 写成文件，运行期读取。
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /gospeak .
 
 # ── Stage 3: Production ──────────────────────────────────────────────────
 FROM alpine:3.21
+ARG VERSION=dev
+ARG COMMIT=unknown
 
 RUN apk add --no-cache ca-certificates tzdata wget \
     && addgroup -S app && adduser -S -G app app
@@ -45,7 +45,10 @@ RUN apk add --no-cache ca-certificates tzdata wget \
 WORKDIR /app
 
 COPY --from=go-builder /gospeak /app/gospeak
-COPY --from=go-builder /build/VERSION /app/VERSION
+# 版本与 commit 写成文件（运行期由 buildinfo 读取），而非 ldflags。
+# 这让 go build 层不含易变值，可稳定命中缓存；写文件这一层变化开销可忽略。
+RUN printf '%s\n' "${VERSION}" > /app/VERSION \
+    && printf '%s\n' "${COMMIT}" > /app/COMMIT
 
 RUN mkdir -p /app/db /app/logs /app/uploads /app/nats \
     && chown -R app:app /app

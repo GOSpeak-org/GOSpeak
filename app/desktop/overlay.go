@@ -681,14 +681,17 @@ func loadOverlayConfig() {
 //
 // Main thread only (mygo builds windows there); call it through
 // ensureOverlayWindow unless already inside App.WhenReady.
-func createOverlayWindow() *mygo.Window {
+//
+// width and height are computed by the caller BEFORE it takes overlayWinMu:
+// hudWindowSize -> hudScale -> overlayDisplayWidth -> overlayWindow locks
+// overlayWinMu, so sizing here while the caller holds that lock self-deadlocks.
+func createOverlayWindow(width, height int) *mygo.Window {
 	overlayCfg.mu.Lock()
 	opacity := overlayCfg.opacity
 	locked := overlayCfg.locked
 	protect := overlayCfg.contentProtection
 	overlayCfg.mu.Unlock()
 
-	width, height := hudWindowSize(0)
 	w := mygo.NewWindow(mygo.WindowOptions{
 		Title:   "GOSpeak Overlay " + version,
 		Content: ui.View(hudView(overlayHUD)),
@@ -739,9 +742,13 @@ func ensureOverlayWindow() {
 	// main thread, and posting it also keeps this safe when called from the
 	// policy ticker or an IPC handler.
 	mygo.App.WhenReady(func() {
+		// Size the HUD before taking overlayWinMu: hudWindowSize reaches
+		// overlayWindow(), which locks that same mutex. Computing it here keeps
+		// createOverlayWindow from re-locking a mutex we already hold.
+		width, height := hudWindowSize(0)
 		overlayWinMu.Lock()
 		if overlayWin == nil {
-			overlayWin = createOverlayWindow()
+			overlayWin = createOverlayWindow(width, height)
 		}
 		w := overlayWin
 		overlayWinMu.Unlock()

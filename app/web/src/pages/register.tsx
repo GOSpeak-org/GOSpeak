@@ -13,10 +13,9 @@ import { useUserStore } from "@/stores/userStore";
 import { depth, useAuthParallax } from "@/hooks/useAuthParallax";
 
 export const Route = createFileRoute("/register")({
-	beforeLoad: async () => {
-		// 已有会话或 access 过期但仍可无感刷新时，直接进首页
-		const ok = await useUserStore.getState().ensureSession();
-		if (ok) {
+	// 同登录页：有缓存用户就直接进首页，不等网络。
+	beforeLoad: () => {
+		if (useUserStore.getState().user) {
 			throw redirect({ to: "/" });
 		}
 	},

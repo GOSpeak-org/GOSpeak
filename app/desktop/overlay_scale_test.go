@@ -41,6 +41,40 @@ func TestHudWindowSize(t *testing.T) {
 	}
 }
 
+// TestHudWindowSizeLocksOverlayWinMu documents the lock ordering that caused
+// a startup deadlock: with an automatic scale, hudWindowSize reaches
+// overlayDisplayWidth -> overlayWindow(), which takes overlayWinMu. Callers
+// must therefore size the window (hudWindowSize) BEFORE taking overlayWinMu;
+// doing it inside (as createOverlayWindow used to) self-deadlocks. This test
+// pins the behaviour so a future refactor cannot silently reintroduce it.
+func TestHudWindowSizeLocksOverlayWinMu(t *testing.T) {
+	overlayCfg.mu.Lock()
+	prevScale := overlayCfg.scale
+	overlayCfg.scale = 0 // automatic: forces the overlayDisplayWidth path
+	overlayCfg.mu.Unlock()
+	t.Cleanup(func() {
+		overlayCfg.mu.Lock()
+		overlayCfg.scale = prevScale
+		overlayCfg.mu.Unlock()
+	})
+
+	called := false
+	prevDisplayWidth := overlayDisplayWidth
+	overlayDisplayWidth = func() int {
+		called = true
+		// This is exactly what overlayWindow() does: take overlayWinMu.
+		overlayWinMu.Lock()
+		overlayWinMu.Unlock()
+		return 1920
+	}
+	t.Cleanup(func() { overlayDisplayWidth = prevDisplayWidth })
+
+	hudWindowSize(0)
+	if !called {
+		t.Fatal("hudWindowSize must consult overlayDisplayWidth on automatic scale")
+	}
+}
+
 func TestHudScaleFallsBackToAuto(t *testing.T) {
 	overlayCfg.mu.Lock()
 	prevScale := overlayCfg.scale
