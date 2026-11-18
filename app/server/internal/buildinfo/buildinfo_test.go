@@ -12,6 +12,42 @@ func withVersion(t *testing.T) {
 	t.Cleanup(func() { Version = prev })
 }
 
+func withCommit(t *testing.T) {
+	t.Helper()
+	prev := Commit
+	t.Cleanup(func() { Commit = prev })
+}
+
+func TestResolveCommitReadsCOMMITFile(t *testing.T) {
+	withCommit(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("f349de6defe\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	Commit = "unknown"
+	ResolveCommit()
+	if Commit != "f349de6defe" {
+		t.Fatalf("expected COMMIT file value, got %q", Commit)
+	}
+}
+
+func TestResolveCommitKeepsInjectedCommit(t *testing.T) {
+	withCommit(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "COMMIT"), []byte("abc1234"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	Commit = "injected"
+	ResolveCommit()
+	if Commit != "injected" {
+		t.Fatalf("ldflags-injected commit must win, got %q", Commit)
+	}
+}
+
 func TestResolveVersionReadsVERSIONFile(t *testing.T) {
 	withVersion(t)
 	dir := t.TempDir()

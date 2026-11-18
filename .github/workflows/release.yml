@@ -56,7 +56,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  # version-bump 会用 workflow_call 分别以 server / desktop tag 调用本 workflow。
+  # 在 called workflow 里 github.ref 是调用方的 ref（refs/heads/release），
+  # 只用 ref 分组会让两条发布链落到同一组、被串行执行（server 白等 desktop 十几分钟）。
+  # 带上 inputs.tag 让两条链各用各的组并行；push / dispatch 无 inputs 时回退到 ref。
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -287,7 +291,7 @@ jobs:
       - name: Upload web artifact
         uses: actions/upload-artifact@v7
         with:
-          name: release-web-dist
+          name: release-web-dist-${{ needs.resolve-tag.outputs.component }}
           path: app/web/dist
           retention-days: 3
 
@@ -354,7 +358,7 @@ jobs:
         # 服务端偶发重压缩致 digest 不匹配（产物无损），warn 避免发布链被炸
         with:
           digest-mismatch: warn
-          name: release-web-dist
+          name: release-web-dist-${{ needs.resolve-tag.outputs.component }}
           path: app/web/dist
 
       - uses: actions/setup-go@v7
@@ -473,20 +477,16 @@ jobs:
   # ── 桌面端：Cross-Platform Desktop Binaries ─────────────────────────────
   # ── 桌面端：macOS 安装包（DMG，需要 macOS runner 的 hdiutil）──────────────
   build-desktop-macos:
-    name: Build desktop macOS ${{ matrix.arch }}
+    name: Build desktop macOS (arm64 + amd64)
     if: needs.resolve-tag.outputs.component == 'desktop'
+    # 两个架构都在同一台 macos-latest 上构建：Go/mygo 对 darwin/amd64 是纯
+    # 交叉编译（CGO_ENABLED=0），hdiutil/codesign 与 CPU 架构无关。拆成两个
+    # job 反而让第二个排队等 macOS runner（实测白等 10 分钟），setup-go 与
+    # pnpm-install 也重复跑。mygo 每个架构输出到独立的 dist/darwin-<arch>/。
     runs-on: macos-latest
     needs: [resolve-tag, version-check, create-release, build-web]
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: arm64
-            goarch: arm64
-          - arch: amd64
-            goarch: amd64
     steps:
       - uses: actions/checkout@v7
         with:
@@ -497,7 +497,7 @@ jobs:
         # 服务端偶发重压缩致 digest 不匹配（产物无损），warn 避免发布链被炸
         with:
           digest-mismatch: warn
-          name: release-web-dist
+          name: release-web-dist-${{ needs.resolve-tag.outputs.component }}
           path: app/web/dist
 
       - uses: actions/setup-go@v7
@@ -526,7 +526,7 @@ jobs:
       #
       # 版本号通过 MYGO_LDFLAGS 注入 main.version/main.commit（mygo 会把它们与
       # packageFlags 合并），保证 --version 与 tag 一致。
-      - name: Build macOS app and DMG
+      - name: Build macOS app and DMG (arm64 + amd64)
         working-directory: app/desktop
         env:
           CGO_ENABLED: 0
@@ -535,49 +535,48 @@ jobs:
             -X 'main.version=${{ needs.resolve-tag.outputs.version }}'
             -X 'main.commit=${{ steps.source.outputs.commit }}'
         run: |
-          ./node_modules/.bin/mygo build \
-            -skip-build-command \
-            -platform "darwin/${{ matrix.goarch }}"
+          set -euo pipefail
+          for arch in arm64 amd64; do
+            echo "=== building darwin/$arch ==="
+            ./node_modules/.bin/mygo build \
+              -skip-build-command \
+              -platform "darwin/$arch"
+          done
 
       # 用途说明缺失说明打包链路有问题：直接失败，不发一个麦克风不可用的包。
-      - name: Verify bundle metadata
-        working-directory: app/desktop
-        run: |
-          APP="$(find dist -maxdepth 2 -type d -name GOSpeak.app -print -quit)"
-          test -n "$APP" -a -d "$APP"
-          plutil -p "$APP/Contents/Info.plist" | grep -q NSMicrophoneUsageDescription
-          plutil -p "$APP/Contents/Info.plist" | grep -q NSCameraUsageDescription
-          DMG="$(find dist -maxdepth 2 -type f -name '*.dmg' -print -quit)"
-          test -n "$DMG" -a -f "$DMG"
-          # 挂载一次确认镜像可读且包含 .app 与 /Applications 链接。
-          hdiutil attach "$DMG" -nobrowse -readonly -mountpoint /tmp/gospeak-dmg
-          ls /tmp/gospeak-dmg/GOSpeak.app >/dev/null
-          test -L /tmp/gospeak-dmg/Applications
-          hdiutil detach /tmp/gospeak-dmg
-          echo "DMG verified: $DMG"
-
-      - name: Normalize artifact name
-        id: name
+      - name: Verify bundles and normalize names
         working-directory: app/desktop
         env:
           VERSION: ${{ needs.resolve-tag.outputs.version }}
         run: |
           set -euo pipefail
-          # mygo 产出的 dmg 名由 mygo.config.ts 的 version 决定，格式不受我们控制。
-          # 这里统一重命名为 gospeak-desktop-v<ver>-darwin-<arch>.dmg，
-          # 与服务端产物/tag 命名一一对应。
-          src="$(find dist -maxdepth 2 -type f -name '*.dmg' -print -quit)"
-          test -n "$src" -a -f "$src"
-          out="$(node "$GITHUB_WORKSPACE/scripts/release-naming.mjs" artifact desktop "$VERSION" darwin '${{ matrix.arch }}' dmg)"
-          cp "$src" "dist/$out"
-          echo "artifact=$out" >> "$GITHUB_OUTPUT"
-          echo "normalized: $src -> dist/$out"
+          for arch in arm64 amd64; do
+            dir="dist/darwin-$arch"
+            APP="$(find "$dir" -maxdepth 1 -type d -name GOSpeak.app -print -quit)"
+            test -n "$APP" -a -d "$APP"
+            plutil -p "$APP/Contents/Info.plist" | grep -q NSMicrophoneUsageDescription
+            plutil -p "$APP/Contents/Info.plist" | grep -q NSCameraUsageDescription
+            DMG="$(find "$dir" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+            test -n "$DMG" -a -f "$DMG"
+            # 挂载一次确认镜像可读且包含 .app 与 /Applications 链接。
+            mnt="/tmp/gospeak-dmg-$arch"
+            hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$mnt"
+            ls "$mnt/GOSpeak.app" >/dev/null
+            test -L "$mnt/Applications"
+            hdiutil detach "$mnt"
+            echo "DMG verified: $DMG"
+            # mygo 产出的 dmg 名由 mygo.config.ts 的 version 决定，格式不受我们控制。
+            # 统一重命名为 gospeak-desktop-v<ver>-darwin-<arch>.dmg，与 tag 命名对应。
+            out="$(node "$GITHUB_WORKSPACE/scripts/release-naming.mjs" artifact desktop "$VERSION" darwin "$arch" dmg)"
+            cp "$DMG" "dist/$out"
+            echo "normalized: $DMG -> dist/$out"
+          done
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: gospeak-desktop-darwin-${{ matrix.arch }}
-          path: app/desktop/dist/${{ steps.name.outputs.artifact }}
+          name: gospeak-desktop-darwin
+          path: app/desktop/dist/gospeak-desktop-v*.dmg
           if-no-files-found: error
           retention-days: 14
 
@@ -585,13 +584,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.create-release.outputs.release_tag }}
-          ARTIFACT: ${{ steps.name.outputs.artifact }}
         run: |
+          set -euo pipefail
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG not found; skipping upload."
             exit 0
           fi
-          gh release upload "$TAG" "app/desktop/dist/${ARTIFACT}" --clobber
+          shopt -s nullglob
+          for f in app/desktop/dist/gospeak-desktop-v*.dmg; do
+            echo "Uploading $f"
+            gh release upload "$TAG" "$f" --clobber
+          done
 
   # ── 桌面端：Linux / Windows 安装包 ──────────────────────────────────────
   build-desktop-others:
@@ -624,7 +627,7 @@ jobs:
         # 服务端偶发重压缩致 digest 不匹配（产物无损），warn 避免发布链被炸
         with:
           digest-mismatch: warn
-          name: release-web-dist
+          name: release-web-dist-${{ needs.resolve-tag.outputs.component }}
           path: app/web/dist
 
       - uses: actions/setup-go@v7
