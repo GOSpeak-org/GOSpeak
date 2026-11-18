@@ -13,27 +13,29 @@
 #
 # 同步约束（release.yml 的 version-check 会校验）：根 VERSION 与根 package.json
 # 的 version 必须与本文件一致。
-version: "1.1.0-rc.1"
+version: "1.1.0-rc.2"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时由 scripts/build-changelog.mjs 按 conventional commits 生成，
 # 基线只取本组件的历史 tag。
 notes: |
-  GOSpeak 1.1.0-rc.1 —— 三端样式平台适配与共享反代规则层。
+  GOSpeak 1.1.0-rc.2 —— Casbin 权限权威化、原生能力增强与稳定性修复。
 
-  ## 新增
-  - 平台样式适配层：构建目标写入 <html data-platform>，Web / 桌面 / 移动三端的
-    样式差异收敛到一处，业务分支仍只用 inDesktop() / inMobile()
-  - 三端共享反代纯规则 app/shared/proxyrules：地址校验、Set-Cookie 改写与
-    worker 白名单只有一份实现，桌面宿主直接 import，移动端经 gomobile 绑定调用
-  - 系统偏好兜底：color-scheme 跟随明暗、reduced-motion 全局降级、
-    prefers-contrast 提升对比
+  ## 权限与管理
+  - Casbin 成为权限判定的权威来源，角色权限页重新设计
+  - 管理端页面错误处理与布局打磨
 
-  ## 修复
-  - 非 JSON 错误响应不再弹出空白错误提示
-  - Set-Cookie 属性改为按名称匹配、worker 目标按原始 URL 解析，
-    反代白名单判定更准确
+  ## Web / UI
+  - API 错误 toast 交由调用方决定（skipErrorToast），避免重复与误报
+  - 新增 dropdown / popover 基础组件并打磨交互
+  - 房间 created_by 贯穿 protocol、signal 与前端客户端
+
+  ## 桌面端
+  - 修复打开应用设置页导致应用卡死
+  - 代理与原生能力增强、Aurora 主题与成员列表体验修复
 
   ## 移动端
-  - Android / iOS 原生侧删除内联反代实现，统一调用共享规则
-  - gomobile 绑定面纳入 CI 门禁：gobind 静默跳过导出函数会被拦下
+  - 弹窗响应式、平台判定与性能热点优化
+  - 接通 Push 前端注册与 token 上报适配器，权限被拒后可重试
+  - 音频路由回读原生状态并修正 Android 默认外放；语音房使用 microphone 前台服务
+  - 注册 iOS ServerConfig 插件并补注册门禁
