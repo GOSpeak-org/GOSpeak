@@ -15,7 +15,7 @@
 #   app/desktop/package.json 的 version
 #   app/desktop/mygo.config.ts 的 version（决定安装包文件名）
 # 两者都必须与本文件一致。
-version: "1.1.0-rc.2"
+version: "1.1.0-rc.3"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时以最近的 gospeak-desktop-v* tag 为基线按 commit 生成
