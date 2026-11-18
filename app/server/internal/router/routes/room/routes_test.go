@@ -57,6 +57,7 @@ func TestRoomHandler_CRUD_AllowedThroughProtectedRoutesWithoutGlobalPermission(t
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
+		&model.User{},
 		&model.Room{},
 		&model.Domain{},
 		&model.DomainMember{},
@@ -86,7 +87,13 @@ func TestRoomHandler_CRUD_AllowedThroughProtectedRoutesWithoutGlobalPermission(t
 		t.Fatalf("seed room: %v", err)
 	}
 
-	domainSvc := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil)
+	domainSvc, err := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil, repository.NewDomainCasbinAdapter(db))
+
+	if err != nil {
+
+		t.Fatalf("new domain service: %v", err)
+
+	}
 	h := handler.NewRoomHandler(service.NewRoomService(repository.NewRoomRepository(db)), nil, domainSvc, nil, nil)
 
 	r := gin.New()

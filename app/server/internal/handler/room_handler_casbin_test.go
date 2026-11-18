@@ -68,9 +68,12 @@ func newRoomCasbinEnv(t *testing.T) (*gorm.DB, *model.Domain, *service.DomainSer
 		t.Fatalf("create room: %v", err)
 	}
 
-	domainSvc := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil)
-	if err := domainSvc.UseCasbin(repository.NewDomainCasbinAdapter(db)); err != nil {
-		t.Fatalf("use casbin: %v", err)
+	domainSvc, err := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil, repository.NewDomainCasbinAdapter(db))
+
+	if err != nil {
+
+		t.Fatalf("new domain service: %v", err)
+
 	}
 	return db, domain, domainSvc, room.ID
 }

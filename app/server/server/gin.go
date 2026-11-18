@@ -102,21 +102,29 @@ func StartGin(env EnvEnum) error {
 	domainRepo := repository.NewDomainRepository(db)
 	domainRoleRepo := repository.NewDomainRoleRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
+	sfuConfigSvc := service.NewSFUConfigService(sfuConfigRepo, cfg)
+	if err := seedControlPlane(db, roleRepo, userRepo, permRepo, sfuConfigSvc); err != nil {
+		return fmt.Errorf("seed control plane: %w", err)
+	}
 	inviteSvc := service.NewInviteService(repository.NewDomainInviteRepository(db), domainRepo, cfg.StorageEncryptKey, cfg.JWTKey)
-	domainSvc := service.NewDomainService(domainRepo, domainRoleRepo, inviteSvc)
+	domainSvc, err := service.NewDomainService(domainRepo, domainRoleRepo, inviteSvc, repository.NewDomainCasbinAdapter(db))
+	if err != nil {
+		return fmt.Errorf("failed to init domain casbin: %w", err)
+	}
 	joinRequestSvc := service.NewJoinRequestService(
 		repository.NewDBTxRunner(db),
 		repository.NewDomainJoinRequestRepository(db),
 		domainRepo,
 		userRepo,
 	)
+	joinRequestSvc.SetMemberAddedHook(domainSvc.OnMemberAdded)
 
-	permSvc := service.NewPermissionService(permRepo)
-	if err := permSvc.UseCasbin(repository.NewCasbinAdapter(db)); err != nil {
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
 		return fmt.Errorf("failed to init casbin: %w", err)
 	}
-	if err := domainSvc.UseCasbin(repository.NewDomainCasbinAdapter(db)); err != nil {
-		return fmt.Errorf("failed to init domain casbin: %w", err)
+	if err := permSvc.LoadCache(); err != nil {
+		return fmt.Errorf("failed to load permission cache: %w", err)
 	}
 
 	// 角色改名/删除后连锁重载权限缓存与 Casbin 策略（角色名是两者共用的 key），
@@ -137,7 +145,6 @@ func StartGin(env EnvEnum) error {
 	roomSvc := service.NewRoomService(roomRepo)
 	messageSvc := service.NewMessageService(messageRepo, roomRepo, domainSvc, userRepo)
 	muteSvc := service.NewMuteService(muteRepo, userRepo)
-	sfuConfigSvc := service.NewSFUConfigService(sfuConfigRepo, cfg)
 	var sfuProvider sfu.Provider = factory.NewDynamicProvider(sfuConfigSvc.ResolveConfig)
 
 	r := gin.New()
@@ -212,6 +219,7 @@ func StartGin(env EnvEnum) error {
 	dispatcher := bus.NewInternalDispatcher()
 	dispatcher.Register(service.EventPermissionsInvalidated, permSvc.OnRemoteInvalidate)
 	dispatcher.Register(service.EventDomainMembershipChanged, domainSvc.OnRemoteInvalidate)
+	dispatcher.Register(service.EventDomainPolicyChanged, domainSvc.OnRemotePolicyChanged)
 	dispatcher.Register(service.EventMuteChanged, muteSvc.OnRemoteInvalidate)
 	dispatcher.Register(service.EventMuteExpired, func(payload interface{}) {
 		if p, err := bus.DecodePayload[service.MuteExpiredPayload](payload); err == nil {
@@ -296,6 +304,8 @@ func StartGin(env EnvEnum) error {
 		repository.NewDomainInviteRepository(db), domainRepo, userRepo,
 		emailConfigSvc, emailVerificationSvc,
 	)
+	inviteJoinSvc.SetEventBus(eventBus)
+	inviteJoinSvc.SetMemberAddedHook(domainSvc.OnMemberAdded)
 	inviteH := handler.NewInviteHandler(inviteSvc, domainSvc, permSvc)
 	inviteJoinH := handler.NewInviteJoinHandler(inviteJoinSvc, authCookieCfg)
 	joinRequestH := handler.NewJoinRequestHandler(joinRequestSvc, domainSvc, permSvc)
@@ -328,9 +338,6 @@ func StartGin(env EnvEnum) error {
 		AuthCookieName:      cfg.AccessCookieName,
 	})
 
-	if err := bootstrapControlPlane(db, roleRepo, userRepo, permRepo, sfuConfigSvc, permSvc); err != nil {
-		return fmt.Errorf("bootstrap control plane: %w", err)
-	}
 	startJobConsumers(jobQueue, eventBus.InstanceID(), signalHub, messageSvc, conversationSvc)
 
 	domainH := handler.NewDomainHandler(domainSvc, permSvc, auditSvc,

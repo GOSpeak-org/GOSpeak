@@ -40,13 +40,13 @@ import EditRoomModal from "@/components/modal/editRoomModal";
 import { domainStore, useDomainStore } from "@/stores/domainStore";
 import { useUserStore } from "@/stores/userStore";
 import { hasDomainPermission } from "@/utils/domainPermissions";
-import { hasAnyPermission, hasPermission } from "@/utils/permissions";
+import { hasPermission } from "@/utils/permissions";
 import { runOptimistic } from "@/utils/optimistic";
 import { domainNameSchema, fieldError } from "@/utils/formSchemas";
 import { apiErrorMessage } from "@/utils/apiError";
 import { toastActionError } from "@/utils/toast";
 import { DomainSettingsForm } from "./components/DomainSettingsForm";
-import DomainRolePanel from "./components/DomainRolePanel";
+import DomainRolePanel from "@/components/manage/DomainRolePanel";
 
 export const Route = createFileRoute("/(app)/manage/domains/$domainUUID/")({
 	component: RouteComponent,
@@ -253,9 +253,6 @@ function RouteComponent() {
 	);
 
 	const canManageRooms =
-		isOwner ||
-		currentRole === "admin" ||
-		hasAnyPermission("room:update", "room:delete") ||
 		hasDomainPermission(uuid, "room:update") ||
 		hasDomainPermission(uuid, "room:delete");
 
@@ -749,8 +746,6 @@ function RouteComponent() {
 						>
 							<DomainRoomTable
 								rooms={rooms}
-								currentUserName={currentUser?.name}
-								canManage={canManageRooms}
 								loading={roomLoading}
 								refreshing={roomRefreshing}
 								error={roomError}

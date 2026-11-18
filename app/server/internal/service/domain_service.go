@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/casbin/casbin/v2"
+	casbinpersist "github.com/casbin/casbin/v2/persist"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +43,7 @@ type DomainService struct {
 	memberCacheMu sync.RWMutex
 
 	authEnforcer *casbin.SyncedEnforcer
-	useCasbin    bool
+	policyStale  bool
 
 	// inviteCreator 用于新建域时自动生成默认邀请码；nil 表示跳过（测试/降级）。
 	inviteCreator *InviteService
@@ -51,6 +52,7 @@ type DomainService struct {
 // OnMemberAdded 清理成员缓存并广播失效；供加入审核通过后复用。
 func (s *DomainService) OnMemberAdded(domainUUID, userUUID string) {
 	s.invalidateMembership(domainUUID, userUUID, true)
+	s.notifyPolicyChanged(domainUUID)
 }
 
 type domainMemberCacheEntry struct {
@@ -58,13 +60,18 @@ type domainMemberCacheEntry struct {
 	expires time.Time
 }
 
-func NewDomainService(domainRepo *repository.DomainRepository, roleRepo *repository.DomainRoleRepository, inviteCreator *InviteService) *DomainService {
+func NewDomainService(domainRepo *repository.DomainRepository, roleRepo *repository.DomainRoleRepository, inviteCreator *InviteService, adapter casbinpersist.Adapter) (*DomainService, error) {
+	enforcer, err := newDomainEnforcer(adapter)
+	if err != nil {
+		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
 	return &DomainService{
 		inviteCreator: inviteCreator,
 		domainRepo:    domainRepo,
 		roleRepo:      roleRepo,
 		memberCache:   make(map[string]domainMemberCacheEntry),
-	}
+		authEnforcer:  enforcer,
+	}, nil
 }
 
 // SetEventBus 注入 NATS 内部事件发布器，用于成员变更后的缓存失效广播。
@@ -76,6 +83,13 @@ func (s *DomainService) SetEventBus(b cacheBus) {
 func (s *DomainService) OnRemoteInvalidate(payload interface{}) {
 	domainUUID, userUUID := parseInvalidationPayload(payload)
 	s.invalidateMembership(domainUUID, userUUID, false)
+}
+
+// OnRemotePolicyChanged 收到其他实例的域策略变更事件后重载 Casbin 策略。
+func (s *DomainService) OnRemotePolicyChanged(_ interface{}) {
+	if err := s.ReloadPolicy(); err != nil {
+		log.Printf("[Domain] remote policy reload failed: %v", err)
+	}
 }
 
 func parseInvalidationPayload(payload interface{}) (string, string) {
@@ -146,6 +160,7 @@ func (s *DomainService) Create(name, description, ownerUUID string, isPublic boo
 			return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 		}
 	}
+	s.notifyPolicyChanged(domain.UUID)
 	return domain, nil
 }
 
@@ -195,6 +210,7 @@ func (s *DomainService) Delete(uuid string) error {
 		return err
 	}
 	s.invalidateMembership(uuid, "", true)
+	s.notifyPolicyChanged(uuid)
 	return nil
 }
 
@@ -210,6 +226,7 @@ func (s *DomainService) AddMember(domainUUID, userUUID string) error {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	s.invalidateMembership(domainUUID, userUUID, true)
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 
@@ -228,6 +245,7 @@ func (s *DomainService) Leave(domainUUID, userUUID string) error {
 		return err
 	}
 	s.invalidateMembership(domainUUID, userUUID, true)
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 
@@ -246,6 +264,7 @@ func (s *DomainService) Kick(domainUUID, targetUserUUID string) error {
 		return err
 	}
 	s.invalidateMembership(domainUUID, targetUserUUID, true)
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 
@@ -346,6 +365,7 @@ func (s *DomainService) TransferOwnership(domainUUID, currentOwnerUUID, newOwner
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	s.invalidateMembership(domain.UUID, "", true)
+	s.notifyPolicyChanged(domain.UUID)
 	return nil
 }
 
@@ -355,34 +375,49 @@ func (s *DomainService) HasDomainPermission(domainUUID, userUUID, permCode strin
 	}
 	s.memberCacheMu.RLock()
 	enforcer := s.authEnforcer
-	useCasbin := s.useCasbin
+	stale := s.policyStale
 	s.memberCacheMu.RUnlock()
-	if useCasbin && !s.reloadDomainCasbin(enforcer) {
+	if stale || enforcer == nil {
 		return false
 	}
-	if useCasbin && enforcer != nil {
-		allowed, err := enforcer.Enforce(userUUID, domainUUID, permCode)
-		return err == nil && allowed
+	allowed, err := enforcer.Enforce(userUUID, domainUUID, permCode)
+	return err == nil && allowed
+}
+
+func (s *DomainService) ReloadPolicy() error {
+	s.memberCacheMu.RLock()
+	enforcer := s.authEnforcer
+	s.memberCacheMu.RUnlock()
+	if enforcer == nil {
+		s.memberCacheMu.Lock()
+		s.policyStale = true
+		s.memberCacheMu.Unlock()
+		return pkg.NewAppError(pkg.INTERNAL_ERROR, "domain policy enforcer not initialized")
 	}
-	member, err := s.domainRepo.GetMember(domainUUID, userUUID)
-	if err != nil {
-		return false
+	if err := enforcer.LoadPolicy(); err != nil {
+		log.Printf("[Domain] casbin policy reload failed: %v", err)
+		s.memberCacheMu.Lock()
+		s.policyStale = true
+		s.memberCacheMu.Unlock()
+		return err
 	}
-	if member.RoleName == model.DomainRoleOwner || member.RoleName == model.DomainRoleAdmin {
-		_, ok := model.AssignableDomainPermissionsSet()[permCode]
-		return ok
+	s.memberCacheMu.Lock()
+	s.policyStale = false
+	s.memberCacheMu.Unlock()
+	return nil
+}
+
+func (s *DomainService) notifyPolicyChanged(domainUUID string) {
+	if err := s.ReloadPolicy(); err != nil {
+		log.Printf("[Domain] reload after policy change failed: %v", err)
 	}
-	codes, err := s.roleRepo.GetRolePermissions(domainUUID, member.RoleName)
-	if err != nil {
-		return false
-	}
-	for _, code := range codes {
-		if code == permCode {
-			return true
+	if s.bus != nil {
+		if err := s.bus.PublishInternal(context.Background(), EventDomainPolicyChanged, DomainPolicyChangedPayload{DomainUUID: domainUUID}); err != nil {
+			log.Printf("[Domain] publish policy invalidate: %v", err)
 		}
 	}
-	return false
 }
+
 
 func (s *DomainService) ListDomainRoles(domainUUID string) ([]model.DomainRole, error) {
 	return s.roleRepo.ListRoles(domainUUID)
@@ -424,6 +459,7 @@ func (s *DomainService) CreateDomainRole(domainUUID, name string, permissions []
 	if err := s.roleRepo.CreateRoleWithPermissions(role, permissions); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 
@@ -443,6 +479,7 @@ func (s *DomainService) UpdateDomainRolePermissions(domainUUID, roleName string,
 	if err := s.roleRepo.SyncRolePermissions(domainUUID, roleName, permissions); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 
@@ -466,6 +503,7 @@ func (s *DomainService) DeleteDomainRole(domainUUID, roleName string) error {
 	if err := s.roleRepo.DeleteRole(domainUUID, roleName); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 
@@ -499,6 +537,7 @@ func (s *DomainService) SetMemberRole(domainUUID, operatorUUID, targetUserUUID, 
 	if err := s.domainRepo.UpdateMember(target); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.notifyPolicyChanged(domainUUID)
 	return nil
 }
 

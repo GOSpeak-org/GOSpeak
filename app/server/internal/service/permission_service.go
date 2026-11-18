@@ -25,7 +25,6 @@ type cacheBus interface {
 type PermissionService struct {
 	permRepo  *repository.PermissionRepository
 	enforcer  *casbin.SyncedEnforcer
-	useCasbin bool
 
 	// 缓存：roleName → permission codes
 	cache   map[string]map[string]struct{}
@@ -33,34 +32,23 @@ type PermissionService struct {
 	bus     cacheBus
 }
 
-func NewPermissionService(permRepo *repository.PermissionRepository) *PermissionService {
+func NewPermissionService(permRepo *repository.PermissionRepository, adapter casbinpersist.Adapter) (*PermissionService, error) {
+	parsedModel, err := casbinmodel.NewModelFromString(casbinModelText())
+	if err != nil {
+		return nil, fmt.Errorf("load casbin model: %w", err)
+	}
+	enforcer, err := casbin.NewSyncedEnforcer(parsedModel, adapter)
+	if err != nil {
+		return nil, fmt.Errorf("init casbin enforcer: %w", err)
+	}
+	if err := enforcer.LoadPolicy(); err != nil {
+		return nil, fmt.Errorf("load casbin policy: %w", err)
+	}
 	return &PermissionService{
 		permRepo: permRepo,
 		cache:    make(map[string]map[string]struct{}),
-		enforcer: &casbin.SyncedEnforcer{},
-	}
-}
-
-// UseCasbin loads role permissions into a Casbin enforcer and makes it the
-// authoritative HasPermission implementation. The legacy cache stays warm so
-// existing callers and rollback paths keep working during migration.
-func (s *PermissionService) UseCasbin(adapter casbinpersist.Adapter) error {
-	casbinModel, err := casbinmodel.NewModelFromString(casbinModelText())
-	if err != nil {
-		return fmt.Errorf("load casbin model: %w", err)
-	}
-	enforcer, err := casbin.NewSyncedEnforcer(casbinModel, adapter)
-	if err != nil {
-		return fmt.Errorf("init casbin enforcer: %w", err)
-	}
-	if err := enforcer.LoadPolicy(); err != nil {
-		return fmt.Errorf("load casbin policy: %w", err)
-	}
-	s.cacheMu.Lock()
-	s.enforcer = enforcer
-	s.useCasbin = true
-	s.cacheMu.Unlock()
-	return nil
+		enforcer: enforcer,
+	}, nil
 }
 
 func (s *PermissionService) SetEventBus(b cacheBus) {
@@ -71,6 +59,9 @@ func (s *PermissionService) SetEventBus(b cacheBus) {
 func (s *PermissionService) OnRemoteInvalidate(payload interface{}) {
 	if err := s.LoadCache(); err != nil {
 		log.Printf("[Permission] remote cache reload failed: %v", err)
+	}
+	if err := s.reloadCasbin(); err != nil {
+		log.Printf("[Permission] remote casbin reload failed: %v", err)
 	}
 }
 
@@ -97,25 +88,16 @@ func (s *PermissionService) LoadCache() error {
 func (s *PermissionService) HasPermission(roleName, permCode string) bool {
 	s.cacheMu.RLock()
 	enforcer := s.enforcer
-	hasCasbin := s.useCasbin
 	s.cacheMu.RUnlock()
-	if hasCasbin && enforcer != nil {
-		allowed, err := enforcer.Enforce(roleName, permCode)
-		if err != nil {
-			log.Printf("[Permission] casbin enforce failed (role=%s perm=%s): %v", roleName, permCode, err)
-			return false
-		}
-		return allowed
-	}
-
-	s.cacheMu.RLock()
-	defer s.cacheMu.RUnlock()
-	perms, ok := s.cache[roleName]
-	if !ok {
+	if enforcer == nil {
 		return false
 	}
-	_, found := perms[permCode]
-	return found
+	allowed, err := enforcer.Enforce(roleName, permCode)
+	if err != nil {
+		log.Printf("[Permission] casbin enforce failed (role=%s perm=%s): %v", roleName, permCode, err)
+		return false
+	}
+	return allowed
 }
 
 // GetRolePermissions 获取角色的权限码列表。

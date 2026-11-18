@@ -16,6 +16,8 @@ const (
 	EventDomainMemberAdded = "domain:member-added"
 	// EventRoomListChanged 房间元数据经 REST 变更，订阅方重新广播房间列表。
 	EventRoomListChanged = "room:list-changed"
+	// EventDomainPolicyChanged 域策略（成员/角色/权限）变更，订阅方重载 Casbin 策略。
+	EventDomainPolicyChanged = "cache:domain-policy-changed"
 )
 
 type PermissionsInvalidatedPayload struct {
@@ -42,6 +44,10 @@ type DomainMemberAddedPayload struct {
 }
 
 type RoomListChangedPayload struct {
+	DomainUUID string `json:"domain_uuid"`
+}
+
+type DomainPolicyChangedPayload struct {
 	DomainUUID string `json:"domain_uuid"`
 }
 

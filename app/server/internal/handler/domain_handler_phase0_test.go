@@ -83,6 +83,9 @@ func TestDomainHandler_Kick_AdminSuccess(t *testing.T) {
 	}
 	db.Create(&model.DomainMember{DomainUUID: g.UUID, UserUUID: "admin-1", RoleName: "admin"})
 	db.Create(&model.DomainMember{DomainUUID: g.UUID, UserUUID: "member-2", RoleName: "member"})
+	if err := domainSvc.ReloadPolicy(); err != nil {
+		t.Fatalf("reload policy: %v", err)
+	}
 
 	w := postDomainJSON(t, router, "/api/v1/domain/kick", `{"domain_uuid":"`+g.UUID+`","user_uuid":"member-2"}`, map[string]string{"X-User-UUID": "admin-1"})
 	resp := parseDomainResp(t, w.Body.String())

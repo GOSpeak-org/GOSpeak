@@ -11,6 +11,7 @@ var (
 	EventMuteExpired             = protocol.EventMuteExpired
 	EventDomainMemberAdded       = protocol.EventDomainMemberAdded
 	EventRoomListChanged         = protocol.EventRoomListChanged
+	EventDomainPolicyChanged     = protocol.EventDomainPolicyChanged
 )
 
 type (
@@ -20,4 +21,5 @@ type (
 	DomainMembershipChangedPayload = protocol.DomainMembershipChangedPayload
 	DomainMemberAddedPayload       = protocol.DomainMemberAddedPayload
 	RoomListChangedPayload         = protocol.RoomListChangedPayload
+	DomainPolicyChangedPayload     = protocol.DomainPolicyChangedPayload
 )

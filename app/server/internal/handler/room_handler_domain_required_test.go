@@ -23,7 +23,8 @@ func TestRoomHandler_Create_RejectsMissingOrBlankDomainUUID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Room{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},&model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 
@@ -74,7 +75,8 @@ func TestRoomHandler_Create_UsesRequestBodyDomainUUID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	domain := &model.Domain{UUID: "domain-a", Name: "Chat", OwnerUUID: "user-1"}
@@ -97,7 +99,10 @@ func TestRoomHandler_Create_UsesRequestBodyDomainUUID(t *testing.T) {
 		c.Set("user_uuid", "user-1")
 		c.Next()
 	})
-	domainSvc := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil)
+	domainSvc, err := service.NewDomainService(repository.NewDomainRepository(db), repository.NewDomainRoleRepository(db), nil, repository.NewDomainCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new domain service: %v", err)
+	}
 	h := NewRoomHandler(service.NewRoomService(repository.NewRoomRepository(db)), nil, domainSvc, nil, nil)
 	r.POST("/api/v1/room/create", h.Create)
 
@@ -128,7 +133,8 @@ func TestRoomHandler_Create_RejectsDomainUUIDMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Room{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},&model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 

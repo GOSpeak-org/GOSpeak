@@ -91,6 +91,7 @@ var payloadStructs = map[string]bool{
 	"DomainMembershipChangedPayload":    true,
 	"DomainMemberAddedPayload":          true,
 	"RoomListChangedPayload":            true,
+	"DomainPolicyChangedPayload":        true,
 
 	"MemberLeftPayload":          true,
 	"MemberUpdatedPayload":       true,
@@ -168,6 +169,7 @@ var eventConsts = map[string]string{
 	EventMuteExpired:               EventMuteExpired,
 	EventDomainMemberAdded:         EventDomainMemberAdded,
 	EventRoomListChanged:           EventRoomListChanged,
+	EventDomainPolicyChanged:       EventDomainPolicyChanged,
 }
 
 // Catalog 是全部事件的权威目录。Ack 标志与 signal/hub.go SetupFanout 的
@@ -229,4 +231,5 @@ var Catalog = []Event{
 	{Name: EventMuteExpired, Dir: DirInternal, Payload: "MuteExpiredPayload"},
 	{Name: EventDomainMemberAdded, Dir: DirInternal, Payload: "DomainMemberAddedPayload"},
 	{Name: EventRoomListChanged, Dir: DirInternal, Payload: "RoomListChangedPayload"},
+	{Name: EventDomainPolicyChanged, Dir: DirInternal, Payload: "DomainPolicyChangedPayload"},
 }

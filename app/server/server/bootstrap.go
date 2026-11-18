@@ -8,14 +8,15 @@ import (
 	"gorm.io/gorm"
 )
 
-// bootstrapControlPlane 执行启动写面初始化：种子、迁移回填、插件。
-func bootstrapControlPlane(
+// seedControlPlane 执行启动写面初始化：种子、迁移回填。
+// 必须在构造依赖策略表的 service（permSvc / domainSvc）之前调用，
+// 否则其 Casbin enforcer 会加载到空策略。
+func seedControlPlane(
 	db *gorm.DB,
 	roleRepo *repository.RoleRepository,
 	userRepo *repository.UserRepository,
 	permRepo *repository.PermissionRepository,
 	sfuConfigSvc *service.SFUConfigService,
-	permSvc *service.PermissionService,
 ) error {
 	seedRoles(roleRepo)
 	adminUUID := seedAdminUser(userRepo)
@@ -28,14 +29,6 @@ func bootstrapControlPlane(
 		logger.WithComponent("Seed").Warnf("存量域系统角色回填失败: %v", err)
 	}
 	seedPermissions(permRepo)
-	// seed 之后 role_permissions 才有数据；启动早期的 UseCasbin 加载的是空表，
-	// 必须重新构建 enforcer 才能把 seed 后的策略载入 Casbin，否则所有 RequirePermission 都会 403。
-	if err := permSvc.UseCasbin(repository.NewCasbinAdapter(db)); err != nil {
-		return err
-	}
-	if err := permSvc.LoadCache(); err != nil {
-		return err
-	}
 	if err := sfuConfigSvc.SyncFromEnv(); err != nil {
 		return err
 	}

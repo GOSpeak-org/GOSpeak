@@ -29,6 +29,11 @@ type JoinRequestService struct {
 	domainRepo    *repository.DomainRepository
 	userRepo      *repository.UserRepository
 	bus cacheBus
+	onMemberAdded func(domainUUID, userUUID string)
+}
+
+func (s *JoinRequestService) SetMemberAddedHook(fn func(domainUUID, userUUID string)) {
+	s.onMemberAdded = fn
 }
 
 func NewJoinRequestService(
@@ -166,10 +171,15 @@ func (s *JoinRequestService) Review(domainUUID string, requestID uint, approve b
 		}
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, txErr.Error())
 	}
-	if approve && s.bus != nil {
-		payload := DomainMemberAddedPayload{DomainUUID: domainUUID, UserUUID: req.UserUUID}
-		if err := s.bus.PublishInternal(context.Background(), EventDomainMemberAdded, payload); err != nil {
-			log.Printf("[JoinRequest] publish member added: %v", err)
+	if approve {
+		if s.onMemberAdded != nil {
+			s.onMemberAdded(domainUUID, req.UserUUID)
+		}
+		if s.bus != nil {
+			payload := DomainMemberAddedPayload{DomainUUID: domainUUID, UserUUID: req.UserUUID}
+			if err := s.bus.PublishInternal(context.Background(), EventDomainMemberAdded, payload); err != nil {
+				log.Printf("[JoinRequest] publish member added: %v", err)
+			}
 		}
 	}
 	return s.requestRepo.GetByID(requestID)
