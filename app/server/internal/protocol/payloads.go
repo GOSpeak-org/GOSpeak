@@ -34,6 +34,7 @@ type RoomInfo struct {
 	Members       []MemberInfo `json:"members"`
 	Count         int          `json:"count"`
 	CreatedAt     int64        `json:"created_at"`
+	CreatedBy     string       `json:"created_by,omitempty"`
 }
 
 // MuteInfo is the DTO broadcast to clients for mute/unmute events.

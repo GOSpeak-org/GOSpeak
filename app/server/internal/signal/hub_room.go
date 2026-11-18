@@ -17,8 +17,8 @@ type Room struct {
 	// 与 MicMuted 类似，仅用于日志れ聚广播，不持久化。
 	Speaking  map[string]bool
 	CreatedAt time.Time
+	CreatedBy string
 }
-
 
 // roomSetMember writes both Members (by socketID) and ByIdentity index.
 // Caller must hold h.mu write-lock.
@@ -29,7 +29,6 @@ func roomSetMember(room *Room, sid, identity string, member *MemberInfo) {
 	}
 }
 
-
 // roomDelMember removes from both Members and ByIdentity. Caller must hold write-lock.
 func roomDelMember(room *Room, sid string) {
 	if m, ok := room.Members[sid]; ok {
@@ -39,7 +38,6 @@ func roomDelMember(room *Room, sid string) {
 	}
 	delete(room.Members, sid)
 }
-
 
 // roomLookupIdentity O(1) identity lookup with index fallback.
 func roomLookupIdentity(room *Room, identity string) *MemberInfo {

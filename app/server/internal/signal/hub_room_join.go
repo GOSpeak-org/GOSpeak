@@ -5,8 +5,8 @@ import (
 	"GOSpeak/internal/logger"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
-	"GOSpeak/internal/sfu"
 	"GOSpeak/internal/protocol"
+	"GOSpeak/internal/sfu"
 	"GOSpeak/internal/ws"
 	"encoding/json"
 	"errors"
@@ -54,6 +54,7 @@ func (h *Hub) OnRoomCreate(c ws.ClientMessenger, data string) {
 		MicMuted:   make(map[string]bool),
 		Speaking:   make(map[string]bool),
 		CreatedAt:  time.Now(),
+		CreatedBy:  clientIdentity(c),
 	}
 	roomInfo := h.roomInfoLocked(roomKey(req.DomainUUID, req.Room))
 	h.mu.Unlock()
@@ -510,6 +511,7 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 			MicMuted:   make(map[string]bool),
 			Speaking:   make(map[string]bool),
 			CreatedAt:  time.Now(),
+			CreatedBy:  identity,
 		}
 		h.rooms[newKey] = room
 	}

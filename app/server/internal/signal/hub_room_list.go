@@ -4,8 +4,8 @@ import (
 	"sort"
 
 	"GOSpeak/internal/bus"
-	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/logger"
+	"GOSpeak/internal/protocol"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -54,6 +54,7 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 						Members:       []MemberInfo{},
 						Count:         0,
 						CreatedAt:     r.CreatedAt.UnixMilli(),
+						CreatedBy:     r.CreatedBy,
 					}
 				}
 				if len(rooms) < roomListPageSize || page*roomListPageSize >= int(total) {

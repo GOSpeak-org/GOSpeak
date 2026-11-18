@@ -11,12 +11,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@gospeak/components";
 import { chatStore, useChatStore } from "@/stores/chatStore";
-import { useDomainStore } from "@/stores/domainStore";
 import { type RoomInfo, socketStore } from "@/stores/socketStore";
-import { useUserStore } from "@/stores/userStore";
-import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
-import { canDeleteRoomItem, canEditRoomItem } from "../roomListUtils";
+import { canManageRoomItem } from "../roomListUtils";
 import MemberItemButton from "./memberItemButton";
 import PasswordModal from "./passwordModal";
 
@@ -62,32 +59,8 @@ export function RoomItem({
 	const nameRef = useRef<HTMLSpanElement>(null);
 	const contextMenuRef = useRef<HTMLDivElement>(null);
 
-	const user = useUserStore((s) => s.user);
-	const domainState = useDomainStore((s) => s.domainCache);
-	const memberState = useDomainStore((s) => s.memberCache);
-	const currentDomainUUID = socketStore.currentDomainUUID();
-
-	const canEdit = canEditRoomItem(
-		user,
-		currentDomainUUID ? (domainState[currentDomainUUID] ?? null) : null,
-		currentDomainUUID
-			? memberState[currentDomainUUID]?.find(
-					(member) => member.user_uuid === user?.uuid,
-				)?.role_name
-			: undefined,
-		hasPermission("room:update"),
-	);
-
-	const canDelete = canDeleteRoomItem(
-		user,
-		currentDomainUUID ? (domainState[currentDomainUUID] ?? null) : null,
-		currentDomainUUID
-			? memberState[currentDomainUUID]?.find(
-					(member) => member.user_uuid === user?.uuid,
-				)?.role_name
-			: undefined,
-		hasPermission("room:delete"),
-	);
+	const canEdit = canManageRoomItem(room, "room:update");
+	const canDelete = canManageRoomItem(room, "room:delete");
 
 	const isInRoom = () => {
 		if (room.type === "text") {
@@ -226,8 +199,6 @@ export function RoomItem({
 							isActive ? "bg-muted" : "",
 							isSelected && !isActive ? "bg-muted" : "",
 						)}
-						aria-haspopup="menu"
-						aria-expanded={!!contextMenu}
 						onContextMenu={openContextMenu}
 						onMouseEnter={showTip}
 						onMouseLeave={() => {
@@ -235,7 +206,12 @@ export function RoomItem({
 							setClickHint(null);
 						}}
 						onClick={(event) => {
-							if (window.matchMedia("(max-width: 767px)").matches) {
+							// detail === 0 表示键盘激活（Enter/Space），直接加入；
+							// 桌面指针单击仍保留"双击进入"提示，双击加入。
+							if (
+								event.detail === 0 ||
+								window.matchMedia("(max-width: 767px)").matches
+							) {
 								handleJoin();
 								return;
 							}
@@ -281,7 +257,7 @@ export function RoomItem({
 							openContextMenu(event);
 						}}
 					>
-						<Ellipsis size={18} />
+						<Ellipsis size={20} />
 					</button>
 				</div>
 
@@ -338,6 +314,15 @@ export function RoomItem({
 					className="border-border bg-card fixed z-[9999] min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
 					style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
 				>
+					<button
+						type="button"
+						role="menuitem"
+						className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
+						onClick={handleJoin}
+					>
+						<Mic size={14} />
+						<span>进入房间</span>
+					</button>
 					{canEdit && (
 						<button
 							type="button"

@@ -1,5 +1,9 @@
 import type { RoomRecord } from "@/api/room";
 import type { RoomInfo } from "@/socket/types";
+import {
+	canManageRoom,
+	type RoomManagePermission,
+} from "@/utils/roomPermissions";
 
 export function visibleRoomsForDomain(
 	rooms: RoomInfo[],
@@ -9,32 +13,12 @@ export function visibleRoomsForDomain(
 	return rooms.filter((room) => room.domain_uuid === domainUUID);
 }
 
-export function canEditRoomItem(
-	currentUser: { uuid?: string } | null,
-	domain: { owner_uuid?: string } | null,
-	memberRole: string | null | undefined,
-	hasRoomUpdatePermission: boolean,
+export function canManageRoomItem(
+	room: Pick<RoomInfo, "name" | "domain_uuid" | "created_by">,
+	permission: RoomManagePermission,
 ) {
-	return (
-		hasRoomUpdatePermission ||
-		(!!currentUser?.uuid && domain?.owner_uuid === currentUser.uuid) ||
-		memberRole === "admin"
-	);
+	return canManageRoom(room, permission);
 }
-
-export function canDeleteRoomItem(
-	currentUser: { uuid?: string } | null,
-	domain: { owner_uuid?: string } | null,
-	memberRole: string | null | undefined,
-	hasRoomDeletePermission: boolean,
-) {
-	return (
-		hasRoomDeletePermission ||
-		(!!currentUser?.uuid && domain?.owner_uuid === currentUser.uuid) ||
-		memberRole === "admin"
-	);
-}
-
 export function toEditRoomRecord(room: RoomInfo): RoomRecord {
 	return {
 		id: room.id,

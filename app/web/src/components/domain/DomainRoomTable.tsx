@@ -2,6 +2,7 @@
 import { Skeleton } from "@gospeak/components";
 import { Pencil, Trash2 } from "lucide-react";
 import type { RoomRecord } from "@/api/room";
+import { canManageRoom } from "@/utils/roomPermissions";
 import { formatDate } from "./DomainMemberTable";
 
 export type RoomTableStatus =
@@ -16,13 +17,10 @@ export function roomTypeLabel(type?: "text" | "voice") {
 }
 
 export function canManageRoomAction(
-	room: Pick<RoomRecord, "created_by" | "name">,
-	currentUserName: string | undefined,
-	canManage: boolean,
+	room: Pick<RoomRecord, "created_by" | "name" | "domain_uuid">,
+	permission: "room:update" | "room:delete",
 ) {
-	return (
-		canManage || (!!currentUserName && room.created_by === currentUserName)
-	);
+	return canManageRoom(room, permission);
 }
 
 export function getRoomTableStatus(
@@ -42,8 +40,6 @@ export function isRoomTableBusy(loading: boolean, refreshing: boolean) {
 
 export interface DomainRoomTableProps {
 	rooms: RoomRecord[];
-	currentUserName?: string;
-	canManage?: boolean;
 	loading?: boolean;
 	refreshing?: boolean;
 	error?: string | null;
@@ -94,11 +90,9 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 								</tr>
 							))}
 						{rooms.map((room) => {
-							const showActions = canManageRoomAction(
-								room,
-								props.currentUserName,
-								props.canManage ?? false,
-							);
+							const canEdit = canManageRoomAction(room, "room:update");
+							const canDelete = canManageRoomAction(room, "room:delete");
+							const showActions = canEdit || canDelete;
 							return (
 								<tr key={room.id} className="border-border/60 border-b">
 									<td className="min-w-0 max-w-[260px] px-3 py-2">
@@ -122,24 +116,28 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 									<td className="px-3 py-2 text-right">
 										{showActions && (
 											<div className="flex items-center justify-end gap-1">
-												<button
-													type="button"
-													className={btnSm}
-													aria-label={`编辑 ${room.name}`}
-													onClick={() => props.onEdit(room)}
-												>
-													<Pencil size={14} />
-													编辑
-												</button>
-												<button
-													type="button"
-													className="border-destructive/50 text-destructive hover:bg-destructive/10 inline-flex h-8 cursor-pointer items-center gap-1 rounded-sm border px-2 text-xs transition-colors"
-													aria-label={`删除 ${room.name}`}
-													onClick={() => props.onDelete(room)}
-												>
-													<Trash2 size={14} />
-													删除
-												</button>
+												{canEdit && (
+													<button
+														type="button"
+														className={btnSm}
+														aria-label={`编辑 ${room.name}`}
+														onClick={() => props.onEdit(room)}
+													>
+														<Pencil size={14} />
+														编辑
+													</button>
+												)}
+												{canDelete && (
+													<button
+														type="button"
+														className="border-destructive/50 text-destructive hover:bg-destructive/10 inline-flex h-8 cursor-pointer items-center gap-1 rounded-sm border px-2 text-xs transition-colors"
+														aria-label={`删除 ${room.name}`}
+														onClick={() => props.onDelete(room)}
+													>
+														<Trash2 size={14} />
+														删除
+													</button>
+												)}
 											</div>
 										)}
 									</td>
