@@ -60,6 +60,15 @@ export default function OptionSquare({
 				onDoubleClick={() => {
 					if (requiresDoubleClick) void onDoubleClick?.();
 				}}
+				onKeyDown={(event) => {
+					if (
+						requiresDoubleClick &&
+						(event.key === "Enter" || event.key === " ")
+					) {
+						event.preventDefault();
+						void onDoubleClick?.();
+					}
+				}}
 				onMouseEnter={(event) => showTooltip(event, label)}
 				onMouseLeave={hideTooltip}
 				onFocus={(event) => showTooltip(event, label)}

@@ -131,7 +131,7 @@ export default function NotificationModal({
 								className="hover:bg-muted mb-3 flex size-9 cursor-pointer items-center justify-center rounded-sm @md:hidden"
 								aria-label="返回通知列表"
 							>
-								<ArrowLeft size={18} />
+								<ArrowLeft size={20} />
 							</button>
 						)}
 						{showSkeleton ? (

@@ -369,6 +369,14 @@
  * text-xl   20px  大标题
  */
 @theme {
+	/* 层级标度：浮层一律使用语义 z token，禁止 z-[N] / 内联 zIndex */
+	--z-base: 0;
+	--z-raised: 10;
+	--z-dropdown: 40;
+	--z-dialog: 50;
+	--z-popover: 100;
+	--z-toast: 200;
+
 	--font-sans:
 		"Inter Variable", "Noto Sans SC Variable", ui-sans-serif, system-ui,
 		sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";

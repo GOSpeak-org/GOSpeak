@@ -145,12 +145,12 @@ function MessageItem({
 			)}
 
 			<div
-				className={`bg-card border-border absolute -top-4 right-4 z-10 flex items-center gap-0.5 rounded-sm border p-0.5 shadow-md ${
+				className={`bg-card border-border absolute top-1 right-4 z-10 flex items-center gap-0.5 rounded-sm border p-0.5 shadow-md transition-opacity ${
 					coarsePointer
 						? actionsOpen
-							? "visible"
-							: "invisible"
-						: "invisible group-hover:visible"
+							? "pointer-events-auto opacity-100"
+							: "pointer-events-none opacity-0"
+						: "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
 				}`}
 			>
 				<ReactionBar roomUuid={msg.room_uuid} messageUuid={msg.uuid} />
@@ -159,6 +159,7 @@ function MessageItem({
 					className="ds-icon-btn size-7"
 					onClick={() => onReply?.(msg.uuid)}
 					title="回复"
+					aria-label="回复"
 				>
 					<MessageSquarePlus size={16} />
 				</button>
@@ -167,6 +168,7 @@ function MessageItem({
 					className="ds-icon-btn size-7"
 					onClick={() => onOpenThread?.(msg.uuid)}
 					title="打开线程"
+					aria-label="打开线程"
 				>
 					<CornerDownRight size={16} />
 				</button>
@@ -176,6 +178,7 @@ function MessageItem({
 						className="ds-icon-btn hover:text-destructive size-7"
 						onClick={() => setConfirmDelete(true)}
 						title="删除消息"
+						aria-label="删除消息"
 					>
 						<Trash2 size={14} />
 					</button>

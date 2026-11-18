@@ -206,7 +206,7 @@ function RegisterPage() {
 							style={depth(6)}
 						>
 							<li>实时发言检测 · 成员独立音量</li>
-							<li>多 SFU 运行时切换</li>
+							<li>LiveKit 单后端 · 服务端强制静音/踢人</li>
 							<li>语音数据不经第三方</li>
 						</ul>
 					</div>

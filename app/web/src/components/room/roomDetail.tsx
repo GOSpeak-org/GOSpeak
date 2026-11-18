@@ -1,7 +1,17 @@
-import { Skeleton, Slider } from "@gospeak/components";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+	Skeleton,
+	Slider,
+	toast,
+} from "@gospeak/components";
 import { clsx } from "clsx";
-import { Ellipsis, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Ellipsis, Gavel, LogOut, Volume2, VolumeX } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createMute } from "@/api/mute";
+import { fetchUserInfo } from "@/api/user";
 import Avatar from "@/components/common/avatar";
 import ConfirmModal from "@/components/common/ConfirmModal";
 import PasswordModal from "@/components/room/components/passwordModal";
@@ -23,6 +33,7 @@ import {
 	localizedApiMessage,
 } from "@/utils/errorMessages";
 import { hasPermission } from "@/utils/permissions";
+import { toastActionError } from "@/utils/toast";
 import ScreenShareView from "./ScreenShareView";
 import { useVoiceSessionContext } from "./VoiceSessionProvider";
 
@@ -51,6 +62,9 @@ export default function RoomDetail() {
 	});
 
 	const containerRef = useRef<HTMLDivElement>(null);
+	// 成员操作菜单的展开状态提到父层：同一时刻只允许一个卡片展开菜单。
+	const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
+	const closeMemberMenu = useCallback(() => setOpenMemberMenu(null), []);
 
 	// 屏幕共享：有画面时占满主区，成员卡片暂时让位
 	const remoteVideos = useScreenShareStore((s) => s.remote);
@@ -144,7 +158,17 @@ export default function RoomDetail() {
 					>
 						{roomMembers.length > 0 ? (
 							sortedMembers.map((member) => (
-								<MemberCard key={member.identity} member={member} />
+								<MemberCard
+									key={member.identity}
+									member={member}
+									menuOpen={openMemberMenu === member.identity}
+									onToggleMenu={() =>
+										setOpenMemberMenu((current) =>
+											current === member.identity ? null : member.identity,
+										)
+									}
+									onCloseMenu={closeMemberMenu}
+								/>
 							))
 						) : (
 							<div className="text-muted-foreground col-span-full flex h-32 items-center justify-center text-sm">
@@ -234,7 +258,17 @@ function JoinStatus({
 	);
 }
 
-function MemberCard({ member }: { member: MemberInfo }) {
+function MemberCard({
+	member,
+	menuOpen,
+	onToggleMenu,
+	onCloseMenu,
+}: {
+	member: MemberInfo;
+	menuOpen: boolean;
+	onToggleMenu: () => void;
+	onCloseMenu: () => void;
+}) {
 	const isMe = member.identity === useUserStore.getState().user?.name;
 	const user = useUserStore((s) => s.user);
 	const displayName = isMe
@@ -262,126 +296,147 @@ function MemberCard({ member }: { member: MemberInfo }) {
 		setMutedByIdentity(member.identity, isMuted);
 	}, [member.identity, volume, isMuted]);
 
-	const [menuOpen, setMenuOpen] = useState(false);
 	const [confirmKick, setConfirmKick] = useState(false);
+	const [confirmBanMute, setConfirmBanMute] = useState(false);
+	const [muting, setMuting] = useState(false);
+
+	const handleBanMute = async () => {
+		setMuting(true);
+		try {
+			const info = await fetchUserInfo(member.identity);
+			await createMute({
+				user_id: info.id,
+				duration: 3600,
+				permanent: false,
+				reason: "",
+			});
+			toast.success("用户已被禁言");
+		} catch (error) {
+			toastActionError(error, "禁言失败");
+		} finally {
+			setMuting(false);
+			setConfirmBanMute(false);
+		}
+	};
 
 	return (
-		<div
-			className={clsx(
-				"bg-muted relative flex aspect-video w-full min-w-0 items-center justify-center overflow-hidden rounded-lg transition-shadow",
-				isSpeaking && "ring-2 ring-success",
-			)}
-		>
-			<Avatar
-				src={member.avatar}
-				name={displayName}
-				alt={member.name}
-				className="size-20"
-				textClass="text-2xl"
-			/>
-
-			<div className="bg-sunken absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 py-1.5">
-				<span className="text-foreground truncate text-sm font-medium">
-					{displayName}
-				</span>
-				{isMuted && (
-					<span className="text-destructive shrink-0 text-2xs">已静音</span>
+		<>
+			<div
+				className={clsx(
+					"bg-muted relative flex aspect-video w-full min-w-0 items-center justify-center overflow-hidden rounded-lg transition-shadow",
+					isSpeaking && "ring-2 ring-success",
 				)}
-			</div>
+			>
+				<Avatar
+					src={member.avatar}
+					name={displayName}
+					alt={member.name}
+					className="size-20"
+					textClass="text-2xl"
+				/>
 
-			{!isMe && (
-				<div className="absolute top-2 right-2">
-					<button
-						type="button"
-						className="bg-sunken text-foreground hover:text-foreground flex size-7 cursor-pointer items-center justify-center rounded-sm transition-colors"
-						onClick={() => setMenuOpen(!menuOpen)}
-						aria-label="成员操作"
-					>
-						<Ellipsis size={16} />
-					</button>
-					{menuOpen && (
-						<>
-							<div
-								className="fixed inset-0 z-40"
-								onClick={() => setMenuOpen(false)}
-								aria-hidden="true"
-							/>
-							<div className="absolute top-8 right-0 z-50 w-40 overflow-hidden rounded-lg border shadow-xl">
-								<div className="bg-card border-border border">
-									<button
-										type="button"
-										className="text-foreground hover:bg-muted block w-full cursor-pointer px-3 py-2 text-left text-sm"
-										onClick={() => {
-											setMemberMute(member.identity, !isMuted);
-											setMutedByIdentity(member.identity, !isMuted);
-											setMenuOpen(false);
-										}}
-									>
-										{isMuted ? "取消静音" : "静音"}
-									</button>
-									{hasPermission("signal:kick") && (
-										<button
-											type="button"
-											className="hover:text-destructive hover:bg-muted block w-full cursor-pointer px-3 py-2 text-left text-sm"
-											onClick={() => {
-												setMenuOpen(false);
-												setConfirmKick(true);
-											}}
-										>
-											踢出
-										</button>
-									)}
-								</div>
-							</div>
-						</>
+				<div className="bg-sunken absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 py-1.5">
+					<span className="text-foreground truncate text-sm font-medium">
+						{displayName}
+					</span>
+					{isMuted && (
+						<span className="text-destructive shrink-0 text-2xs">已静音</span>
 					)}
 				</div>
-			)}
 
-			{!isMe && (
-				<div className="bg-sunken absolute top-2 left-2 flex w-40 items-center gap-1.5 rounded-sm px-2 py-1">
-					<button
-						type="button"
-						className={clsx(
-							"flex shrink-0 cursor-pointer items-center transition-colors",
-							isMuted
-								? "text-destructive hover:text-destructive"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-						onClick={() => {
-							setMemberMute(member.identity, !isMuted);
-							setMutedByIdentity(member.identity, !isMuted);
-						}}
-						aria-label={isMuted ? "取消静音" : "静音"}
+				{!isMe && (
+					<DropdownMenu
+						open={menuOpen}
+						onOpenChange={(open: boolean) =>
+							open ? onToggleMenu() : onCloseMenu()
+						}
 					>
-						{isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-					</button>
-					<Slider
-						value={[volume]}
-						max={100}
-						step={1}
-						disabled={isMuted}
-						className="w-full"
-						aria-label={`${displayName} 音量`}
-						onValueChange={(value) => {
-							const val = value[0] ?? 0;
-							setMemberOutputVolume(member.identity, val);
-							setVolumeByIdentity(member.identity, val / 100);
-						}}
-					/>
-					<button
-						type="button"
-						className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-2xs tabular-nums transition-colors"
-						onClick={() => {
-							setMemberOutputVolume(member.identity, 100);
-							setVolumeByIdentity(member.identity, 1);
-						}}
-						aria-label={`${displayName} 音量 ${volume}%，点击恢复 100%`}
-					>
-						{volume}%
-					</button>
-				</div>
-			)}
+						<DropdownMenuTrigger asChild>
+							<button
+								type="button"
+								className="bg-sunken text-foreground hover:bg-muted flex size-7 cursor-pointer items-center justify-center rounded-sm transition-colors"
+								aria-label={`更多操作：${displayName}`}
+							>
+								<Ellipsis size={16} />
+							</button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem
+								onClick={() => {
+									setMemberMute(member.identity, !isMuted);
+									setMutedByIdentity(member.identity, !isMuted);
+								}}
+							>
+								{isMuted ? <Volume2 size={14} /> : <VolumeX size={14} />}
+								<span>{isMuted ? "取消静音" : "静音"}</span>
+							</DropdownMenuItem>
+							{hasPermission("mute:manage") && (
+								<DropdownMenuItem
+									variant="destructive"
+									onClick={() => setConfirmBanMute(true)}
+								>
+									<Gavel size={14} />
+									<span>禁言</span>
+								</DropdownMenuItem>
+							)}
+							{hasPermission("signal:kick") && (
+								<DropdownMenuItem
+									variant="destructive"
+									onClick={() => setConfirmKick(true)}
+								>
+									<LogOut size={14} />
+									<span>踢出房间</span>
+								</DropdownMenuItem>
+							)}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
+
+				{!isMe && (
+					<div className="bg-sunken absolute top-2 left-2 flex w-40 items-center gap-1.5 rounded-sm px-2 py-1">
+						<button
+							type="button"
+							className={clsx(
+								"flex shrink-0 cursor-pointer items-center transition-colors",
+								isMuted
+									? "text-destructive hover:text-destructive"
+									: "text-muted-foreground hover:text-foreground",
+							)}
+							onClick={() => {
+								setMemberMute(member.identity, !isMuted);
+								setMutedByIdentity(member.identity, !isMuted);
+							}}
+							aria-label={isMuted ? "取消静音" : "静音"}
+						>
+							{isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+						</button>
+						<Slider
+							value={[volume]}
+							max={100}
+							step={1}
+							disabled={isMuted}
+							className="w-full"
+							aria-label={`${displayName} 音量`}
+							onValueChange={(value) => {
+								const val = value[0] ?? 0;
+								setMemberOutputVolume(member.identity, val);
+								setVolumeByIdentity(member.identity, val / 100);
+							}}
+						/>
+						<button
+							type="button"
+							className="text-muted-foreground hover:text-foreground shrink-0 cursor-pointer text-2xs tabular-nums transition-colors"
+							onClick={() => {
+								setMemberOutputVolume(member.identity, 100);
+								setVolumeByIdentity(member.identity, 1);
+							}}
+							aria-label={`${displayName} 音量 ${volume}%，点击恢复 100%`}
+						>
+							{volume}%
+						</button>
+					</div>
+				)}
+			</div>
 
 			<ConfirmModal
 				open={confirmKick}
@@ -397,6 +452,23 @@ function MemberCard({ member }: { member: MemberInfo }) {
 					setConfirmKick(false);
 				}}
 			/>
-		</div>
+
+			<ConfirmModal
+				open={confirmBanMute}
+				title="禁言用户"
+				message={
+					<span>
+						确认对「{displayName}」禁言 60
+						分钟？该用户在禁言期间无法发言，可在禁言管理中提前解除。
+					</span>
+				}
+				confirmText="禁言"
+				loading={muting}
+				onClose={() => setConfirmBanMute(false)}
+				onConfirm={() => {
+					void handleBanMute();
+				}}
+			/>
+		</>
 	);
 }

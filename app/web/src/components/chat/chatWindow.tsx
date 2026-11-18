@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CornerDownLeft, MessageSquareText, Smile } from "lucide-react";
+import { CornerDownLeft, MessageSquareText } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PrivateMessageDTO } from "@/api/conversation";
 import ChatEmptyState from "@/components/chat/chatEmptyState";
@@ -244,17 +244,6 @@ export default function ChatWindow() {
 								onClick={handleSend}
 							>
 								<CornerDownLeft size={20} />
-							</button>
-							<button
-								type="button"
-								className={iconBtn}
-								title="插入表情"
-								onClick={() => {
-									setContent((prev) => `${prev}😊`);
-									textareaRef.current?.focus();
-								}}
-							>
-								<Smile size={20} />
 							</button>
 						</div>
 					</div>

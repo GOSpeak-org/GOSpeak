@@ -299,6 +299,7 @@ export default function RoomList() {
 						</span>
 					}
 					confirmText="删除"
+					confirmPhrase={deletingRoom.name}
 					loading={deleting}
 					onClose={closeDeleteModal}
 					onConfirm={handleDeleteRoom}

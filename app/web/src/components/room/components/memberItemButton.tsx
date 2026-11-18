@@ -16,7 +16,12 @@ export default function MemberItemButton({
 		<button
 			type="button"
 			className="text-muted-foreground hover:bg-muted/50 flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-4 py-1 text-sm transition-colors"
-			onClick={(e) => onSelectMember(member.identity, e.clientX, e.clientY)}
+			onClick={(e) => {
+				const rect = e.currentTarget.getBoundingClientRect();
+				const x = e.detail === 0 ? rect.right : e.clientX;
+				const y = e.detail === 0 ? rect.bottom : e.clientY;
+				onSelectMember(member.identity, x, y);
+			}}
 		>
 			<span className="relative shrink-0">
 				<Avatar

@@ -49,13 +49,25 @@ export default function UserInfoPopover({
 		if (pos.y + OFFSET + POPOVER_HEIGHT > vh) {
 			top = pos.y - POPOVER_HEIGHT - OFFSET;
 		}
-		return { left, top };
+		return {
+			left: Math.max(8, Math.min(left, vw - POPOVER_WIDTH - 8)),
+			top: Math.max(8, Math.min(top, vh - POPOVER_HEIGHT - 8)),
+		};
 	}, [pos.x, pos.y]);
 
 	useEffect(() => {
 		const onScroll = () => onClose();
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") onClose();
+		};
 		window.addEventListener("scroll", onScroll, true);
-		return () => window.removeEventListener("scroll", onScroll, true);
+		window.addEventListener("keydown", onKeyDown);
+		window.addEventListener("resize", onScroll);
+		return () => {
+			window.removeEventListener("scroll", onScroll, true);
+			window.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("resize", onScroll);
+		};
 	}, [onClose]);
 
 	const hasInitial = !!initialMember;

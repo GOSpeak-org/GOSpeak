@@ -22,7 +22,12 @@ function MemberListItem(props: MemberItemProps) {
 			className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
 				props.isSelected ? "bg-border/50" : "hover:bg-border/50"
 			} ${member.online ? "" : "opacity-60"}`}
-			onClick={(e) => props.onSelect(member, e.clientX, e.clientY)}
+			onClick={(e) => {
+				const rect = e.currentTarget.getBoundingClientRect();
+				const x = e.detail === 0 ? rect.right : e.clientX;
+				const y = e.detail === 0 ? rect.bottom : e.clientY;
+				props.onSelect(member, x, y);
+			}}
 		>
 			<span className="relative shrink-0">
 				<Avatar
