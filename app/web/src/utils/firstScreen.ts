@@ -14,3 +14,20 @@ export function resolveFirstScreen(
 	}
 	return myDomainUUIDs[0];
 }
+
+/**
+ * 冷启动分流：不等网络。
+ *
+ * 域列表还没拿到（冷启动首次请求仍在路上）时，直接用上次所在的域分流，
+ * 让首屏立刻可操作；列表回来后路由层再按 resolveFirstScreen 校验并纠正。
+ * 已经有列表缓存时仍然严格按列表校验（退域 / 被移出 / 换号都能识别）。
+ */
+export function resolveFirstScreenFromCache(
+	myDomainUUIDs: readonly string[],
+	lastDomainUUID: string | null,
+): string | null {
+	if (myDomainUUIDs.length > 0) {
+		return resolveFirstScreen(myDomainUUIDs, lastDomainUUID);
+	}
+	return lastDomainUUID;
+}

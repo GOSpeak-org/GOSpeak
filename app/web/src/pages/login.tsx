@@ -29,10 +29,11 @@ import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
 import { showLoginSuccessToast } from "@/pages/login/components/loginSuccessToast";
 
 export const Route = createFileRoute("/login")({
-	beforeLoad: async () => {
-		// 已有会话或 access 过期但仍可无感刷新时，直接进首页
-		const ok = await useUserStore.getState().ensureSession();
-		if (ok) {
+	// 有缓存用户就直接进首页，不在登录页等网络；会话是否仍然有效由
+	// (app) 的后台校验与 apiClient 的 401 拦截器兜底（失效会带着清空后的
+	// 缓存回到这里，所以不会来回反弹）。
+	beforeLoad: () => {
+		if (useUserStore.getState().user) {
 			throw redirect({ to: "/" });
 		}
 	},

@@ -201,6 +201,20 @@ describe("userStore 懒续期（expires_in 驱动）", () => {
 		expect(refreshSessionMock).not.toHaveBeenCalled();
 	});
 
+	it("ensureSession 刚校验过：挂载时的 fetchProfile 不重复请求", async () => {
+		await userStore.login(fakeUser);
+		getProfileMock.mockResolvedValue(fakeProfile);
+		refreshSessionMock.mockResolvedValue(900);
+
+		await expect(userStore.ensureSession()).resolves.toBe(true);
+		expect(getProfileMock).toHaveBeenCalledTimes(1);
+
+		// 路由 beforeLoad 刚做过校验，布局挂载时不该再打一次
+		userStore.refreshUserInBackground();
+		await Promise.resolve();
+		expect(getProfileMock).toHaveBeenCalledTimes(1);
+	});
+
 	it("拦截器路径 refresh 写入的过期时间：ensureSession 能读到并快速放行", async () => {
 		await userStore.login(fakeUser);
 		// 模拟 apiClient 拦截器内部 refreshSession 写入持久化（mock 不经过 ensureSession）
