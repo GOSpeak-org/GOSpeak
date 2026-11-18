@@ -19,6 +19,7 @@ import {
 	manageTableHeadClass,
 	manageTableRowClass,
 } from "@/components/manage/ManageShell";
+import ConfirmModal from "@/components/common/ConfirmModal";
 import MarkdownText from "@/components/textRoom/MarkdownText";
 import type { AnnouncementDTO } from "@/protocol/announcement";
 import { denyAccess } from "@/utils/accessDenied";
@@ -51,15 +52,23 @@ interface FormState {
 	publish: boolean;
 }
 
-const EMPTY_FORM: FormState = {
-	scopeType: "platform",
-	scopeId: "",
-	title: "",
-	content: "",
-	level: "info",
-	pinned: false,
-	publish: true,
-};
+export function defaultScopeType(
+	isPlatformAdmin: boolean,
+): FormState["scopeType"] {
+	return isPlatformAdmin ? "platform" : "domain";
+}
+
+function emptyForm(isPlatformAdmin: boolean): FormState {
+	return {
+		scopeType: defaultScopeType(isPlatformAdmin),
+		scopeId: "",
+		title: "",
+		content: "",
+		level: "info",
+		pinned: false,
+		publish: true,
+	};
+}
 
 const LEVEL_LABELS: Record<AnnouncementLevel, string> = {
 	info: "普通",
@@ -76,8 +85,13 @@ function statusOf(item: AnnouncementDTO): string {
 export default function AnnouncementsPage() {
 	const queryClient = useQueryClient();
 	const isPlatformAdmin = hasPermission("announcement:manage");
-	const [form, setForm] = useState<FormState>(EMPTY_FORM);
+	const [form, setForm] = useState<FormState>(() => emptyForm(isPlatformAdmin));
 	const [saving, setSaving] = useState(false);
+	const [deletingItem, setDeletingItem] = useState<AnnouncementDTO | null>(
+		null,
+	);
+	const [deleting, setDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState("");
 
 	const { data, isLoading } = useQuery({
 		queryKey: ["manage-announcements"],
@@ -92,7 +106,7 @@ export default function AnnouncementsPage() {
 	const items = data?.items ?? [];
 	const scopeChoices = domains as Array<{ uuid: string; name: string }>;
 
-	const reset = () => setForm(EMPTY_FORM);
+	const reset = () => setForm(emptyForm(isPlatformAdmin));
 
 	const submit = async () => {
 		if (!form.title.trim() || !form.content.trim()) {
@@ -132,15 +146,27 @@ export default function AnnouncementsPage() {
 		}
 	};
 
-	const remove = async (item: AnnouncementDTO) => {
+	const remove = (item: AnnouncementDTO) => {
+		setDeleteError("");
+		setDeletingItem(item);
+	};
+
+	const confirmRemove = async () => {
+		const item = deletingItem;
+		if (!item) return;
+		setDeleteError("");
+		setDeleting(true);
 		try {
 			await deleteAnnouncement(item.uuid);
 			toast.success("公告已删除");
 			await queryClient.invalidateQueries({
 				queryKey: ["manage-announcements"],
 			});
+			setDeletingItem(null);
 		} catch (error) {
-			toastActionError(error, "删除失败");
+			setDeleteError(toastActionError(error, "删除失败"));
+		} finally {
+			setDeleting(false);
 		}
 	};
 
@@ -285,7 +311,7 @@ export default function AnnouncementsPage() {
 						暂无公告
 					</div>
 				) : (
-					<table className="w-full text-sm">
+					<table className="w-full min-w-max text-sm">
 						<thead className={manageTableHeadClass}>
 							<tr>
 								<th className="px-2 py-2 text-left">标题</th>
@@ -317,7 +343,7 @@ export default function AnnouncementsPage() {
 										<Button
 											variant="ghost"
 											size="icon-xs"
-											onClick={() => void remove(item)}
+											onClick={() => remove(item)}
 											aria-label="删除公告"
 										>
 											<Trash2 size={14} />
@@ -329,6 +355,25 @@ export default function AnnouncementsPage() {
 					</table>
 				)}
 			</ManageSection>
+			<ConfirmModal
+				open={!!deletingItem}
+				title="删除公告"
+				message={
+					<span>
+						确认删除公告「{deletingItem?.title}」？删除后不可恢复。
+						{deleteError && (
+							<span className="text-destructive mt-2 block">{deleteError}</span>
+						)}
+					</span>
+				}
+				confirmText="删除"
+				loading={deleting}
+				onClose={() => {
+					setDeletingItem(null);
+					setDeleteError("");
+				}}
+				onConfirm={confirmRemove}
+			/>
 		</ManagePage>
 	);
 }

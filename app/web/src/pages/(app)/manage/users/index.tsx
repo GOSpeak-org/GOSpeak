@@ -90,6 +90,12 @@ function UsersPage() {
 	const [userSearchInput, setUserSearchInput] = useState("");
 	const [userKeyword, setUserKeyword] = useState("");
 	const [confirmMute, setConfirmMute] = useState(false);
+	const [muteError, setMuteError] = useState("");
+	const [pendingBanUser, setPendingBanUser] = useState<BackendUser | null>(
+		null,
+	);
+	const [banningRole, setBanningRole] = useState(false);
+	const [banRoleError, setBanRoleError] = useState("");
 
 	const { data: usersData, isLoading: usersLoading } = useQuery({
 		queryKey: ["manage-users", userPage, userKeyword],
@@ -132,13 +138,19 @@ function UsersPage() {
 	const [cancellingId, setCancellingId] = useState<number | null>(null);
 	const [deletingUser, setDeletingUser] = useState<BackendUser | null>(null);
 	const [deleting, setDeleting] = useState(false);
+	const [deletingError, setDeletingError] = useState("");
 
 	const users = (usersData?.users || []).filter((u) => !u.is_bot);
 	const userMap = new Map<number, string>(
 		users.map((u) => [u.id, u.display_name || u.name]),
 	);
 
-	const handleRoleChange = async (userId: number, newRole: string) => {
+	const runRoleChange = async (
+		userId: number,
+		newRole: string,
+		onError?: (message: string) => void,
+		onSuccess?: () => void,
+	) => {
 		if (!canUpdateUser) return;
 		await runOptimistic({
 			snapshot: () => snapshotQueries(queryClient, [{ queryKey: USERS_KEY }]),
@@ -156,21 +168,54 @@ function UsersPage() {
 			restore: (snap) => restoreQueries(queryClient, snap),
 			request: () => updateUserRole(userId, newRole),
 			settle: reconcile,
-			onError: (error) => toastActionError(error, "修改角色失败"),
-			onSuccess: () => toast.success(`角色已改为${roleLabel(newRole)}`),
+			onError: (error) => {
+				const message = toastActionError(error, "修改角色失败");
+				onError?.(message);
+			},
+			onSuccess: () => {
+				toast.success(`角色已改为${roleLabel(newRole)}`);
+				onSuccess?.();
+			},
 		});
+	};
+
+	const handleRoleChange = (userId: number, newRole: string) => {
+		if (!canUpdateUser) return;
+		// 封禁与封禁页是同一高危操作，统一走确认弹窗而不是下拉框静默生效。
+		if (newRole === "ban") {
+			const target = usersData?.users?.find((u) => u.id === userId);
+			setBanRoleError("");
+			setPendingBanUser(target ?? ({ id: userId } as BackendUser));
+			return;
+		}
+		void runRoleChange(userId, newRole);
+	};
+
+	const confirmBanRole = async () => {
+		const target = pendingBanUser;
+		if (!target) return;
+		setBanningRole(true);
+		try {
+			await runRoleChange(target.id, "ban", setBanRoleError, () =>
+				setPendingBanUser(null),
+			);
+		} finally {
+			setBanningRole(false);
+		}
 	};
 
 	const handleDeleteUser = async (userId: number) => {
 		if (!canDeleteUser) return;
 		// 统一走 ConfirmModal（原 window.confirm 与全站样式割裂，且不能显示对象名）
 		const target = usersData?.users?.find((u) => u.id === userId);
+		setDeletingError("");
 		setDeletingUser(target ?? ({ id: userId } as BackendUser));
 	};
 
 	const confirmDeleteUser = async () => {
 		const target = deletingUser;
 		if (!target) return;
+		setDeletingError("");
 		setDeleting(true);
 		try {
 			await runOptimistic({
@@ -191,7 +236,8 @@ function UsersPage() {
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () => deleteUser(target.id),
 				settle: reconcile,
-				onError: (error) => toastActionError(error, "删除用户失败"),
+				onError: (error) =>
+					setDeletingError(toastActionError(error, "删除用户失败")),
 				onSuccess: () => {
 					toast.success("用户已删除");
 					setDeletingUser(null);
@@ -206,6 +252,7 @@ function UsersPage() {
 		const uid = muteUserId;
 		if (!uid) return;
 		if (!mutePerm && muteDuration <= 0) return;
+		setMuteError("");
 		setSubmitting(true);
 		const now = new Date().toISOString();
 		const optimisticRecord: MuteRecord = {
@@ -243,8 +290,9 @@ function UsersPage() {
 						reason: muteReason,
 					}),
 				settle: reconcile,
-				onError: (error) => toastActionError(error, "禁言失败"),
+				onError: (error) => setMuteError(toastActionError(error, "禁言失败")),
 				onSuccess: () => {
+					setConfirmMute(false);
 					setMuteUserId("");
 					setMuteDuration(3600);
 					setMutePerm(false);
@@ -329,7 +377,7 @@ function UsersPage() {
 							暂无用户
 						</div>
 					) : (
-						<table className="w-full text-sm">
+						<table className="w-full min-w-max text-sm">
 							<thead>
 								<tr className={manageTableHeadClass}>
 									<th className="w-16 px-3 py-2 text-left">ID</th>
@@ -578,7 +626,7 @@ function UsersPage() {
 							</div>
 						) : (
 							<div className="overflow-x-auto">
-								<table className="w-full text-sm">
+								<table className="w-full min-w-max text-sm">
 									<thead>
 										<tr className={manageTableHeadClass}>
 											<th className="px-3 py-2 text-left">用户</th>
@@ -642,6 +690,11 @@ function UsersPage() {
 							? `「${deletingUser.display_name || deletingUser.name}」`
 							: ""}
 						？该用户的账号与登录凭据将被永久移除，此操作不可恢复。
+						{deletingError && (
+							<span className="text-destructive mt-2 block">
+								{deletingError}
+							</span>
+						)}
 					</span>
 				}
 				confirmText="永久删除"
@@ -651,7 +704,10 @@ function UsersPage() {
 						: undefined
 				}
 				loading={deleting}
-				onClose={() => setDeletingUser(null)}
+				onClose={() => {
+					setDeletingUser(null);
+					setDeletingError("");
+				}}
 				onConfirm={confirmDeleteUser}
 			/>
 
@@ -666,15 +722,44 @@ function UsersPage() {
 							? "永久禁言"
 							: `禁言 ${Math.max(1, Math.round(muteDuration / 60))} 分钟`}
 						？该用户在禁言期间无法发言，可在下方列表提前解除。
+						{muteError && (
+							<span className="text-destructive mt-2 block">{muteError}</span>
+						)}
 					</span>
 				}
 				confirmText="禁言"
 				loading={submitting}
-				onClose={() => setConfirmMute(false)}
-				onConfirm={() => {
+				onClose={() => {
 					setConfirmMute(false);
-					void handleMute();
+					setMuteError("");
 				}}
+				onConfirm={handleMute}
+			/>
+
+			<ConfirmModal
+				open={!!pendingBanUser}
+				title="封禁用户"
+				message={
+					<span>
+						确认封禁「
+						{pendingBanUser?.display_name ||
+							pendingBanUser?.name ||
+							`#${pendingBanUser?.id ?? ""}`}
+						」？封禁后该用户无法登录与访问，请在「封禁管理」页解除。
+						{banRoleError && (
+							<span className="text-destructive mt-2 block">
+								{banRoleError}
+							</span>
+						)}
+					</span>
+				}
+				confirmText="封禁"
+				loading={banningRole}
+				onClose={() => {
+					setPendingBanUser(null);
+					setBanRoleError("");
+				}}
+				onConfirm={confirmBanRole}
 			/>
 		</ManagePage>
 	);
