@@ -149,18 +149,12 @@ func (s *StorageService) TestConnectionFromDTO(req UpdateStorageConfigRequest) e
 		cfg.SecretKey = pkg.KeepSecret(cfg.SecretKey, existing.SecretKey)
 	}
 
-	var p storage.Provider
-	var initErr error
-	switch cfg.ProviderType {
-	case "s3":
-		p, initErr = storage.NewS3Provider(cfg)
-	case "local":
-		p = storage.NewLocalProvider(s.localDir(), "", cfg.PublicBaseURL)
-	default:
+	if cfg.ProviderType != "s3" && cfg.ProviderType != "local" {
 		return pkg.NewAppError(pkg.INVALID_PARAMS, "provider_type must be s3 or local")
 	}
-	if initErr != nil {
-		return pkg.NewAppError(pkg.STORAGE_ERROR, "init s3 provider failed: "+initErr.Error())
+	p, err := storage.NewProvider(cfg, s.localDir())
+	if err != nil {
+		return pkg.NewAppError(pkg.STORAGE_ERROR, "init storage provider failed: "+err.Error())
 	}
 	if err := p.TestConnection(); err != nil {
 		return pkg.NewAppError(pkg.STORAGE_ERROR, err.Error())
@@ -181,14 +175,9 @@ func (s *StorageService) ReloadProvider() (storage.Provider, error) {
 		return nil, pkg.NewAppError(pkg.STORAGE_NOT_CONFIGURED, err.Error())
 	}
 
-	var p storage.Provider
-	if cfg.ProviderType == "s3" {
-		p, err = storage.NewS3Provider(*cfg)
-		if err != nil {
-			return nil, pkg.NewAppError(pkg.STORAGE_ERROR, "init s3 provider failed: "+err.Error())
-		}
-	} else {
-		p = storage.NewLocalProvider(s.localDir(), "", cfg.PublicBaseURL)
+	p, err := storage.NewProvider(*cfg, s.localDir())
+	if err != nil {
+		return nil, pkg.NewAppError(pkg.STORAGE_ERROR, "init storage provider failed: "+err.Error())
 	}
 
 	s.provider = p

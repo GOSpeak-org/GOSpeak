@@ -62,3 +62,4 @@ go run main.go server -e prod  # 生产
 - `SFU_PROVIDER` 固定 `livekit`，其他值启动失败。
 - HTTP 与 WS 两个通道共用 `internal/policy` 的封禁判决（`middleware.BanCheck` 与 `ws_policy.go`）。
 - 改 `internal/protocol` 后必须 `pnpm gen:protocol`。
+- `livekit/server-sdk-go` 停在 v2.19.0：v2.20.0 起依赖 LiveKit 自维护的 pion fork（`webrtc-pion -warp.3` / `ice -warp.4`），而 `replace` 只对被依赖模块本模块生效、不传递——直接升会在 `transport.go` 撞上 dtls v3/v4 类型不匹配。要跟进必须在 `go.mod` 里自行镜像那两条 `replace`，并接受 experimental 依赖进生产二进制（约 +385 KB）。

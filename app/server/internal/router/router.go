@@ -88,7 +88,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// 静态服务与 LocalProvider 共用 STORAGE_LOCAL_DIR（默认 ./uploads），保证落盘与访问同源；
+	// 静态服务与本地存储后端共用 STORAGE_LOCAL_DIR（默认 ./uploads），保证落盘与访问同源；
 	// STORAGE_PATH_PREFIX 仅用于 S3 对象键前缀，本地存储忽略，避免出现 /uploads/uploads/... 重复路径。
 	uploadDir := "uploads"
 	if cfg != nil && cfg.StorageLocalDir != "" {
