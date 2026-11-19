@@ -95,7 +95,7 @@ describe("toastErrorOnce", () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
 		expect(toastErrorOnce("请求失败")).toBe(true);
-		vi.setSystemTime(new Date("2026-01-01T00:00:06Z"));
+		vi.setSystemTime(new Date("2026-01-01T00:00:31Z"));
 		expect(toastErrorOnce("请求失败")).toBe(true);
 		expect(toastMock.error).toHaveBeenCalledTimes(2);
 		vi.useRealTimers();

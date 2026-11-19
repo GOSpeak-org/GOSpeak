@@ -11,7 +11,7 @@ import { apiErrorMessage } from "@/utils/apiError";
  */
 type ToastMarked = { __toastShown?: boolean };
 
-const TOAST_DEDUP_MS = 5000;
+const TOAST_DEDUP_MS = 30_000;
 const recentToasts = new Map<string, number>();
 
 /**
