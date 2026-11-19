@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { unreachableMessage } from "./apiError";
+import { backendMessage, unreachableMessage } from "./apiError";
 
 describe("unreachableMessage", () => {
 	it("recognises the proxy 6002 envelope", () => {
@@ -14,5 +14,20 @@ describe("unreachableMessage", () => {
 			unreachableMessage({ response: { data: { code: 5001 } } }),
 		).toBeNull();
 		expect(unreachableMessage(new Error("boom"))).toBeNull();
+	});
+});
+
+describe("backendMessage", () => {
+	it("reads only the response body msg, ignoring axios technical messages", () => {
+		expect(
+			backendMessage({
+				response: { data: { msg: "房间已满" } },
+				message: "Request failed with status code 400",
+			}),
+		).toBe("房间已满");
+		expect(
+			backendMessage({ message: "Request failed with status code 404" }),
+		).toBe("");
+		expect(backendMessage({ response: { data: { msg: "  " } } })).toBe("");
 	});
 });

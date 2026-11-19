@@ -11,6 +11,27 @@ import { apiErrorMessage } from "@/utils/apiError";
  */
 type ToastMarked = { __toastShown?: boolean };
 
+const TOAST_DEDUP_MS = 5000;
+const recentToasts = new Map<string, number>();
+
+/**
+ * 同一文案在短时间内只弹一次。轮询型后台请求失败时每 10 秒就会重复一次，
+ * 没有这层节流即使调用方已经做了 scope 去重，仍会看到同一句话反复刷屏。
+ */
+export function toastErrorOnce(message: string, key = message): boolean {
+	const now = Date.now();
+	const last = recentToasts.get(key);
+	if (last !== undefined && now - last < TOAST_DEDUP_MS) return false;
+	recentToasts.set(key, now);
+	toast.error(message);
+	return true;
+}
+
+/** 仅用于测试隔离。 */
+export function resetToastDedup(): void {
+	recentToasts.clear();
+}
+
 function alreadyToasted(error: unknown): boolean {
 	const marked = (error as ToastMarked)?.__toastShown;
 	// false 表示调用方用 skipErrorToast 让拦截器闭嘴，仍需这里的文案
@@ -26,6 +47,6 @@ export function toastActionError(
 	fallback = "操作失败",
 ): string {
 	const message = apiErrorMessage(error, fallback);
-	if (!alreadyToasted(error)) toast.error(message);
+	if (!alreadyToasted(error)) toastErrorOnce(message);
 	return message;
 }

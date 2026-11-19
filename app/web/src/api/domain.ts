@@ -110,6 +110,7 @@ export async function getMyDomainsDetailed(): Promise<DomainDetail[]> {
 	const result = await apiClient.post<DomainDetail[]>({
 		url: "/api/v1/domain/my-domains",
 		data: {},
+		silentError: true,
 	});
 	if (!result) throw new Error("domain data is missing");
 	return result;

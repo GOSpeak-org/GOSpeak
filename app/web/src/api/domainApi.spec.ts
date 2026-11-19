@@ -109,6 +109,7 @@ describe("domainApi", () => {
 		expect(apiClient.post).toHaveBeenCalledWith({
 			url: "/api/v1/domain/my-domains",
 			data: {},
+			silentError: true,
 		});
 	});
 
@@ -122,6 +123,7 @@ describe("domainApi", () => {
 		expect(apiClient.post).toHaveBeenCalledWith({
 			url: "/api/v1/domain/my-domains",
 			data: {},
+			silentError: true,
 		});
 	});
 

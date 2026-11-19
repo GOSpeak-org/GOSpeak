@@ -13,7 +13,7 @@ export async function listAnnouncements(
 	const data = await apiClient.post<AnnouncementListResult>({
 		url: "/api/v1/announcement/list",
 		data: { only_unread: onlyUnread, page, page_size: pageSize },
-		skipErrorToast: true,
+		silentError: true,
 	});
 	return data ?? { items: [], total: 0 };
 }
@@ -22,7 +22,7 @@ export async function getUnreadCount(): Promise<number> {
 	const data = await apiClient.post<{ count: number }>({
 		url: "/api/v1/announcement/unread-count",
 		data: {},
-		skipErrorToast: true,
+		silentError: true,
 	});
 	return data?.count ?? 0;
 }
@@ -41,6 +41,7 @@ export async function adminListAnnouncements(
 	const data = await apiClient.post<AnnouncementListResult>({
 		url: "/api/v1/announcement/admin/list",
 		data: { page, page_size: pageSize },
+		silentError: true,
 	});
 	return data ?? { items: [], total: 0 };
 }
