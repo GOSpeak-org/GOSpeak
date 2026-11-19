@@ -428,3 +428,40 @@ func TestIsTrustedWorkerRejectsWhenNothingIsConfigured(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeBaseURL(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty stays empty", "", ""},
+		{"blank stays empty", "   ", ""},
+		{"no trailing slash", "https://gospeak.example.com", "https://gospeak.example.com"},
+		{"one trailing slash", "https://gospeak.example.com/", "https://gospeak.example.com"},
+		{"many trailing slashes", "https://gospeak.example.com////", "https://gospeak.example.com"},
+		{"surrounding whitespace and slash", "  https://gospeak.example.com/  ", "https://gospeak.example.com"},
+		{"explicit port", "https://gospeak.example.com:8443/", "https://gospeak.example.com:8443"},
+		{"path prefix loses only its trailing slash", "https://gospeak.example.com/gospeak/", "https://gospeak.example.com/gospeak"},
+		{"loopback with port", "http://127.0.0.1:8998/", "http://127.0.0.1:8998"},
+		{"ipv6 loopback", "http://[::1]:8998/", "http://[::1]:8998"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NormalizeBaseURL(tc.in); got != tc.want {
+				t.Fatalf("NormalizeBaseURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeBaseURLKeepsValidationVerdict(t *testing.T) {
+	for _, in := range []string{"https://gospeak.example.com/", "  http://127.0.0.1:8998//  "} {
+		if err := ValidateBaseURL(NormalizeBaseURL(in)); err != nil {
+			t.Fatalf("normalized %q = %q, ValidateBaseURL = %v, want nil", in, NormalizeBaseURL(in), err)
+		}
+	}
+	if err := ValidateBaseURL(NormalizeBaseURL("gospeak.example.com/")); err == nil {
+		t.Fatal("normalizing must not turn a schemeless host into a valid URL")
+	}
+}

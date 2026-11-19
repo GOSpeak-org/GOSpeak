@@ -14,6 +14,15 @@ export interface ServerConfig {
 	setBaseUrl(url: string): Promise<void>;
 }
 
+/**
+ * 服务器地址的规范形式：去掉首尾空白与末尾斜杠。`https://x/` 与 `https://x`
+ * 是同一台服务器，只有后者能进入存储、参与比较或回显。
+ * 与桌面端、原生宿主共用的规则一致（app/shared/proxyrules.NormalizeBaseURL）。
+ */
+function normalizeBaseUrl(url: string): string {
+	return url.trim().replace(/\/+$/, "");
+}
+
 function readMirror(): string {
 	try {
 		if (typeof localStorage === "undefined") return "";
@@ -26,7 +35,7 @@ function readMirror(): string {
 function writeMirror(url: string): void {
 	try {
 		if (typeof localStorage === "undefined") return;
-		const next = url.trim();
+		const next = normalizeBaseUrl(url);
 		if (next === "") localStorage.removeItem(SERVER_BASE_URL_KEY);
 		else localStorage.setItem(SERVER_BASE_URL_KEY, next);
 	} catch {
@@ -54,22 +63,23 @@ function assertBaseUrl(url: string): void {
 export function createServerConfig(): ServerConfig {
 	return {
 		async getBaseUrl() {
-			if (!__GOSPEAK_MOBILE__) return readMirror();
+			if (!__GOSPEAK_MOBILE__) return normalizeBaseUrl(readMirror());
 			try {
 				const plugin = await getPlugin<ServerConfigPlugin>("ServerConfig");
 				const result = await plugin.getBaseURL();
-				const next =
-					typeof result?.baseUrl === "string" ? result.baseUrl.trim() : "";
+				const next = normalizeBaseUrl(
+					typeof result?.baseUrl === "string" ? result.baseUrl : "",
+				);
 				if (next !== readMirror()) writeMirror(next);
 				return next;
 			} catch (error) {
 				console.warn("[gospeak/mobile] ServerConfig.getBaseURL failed", error);
-				return readMirror();
+				return normalizeBaseUrl(readMirror());
 			}
 		},
-		getBaseUrlSync: readMirror,
+		getBaseUrlSync: () => normalizeBaseUrl(readMirror()),
 		async setBaseUrl(url) {
-			const next = url.trim();
+			const next = normalizeBaseUrl(url);
 			assertBaseUrl(next);
 			// 先写镜像：原生插件切换目标后会 reload WebView，之后的代码可能不执行。
 			writeMirror(next);

@@ -44,12 +44,23 @@ describe.skipIf(MOBILE_BUILD)("createServerConfig web fallback", () => {
 		expect(config.getBaseUrlSync()).toBe("");
 		await config.setBaseUrl("https://voice.example.com/");
 		expect(localStorage.getItem(SERVER_BASE_URL_KEY)).toBe(
-			"https://voice.example.com/",
+			"https://voice.example.com",
 		);
 		await expect(config.getBaseUrl()).resolves.toBe(
-			"https://voice.example.com/",
+			"https://voice.example.com",
 		);
 		expect(registerPlugin).not.toHaveBeenCalled();
+	});
+
+	it("drops trailing slashes before persisting", async () => {
+		localStorage.setItem(SERVER_BASE_URL_KEY, "https://old.example.com/");
+		const config = createServerConfig();
+		expect(config.getBaseUrlSync()).toBe("https://old.example.com");
+
+		await config.setBaseUrl("  https://voice.example.com///  ");
+		expect(localStorage.getItem(SERVER_BASE_URL_KEY)).toBe(
+			"https://voice.example.com",
+		);
 	});
 
 	it("rejects non-http(s) addresses", async () => {
@@ -78,6 +89,20 @@ describe.runIf(MOBILE_BUILD)("createServerConfig native plugin", () => {
 	it("forwards setBaseUrl to the native plugin", async () => {
 		const config = createServerConfig();
 		await config.setBaseUrl("https://next.example.com");
+		expect(plugin.setBaseURL).toHaveBeenCalledWith({
+			url: "https://next.example.com",
+		});
+	});
+
+	it("normalizes trailing slashes on read and write", async () => {
+		plugin.getBaseURL.mockResolvedValueOnce({
+			baseUrl: "https://voice.example.com/",
+		});
+		const config = createServerConfig();
+		await expect(config.getBaseUrl()).resolves.toBe(
+			"https://voice.example.com",
+		);
+		await config.setBaseUrl("https://next.example.com/");
 		expect(plugin.setBaseURL).toHaveBeenCalledWith({
 			url: "https://next.example.com",
 		});

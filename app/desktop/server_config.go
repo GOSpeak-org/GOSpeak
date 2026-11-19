@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,6 +33,13 @@ var (
 
 const serverConfigFileName = "server-config.json"
 
+// clearHostCookies drops the loopback origin's cookie jar when the server
+// changes. A variable so tests can stub it: the real call waits for the host
+// runtime and blocks forever outside a running app.
+var clearHostCookies = func() {
+	_ = mygo.Cookies.Clear()
+}
+
 // loadServerConfig reads the persisted base URL (if any) from user data. Safe to
 // call once during startup; failures are non-fatal (base URL stays "").
 func loadServerConfig() {
@@ -52,14 +58,30 @@ func loadServerConfig() {
 		log.Printf("[GOSpeak] server config is corrupt, backed up to %s", backup)
 		return
 	}
-	if err := validateBaseURL(cfg.BaseURL); err != nil {
+	normalized := proxyrules.NormalizeBaseURL(cfg.BaseURL)
+	if err := validateBaseURL(normalized); err != nil {
 		backup, _ := backupCorruptConfig(path)
 		log.Printf("[GOSpeak] server config is invalid (%v), backed up to %s", err, backup)
 		return
 	}
 	serverConfigMu.Lock()
-	serverBaseURL = strings.TrimSpace(cfg.BaseURL)
+	serverBaseURL = normalized
 	serverConfigMu.Unlock()
+	// A config written by an older build may still carry a trailing slash; rewrite
+	// it so the file always holds the canonical form the UI shows.
+	if normalized != cfg.BaseURL {
+		writeServerConfigFile(path, normalized)
+	}
+}
+
+// writeServerConfigFile rewrites the persisted config. Failures are non-fatal:
+// the in-memory value stays in charge for this run.
+func writeServerConfigFile(path, baseURL string) {
+	encoded, err := json.MarshalIndent(serverConfigFile{BaseURL: baseURL}, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(path, encoded, 0o644)
 }
 
 // backupCorruptConfig moves a damaged config aside so the next launch starts
@@ -102,7 +124,9 @@ func validateBaseURL(raw string) error {
 // The error return is what makes the TS side's rollback branch reachable —
 // mygo resolves bound calls without an error result to a fulfilled promise.
 func (ServerConfig) SetBaseURL(newURL string) error {
-	newURL = strings.TrimSpace(newURL)
+	// "https://host/" and "https://host" are the same server: persist only the
+	// canonical form so the file, the UI field and later comparisons agree.
+	newURL = proxyrules.NormalizeBaseURL(newURL)
 	if err := validateBaseURL(newURL); err != nil {
 		return err
 	}
@@ -111,28 +135,21 @@ func (ServerConfig) SetBaseURL(newURL string) error {
 	// Persist to user data.
 	dir, derr := mygo.App.Path(mygo.PathUserData)
 	if derr == nil {
-		serverConfigMu.Lock()
-		serverBaseURL = newURL
-		encoded, merr := json.MarshalIndent(serverConfigFile{BaseURL: newURL}, "", "  ")
-		serverConfigMu.Unlock()
-		if merr == nil {
-			if mkErr := os.MkdirAll(dir, 0o755); mkErr == nil {
-				_ = os.WriteFile(filepath.Join(dir, serverConfigFileName), encoded, 0o644)
-			}
+		if mkErr := os.MkdirAll(dir, 0o755); mkErr == nil {
+			writeServerConfigFile(filepath.Join(dir, serverConfigFileName), newURL)
 		}
-	} else {
-		// Cannot resolve user data; keep in memory only.
-		serverConfigMu.Lock()
-		serverBaseURL = newURL
-		serverConfigMu.Unlock()
 	}
+	// Cannot resolve user data: keep in memory only.
+	serverConfigMu.Lock()
+	serverBaseURL = newURL
+	serverConfigMu.Unlock()
 
 	// Switching servers must not carry the previous server's session over:
 	// the cookies live on the loopback origin, and the page keeps the cached
 	// user plus the session expiry in localStorage. The overlay's avatars come
 	// from the old server too, so their cache goes with it.
 	if newURL != previous {
-		_ = mygo.Cookies.Clear()
+		clearHostCookies()
 		clearPageSessionCache()
 		overlayAvatars.clear()
 	}

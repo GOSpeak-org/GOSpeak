@@ -156,3 +156,82 @@ func TestLoadServerConfigBacksUpCorruptFile(t *testing.T) {
 		t.Fatalf("backup content lost: %q %v", data, readErr)
 	}
 }
+
+func TestSetBaseURLPersistsNormalizedURL(t *testing.T) {
+	dir := t.TempDir()
+	mygo.App.SetPath(mygo.PathUserData, dir)
+	t.Cleanup(func() { mygo.App.SetPath(mygo.PathUserData, "") })
+
+	previousClear := clearHostCookies
+	clearHostCookies = func() {}
+	t.Cleanup(func() { clearHostCookies = previousClear })
+
+	serverConfigMu.Lock()
+	previous := serverBaseURL
+	serverBaseURL = ""
+	serverConfigMu.Unlock()
+	t.Cleanup(func() {
+		serverConfigMu.Lock()
+		serverBaseURL = previous
+		serverConfigMu.Unlock()
+	})
+
+	if err := (ServerConfig{}).SetBaseURL("  https://gospeak.example.com///  "); err != nil {
+		t.Fatalf("SetBaseURL = %v, want nil", err)
+	}
+	const want = "https://gospeak.example.com"
+	if got := currentBaseURL(); got != want {
+		t.Fatalf("currentBaseURL() = %q, want %q", got, want)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, serverConfigFileName))
+	if err != nil {
+		t.Fatalf("read persisted config: %v", err)
+	}
+	var cfg serverConfigFile
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("decode persisted config: %v", err)
+	}
+	if cfg.BaseURL != want {
+		t.Fatalf("persisted baseUrl = %q, want %q", cfg.BaseURL, want)
+	}
+}
+
+func TestLoadServerConfigNormalizesPersistedURL(t *testing.T) {
+	dir := t.TempDir()
+	mygo.App.SetPath(mygo.PathUserData, dir)
+	t.Cleanup(func() { mygo.App.SetPath(mygo.PathUserData, "") })
+
+	path := filepath.Join(dir, serverConfigFileName)
+	if err := os.WriteFile(path, []byte(`{"baseUrl":"https://gospeak.example.com/"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	serverConfigMu.Lock()
+	previous := serverBaseURL
+	serverBaseURL = ""
+	serverConfigMu.Unlock()
+	t.Cleanup(func() {
+		serverConfigMu.Lock()
+		serverBaseURL = previous
+		serverConfigMu.Unlock()
+	})
+
+	loadServerConfig()
+
+	const want = "https://gospeak.example.com"
+	if got := currentBaseURL(); got != want {
+		t.Fatalf("currentBaseURL() = %q, want %q", got, want)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read rewritten config: %v", err)
+	}
+	var cfg serverConfigFile
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("decode rewritten config: %v", err)
+	}
+	if cfg.BaseURL != want {
+		t.Fatalf("rewritten baseUrl = %q, want %q", cfg.BaseURL, want)
+	}
+}

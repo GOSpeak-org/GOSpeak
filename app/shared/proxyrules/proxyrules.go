@@ -27,6 +27,15 @@ func ValidateBaseURL(raw string) error {
 	return nil
 }
 
+// NormalizeBaseURL returns the canonical string form of a backend base URL:
+// surrounding whitespace and every trailing slash are dropped, while an optional
+// path prefix keeps its own content. "https://gospeak.example.com/" and
+// "https://gospeak.example.com" address the same server, so only one form may be
+// persisted, compared or echoed back to the user.
+func NormalizeBaseURL(raw string) string {
+	return strings.TrimRight(strings.TrimSpace(raw), "/")
+}
+
 func RewriteSetCookie(value string) string {
 	if strings.TrimSpace(value) == "" {
 		return ""
