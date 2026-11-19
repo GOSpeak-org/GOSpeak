@@ -16,7 +16,7 @@ GOSpeak 是自托管的游戏语音平台（类似可私有部署的 Discord 语
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Go 1.26 · Gin · GORM · cobra CLI |
+| 后端 | Go 1.27 · Gin · GORM · cobra CLI |
 | 前端 | React 19 · TypeScript · @tanstack/react-router + react-query · zustand · Tailwind CSS 4 · rolldown-vite 7 |
 | UI | workspace 包 `packages/components`（Radix + 自有主题 token，shadcn 风格）· lucide-react · sonner · react-hook-form + zod |
 | 信令 | 原生 WebSocket（`internal/ws` + `internal/signal`，路径 `/ws`） |

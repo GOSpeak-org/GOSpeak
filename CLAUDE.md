@@ -10,7 +10,7 @@ GOSpeak 是基于 WebRTC 的实时音视频沟通平台。pnpm monorepo：Go 后
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Go 1.26 · Gin · GORM · cobra CLI |
+| 后端 | Go 1.27 · Gin · GORM · cobra CLI |
 | 前端 | React 19 · TypeScript · @tanstack/react-router/query · zustand · Tailwind 4 · packages/components · rolldown-vite 7 · lucide-react · sonner · react-hook-form + zod |
 | 信令 | 原生 WebSocket (internal/ws，/ws) |
 | SFU | LiveKit（唯一后端；`sfu.Provider` 抽象保留） |

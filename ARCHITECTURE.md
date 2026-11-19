@@ -231,7 +231,7 @@ Tech Stack:
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 Tech Stack:
-- Language: Go 1.26
+- Language: Go 1.27
 - HTTP: Gin
 - Database: GORM (SQLite/PostgreSQL/MySQL)
 - Shared state: Embedded NATS JetStream KV (黑名单、密钥轮换、房间状态)

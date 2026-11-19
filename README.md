@@ -62,7 +62,7 @@ chmod +x gospeak-server-v1.0.3-linux-amd64
 
 ### 源码开发
 
-需要 Go 1.26+、Node.js 20+、pnpm 10+ 与 Docker。
+需要 Go 1.27.3+、Node.js 20+、pnpm 10+ 与 Docker。
 
 ```bash
 git clone https://github.com/NoelOrin/GOSpeak.git

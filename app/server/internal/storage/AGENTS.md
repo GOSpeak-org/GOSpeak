@@ -1,24 +1,31 @@
 # storage 模块
 
-对象存储抽象：local 与 S3 兼容后端，外加密钥加解密工具。
+对象存储抽象：local 与 S3 兼容后端由 `github.com/NoelOrin/objectstore` 提供，本模块负责适配成项目自己的 `Provider`，并保留加解密工具。
 
 ## 文件
 
 | 文件 | 职责 |
 |------|------|
 | `provider.go` | `Provider` 接口 + `PresignedResult` |
-| `local.go` | `LocalProvider`：落盘 + `/uploads` 同源访问 |
-| `s3.go` | `S3Provider`：预签名直传 |
+| `objectstore_provider.go` | `ObjectStoreProvider`：适配 `objectstore.Backend` 与可选 `objectstore.Presigner`，`NewProvider` 工厂 |
+| `public_url.go` | 公开 URL 拼接（CDN base / AWS 虚拟主机 / path-style） |
 | `crypto.go` | `Cipher`：`Encrypt`/`Decrypt`、`EncryptSecret`/`DecryptSecret`、`InitCipher` |
 
 ## Provider 接口
 
 `PresignUpload(key, contentType, size)`、`UploadFromReader`、`GetPublicURL`、`Delete`、`TestConnection`、`HeadObjectSize`。
 
+## 库边界
+
+- `objectstore.Backend` 负责 `Put`/`Stat`/`Delete`/`TestConnection`，S3 的 `PresignUpload` 来自可选接口 `objectstore.Presigner`（local/memory 不实现，自然退化为中转上传）。
+- **不设置库的 `S3Prefix`**：handler 已把 `path_prefix` 写进 object key，重复设置会双重前缀。
+- 库的 `Get` 有 64MB 上限、`Put` 只接受 `[]byte`；本模块当前不用 `Get`，上传会把文件读入内存（`MaxFileSize` 默认 5MB）。
+- 库要求 Go 1.27.3，server 的 `go.mod` 已对齐；当前通过 `replace` 指向本地库源码，发布后需改为正式版本。
+
 ## 易错点
 
 - **S3 预签名的 `size` 会写进 `ContentLength` 签名**：客户端实际字节数必须与之一致，否则上传失败。前端必须先取真实 size。
-- 本地上传目录与 `/uploads` 静态服务共用 `STORAGE_LOCAL_DIR`（默认 `./uploads`）；`STORAGE_PATH_PREFIX` 只影响 S3 对象键，本地忽略，避免 `/uploads/uploads/...`。
+- 本地上传目录与 `/uploads` 静态服务共用 `STORAGE_LOCAL_DIR`（默认 `./uploads`）；`STORAGE_PATH_PREFIX` 只影响 S3 对象键，本地忽略。
 - 生产必须配置 `STORAGE_ENCRYPT_KEY`（64 位 hex）；dev 有全零兜底键，**不要在生产依赖兜底**。
 - 上传完成后用 `HeadObjectSize` 复核大小，不要信任客户端声明。
-- 对象键必须经过安全校验（拒绝路径穿越），local provider 的 `resolvePath` 负责。
+- 对象键必须经过安全校验（库 local 后端会把 `../` 归一到根目录内，不会逃逸）。
