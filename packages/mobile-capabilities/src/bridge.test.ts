@@ -78,9 +78,44 @@ describe.runIf(MOBILE_BUILD)(
 	"getPlugin / listenPlugin in a mobile build",
 	() => {
 		it("getPlugin registers the named Capacitor plugin", async () => {
-			const resolved = await getPlugin("AudioSession");
+			const resolved = await getPlugin<{ addListener: () => void }>(
+				"AudioSession",
+			);
 			expect(registerPlugin).toHaveBeenCalledWith("AudioSession");
-			expect(resolved).toBe(plugin);
+			expect(typeof resolved.addListener).toBe("function");
+		});
+
+		it("does not adopt the Capacitor proxy as a thenable", async () => {
+			// Capacitor 的 registerPlugin 代理把任何未知属性（含 then）都转发到原生，
+			// 访问 then 会得到 "ServerConfig.then() is not implemented"。
+			// Promise.resolve(proxy) 会 adopt thenable 从而卡住 getPlugin。
+			const thenSpy = vi.fn(() => {
+				throw new Error("ServerConfig.then() is not implemented");
+			});
+			const setBaseURL = vi.fn(async () => {});
+			const thenableProxy = new Proxy(
+				{
+					getBaseURL: vi.fn(async () => ({ baseUrl: "https://x" })),
+					setBaseURL,
+				},
+				{
+					get(target, prop) {
+						if (prop === "then") return thenSpy;
+						return Reflect.get(target, prop);
+					},
+				},
+			);
+			registerPlugin.mockReturnValueOnce(
+				thenableProxy as unknown as typeof plugin,
+			);
+			const resolved = await getPlugin<{
+				getBaseURL: () => Promise<{ baseUrl: string }>;
+				setBaseURL: (opts: { url: string }) => Promise<void>;
+			}>("ServerConfig");
+			expect(thenSpy).not.toHaveBeenCalled();
+			expect(await resolved.getBaseURL()).toEqual({ baseUrl: "https://x" });
+			await resolved.setBaseURL({ url: "https://y" });
+			expect(setBaseURL).toHaveBeenCalledWith({ url: "https://y" });
 		});
 
 		it("listenPlugin subscribes and forwards payloads", async () => {
