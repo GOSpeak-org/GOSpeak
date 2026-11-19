@@ -18,15 +18,13 @@ import PasswordInput from "@/components/common/passwordInput";
 import ServerUrlField from "@/components/common/serverUrlField";
 import ProviderIcon from "@/components/oauth/ProviderIcon";
 import { useUserStore } from "@/stores/userStore";
-import { createServerConfig, inDesktop } from "@gospeak/desktop";
-import {
-	createServerConfig as createMobileServerConfig,
-	inMobile,
-} from "@gospeak/mobile-capabilities";
+import { inDesktop } from "@gospeak/desktop";
+import { inMobile } from "@gospeak/mobile-capabilities";
 import { depth, useAuthParallax } from "@/hooks/useAuthParallax";
 import ForcePasswordChangeModal from "@/pages/login/components/ForcePasswordChangeModal";
 import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
 import { showLoginSuccessToast } from "@/pages/login/components/loginSuccessToast";
+import { serverConfigForPlatform } from "@/utils/serverConfigForPlatform";
 
 export const Route = createFileRoute("/login")({
 	// 有缓存用户就直接进首页，不在登录页等网络；会话是否仍然有效由
@@ -65,17 +63,20 @@ function LoginPage() {
 	const [showChangeModal, setShowChangeModal] = useState(false);
 	const [oauthLoading, setOauthLoading] = useState(false);
 
-	// 桌面端首次进入时服务器地址还是空的：没有任何可请求的后端，
-	// 不能先打一轮必然失败的接口（OAuth 列表、会话校验都不发）。
+	// 服务器地址为空时没有任何可请求的后端，不能先打一轮必然失败的接口
+	// （OAuth 列表、会话校验都不发）。有原生宿主的端（桌面/移动）地址是必填项；
+	// 纯浏览器里页面 origin
+	// 本身就是服务器，不需要配置。同步先取本地镜像，首帧即可用。
 	const [serverReady, setServerReady] = useState(() => {
-		if (inMobile())
-			return createMobileServerConfig().getBaseUrlSync().trim() !== "";
-		if (inDesktop()) return createServerConfig().getBaseUrlSync().trim() !== "";
-		return true;
+		if (!inMobile() && !inDesktop()) return true;
+		return serverConfigForPlatform().getBaseUrlSync().trim() !== "";
 	});
+	// 权威值可能晚于首帧到达（移动端来自原生插件、桌面来自宿主文件）。
+	// 以前这里只刷新桌面端，移动端镜像一旦是空的就永远停在「服务器就绪=false」，
+	// 登录按钮被禁用，表现为进不去页面。
 	useEffect(() => {
-		if (!inDesktop()) return;
-		void createServerConfig()
+		if (!inMobile() && !inDesktop()) return;
+		void serverConfigForPlatform()
 			.getBaseUrl()
 			.then((url) => setServerReady(url.trim() !== ""))
 			.catch(() => {});

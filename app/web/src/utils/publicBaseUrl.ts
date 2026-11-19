@@ -1,4 +1,4 @@
-import { createServerConfig } from "@gospeak/desktop";
+import { serverConfigForPlatform } from "./serverConfigForPlatform";
 import { useSyncExternalStore } from "react";
 
 /**
@@ -16,10 +16,10 @@ import { useSyncExternalStore } from "react";
 let cachedBaseUrl = readMirrorBaseUrl();
 const listeners = new Set<() => void>();
 
-/** 同步读取本地镜像；桌面端与浏览器共用同一实现（见 @gospeak/desktop）。 */
+/** 同步读取当前平台的本地镜像（移动端走原生能力，其余走 desktop 实现）。 */
 function readMirrorBaseUrl(): string {
 	try {
-		return createServerConfig().getBaseUrlSync();
+		return serverConfigForPlatform().getBaseUrlSync();
 	} catch {
 		return "";
 	}
@@ -40,7 +40,7 @@ export function publicBaseUrl(): string {
  */
 export async function loadPublicBaseUrl(): Promise<void> {
 	try {
-		const url = await createServerConfig().getBaseUrl();
+		const url = await serverConfigForPlatform().getBaseUrl();
 		const next = typeof url === "string" ? url.trim() : "";
 		if (next === cachedBaseUrl) return;
 		cachedBaseUrl = next;

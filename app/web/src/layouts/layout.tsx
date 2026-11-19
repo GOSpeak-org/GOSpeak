@@ -52,6 +52,7 @@ interface LayoutState {
 	isDomain: boolean;
 	isManage: boolean;
 	isHome: boolean;
+	isSettings: boolean;
 	isMobile: boolean;
 	splitWidth: string;
 	onOpenSettings: () => void;
@@ -60,7 +61,13 @@ interface LayoutState {
 	children: ReactNode;
 }
 
-function MobileBottomNav({ isDomain, isManage, isHome }: LayoutState) {
+function MobileBottomNav({
+	isDomain,
+	isManage,
+	isHome,
+	isSettings,
+	onOpenSettings,
+}: LayoutState) {
 	const navigate = useNavigate();
 	return (
 		<nav className="border-border bg-card relative z-20 flex shrink-0 border-t">
@@ -90,8 +97,8 @@ function MobileBottomNav({ isDomain, isManage, isHome }: LayoutState) {
 			</button>
 			<button
 				type="button"
-				className="text-faint-foreground flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 py-1.5 text-2xs transition-colors"
-				onClick={() => useLayoutSettings.open()}
+				className={`flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 py-1.5 text-2xs transition-colors ${isSettings ? "text-primary" : "text-faint-foreground"}`}
+				onClick={onOpenSettings}
 			>
 				<Settings size={20} />
 				<span>设置</span>
@@ -335,14 +342,9 @@ function DesktopLayout(state: LayoutState) {
 	);
 }
 
-// 设置弹窗全局单例：布局内任意层级（含 UserBar、底部导航）都能打开
-let settingsOpener: (() => void) | null = null;
-const useLayoutSettings = {
-	open: () => settingsOpener?.(),
-};
-
 export default function Layout({ children }: { children: ReactNode }) {
 	const location = useLocation();
+	const navigate = useNavigate();
 	// 全局快捷键（M 静音等）：挂在布局层，登录后的所有页面都生效
 	useGlobalShortcuts();
 	// 把主窗口的房间/成员/发言状态接力推给原生覆盖层 HUD（仅桌面端生效）。
@@ -357,6 +359,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 	const isManage = location.pathname.startsWith("/manage");
 	const isHome =
 		location.pathname === "/" || location.pathname.startsWith("/index");
+	const isSettings = location.pathname === "/settings";
 
 	const [splitWidth, setSplitWidth] = useState(() => {
 		const saved = Number.parseInt(localStorage.getItem("splitWidth") ?? "", 10);
@@ -376,13 +379,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 	);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [notificationsOpen, setNotificationsOpen] = useState(false);
-
-	useEffect(() => {
-		settingsOpener = () => setSettingsOpen(true);
-		return () => {
-			settingsOpener = null;
-		};
-	}, []);
 
 	const selectedRoomInfo = useSocketStore((s) => s.selectedRoomInfo);
 	const currentRoom = useSocketStore((s) => s.currentRoom);
@@ -515,9 +511,14 @@ export default function Layout({ children }: { children: ReactNode }) {
 		isDomain,
 		isManage,
 		isHome,
+		isSettings,
 		isMobile,
 		splitWidth,
-		onOpenSettings: () => setSettingsOpen(true),
+		// 移动端导航到独立设置页；桌面端维持原有弹窗行为。
+		onOpenSettings: () => {
+			if (isMobile) navigate({ to: "/settings" });
+			else setSettingsOpen(true);
+		},
 		onOpenNotifications: () => setNotificationsOpen(true),
 		splitDragRef,
 		children,

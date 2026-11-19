@@ -7,6 +7,9 @@ import { clearPendingInvite, setPendingInvite } from "@/utils/pendingInvite";
 import { createServerConfig as createMobileServerConfig } from "@gospeak/mobile-capabilities";
 import { setPublicBaseUrl } from "@/utils/publicBaseUrl";
 
+/** 输入值与持久化值统一成规范形式：不带末尾斜杠（与能力层同一规则）。 */
+const normalizeServerUrl = (raw: string) => raw.trim().replace(/\/+$/, "");
+
 /**
  * 服务器地址输入框。桌面端保存后由宿主切换回环代理并刷新；移动端直接让
  * WebView 加载目标服务器（后端内嵌 Web UI 与 API/WS 同源，不受跨域限制）。
@@ -14,18 +17,23 @@ import { setPublicBaseUrl } from "@/utils/publicBaseUrl";
 export default function ServerUrlField({
 	className,
 	mobile = false,
+	onBeforeSwitch,
 }: {
 	className?: string;
 	mobile?: boolean;
+	/** 移动端切换服务器前的会话清理回调；失败会中止切换。 */
+	onBeforeSwitch?: () => void | Promise<void>;
 }) {
 	const navigate = useNavigate();
 	const [config] = useState(() =>
 		mobile ? createMobileServerConfig() : createServerConfig(),
 	);
-	const readMirror = () => config.getBaseUrlSync();
+	const readMirror = () => normalizeServerUrl(config.getBaseUrlSync());
 	const [value, setValue] = useState(readMirror);
 	const [saved, setSaved] = useState(readMirror);
-	const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+	const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
+		"idle",
+	);
 	const [errorMessage, setErrorMessage] = useState("");
 	const [invite, setInvite] = useState<ParsedInviteLink | null>(null);
 
@@ -33,8 +41,8 @@ export default function ServerUrlField({
 		void config
 			.getBaseUrl()
 			.then((v) => {
-				setValue(v);
-				setSaved(v);
+				setValue(normalizeServerUrl(v));
+				setSaved(normalizeServerUrl(v));
 			})
 			.catch(() => {});
 		if (mobile) return;
@@ -47,7 +55,7 @@ export default function ServerUrlField({
 				const parsed = parseInviteLink(text);
 				if (!parsed) return;
 				setInvite(parsed);
-				if (parsed.server) setValue(parsed.server);
+				if (parsed.server) setValue(normalizeServerUrl(parsed.server));
 			} catch {
 				// 未授权读剪贴板：静默跳过，用户可手动粘贴。
 			}
@@ -57,8 +65,8 @@ export default function ServerUrlField({
 	const enterInvite = async (parsed: ParsedInviteLink) => {
 		setStatus("saving");
 		setInvite(null);
-		const current = saved.trim().replace(/\/+$/, "");
-		const target = parsed.server?.trim().replace(/\/+$/, "");
+		const current = normalizeServerUrl(saved);
+		const target = parsed.server ? normalizeServerUrl(parsed.server) : "";
 		if (!target || target === current) {
 			navigate({ to: "/invite/d/$code", params: { code: parsed.code } });
 			return;
@@ -76,18 +84,30 @@ export default function ServerUrlField({
 	};
 
 	const persist = (viaBlur = false) => {
-		const next = value.trim();
+		const next = normalizeServerUrl(value);
 		if (!next || status === "saving") return;
 		if (mobile) {
 			if (viaBlur) return;
 			setStatus("saving");
+			setErrorMessage("");
+			// 先清会话：旧服务器的 HttpOnly Cookie 只能由旧服务器下发过期
+			// Set-Cookie 清掉，否则切到新服务器后会被继续携带。
 			// 原生插件切换反代目标后会 reload WebView，页面随即卸载。
-			void config.setBaseUrl(next).catch((error: unknown) => {
-				setErrorMessage(
-					error instanceof Error ? error.message : "保存失败，请重试",
-				);
-				setStatus("error");
-			});
+			void (async () => {
+				try {
+					await onBeforeSwitch?.();
+					setPublicBaseUrl(next);
+					await config.setBaseUrl(next);
+					setValue(next);
+					setSaved(next);
+					setStatus("success");
+				} catch (error) {
+					setErrorMessage(
+						error instanceof Error ? error.message : "保存失败，请重试",
+					);
+					setStatus("error");
+				}
+			})();
 			return;
 		}
 		// 有识别到的邀请时，焦点离开输入框不能顺手保存地址，否则会先切服务器
@@ -105,7 +125,13 @@ export default function ServerUrlField({
 		setStatus("saving");
 		void config
 			.setBaseUrl(next)
-			.then(() => setPublicBaseUrl(next))
+			.then(() => {
+				// 回显规范值：浏览器端保存不重载页面，输入框必须立刻收敛到去掉
+				// 末尾斜杠的形式，否则下一轮比较/分享链接会带着两种写法。
+				setPublicBaseUrl(next);
+				setValue(next);
+				setSaved(next);
+			})
 			.catch(() => setStatus("error"));
 	};
 
@@ -141,10 +167,14 @@ export default function ServerUrlField({
 					type="button"
 					size="sm"
 					className="mt-2"
-					disabled={status === "saving"}
+					disabled={status === "saving" || status === "success"}
 					onClick={() => persist()}
 				>
-					{status === "saving" ? "正在连接…" : "连接服务器"}
+					{status === "saving"
+						? "正在连接…"
+						: status === "success"
+							? "已连接"
+							: "连接服务器"}
 				</Button>
 			)}
 
@@ -178,6 +208,10 @@ export default function ServerUrlField({
 			{status === "saving" ? (
 				<p className="text-muted-foreground mt-1 text-xs">
 					正在连接服务器并刷新…
+				</p>
+			) : status === "success" ? (
+				<p className="text-primary mt-1 text-xs">
+					服务器地址已更新，正在重新连接…
 				</p>
 			) : status === "error" ? (
 				<p className="text-destructive mt-1 text-xs">
