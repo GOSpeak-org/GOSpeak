@@ -79,3 +79,13 @@ select:-webkit-autofill {
 		background-clip: padding-box;
 	}
 }
+
+/* 触摸设备（粗指针 / 无 hover）没有键盘导航需求：元素被程序化 focus（例如返回
+   页面后聚焦底部导航 tab）时，浏览器会画出 :focus 但非 :focus-visible 的默认
+   outline，MIUI/Chrome 上表现为一块橙色焦点框。只在这类设备上隐藏它；
+   细指针设备保留 :focus-visible 键盘焦点环以满足无障碍。 */
+@media (hover: none), (pointer: coarse) {
+	:focus:not(:focus-visible) {
+		outline: none;
+	}
+}

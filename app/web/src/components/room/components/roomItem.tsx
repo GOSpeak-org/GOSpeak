@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@gospeak/components";
+import { inMobile } from "@gospeak/mobile-capabilities";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { type RoomInfo, socketStore } from "@/stores/socketStore";
 import { toastActionError } from "@/utils/toast";
@@ -144,6 +145,8 @@ export function RoomItem({
 	};
 
 	const showDoubleClickHint = (event: React.MouseEvent) => {
+		// 移动端单击即进房间，任何调用路径都不应弹「双击进入」提示。
+		if (inMobile()) return;
 		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
 		setClickHint({ x: rect.left + rect.width / 2, y: rect.bottom + 6 });
 	};
@@ -195,7 +198,7 @@ export function RoomItem({
 				<div className="flex w-full min-w-0 items-center">
 					<button
 						className={clsx(
-							"hover:bg-muted active:bg-selected flex min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75",
+							"hover:bg-muted active:bg-selected flex min-h-11 min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm border-0 px-2 py-1.5 text-sm transition-colors active:duration-75",
 							isActive ? "bg-muted" : "",
 							isSelected && !isActive ? "bg-muted" : "",
 						)}
@@ -207,9 +210,12 @@ export function RoomItem({
 						}}
 						onClick={(event) => {
 							// detail === 0 表示键盘激活（Enter/Space），直接加入；
-							// 桌面指针单击仍保留"双击进入"提示，双击加入。
+							// 移动端单击直接加入：用 inMobile() 而非 CSS 宽度，因为 MIUI 等
+							// 大屏设备的 innerWidth 可能 >767，matchMedia 会误判为桌面。
+							// 桌面窄窗口仍按响应式宽度走单击；桌面宽屏保留"双击进入"提示。
 							if (
 								event.detail === 0 ||
+								inMobile() ||
 								window.matchMedia("(max-width: 767px)").matches
 							) {
 								handleJoin();
@@ -251,7 +257,7 @@ export function RoomItem({
 					<button
 						type="button"
 						aria-label="更多操作"
-						className="hover:bg-muted flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-sm"
+						className="hover:bg-muted flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-sm"
 						onClick={(event) => {
 							event.stopPropagation();
 							openContextMenu(event);
