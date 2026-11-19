@@ -15,12 +15,9 @@ import (
 // ObjectStoreProvider 用 objectstore.Backend 承载对象读写；
 // 预签名直传与公开 URL 属于调用方语义，仍由本层提供。
 type ObjectStoreProvider struct {
-	backend       objectstore.Backend
-	presigner     objectstore.Presigner
-	providerType  string
-	endpoint      string
-	bucket        string
-	publicBaseURL string
+	backend     objectstore.Backend
+	presigner   objectstore.Presigner
+	publicURLer objectstore.PublicURLer
 }
 
 var _ Provider = (*ObjectStoreProvider)(nil)
@@ -28,13 +25,21 @@ var _ Provider = (*ObjectStoreProvider)(nil)
 // NewProvider 按存储配置构造 provider。
 func NewProvider(cfg model.StorageConfig, localDir string) (Provider, error) {
 	libCfg := objectstore.Config{
-		LocalDir:    localDir,
-		S3Endpoint:  cfg.Endpoint,
-		S3Bucket:    cfg.Bucket,
-		S3Region:    cfg.Region,
-		S3AccessKey: cfg.AccessKey,
-		S3SecretKey: cfg.SecretKey,
+		LocalDir:        localDir,
+		S3Endpoint:      cfg.Endpoint,
+		S3Bucket:        cfg.Bucket,
+		S3Region:        cfg.Region,
+		S3AccessKey:     cfg.AccessKey,
+		S3SecretKey:     cfg.SecretKey,
+		S3PublicBaseURL: cfg.PublicBaseURL,
+		S3Timeout:       5 * time.Second,
+		S3PresignTTL:    5 * time.Minute,
 		// handler 已把 path_prefix 写进 object key，这里不能再设 S3Prefix。
+	}
+	if cfg.PublicBaseURL != "" {
+		libCfg.PublicURL = cfg.PublicBaseURL
+	} else {
+		libCfg.PublicURL = "/uploads"
 	}
 	switch cfg.ProviderType {
 	case "s3":
@@ -52,15 +57,12 @@ func NewProvider(cfg model.StorageConfig, localDir string) (Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &ObjectStoreProvider{
-		backend:       backend,
-		providerType:  cfg.ProviderType,
-		endpoint:      cfg.Endpoint,
-		bucket:        cfg.Bucket,
-		publicBaseURL: cfg.PublicBaseURL,
-	}
+	p := &ObjectStoreProvider{backend: backend}
 	if presigner, ok := backend.(objectstore.Presigner); ok {
 		p.presigner = presigner
+	}
+	if publicURLer, ok := backend.(objectstore.PublicURLer); ok {
+		p.publicURLer = publicURLer
 	}
 	return p, nil
 }
@@ -69,7 +71,7 @@ func (p *ObjectStoreProvider) PresignUpload(key string, contentType string, size
 	if p.presigner == nil {
 		return &PresignedResult{ObjectKey: key}, nil
 	}
-	up, err := p.presigner.PresignUpload(context.Background(), key, contentType, size, 5*time.Minute)
+	up, err := p.presigner.PresignUpload(context.Background(), key, contentType, size, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +101,10 @@ func (p *ObjectStoreProvider) UploadFromReader(key string, reader io.Reader, siz
 }
 
 func (p *ObjectStoreProvider) GetPublicURL(key string) string {
-	return publicURL(p.providerType, p.endpoint, p.bucket, p.publicBaseURL, key)
+	if p.publicURLer == nil {
+		return key
+	}
+	return p.publicURLer.PublicURL(key)
 }
 
 func (p *ObjectStoreProvider) Delete(key string) error {

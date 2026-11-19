@@ -8,7 +8,6 @@
 |------|------|
 | `provider.go` | `Provider` 接口 + `PresignedResult` |
 | `objectstore_provider.go` | `ObjectStoreProvider`：适配 `objectstore.Backend` 与可选 `objectstore.Presigner`，`NewProvider` 工厂 |
-| `public_url.go` | 公开 URL 拼接（CDN base / AWS 虚拟主机 / path-style） |
 | `crypto.go` | `Cipher`：`Encrypt`/`Decrypt`、`EncryptSecret`/`DecryptSecret`、`InitCipher` |
 
 ## Provider 接口
@@ -17,7 +16,8 @@
 
 ## 库边界
 
-- `objectstore.Backend` 负责 `Put`/`Stat`/`Delete`/`TestConnection`，S3 的 `PresignUpload` 来自可选接口 `objectstore.Presigner`（local/memory 不实现，自然退化为中转上传）。
+- `objectstore.Backend` 负责 `Put`/`Stat`/`Delete`/`TestConnection`；S3 的 `PresignUpload` 来自可选接口 `objectstore.Presigner`，公开 URL 来自 `objectstore.PublicURLer`（local/memory 不实现 presigner，自然退化为中转上传）。
+- URL 基址、S3 超时与预签名有效期全部走 `objectstore.Config`：`PublicURL`/`S3PublicBaseURL`、`S3Timeout`(5s)、`S3PresignTTL`(5m)，业务侧不自己拼 URL。
 - **不设置库的 `S3Prefix`**：handler 已把 `path_prefix` 写进 object key，重复设置会双重前缀。
 - 库的 `Get` 有 64MB 上限、`Put` 只接受 `[]byte`；本模块当前不用 `Get`，上传会把文件读入内存（`MaxFileSize` 默认 5MB）。
 - 库要求 Go 1.27.3，server 的 `go.mod` 已对齐；当前通过 `replace` 指向本地库源码，发布后需改为正式版本。
