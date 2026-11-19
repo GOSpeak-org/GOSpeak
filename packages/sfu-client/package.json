@@ -30,7 +30,7 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
-		"livekit-client": "^2.23.0"
+		"livekit-client": "^2.24.1"
 	},
 	"devDependencies": {
 		"typescript": "^7.0.2",

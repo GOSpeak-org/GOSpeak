@@ -263,6 +263,8 @@ docker compose up -d
 
 数据库表结构启动时自动迁移。升级前先备份。
 
+LiveKit 镜像在 compose 里固定 tag（当前 `v1.13.11`），不跟随 `latest`：换 SFU 版本需要显式改那一行再 `docker compose pull livekit && docker compose up -d`，避免某次 pull 顺手换掉音视频后端。
+
 ### 停止
 
 ```bash

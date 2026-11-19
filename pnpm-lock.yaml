@@ -365,7 +365,7 @@ importers:
   packages/sfu-client:
     dependencies:
       livekit-client:
-        specifier: ^2.23.0
+        specifier: ^2.24.1
         version: 2.24.1(@types/dom-mediacapture-record@1.0.22)
     devDependencies:
       typescript:

@@ -119,7 +119,7 @@ docker run -d \
   -p 7882:7882/udp \
   -p 3478:3478/udp \
   -v $(pwd)/livekit.yaml:/etc/livekit.yaml \
-  livekit/livekit-server:latest \
+  livekit/livekit-server:v1.13.11 \
   --config /etc/livekit.yaml
 ```
 
