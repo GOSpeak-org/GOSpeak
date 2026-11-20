@@ -21,6 +21,11 @@ Object.defineProperty(globalThis, "ResizeObserver", {
 	writable: true,
 });
 
+Object.defineProperty(HTMLMediaElement.prototype, "play", {
+	configurable: true,
+	value: vi.fn().mockResolvedValue(undefined),
+});
+
 const mocks = vi.hoisted(() => ({
 	setMemberOutputVolume: vi.fn(),
 	setMemberMute: vi.fn(),
@@ -43,6 +48,15 @@ const mocks = vi.hoisted(() => ({
 			string,
 			{ outputVolume: number; isMute: boolean }
 		>,
+	},
+	share: {
+		remote: [] as Array<{
+			identity: string;
+			source: "screen" | "camera";
+			track: unknown;
+		}>,
+		localSharing: false,
+		localTrack: null as unknown,
 	},
 }));
 
@@ -136,7 +150,7 @@ vi.mock("@/handler_audio/speakingStore", () => ({
 }));
 vi.mock("@/stores/screenShareStore", () => ({
 	useScreenShareStore: (selector: (s: unknown) => unknown) =>
-		selector({ remote: [], localSharing: false, localTrack: null }),
+		selector(mocks.share),
 }));
 
 function reset(overrides: Partial<typeof session> = {}) {
@@ -179,6 +193,9 @@ beforeEach(() => {
 	mocks.fetchUserInfo.mockReset();
 	mocks.createMute.mockReset();
 	mocks.voice.otherMemberState = {};
+	mocks.share.remote = [];
+	mocks.share.localSharing = false;
+	mocks.share.localTrack = null;
 });
 
 afterEach(() => {
@@ -461,5 +478,125 @@ describe("RoomDetail / 成员卡片禁言", () => {
 				reason: "",
 			});
 		});
+	});
+});
+
+function makeTrack() {
+	return { attach: vi.fn(), detach: vi.fn(() => []) };
+}
+
+function joinWithShares(
+	remote: Array<{
+		identity: string;
+		source: "screen" | "camera";
+		track: unknown;
+	}>,
+	localSharing = false,
+	localTrack: unknown = null,
+) {
+	reset({
+		phase: "ready",
+		phaseLabel: "已连接",
+		isJoined: true,
+		isLoading: false,
+	});
+	mocks.socket.rooms = [{ name: "测试", domain_uuid: null, members: [bob] }];
+	mocks.share.remote = remote;
+	mocks.share.localSharing = localSharing;
+	mocks.share.localTrack = localTrack;
+}
+
+describe("RoomDetail / 共享画面切换条", () => {
+	it("单人共享不渲染切换条", () => {
+		joinWithShares([{ identity: "bob", source: "screen", track: makeTrack() }]);
+		render(<RoomDetail />);
+
+		expect(screen.getByText("bob 正在共享屏幕")).toBeTruthy();
+		expect(screen.queryByRole("button", { name: /切换到/ })).toBeNull();
+	});
+
+	it("多人共享渲染头像与名字，点击后切换主画面", () => {
+		joinWithShares([
+			{ identity: "bob", source: "screen", track: makeTrack() },
+			{ identity: "alice", source: "screen", track: makeTrack() },
+		]);
+		mocks.socket.rooms = [
+			{
+				name: "测试",
+				domain_uuid: null,
+				members: [
+					bob,
+					{ ...bob, identity: "alice", name: "alice", display_name: "Alice" },
+				],
+			},
+		];
+		render(<RoomDetail />);
+
+		expect(screen.getByText("bob 正在共享屏幕")).toBeTruthy();
+		const aliceButton = screen.getByRole("button", {
+			name: "切换到 Alice 的共享",
+		});
+		expect(aliceButton.textContent).toContain("Alice");
+		expect(aliceButton.getAttribute("aria-pressed")).toBe("false");
+
+		fireEvent.click(aliceButton);
+
+		expect(screen.getByText("alice 正在共享屏幕")).toBeTruthy();
+		expect(aliceButton.getAttribute("aria-pressed")).toBe("true");
+	});
+
+	it("当前共享者离开后回退到第一项", () => {
+		joinWithShares([
+			{ identity: "bob", source: "screen", track: makeTrack() },
+			{ identity: "alice", source: "screen", track: makeTrack() },
+		]);
+		mocks.socket.rooms = [
+			{
+				name: "测试",
+				domain_uuid: null,
+				members: [
+					bob,
+					{ ...bob, identity: "alice", name: "alice", display_name: "Alice" },
+				],
+			},
+		];
+		const { rerender } = render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "切换到 Alice 的共享" }),
+		);
+		expect(screen.getByText("alice 正在共享屏幕")).toBeTruthy();
+
+		mocks.share.remote = mocks.share.remote.filter(
+			(item) => item.identity !== "alice",
+		);
+		rerender(<RoomDetail />);
+
+		expect(screen.getByText("bob 正在共享屏幕")).toBeTruthy();
+		expect(screen.queryByRole("button", { name: /Alice/ })).toBeNull();
+	});
+
+	it("只有摄像头画面时回落到成员卡片网格", () => {
+		joinWithShares([{ identity: "bob", source: "camera", track: makeTrack() }]);
+		render(<RoomDetail />);
+
+		expect(screen.queryByText(/正在共享屏幕/)).toBeNull();
+		expect(screen.getByText("Bob")).toBeTruthy();
+	});
+
+	it("本人共享也进入切换条，且默认选中本人", () => {
+		joinWithShares(
+			[{ identity: "bob", source: "screen", track: makeTrack() }],
+			true,
+			makeTrack(),
+		);
+		render(<RoomDetail />);
+
+		expect(screen.getByText("你正在共享屏幕")).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "切换到 me 的共享" }),
+		).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "切换到 Bob 的共享" }),
+		).toBeTruthy();
 	});
 });

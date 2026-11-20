@@ -57,33 +57,14 @@ describe("ScreenShareView", () => {
 		expect(ref.current?.tagName).toBe("VIDEO");
 	});
 
-	it("没有 onToggleFullscreen 时不渲染全屏按钮", () => {
+	it("使用原生 controls，不渲染自定义全屏按钮", () => {
 		const { track } = makeTrack();
-		render(<ScreenShareView track={track} />);
+		const { container } = render(<ScreenShareView track={track} />);
 
-		expect(screen.queryByRole("button")).toBeNull();
-	});
-
-	it("全屏按钮浮在画面容器右下角，且不触发画面点击", () => {
-		const { track } = makeTrack();
-		const onClick = vi.fn();
-		const onToggleFullscreen = vi.fn();
-		render(
-			<ScreenShareView
-				track={track}
-				onClick={onClick}
-				onToggleFullscreen={onToggleFullscreen}
-			/>,
+		expect(container.querySelector("video")?.hasAttribute("controls")).toBe(
+			true,
 		);
-
-		const button = screen.getByRole("button", { name: "全屏" });
-		expect(button.className).toContain("absolute");
-		expect(button.className).toContain("right-3");
-		expect(button.className).toContain("bottom-3");
-
-		fireEvent.click(button);
-		expect(onToggleFullscreen).toHaveBeenCalledTimes(1);
-		expect(onClick).not.toHaveBeenCalled();
+		expect(screen.queryByRole("button")).toBeNull();
 	});
 
 	it("点击画面本身触发 onClick", () => {
@@ -96,24 +77,7 @@ describe("ScreenShareView", () => {
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
 
-	it("fullscreen 状态切换按钮图标与文案", () => {
-		const { track } = makeTrack();
-		const { rerender } = render(
-			<ScreenShareView track={track} onToggleFullscreen={() => {}} />,
-		);
-		expect(screen.getByRole("button", { name: "全屏" })).toBeTruthy();
-
-		rerender(
-			<ScreenShareView
-				track={track}
-				fullscreen
-				onToggleFullscreen={() => {}}
-			/>,
-		);
-		expect(screen.getByRole("button", { name: "退出全屏" })).toBeTruthy();
-	});
-
-	it("按视频真实分辨率给容器设宽高比，避免按钮落在黑边上", () => {
+	it("按视频真实分辨率给容器设宽高比，避免黑边", () => {
 		const { track } = makeTrack();
 		const { container } = render(<ScreenShareView track={track} />);
 		const wrapper = container.firstElementChild as HTMLElement;

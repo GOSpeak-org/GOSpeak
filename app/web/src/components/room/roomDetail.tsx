@@ -9,7 +9,8 @@ import {
 } from "@gospeak/components";
 import { clsx } from "clsx";
 import { Ellipsis, Gavel, LogOut, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RemoteVideoTrackLike } from "@gospeak/sfu-client/types";
 import { createMute } from "@/api/mute";
 import { fetchUserInfo } from "@/api/user";
 import Avatar from "@/components/common/avatar";
@@ -37,6 +38,13 @@ import { toastActionError } from "@/utils/toast";
 import ScreenShareView from "./ScreenShareView";
 import { useVoiceSessionContext } from "./VoiceSessionProvider";
 
+interface ShareEntry {
+	key: string;
+	identity: string;
+	track: RemoteVideoTrackLike;
+	isLocal: boolean;
+}
+
 /** Discord 语音频道视图：参与者卡片网格 + 底部断开按钮 */
 export default function RoomDetail() {
 	// 语音会话由常驻 Provider 持有，切到文字频道不会中断通话
@@ -45,7 +53,8 @@ export default function RoomDetail() {
 
 	const members = useSocketStore((s) => s.rooms);
 	const currentRoomName = useSocketStore((s) => s.currentRoom);
-	const myName = useUserStore((s) => s.user?.name);
+	const me = useUserStore((s) => s.user);
+	const myName = me?.name;
 	const currentDomainUUID = socketStore.currentDomainUUID();
 
 	const roomMembers =
@@ -66,40 +75,42 @@ export default function RoomDetail() {
 	const [openMemberMenu, setOpenMemberMenu] = useState<string | null>(null);
 	const closeMemberMenu = useCallback(() => setOpenMemberMenu(null), []);
 
-	// 屏幕共享：有画面时占满主区，成员卡片暂时让位
+	// 屏幕共享：候选来自远端屏幕共享 + 本人共享，切换条只展示头像与名字。
 	const remoteVideos = useScreenShareStore((s) => s.remote);
 	const localSharing = useScreenShareStore((s) => s.localSharing);
 	const localTrack = useScreenShareStore((s) => s.localTrack);
-	const sharedVideo =
-		remoteVideos.find((item) => item.source === "screen") ?? remoteVideos[0];
-	const sharedTrack = sharedVideo?.track ?? (localSharing ? localTrack : null);
-	const sharedLabel = sharedVideo
-		? `${sharedVideo.identity} 正在共享屏幕`
-		: localSharing
-			? "你正在共享屏幕"
-			: "";
 
-	// 全屏目标是共享画面 <video> 本身，按钮浮在视频右下角
-	const shareVideoRef = useRef<HTMLVideoElement>(null);
-	const [shareFullscreen, setShareFullscreen] = useState(false);
-
-	useEffect(() => {
-		const onChange = () => {
-			setShareFullscreen(document.fullscreenElement === shareVideoRef.current);
-		};
-		document.addEventListener("fullscreenchange", onChange);
-		return () => document.removeEventListener("fullscreenchange", onChange);
-	}, []);
-
-	const toggleShareFullscreen = () => {
-		const el = shareVideoRef.current;
-		if (!el) return;
-		if (document.fullscreenElement) {
-			void document.exitFullscreen().catch(() => {});
-			return;
+	const shareEntries = useMemo<ShareEntry[]>(() => {
+		const entries = remoteVideos
+			.filter((item) => item.source === "screen")
+			.map((item) => ({
+				key: `remote:${item.identity}`,
+				identity: item.identity,
+				track: item.track,
+				isLocal: false,
+			}));
+		if (localSharing && localTrack) {
+			entries.unshift({
+				key: "local",
+				identity: myName ?? "",
+				track: localTrack,
+				isLocal: true,
+			});
 		}
-		void el.requestFullscreen?.().catch(() => {});
-	};
+		return entries;
+	}, [remoteVideos, localSharing, localTrack, myName]);
+
+	const [activeKey, setActiveKey] = useState<string | null>(null);
+	const activeEntry =
+		shareEntries.find((entry) => entry.key === activeKey) ??
+		shareEntries[0] ??
+		null;
+	const sharedTrack = activeEntry?.track ?? null;
+	const sharedLabel = activeEntry
+		? activeEntry.isLocal
+			? "你正在共享屏幕"
+			: `${activeEntry.identity} 正在共享屏幕`
+		: "";
 
 	// 密码错时允许重新输入：此前"重试"只是用同一个错误密码再发一次，必然再失败
 	const [reenterPassword, setReenterPassword] = useState(false);
@@ -130,21 +141,47 @@ export default function RoomDetail() {
 					onReenterPassword={() => setReenterPassword(true)}
 				/>
 			) : sharedTrack ? (
-				<div className="bg-sunken relative flex min-h-0 flex-1 items-center justify-center p-3">
-					{/* 直接点画面全屏，不额外加浮层按钮/包裹元素 */}
-					<ScreenShareView
-						ref={shareVideoRef}
-						track={sharedTrack}
-						onClick={toggleShareFullscreen}
-						fullscreen={shareFullscreen}
-						onToggleFullscreen={toggleShareFullscreen}
-						className={`rounded-lg ${
-							shareFullscreen ? "cursor-zoom-out" : "cursor-zoom-in"
-						}`}
-					/>
-					<div className="bg-card border-border text-foreground absolute top-3 left-3 rounded-md border px-2 py-1 text-xs shadow-sm">
-						{sharedLabel}
+				<div className="bg-sunken flex min-h-0 flex-1 flex-col p-3">
+					<div className="relative flex min-h-0 flex-1 items-center justify-center">
+						<ScreenShareView track={sharedTrack} className="rounded-lg" />
+						<div className="bg-card border-border text-foreground absolute top-3 left-3 rounded-md border px-2 py-1 text-xs shadow-sm">
+							{sharedLabel}
+						</div>
 					</div>
+					{shareEntries.length > 1 && (
+						<div className="ds-scroll mt-3 flex shrink-0 gap-2 overflow-x-auto">
+							{shareEntries.map((entry) => {
+								const member = roomMembers.find(
+									(item) => item.identity === entry.identity,
+								);
+								const displayName = entry.isLocal
+									? me?.display_name || myName || "我"
+									: member?.display_name || member?.name || entry.identity;
+								const active = entry.key === activeEntry?.key;
+								return (
+									<button
+										key={entry.key}
+										type="button"
+										aria-label={`切换到 ${displayName} 的共享`}
+										aria-pressed={active}
+										className={clsx(
+											"bg-card border-border text-foreground flex shrink-0 cursor-pointer items-center gap-2 rounded-sm border px-2 py-1.5 text-sm transition-colors",
+											active ? "ring-primary ring-2" : "hover:bg-muted",
+										)}
+										onClick={() => setActiveKey(entry.key)}
+									>
+										<Avatar
+											src={entry.isLocal ? me?.avatar : member?.avatar}
+											name={displayName}
+											className="size-6"
+											textClass="text-2xs"
+										/>
+										<span className="max-w-24 truncate">{displayName}</span>
+									</button>
+								);
+							})}
+						</div>
+					)}
 				</div>
 			) : (
 				<div className="ds-scroll min-h-0 flex-1 overflow-y-auto p-4">
