@@ -145,7 +145,6 @@ function addListeners() {
 		socket.onServerEvent(EVENTS.MESSAGE_UPDATED, handleUpdated),
 		socket.onServerEvent(EVENTS.MESSAGE_DELETED, handleDeleted),
 		socket.onServerEvent(EVENTS.MESSAGE_REACTION, handleReaction),
-		socket.onServerEvent(EVENTS.MESSAGE_ERROR, handleError),
 	];
 }
 
@@ -203,17 +202,6 @@ function handleReaction(dto: {
 	emoji: string;
 }) {
 	applyReaction(dto);
-}
-
-function handleError(data: { client_nonce?: string; error?: string }) {
-	if (data.client_nonce) {
-		pendingNonces.set(data.client_nonce, "failed");
-	}
-	if (data.error) {
-		toast.error(data.error);
-	} else if (data.client_nonce) {
-		toast.error("消息发送失败");
-	}
 }
 
 async function joinTextRoom(room: {
@@ -408,6 +396,7 @@ function send(
 		uuid: client_nonce,
 		room_uuid: room,
 		author_id: me?.name ?? "",
+		author_uuid: me?.uuid ?? "",
 		author_name: me?.display_name || me?.name || "",
 		author_avatar: me?.avatar || "",
 		content,
@@ -533,7 +522,7 @@ function applyUpdated(dto: MessageDTO) {
 	}));
 }
 
-function applyDeleted(dto: MessageDTO) {
+function applyDeleted(dto: Pick<MessageDTO, "uuid">) {
 	useChatStore.setState((prev) => ({
 		messages: prev.messages.map((m) =>
 			m.uuid === dto.uuid ? { ...m, deleted: true } : m,
@@ -572,19 +561,34 @@ function applyReaction(dto: {
 	});
 }
 
+function restoreDeleted(messageUUID: string) {
+	useChatStore.setState((prev) => ({
+		messages: prev.messages.map((m) =>
+			m.uuid === messageUUID ? { ...m, deleted: false } : m,
+		),
+	}));
+}
+
 function deleteMessage(messageUUID: string) {
 	const roomName = getState().textRoomName;
 	if (!roomName) return;
-	// Optimistic: mark as deleted locally
-	applyDeleted({ uuid: messageUUID } as MessageDTO);
 	const socket = socketStore.getSocket();
-	if (socket?.isConnected()) {
-		socket.emitFireAndForget(EVENTS.MESSAGE_DELETE, {
+	if (!socket?.isConnected()) return;
+	// 乐观置删后必须等 ACK：服务端拒绝时回滚，否则服务端仍有该消息而本地永久显示已删除
+	const wasDeleted = getState().messages.some(
+		(m) => m.uuid === messageUUID && m.deleted,
+	);
+	applyDeleted({ uuid: messageUUID });
+	void socket
+		.emitAck(EVENTS.MESSAGE_DELETE, {
 			room: roomName,
 			domain_uuid: getState().textRoomDomainUUID ?? undefined,
 			message_uuid: messageUUID,
+		})
+		.catch((err: unknown) => {
+			if (!wasDeleted) restoreDeleted(messageUUID);
+			toast.error(localizedApiMessage(err));
 		});
-	}
 }
 
 // ------------------------------------------------------------------
@@ -593,6 +597,10 @@ function deleteMessage(messageUUID: string) {
 
 function tempConversationID(identity: string) {
 	return `pm_${identity}`;
+}
+
+function isLocalConversationID(id: string): boolean {
+	return id.startsWith("pm_");
 }
 
 function replaceConversationID(from: string, to: string) {
@@ -700,6 +708,11 @@ function acceptPrivateMessage(dto: PrivateMessageDTO) {
 	}
 	appendPrivateMessage(convID, dto);
 	upsertPrivateConversation(dto);
+	const me = useUserStore.getState().user?.name ?? "";
+	// 自己发出的消息：乐观会话已由 upsertPrivateConversation 落地，未读数本来就是 0。
+	// 服务端异步落库此时可能还没写入 conversation_participants，刷新列表会把刚建的
+	// 会话从列表冲掉，mark-read 也会 404 并弹出误导性的「资源不存在」。
+	if (dto.author_id && dto.author_id === me) return;
 	void loadConversations();
 	if (getState().activeConversationID === convID) {
 		void markRead(convID);
@@ -761,6 +774,10 @@ async function selectConversation(convID: string) {
 				},
 			}));
 		}
+		// 本地占位会话尚未落库，服务端查不到记录：拉取历史会 404 并被全局
+		// 拦截器提示「资源不存在」。等第一条消息落库后再走服务端历史。
+		if (isLocalConversationID(convID)) return;
+
 		const result = await getConversationMessages(convID);
 		useChatStore.setState((prev) => ({
 			pmMessages: { ...prev.pmMessages, [convID]: result.messages },
@@ -833,9 +850,12 @@ function sendDirect(convID: string, content: string) {
 	const targetIdentity = conv.other_identity;
 	const clientNonce = crypto.randomUUID();
 
+	const me = useUserStore.getState().user;
 	const pending: PrivateMessageDTO = {
 		uuid: clientNonce,
-		author_id: useUserStore.getState().user?.name ?? "",
+		author_id: me?.name ?? "",
+		author_name: me?.display_name || me?.name || "",
+		author_avatar: me?.avatar || "",
 		content,
 		deleted: false,
 		created_at: new Date().toISOString(),
@@ -917,7 +937,12 @@ function sendDirect(convID: string, content: string) {
 		.catch(markFailed);
 }
 
-async function startConversation(identity: string) {
+async function startConversation(
+	identity: string,
+	displayName?: string,
+	avatar?: string,
+) {
+	const otherDisplayName = displayName || identity;
 	const existing = getState().conversations.find(
 		(c) => c.other_identity === identity,
 	);
@@ -937,8 +962,8 @@ async function startConversation(identity: string) {
 				{
 					conversation_id: convID,
 					other_identity: identity,
-					other_display_name: identity,
-					other_avatar: "",
+					other_display_name: otherDisplayName,
+					other_avatar: avatar ?? "",
 					last_content: "",
 					last_sender_identity: "",
 					last_message_at: 0,

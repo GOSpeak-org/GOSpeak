@@ -2,6 +2,8 @@
 export interface PrivateMessageDTO {
 	uuid: string;
 	author_id: string;
+	author_name?: string;
+	author_avatar?: string;
 	content: string;
 	reply_to?: string;
 	edited_at?: string | null;

@@ -18,15 +18,15 @@ import PasswordInput from "@/components/common/passwordInput";
 import ServerUrlField from "@/components/common/serverUrlField";
 import ProviderIcon from "@/components/oauth/ProviderIcon";
 import { useUserStore } from "@/stores/userStore";
-import { createServerConfig, inDesktop } from "@gospeak/desktop";
-import {
-	createServerConfig as createMobileServerConfig,
-	inMobile,
-} from "@gospeak/mobile-capabilities";
+import { inDesktop } from "@gospeak/desktop";
+import { inMobile } from "@gospeak/mobile-capabilities";
 import { depth, useAuthParallax } from "@/hooks/useAuthParallax";
 import ForcePasswordChangeModal from "@/pages/login/components/ForcePasswordChangeModal";
 import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
 import { showLoginSuccessToast } from "@/pages/login/components/loginSuccessToast";
+import { serverConfigForPlatform } from "@/utils/serverConfigForPlatform";
+
+const SKIP_DEFAULT_PASSWORD_CHANGE_KEY = "gospeak_skip_default_password_change";
 
 export const Route = createFileRoute("/login")({
 	// 有缓存用户就直接进首页，不在登录页等网络；会话是否仍然有效由
@@ -60,22 +60,32 @@ function LoginPage() {
 		navigate({ to: target });
 	}
 
+	function handleSkipPasswordChange() {
+		localStorage.setItem(SKIP_DEFAULT_PASSWORD_CHANGE_KEY, "1");
+		setShowChangeModal(false);
+		showLoginSuccessToast();
+		goToApp();
+	}
+
 	const [banned, setBanned] = useState(false);
 	const [showForgotModal, setShowForgotModal] = useState(false);
 	const [showChangeModal, setShowChangeModal] = useState(false);
 	const [oauthLoading, setOauthLoading] = useState(false);
 
-	// 桌面端首次进入时服务器地址还是空的：没有任何可请求的后端，
-	// 不能先打一轮必然失败的接口（OAuth 列表、会话校验都不发）。
+	// 服务器地址为空时没有任何可请求的后端，不能先打一轮必然失败的接口
+	// （OAuth 列表、会话校验都不发）。有原生宿主的端（桌面/移动）地址是必填项；
+	// 纯浏览器里页面 origin
+	// 本身就是服务器，不需要配置。同步先取本地镜像，首帧即可用。
 	const [serverReady, setServerReady] = useState(() => {
-		if (inMobile())
-			return createMobileServerConfig().getBaseUrlSync().trim() !== "";
-		if (inDesktop()) return createServerConfig().getBaseUrlSync().trim() !== "";
-		return true;
+		if (!inMobile() && !inDesktop()) return true;
+		return serverConfigForPlatform().getBaseUrlSync().trim() !== "";
 	});
+	// 权威值可能晚于首帧到达（移动端来自原生插件、桌面来自宿主文件）。
+	// 以前这里只刷新桌面端，移动端镜像一旦是空的就永远停在「服务器就绪=false」，
+	// 登录按钮被禁用，表现为进不去页面。
 	useEffect(() => {
-		if (!inDesktop()) return;
-		void createServerConfig()
+		if (!inMobile() && !inDesktop()) return;
+		void serverConfigForPlatform()
 			.getBaseUrl()
 			.then((url) => setServerReady(url.trim() !== ""))
 			.catch(() => {});
@@ -129,9 +139,12 @@ function LoginPage() {
 			const data = event.data as {
 				type?: string;
 				ok?: boolean;
+				action?: string;
 				expires_in?: number;
 			} | null;
 			if (data?.type !== "gospeak-oauth") return;
+			// bind 流程的回调由设置页监听，登录页不处理。
+			if (data.action === "bind") return;
 			if (data.ok) completeOAuthLogin(data.expires_in);
 		}
 
@@ -167,7 +180,12 @@ function LoginPage() {
 			});
 			if (data.need_change_password) {
 				await useUserStore.getState().login(data.user, data.expires_in);
-				setShowChangeModal(true);
+				if (localStorage.getItem(SKIP_DEFAULT_PASSWORD_CHANGE_KEY) === "1") {
+					showLoginSuccessToast();
+					goToApp();
+				} else {
+					setShowChangeModal(true);
+				}
 				return;
 			}
 			await useUserStore.getState().login(data.user, data.expires_in);
@@ -253,9 +271,9 @@ function LoginPage() {
 						<div className="card-tilt">
 							<div className="border-foreground/10 bg-card rounded-lg border shadow-xl shadow-black/20">
 								<div className="p-6 sm:p-8">
-									<div className="mb-6 hidden items-center justify-between md:flex">
+									<div className="mb-6 hidden text-center md:block">
 										<h2 className="text-lg font-semibold">登录账号</h2>
-										<span className="text-faint-foreground font-mono text-2xs uppercase">
+										<span className="text-faint-foreground mt-1 block font-mono text-2xs uppercase tracking-widest">
 											Login
 										</span>
 									</div>
@@ -360,7 +378,7 @@ function LoginPage() {
 															<ProviderIcon
 																name={p.name}
 																iconUrl={p.icon_url}
-																size={22}
+																size={24}
 															/>
 														</Button>
 													);
@@ -407,7 +425,8 @@ function LoginPage() {
 			{/* Admin 首次登录强制改密 Modal */}
 			<ForcePasswordChangeModal
 				open={showChangeModal}
-				onClose={() => setShowChangeModal(false)}
+				onClose={handleSkipPasswordChange}
+				onSkip={handleSkipPasswordChange}
 				onSubmit={async ({ newPassword, name }) => {
 					const result = await firstChangePasswordApi(newPassword ?? "", name);
 					await useUserStore.getState().login(result.user, result.expires_in);

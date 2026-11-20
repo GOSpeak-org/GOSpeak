@@ -11,6 +11,12 @@ final class LocalProxyServer {
 
     private(set) var port: UInt16 = 0
 
+    func boundPort() -> UInt16 {
+        lock.lock()
+        defer { lock.unlock() }
+        return port
+    }
+
     private let queue = DispatchQueue(label: "dev.gospeak.mobile.proxy", qos: .userInitiated, attributes: .concurrent)
     private let lock = NSLock()
     private var listener: NWListener?

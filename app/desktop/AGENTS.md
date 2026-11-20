@@ -5,7 +5,7 @@ Go 1.27 + MyGo 0.8.3 原生宿主。**自带前端**（embed `webui/dist`），�
 ## 启动链（`main.go`）
 
 1. `RequestSingleInstanceLock`：第二实例把命令行交给已运行实例后退出。
-2. `mygo.Bind(...)` × 11：Window / Tray / Notification / AutoStart / DeepLink / Dialog / Clipboard / Updater / Overlay / ServerConfig / ClientLog —— 每个导出方法都会变成 TS 侧 `"<Struct>.<Method>"` 命令。
+2. `mygo.Bind(...)` × 12：Window / Tray / Notification / AutoStart / DeepLink / Dialog / Clipboard / Updater / Overlay / ServerConfig / ClientLog / ScreenCapture —— 每个导出方法都会变成 TS 侧 `"<Struct>.<Method>"` 命令。
 3. `registerDeepLink()`（`gospeak://invite/d/<CODE>`，必须在 Run 之前）。
 4. `WhenReady`：`initHostLog` → `loadServerConfig` → release 下 `ensureProxyStarted` → `openMainWindow`。
 
@@ -19,7 +19,7 @@ Go 1.27 + MyGo 0.8.3 原生宿主。**自带前端**（embed `webui/dist`），�
 - `/wsworker?target=<ws-url>` 转发到 SFU/信令 worker，**目标受 allowlist 限制**（只允许信任后端下发的 host）；`stripWorkerCookies` 防凭据外泄。
 - `/healthz` 暴露端口、上游错误分类与当前路由（`route` / `route_fallbacks`），供看门狗与崩溃窗使用；`recordUpstreamError` 分类记录。
 - WS upgrade 有专门的 round tripper 与超时处理，改动容易把 `/ws` 打成 502。
-- 三类纯规则（服务器地址校验、`Set-Cookie` 改写、worker 白名单归一）实现在 `app/shared/proxyrules`，桌面只是调用方。改规则去那里改，并跑 `cd app/shared/proxyrules && go test ./...`；桌面侧对应测试（`TestValidateBaseURL`、`TestNormalizedHostPort`、`TestWorker*`）会验证行为未漂移。
+- 纯规则（服务器地址校验与归一、`Set-Cookie` 改写、worker 白名单）实现在 `app/shared/proxyrules`，桌面只是调用方。改规则去那里改，并跑 `cd app/shared/proxyrules && go test ./...`；桌面侧对应测试（`TestValidateBaseURL`、`TestNormalizedHostPort`、`TestWorker*`）会验证行为未漂移。
 
 ## 上游路由与回退（`proxyroute.go` / `systemproxy.go`）
 
@@ -36,7 +36,7 @@ Go 1.27 + MyGo 0.8.3 原生宿主。**自带前端**（embed `webui/dist`），�
 
 ## 其余能力
 
-`overlay*` 原生覆盖层（Panel + 原生重绘）、`tray.go`、`autostart.go`、`notification.go`、`dialog.go`、`clipboard.go`、`updater.go`、`deeplink.go`、`server_config.go`、`clientlog.go` + `preload_*.js`。
+`overlay*` 原生覆盖层（Panel + 原生重绘）、`tray.go`、`autostart.go`、`notification.go`、`dialog.go`、`clipboard.go`、`updater.go`、`deeplink.go`、`server_config.go`、`clientlog.go`、`screencapture.go`（屏幕录制权限检查/引导，`ScreenCapture.Check/Guide`）+ `preload_*.js`。
 
 ## 构建
 

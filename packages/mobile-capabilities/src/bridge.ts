@@ -21,6 +21,26 @@ interface PluginProxy {
 	): Promise<{ remove: () => Promise<void> }> | { remove: () => Promise<void> };
 }
 
+/**
+ * Capacitor 的 registerPlugin 返回 Proxy：读任何未知属性（包括 then）都会
+ * 动态生成一个"调用原生方法"的函数。若把它直接作为 async 的返回值，
+ * Promise.resolve 会把它当 thenable adopt，触发 `ServerConfig.then()`，
+ * 原生报 "not implemented"，getPlugin 的 Promise 卡在 pending —— 表现为
+ * 保存服务器地址后一直转圈、进不去页面。
+ *
+ * 这里再包一层 Proxy：除 `then` 外原样转发到 Capacitor 代理；`then` 返回
+ * undefined，使其不再是 thenable。方法集合完全动态，不枚举、不遗漏。
+ */
+function detachThenable<T extends object>(proxy: T): T {
+	return new Proxy(proxy, {
+		get(target, prop, receiver) {
+			if (prop === "then") return undefined;
+			const value = Reflect.get(target, prop, receiver);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+	});
+}
+
 export async function getPlugin<T extends object>(name: string): Promise<T> {
 	if (!__GOSPEAK_MOBILE__) {
 		throw new Error(
@@ -28,7 +48,7 @@ export async function getPlugin<T extends object>(name: string): Promise<T> {
 		);
 	}
 	const { registerPlugin } = await import("@capacitor/core");
-	return registerPlugin<T>(name);
+	return detachThenable<T>(registerPlugin<T>(name));
 }
 
 export async function listenPlugin<T>(

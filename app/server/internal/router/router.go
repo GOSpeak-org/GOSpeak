@@ -67,6 +67,7 @@ type Handlers struct {
 	Conversation *handler.ConversationHandler
 	Audit        *handler.AuditHandler
 	Announcement *handler.AnnouncementHandler
+	PushToken    *handler.PushTokenHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
@@ -88,7 +89,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// 静态服务与 LocalProvider 共用 STORAGE_LOCAL_DIR（默认 ./uploads），保证落盘与访问同源；
+	// 静态服务与本地存储后端共用 STORAGE_LOCAL_DIR（默认 ./uploads），保证落盘与访问同源；
 	// STORAGE_PATH_PREFIX 仅用于 S3 对象键前缀，本地存储忽略，避免出现 /uploads/uploads/... 重复路径。
 	uploadDir := "uploads"
 	if cfg != nil && cfg.StorageLocalDir != "" {
@@ -118,6 +119,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 	userGroupRoutes.RegisterProtected(protected.Group("/user-group"), h.UserGroup)
 	authRoutes.RegisterProtected(protected.Group("/auth"), h.Auth)
 	signalRoutes.RegisterProtected(protected.Group("/signal"), h.Signal)
+	oauthRoutes.RegisterProtected(protected.Group("/oauth"), h.OAuth)
 	oauthRoutes.RegisterAdmin(protected.Group("/oauth/admin"), h.OAuth)
 	roleRoutes.RegisterProtected(protected.Group("/role"), h.Role)
 	muteRoutes.RegisterProtected(protected.Group("/mute"), h.Mute)
@@ -136,6 +138,9 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 	auditRoutes.RegisterProtected(protected.Group("/audit"), h.Audit)
 	if h.Announcement != nil {
 		announcementRoutes.RegisterProtected(protected.Group("/announcement"), h.Announcement)
+	}
+	if h.PushToken != nil {
+		userRoutes.RegisterPushToken(protected.Group("/user"), h.PushToken)
 	}
 	if h.Invite != nil {
 		inviteRoutes.Register(protected.Group(""), h.Invite)

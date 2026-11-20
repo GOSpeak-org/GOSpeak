@@ -21,7 +21,7 @@
 ## JWT Claims
 
 ```
-username, display_name, user_uuid, role, token_version, permissions?（历史字段，当前未使用）
+username, display_name, user_uuid, role, token_version, permissions?（历史字段，当前未使用）, refresh_family（refresh 重放防护）, token_type（access/refresh 区分，中间件校验）
 ```
 
 `token_version` 与 `User.TokenVersion` 绑定，改密/重置后递增使旧 token 失效。

@@ -55,6 +55,7 @@ export interface DomainInvitePreviewProps {
 	joining?: boolean;
 	onConfirm: () => void;
 	onCancel?: () => void;
+	onRetry?: () => void;
 }
 
 export default function DomainInvitePreview({
@@ -65,6 +66,7 @@ export default function DomainInvitePreview({
 	joining,
 	onConfirm,
 	onCancel,
+	onRetry,
 }: DomainInvitePreviewProps) {
 	const status = getDomainInvitePreviewStatus(!!loading, error || null, domain);
 	const action = getDomainInviteAction(domain, !!joined, !!joining, onConfirm);
@@ -88,6 +90,21 @@ export default function DomainInvitePreview({
 					className="border-destructive/50 bg-destructive/10 text-destructive mb-4 flex items-center gap-2 rounded-sm px-3 py-2 text-sm"
 				>
 					<span>{error}</span>
+				</div>
+			)}
+
+			{status === "error" && (onCancel || onRetry) && (
+				<div className="flex justify-end gap-2">
+					{onCancel && (
+						<button
+							type="button"
+							className="border-border hover:bg-muted inline-flex h-9 cursor-pointer items-center rounded-sm border px-3 text-sm transition-colors"
+							onClick={onCancel}
+						>
+							取消
+						</button>
+					)}
+					{onRetry && <Button onClick={onRetry}>重试</Button>}
 				</div>
 			)}
 

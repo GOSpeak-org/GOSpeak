@@ -40,6 +40,8 @@ const OBJC_HEADER = [
 	"",
 	"FOUNDATION_EXPORT BOOL ProxyrulesIsTrustedWorker(NSString* _Nullable target, NSString* _Nullable baseURL, NSString* _Nullable allowed);",
 	"",
+	"FOUNDATION_EXPORT NSString* _Nonnull ProxyrulesNormalizeBaseURL(NSString* _Nullable raw);",
+	"",
 	"FOUNDATION_EXPORT NSString* _Nonnull ProxyrulesNormalizedHostPort(NSString* _Nullable scheme, NSString* _Nullable hostport, NSError* _Nullable* _Nullable error);",
 	"",
 	"FOUNDATION_EXPORT NSString* _Nonnull ProxyrulesRewriteSetCookie(NSString* _Nullable value);",
@@ -65,6 +67,7 @@ const JAVA_BINDING = [
 	"\tprivate static native void _init();",
 	"",
 	"\tpublic static native boolean isTrustedWorker(String target, String baseURL, String allowed);",
+	"\tpublic static native String normalizeBaseURL(String raw);",
 	"\tpublic static native String normalizedHostPort(String scheme, String hostport) throws Exception;",
 	"\tpublic static native String rewriteSetCookie(String value);",
 	"\tpublic static native void validateBaseURL(String raw) throws Exception;",
@@ -76,6 +79,8 @@ const GO_SOURCE = [
 	"package proxyrules",
 	"",
 	"func ValidateBaseURL(raw string) error { return nil }",
+	"",
+	"func NormalizeBaseURL(raw string) string { return raw }",
 	"",
 	"func RewriteSetCookie(value string) string { return value }",
 	"",
@@ -154,6 +159,7 @@ test("parseJavaMethods collects public static native methods", () => {
 	const methods = parseJavaMethods(JAVA_BINDING);
 	assert.deepEqual([...methods].sort(), [
 		"isTrustedWorker",
+		"normalizeBaseURL",
 		"normalizedHostPort",
 		"rewriteSetCookie",
 		"validateBaseURL",
@@ -183,7 +189,7 @@ test("expectedSymbols lowercases the first letter for java only", () => {
 	assert.equal(lowerFirst(""), "");
 });
 
-test("checkBindingSurface passes when all four functions are bound", () => {
+test("checkBindingSurface passes when every exported function is bound", () => {
 	const objc = checkBindingSurface({
 		exports: parseObjcExports(OBJC_HEADER),
 		lang: "objc",

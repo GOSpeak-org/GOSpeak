@@ -57,7 +57,8 @@ services:
   # ── LiveKit（音视频 SFU）──────────────────────────────────────────────────
   livekit:
     restart: unless-stopped
-    image: livekit/livekit-server:latest
+    # 固定 tag：升级 SFU 是显式改动（latest 会随 pull 漂移，且 1.13 起默认 codec 与资源上限有变化）。
+    image: livekit/livekit-server:v1.13.11
     container_name: gospeak-livekit
     ports:
       - "7880:7880"        # HTTP / WebSocket 信令

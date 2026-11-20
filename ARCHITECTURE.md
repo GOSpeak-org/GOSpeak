@@ -60,7 +60,7 @@ GOSpeak/
 │   │       ├── api/         # apiClient (axios) + auth API
 │   │       ├── pages/       # 文件路由 → routeTree.gen.ts
 │   │       ├── components/  # 业务组件 (通用 UI 来自 packages/components；common/ 含错误边界)
-│   │       ├── hooks/       # React hooks (media / useAuthParallax / useUpload / useErrorHandler)
+│   │       ├── hooks/       # React hooks (media / useAuthParallax / useUpload)
 │   │       ├── layouts/     # 布局 (layout.tsx + common/)
 │   │       ├── stores/      # zustand (useXxxStore hook + xxxStore 门面；IndexedDB 持久化)
 │   │       └── types/       # TypeScript 类型定义
@@ -146,7 +146,7 @@ Tech Stack:
 - UI: packages/components (Radix + shadcn 风格, theme.css) + Tailwind CSS 4；图标 lucide-react；toast sonner；表单 react-hook-form + zod
 - Real-time: 原生 WebSocket + packages/sfu-client 前端 SFU 客户端
 - HTTP: Axios
-- Build: rolldown-vite 7 (@vitejs/plugin-react / @tanstack/router-plugin/vite / @tailwindcss/vite / @tanstack/devtools-vite)
+- Build: Vite 8（Rolldown） (@vitejs/plugin-react / @tanstack/router-plugin/vite / @tailwindcss/vite / @tanstack/devtools-vite)
 ```
 
 ### 前端错误处理
@@ -156,7 +156,6 @@ Tech Stack:
 - **组件级 `ErrorBoundary`**（`components/common/errorBoundary.tsx`）：包裹局部 UI，支持 `fallback`、`resetKeys`、`onReset`、`onError`、`report`，并导出 HOC `withErrorBoundary()`。
 - **页面级 `PageErrorBoundary`**（同文件）：全屏兜底，提供重试 / 刷新 / 返回首页 / 折叠错误详情 / 复制错误，生产环境隐藏堆栈。
 - **路由级 `RouteErrorComponent`**（同文件）：接入 TanStack Router `errorComponent`，覆盖渲染 / loader / beforeLoad 错误。
-- **`useErrorHandler()`**（`hooks/useErrorHandler.ts`）：把 `Promise.catch` / 事件回调里的异步错误重抛到渲染阶段，交给最近边界（React 边界本身捕获不到异步错误）。
 - **全局兜底 `installGlobalErrorHandlers()`**（`utils/errorReport.ts`）：监听 `window.onerror` + `unhandledrejection`。
 - **统一上报 `errorReport.ts`**：`normalizeError` / `registerErrorReporter`（可接 Sentry）/ `reportError` / `errorSummary`，`ErrorScope = component | page | route | global`。
 - **接入点**：`main.tsx` 注册 `defaultErrorComponent` + 全局监听（重试时 `router.invalidate()`）；`pages/__root.tsx` 的 `errorComponent: RouteErrorComponent`；`pages/(app)/route.tsx` 页面级边界包 Layout+Outlet（`resetKeys=[pathname]`）；`dynamicRender.tsx` / `domainWorkspace.tsx` / `layout.tsx` 组件级边界各包一层。
@@ -174,7 +173,7 @@ Tech Stack:
 │  │    Request → Router → Middleware → Handler → Service → Repository → DB │   │
 │  │               (JWT+RBAC)    ↓         ↓         ↓                      │   │
 │  │                         OAuth      SFU       AuthState                 │   │
-│  │                     (standalone) (provider)(optional)                   │   │
+│  │                     (standalone) (provider)(embedded)                   │   │
 │  │                                     ↓                                   │   │
 │  │                                 Signal/WS                               │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
@@ -231,7 +230,7 @@ Tech Stack:
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 Tech Stack:
-- Language: Go 1.26
+- Language: Go 1.27
 - HTTP: Gin
 - Database: GORM (SQLite/PostgreSQL/MySQL)
 - Shared state: Embedded NATS JetStream KV (黑名单、密钥轮换、房间状态)
@@ -252,7 +251,7 @@ Tech Stack:
 │  │                                                                         │   │
 │  │  type Provider interface {                                              │   │
 │  │      GenerateToken(room, identity string) (string, error)              │   │
-│  │      GenerateAdminToken() (string, error)                               │   │
+│  │      GenerateTokenWithPublish(room, identity string, canPublish bool)   │   │
 │  │      ListRooms() (interface{}, error)                                  │   │
 │  │      ListParticipants(room string) (interface{}, error)                │   │
 │  │      MuteParticipant(room, identity, trackSid string, muted bool) err  │   │
@@ -260,6 +259,7 @@ Tech Stack:
 │  │      DeleteRoom(room string) error                                      │   │
 │  │      GetHost() string                                                   │   │
 │  │  }                                                                      │   │
+│  │  // 完整接口共 15 个方法，以 internal/sfu/provider.go 为准              │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                    │                                           │
 │                                    │                                           │
@@ -328,7 +328,8 @@ Tech Stack:
 │  │  LiveKit: ┌──────────────────┐                                          │   │
 │  │           │  livekit-server  │                                          │   │
 │  │           │  :7880 (HTTP)    │                                          │   │
-│  │           │  :7881 (WebRTC)  │                                          │   │
+│  │           │  :7881 (TCP/TLS) │                                          │   │
+│  │           │  :7882 (WebRTC)  │  TCP+UDP 媒体主通道；3478/udp 为 TURN     │   │
 │  │           └──────────────────┘                                          │   │
 │  └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                 │
@@ -565,7 +566,7 @@ WS Endpoint: /ws（HttpOnly access cookie 鉴权，子协议仅传 `gospeak`）
 | **数据库** | SQLite / PostgreSQL / MySQL | 数据持久化 |
 | **事件总线** | 内嵌 NATS JetStream | 内部事件/黑名单/密钥轮换/房间状态 |
 | **认证** | JWT + OAuth2 (GitHub/Google/QQ) | 用户认证 |
-| **构建工具** | rolldown-vite 7 | 前端打包 |
+| **构建工具** | Vite 8（Rolldown） | 前端打包 |
 | **桌面端** | Go 1.27 + MyGo 0.8 + 系统 WebView | 原生宿主，内嵌同一套前端；条件编译裁剪平台模块 |
 | **包管理** | pnpm | Monorepo 管理 |
 | **容器化** | Docker Compose | 部署编排 |

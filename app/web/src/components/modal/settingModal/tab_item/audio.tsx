@@ -68,7 +68,7 @@ const INPUT_MODE_OPTIONS: {
 // Radix Select 不接受空字符串 value，空设备 id 用哨兵值映射
 const DEFAULT_DEVICE = "__default__";
 
-function AudioForm() {
+export function AudioPanel() {
 	const [testingMic, setTestingMic] = useState(false);
 	const [micLevel, setMicLevel] = useState(0);
 	const testStreamRef = useRef<MediaStream | null>(null);
@@ -155,10 +155,7 @@ function AudioForm() {
 	}, []);
 
 	return (
-		<Page
-			title="音频"
-			desc="设备、采集质量与传输参数。设备可在房间内热切换，采集/传输参数需重新进房生效。"
-		>
+		<>
 			<Section
 				title="设备"
 				action={
@@ -471,6 +468,17 @@ function AudioForm() {
 					音乐模式已关闭常见语音处理；若出现回声，请改回「语音通话」。
 				</div>
 			)}
+		</>
+	);
+}
+
+function AudioForm() {
+	return (
+		<Page
+			title="音频"
+			desc="设备、采集质量与传输参数。设备可在房间内热切换，采集/传输参数需重新进房生效。"
+		>
+			<AudioPanel />
 		</Page>
 	);
 }

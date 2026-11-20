@@ -25,7 +25,7 @@
 
 ## 共享反代规则层
 
-`capabilities/server` 只负责持久化服务器地址；地址是否可信、Set-Cookie 如何重写、worker 来源如何判定，统一由 `app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，四个导出函数）决定：桌面端直接 import，移动端经 `gomobile bind` 调用。
+`capabilities/server` 只负责持久化服务器地址；地址是否可信、Set-Cookie 如何重写、worker 来源如何判定，统一由 `app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，五个导出函数）决定：桌面端直接 import，移动端经 `gomobile bind` 调用。
 
 - 移动端原生调用点已接入（Android 走 AAR、iOS 走 XCFramework），内联等价实现已删除；改规则只需改 `app/shared/proxyrules`，三端同时生效。
 - 绑定面用 `node scripts/mobile-bind-proxyrules.mjs`（默认 `--target=all`）校验：gobind 不需要 Xcode/Android SDK，本机永远能跑；缺平台工具链时 exit 0 并打印下一步。

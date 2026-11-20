@@ -49,6 +49,16 @@ export interface ServerConfig {
 /** localStorage slot shared by both platforms. */
 export const SERVER_BASE_URL_KEY = "gospeak.server.baseUrl";
 
+/**
+ * Canonical form of a server address: no surrounding whitespace, no trailing
+ * slash. `https://gospeak.example.com/` and `https://gospeak.example.com` are
+ * the same server, so only the latter may be persisted, echoed back or compared.
+ * Mirrors `proxyrules.NormalizeBaseURL`, the rule the native hosts apply.
+ */
+function normalizeBaseUrl(url: string): string {
+	return url.trim().replace(/\/+$/, "");
+}
+
 /** Reads the mirror. Guarded: SSR, SSR-like tests and private mode throw. */
 function readMirror(): string {
 	try {
@@ -86,7 +96,7 @@ function assertBaseUrl(url: string): void {
 function writeMirror(url: string): void {
 	try {
 		if (typeof localStorage === "undefined") return;
-		const next = url.trim();
+		const next = normalizeBaseUrl(url);
 		if (next === "") localStorage.removeItem(SERVER_BASE_URL_KEY);
 		else localStorage.setItem(SERVER_BASE_URL_KEY, next);
 	} catch {
@@ -102,11 +112,11 @@ function writeMirror(url: string): void {
  */
 const webStorage: ServerConfig = {
 	async getBaseUrl() {
-		return readMirror();
+		return normalizeBaseUrl(readMirror());
 	},
-	getBaseUrlSync: readMirror,
+	getBaseUrlSync: () => normalizeBaseUrl(readMirror()),
 	async setBaseUrl(url) {
-		const next = url.trim();
+		const next = normalizeBaseUrl(url);
 		assertBaseUrl(next);
 		writeMirror(next);
 	},
@@ -119,14 +129,14 @@ const native: ServerConfig = {
 		const url = await bridge.invoke<string>(
 			command("ServerConfig", "GetBaseURL"),
 		);
-		const next = typeof url === "string" ? url.trim() : "";
+		const next = normalizeBaseUrl(typeof url === "string" ? url : "");
 		// Host wins: repair the mirror when it drifted (manual edit, failed switch).
 		if (next !== readMirror()) writeMirror(next);
 		return next;
 	},
-	getBaseUrlSync: readMirror,
+	getBaseUrlSync: () => normalizeBaseUrl(readMirror()),
 	async setBaseUrl(url) {
-		const next = url.trim();
+		const next = normalizeBaseUrl(url);
 		// 先校验再落任何一处：非法 URL 绝不能写进镜像，否则下次启动会把一个
 		// 连不上也不该连的地址当成「上次的服务器」显示出来。
 		assertBaseUrl(next);

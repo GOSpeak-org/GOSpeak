@@ -40,7 +40,7 @@ describe("MemberSidebar 选中态", () => {
 		expect(row.getAttribute("data-active")).not.toBe("true");
 
 		fireEvent.click(row);
-		expect(onStartChat).toHaveBeenCalledWith("alice", "Alice");
+		expect(onStartChat).toHaveBeenCalledWith("alice", "Alice", "");
 		expect(row.getAttribute("data-active")).toBe("true");
 		expect(row.className).toContain("bg-muted");
 	});

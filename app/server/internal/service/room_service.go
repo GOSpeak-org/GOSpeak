@@ -130,9 +130,10 @@ func (s *RoomService) CreateRoom(name, password, description string, limit uint,
 		Type:          model.NormalizeRoomType(roomType),
 		DomainUUID:    domainUUID,
 	}
-	// text rooms: force audio_only true / no SFU expectations
+	// text rooms: force audio_only true / no SFU expectations / no member limit
 	if room.Type == model.RoomTypeText {
 		room.AudioOnly = true
+		room.Limit = 0
 	}
 	if err := s.Create(room); err != nil {
 		return nil, err
@@ -232,6 +233,9 @@ func (s *RoomService) ListPlatform(page, pageSize int, roomType string) ([]model
 
 // Update 更新房间信息。
 func (s *RoomService) Update(room *model.Room) error {
+	if model.NormalizeRoomType(room.Type) == model.RoomTypeText {
+		room.Limit = 0
+	}
 	if err := s.roomRepo.Update(room); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}

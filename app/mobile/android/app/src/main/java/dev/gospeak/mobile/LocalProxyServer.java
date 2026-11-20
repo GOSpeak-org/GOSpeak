@@ -481,7 +481,9 @@ public final class LocalProxyServer {
             if (cookie != null) {
                 connection.setRequestProperty("Cookie", cookie);
             }
-            connection.setRequestProperty("X-Forwarded-Host", "localhost:" + port);
+            // 与桌面端回环反代一致：告诉后端页面实际来源是本地代理地址，
+            // 让 serverUrl 推导为同源的 ws://localhost:<proxyPort>/livekit。
+            connection.setRequestProperty("X-Forwarded-Host", "localhost:" + LocalProxyServer.this.port);
             connection.setRequestProperty("X-Forwarded-Proto", "http");
 
             if (hasBody) {

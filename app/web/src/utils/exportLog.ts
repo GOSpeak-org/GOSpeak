@@ -12,7 +12,7 @@
 import {
 	createClientLog,
 	createServerConfig,
-	isDesktop,
+	inDesktop,
 } from "@gospeak/desktop";
 import {
 	buildLogText,
@@ -38,7 +38,7 @@ export async function collectLogContext(): Promise<LogContext> {
 	}
 	return {
 		version: __APP_VERSION__,
-		runtime: isDesktop() ? "desktop" : "web",
+		runtime: inDesktop() ? "desktop" : "web",
 		platform: platformLabel(),
 		server,
 	};
@@ -46,7 +46,7 @@ export async function collectLogContext(): Promise<LogContext> {
 
 /** 读取宿主那份环形缓冲；非桌面端返回空数组。 */
 export async function readHostEntries(): Promise<ClientLogEntry[]> {
-	if (!isDesktop()) return [];
+	if (!inDesktop()) return [];
 	try {
 		const entries = await createClientLog().snapshot();
 		return entries.map((e) => ({

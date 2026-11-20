@@ -1,12 +1,11 @@
 import axios from "axios";
+import { SESSION_EXPIRES_KEY } from "./sessionCache";
 
 const rawAxios = axios.create({
 	timeout: 50000,
 	withCredentials: true,
 	headers: { "Content-Type": "application/json;charset=utf-8" },
 });
-
-const SESSION_EXPIRES_KEY = "gospeak_session_expires_at";
 
 export function readSessionExpiry(): number | null {
 	const raw = localStorage.getItem(SESSION_EXPIRES_KEY);

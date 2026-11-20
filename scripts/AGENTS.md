@@ -14,6 +14,7 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 | `check-radius-tokens.mjs` | 圆角 token 专门护栏（被上面复用） | CI lint + pre-push |
 | `check-hook-deps.mjs` | `useExhaustiveDependencies` 棘轮：只许减少、不许新增告警 | CI lint + pre-push |
 | `check-desktop-commands.mjs` | Go `mygo.Bind` ↔ TS 命令字符串一致性 | CI lint + pre-push |
+| `check-mobile-bridge.mjs` | 移动端**自定义原生插件**（AudioSession / MediaControl / ServerConfig）的 TS `pluginMethod` ↔ iOS / Android 方法名与插件注册一致性；官方 Capacitor 插件不在范围 | CI lint + pre-push |
 | `mobile-bind-proxyrules.mjs` | proxyrules 的 gomobile 绑定面：gobind 导出符号集合断言 + 可选 AAR/XCFramework 产出（`--surface-only` 只跑前者，供任何机器在 gate 里跑） | 独立手动 workflow `build-mobile.yml`（macos，不入 CI gate）/ CI `desktop-go`（`--surface-only`，在 gate 内）/ 手动 |
 | `dev-livekit.sh` | 本地 LiveKit 开发启动（宿主机二进制 `.local/bin/livekit-server`） | 手动 |
 
@@ -21,7 +22,8 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 
 - **发布类脚本必须配同名 `.test.mjs`**（`build-changelog` / `check-version` / `release-naming` / `release-notes` / `check-desktop-commands`），由 `node --test` 在 CI `test-scripts` job 跑；改脚本必须同步改测试。
 - `mobile-bind-proxyrules.mjs` 的单测覆盖 stderr 分类（缺 Xcode/Android SDK/NDK/JDK → exit 0）与 gobind 产物解析（`skipped function` → exit 1），由 CI `test-scripts` 的 `node --test scripts/*.test.mjs` 自动带上。
-- `check-ui-tokens` / `check-radius-tokens` / `check-hook-deps` 没有单测，靠 CI 直接跑全仓扫描 —— 改它们等于改全仓门禁，先本地跑一遍再提交。
+- `check-mobile-bridge.mjs` 只校验仓库自有的 3 个自定义原生插件：push / keyboard / local-notification / deeplink / back-button / lifecycle 走官方 Capacitor 插件，本地没有原生实现可比对。要校验就必须先在 `app/mobile` 落地原生实现，**不要**为了让门禁显得更全面而扩白名单。其单测 `check-mobile-bridge.test.mjs` 在 CI `lint` 里随脚本一起跑。
+- `check-radius-tokens` / `check-hook-deps` 没有单测，靠 CI 直接跑全仓扫描 —— 改它们等于改全仓门禁，先本地跑一遍再提交。`check-ui-tokens` 已有 `check-ui-tokens.test.mjs`（覆盖裸圆角/CSS 字面量圆角/斜杠行高字号/任意属性顺序图标尺寸与误报），改门禁时须同步补测试。
 - 版本单一事实源在 `.github/versions/*.yaml`，不要在脚本里硬编码版本号。
 - `check-version.mjs` 覆盖 server / desktop / mobile：mobile 以 `.github/versions/mobile.yaml` 为声明源，校验 `app/mobile/package.json`；release-naming 未定义 mobile tag，须显式传 `component=mobile`。
 - `check-hook-deps.mjs` 的基线代表已存在的技术债：**下调基线需要先修掉对应告警**，不要为了过门禁放宽。

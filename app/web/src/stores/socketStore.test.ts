@@ -77,7 +77,7 @@ import { EVENTS } from "@/socket/events";
 import type { MemberInfo, RoomInfo } from "@/socket/types";
 import { socketStore, useSocketStore } from "./socketStore";
 
-const SERVER_EVENT_BINDINGS = 17;
+const SERVER_EVENT_BINDINGS = 18;
 
 const serverEventHandler = (event: string) => {
 	const calls = mockAdapter.onServerEvent.mock.calls as unknown as Array<

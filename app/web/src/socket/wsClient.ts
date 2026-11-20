@@ -341,7 +341,8 @@ export function createWSClient(options: WSClientOptions = {}): SignalSocket & {
 		return true;
 	}
 
-	// P2 收紧：Promise<AckPayload<PayloadOf[E]>>（ack payload struct 逐事件补齐后）。
+	// ACK data 服务端未声明类型（ws.ACK.Data 为 interface{}、handler 返回 raw JSON），
+	// 无法从 Catalog 推导；需要具体类型时由调用侧自行标注（泛型包装或类型断言）。
 	function emitAck(event: string, payload?: unknown): Promise<any> {
 		return new Promise((resolve, reject) => {
 			if (state !== "open" || !ws || ws.readyState !== WebSocket.OPEN) {

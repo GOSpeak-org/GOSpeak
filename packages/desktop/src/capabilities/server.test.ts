@@ -227,3 +227,43 @@ describe("server config / 非法 URL 预校验", () => {
 		expect(config.getBaseUrlSync()).toBe("");
 	});
 });
+
+describe("server config / 末尾斜杠归一", () => {
+	it("浏览器端持久化前去掉末尾斜杠", async () => {
+		const storage = installStorage();
+		const config = createServerConfig();
+
+		await config.setBaseUrl("  https://voice.example.com///  ");
+		expect(storage.getItem(SERVER_BASE_URL_KEY)).toBe(
+			"https://voice.example.com",
+		);
+		expect(config.getBaseUrlSync()).toBe("https://voice.example.com");
+		expect(await config.getBaseUrl()).toBe("https://voice.example.com");
+	});
+
+	it("桌面端把归一后的地址交给宿主并写镜像", async () => {
+		const storage = installStorage();
+		currentHostValue = "";
+		installHost(() => currentHostValue);
+
+		await createServerConfig().setBaseUrl("https://next.example.com/");
+		expect(storage.getItem(SERVER_BASE_URL_KEY)).toBe(
+			"https://next.example.com",
+		);
+		expect(currentHostValue).toBe("https://next.example.com");
+	});
+
+	it("宿主返回带斜杠的旧值时读取与镜像都归一", async () => {
+		const storage = installStorage();
+		storage.setItem(SERVER_BASE_URL_KEY, "https://old.example.com/");
+		currentHostValue = "https://host.example.com//";
+		installHost(() => currentHostValue);
+
+		const config = createServerConfig();
+		expect(config.getBaseUrlSync()).toBe("https://old.example.com");
+		expect(await config.getBaseUrl()).toBe("https://host.example.com");
+		expect(storage.getItem(SERVER_BASE_URL_KEY)).toBe(
+			"https://host.example.com",
+		);
+	});
+});

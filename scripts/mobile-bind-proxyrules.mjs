@@ -23,6 +23,7 @@ export const OUTPUT_DIR = "app/mobile/build/proxyrules";
 export const LANGUAGES = ["objc", "java"];
 export const EXPORTED_FUNCTIONS = [
 	"ValidateBaseURL",
+	"NormalizeBaseURL",
 	"RewriteSetCookie",
 	"IsTrustedWorker",
 	"NormalizedHostPort",

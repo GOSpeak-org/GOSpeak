@@ -98,8 +98,8 @@ func providerConfigFromModel(p *model.OAuthProvider) *oauth.ProviderConfig {
 	}
 }
 
-// GetAuthURL 构造 OAuth 授权页面 URL，供前端跳转。会检查提供商是否启用。
-func (s *OAuthService) GetAuthURL(providerName, state string) (string, error) {
+// GetAuthURL 构造 OAuth 授权页面 URL，附带 S256 PKCE challenge。会检查提供商是否启用。
+func (s *OAuthService) GetAuthURL(providerName, state, codeChallenge string) (string, error) {
 	provider, err := s.providerRepo.GetByName(providerName)
 	if err != nil {
 		return "", pkg.NewAppError(pkg.OAUTH_PROVIDER_NOT_FOUND)
@@ -113,12 +113,12 @@ func (s *OAuthService) GetAuthURL(providerName, state string) (string, error) {
 		return "", pkg.NewAppError(pkg.OAUTH_PROVIDER_NOT_FOUND)
 	}
 
-	return p.GetAuthURL(state), nil
+	return p.GetAuthURL(state, codeChallenge), nil
 }
 
-// HandleCallback 处理 OAuth 授权回调：兑换 access_token → 获取用户信息 →
+// HandleCallback 处理 OAuth 授权回调：兑换 token → 获取用户信息 →
 // 检查是否已有绑定账号（有则直接登录）→ 无则创建新用户并绑定 OAuth 账号 → 发放 Token 对。
-func (s *OAuthService) HandleCallback(providerName, code string) (*AuthResponse, error) {
+func (s *OAuthService) HandleCallback(providerName, code, codeVerifier string) (*AuthResponse, error) {
 	provider, err := s.providerRepo.GetByName(providerName)
 	if err != nil {
 		return nil, pkg.NewAppError(pkg.OAUTH_PROVIDER_NOT_FOUND)
@@ -132,7 +132,7 @@ func (s *OAuthService) HandleCallback(providerName, code string) (*AuthResponse,
 		return nil, pkg.NewAppError(pkg.OAUTH_PROVIDER_NOT_FOUND)
 	}
 
-	accessToken, err := p.ExchangeToken(code)
+	accessToken, refreshToken, err := p.ExchangeToken(code, codeVerifier)
 	if err != nil {
 		// 上游错误（*url.Error / oauth2.RetrieveError）可能携带完整请求 URL 与凭据。
 		// 绝不能写进 AppError.Message：该字段会流经 JSON 响应与 OAuth 302 重定向，
@@ -177,6 +177,7 @@ func (s *OAuthService) HandleCallback(providerName, code string) (*AuthResponse,
 			return nil, pkg.NewAppError(pkg.USER_NOT_FOUND)
 		}
 		oauthAccount.AccessToken = accessToken
+		oauthAccount.RefreshToken = refreshToken
 		s.accountRepo.Update(oauthAccount)
 		return s.buildAuthResponse(user)
 	}
@@ -193,13 +194,17 @@ func (s *OAuthService) HandleCallback(providerName, code string) (*AuthResponse,
 	}
 
 	user := &model.User{
-		Name:     username,
-		Password: "",
+		Name:        username,
+		DisplayName: userInfo.Username,
+		Avatar:      userInfo.Avatar,
+		Email:       userInfo.Email,
+		Password:    "",
 	}
 	oauthAccount = &model.OAuthAccount{
-		Provider:    providerName,
-		ProviderUID: userInfo.ProviderUID,
-		AccessToken: accessToken,
+		Provider:     providerName,
+		ProviderUID:  userInfo.ProviderUID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}
 	if err := s.accountRepo.CreateWithUser(user, oauthAccount); err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
@@ -421,6 +426,129 @@ func (s *OAuthService) UpdateProviderFromDTO(req *UpdateOAuthProviderRequest) (*
 // DeleteProvider 删除 OAuth 提供商配置。
 func (s *OAuthService) DeleteProvider(id uint) error {
 	if err := s.providerRepo.Delete(id); err != nil {
+		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	return nil
+}
+
+// LinkedAccount 已绑定的第三方账号（不含任何 token）。
+type LinkedAccount struct {
+	Provider    string `json:"provider"`
+	DisplayName string `json:"display_name"`
+	IconURL     string `json:"icon_url"`
+}
+
+// ListLinkedAccounts 列出当前用户已绑定的第三方账号。
+func (s *OAuthService) ListLinkedAccounts(userUUID string) ([]LinkedAccount, error) {
+	user, err := s.userRepo.GetByUUID(userUUID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, pkg.NewAppError(pkg.USER_NOT_FOUND)
+		}
+		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	accounts, err := s.accountRepo.GetByUserID(user.ID)
+	if err != nil {
+		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	result := make([]LinkedAccount, 0, len(accounts))
+	for _, account := range accounts {
+		item := LinkedAccount{Provider: account.Provider, DisplayName: account.Provider}
+		if provider, err := s.providerRepo.GetByName(account.Provider); err == nil {
+			if provider.DisplayName != "" {
+				item.DisplayName = provider.DisplayName
+			}
+			item.IconURL = provider.IconURL
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+// LinkAccount 把第三方账号关联到已登录用户（不创建/切换会话）。
+func (s *OAuthService) LinkAccount(userUUID, providerName, code, codeVerifier string) error {
+	user, err := s.userRepo.GetByUUID(userUUID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return pkg.NewAppError(pkg.USER_NOT_FOUND)
+		}
+		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	provider, err := s.providerRepo.GetByName(providerName)
+	if err != nil {
+		return pkg.NewAppError(pkg.OAUTH_PROVIDER_NOT_FOUND)
+	}
+	if !provider.Enabled {
+		return pkg.NewAppError(pkg.OAUTH_PROVIDER_DISABLED)
+	}
+	p := oauth.NewProvider(providerName, providerConfigFromModel(provider))
+	if p == nil {
+		return pkg.NewAppError(pkg.OAUTH_PROVIDER_NOT_FOUND)
+	}
+	accessToken, refreshToken, err := p.ExchangeToken(code, codeVerifier)
+	if err != nil {
+		logger.WithComponent("OAuth").Warnf("link token exchange failed: provider=%s", providerName)
+		return pkg.NewAppError(pkg.OAUTH_TOKEN_EXCHANGE_FAILED)
+	}
+	userInfo, err := p.GetUserInfo(accessToken)
+	if err != nil {
+		logger.WithComponent("OAuth").Warnf("link get user info failed: provider=%s", providerName)
+		return pkg.NewAppError(pkg.OAUTH_GET_USER_FAILED)
+	}
+	if strings.TrimSpace(userInfo.ProviderUID) == "" {
+		return pkg.NewAppError(pkg.OAUTH_GET_USER_FAILED, "oauth provider returned empty user id")
+	}
+
+	existing, err := s.accountRepo.GetByProviderAndUID(providerName, userInfo.ProviderUID)
+	if err == nil {
+		if existing.UserID == user.ID {
+			existing.AccessToken = accessToken
+			existing.RefreshToken = refreshToken
+			return s.accountRepo.Update(existing)
+		}
+		return pkg.NewAppError(pkg.ALREADY_EXISTS, "该第三方账号已关联到其它用户")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+
+	return s.accountRepo.Create(&model.OAuthAccount{
+		UserID:       user.ID,
+		Provider:     providerName,
+		ProviderUID:  userInfo.ProviderUID,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	})
+}
+
+// UnlinkAccount 解除当前用户在某 provider 上的绑定。
+func (s *OAuthService) UnlinkAccount(userUUID, providerName string) error {
+	user, err := s.userRepo.GetByUUID(userUUID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return pkg.NewAppError(pkg.USER_NOT_FOUND)
+		}
+		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	accounts, err := s.accountRepo.GetByUserID(user.ID)
+	if err != nil {
+		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	found := false
+	for _, account := range accounts {
+		if account.Provider == providerName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return pkg.NewAppError(pkg.NOT_FOUND)
+	}
+	// 没有密码且只剩这一条绑定时禁止解绑，避免把用户锁在门外。
+	if user.Password == "" && len(accounts) <= 1 {
+		return pkg.NewAppError(pkg.FORBIDDEN, "请先设置密码，再解绑最后一个第三方账号")
+	}
+	if err := s.accountRepo.Delete(user.ID, providerName); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	return nil

@@ -45,7 +45,7 @@ guest 全链路（service/guard/表/前端入口）已删除；增长与治理�
 | 聊天附件上传 | `packages/desktop` 与 `internal/storage` 已具备上传能力，`Message` DTO 无 attachment 字段 | 未实现 |
 | WS 封禁实时策略 | `internal/ws/upgrader.go` 已接 `ConnectPolicy` 与 `PolicyGuard`，与 HTTP `BanCheck` 共用 `policy.Engine` | 已实现（历史 P0 关闭） |
 | NATS 状态持久化 | `config.NATStoreDirPath()` + `bus.Init.StoreDir` + compose `gospeak-nats` 卷；JWT 密钥/黑名单跨重启保留 | 已实现 |
-| `ListParticipants` 错误语义 | `handler/signal_handler.go:226-230` 仍把 SFU 错误映射为空数组 `code:0` | 未修复（历史 B05 回归） |
+| `ListParticipants` 错误语义 | `handler/signal_handler.go` 通过 `pkg.HandleError` 返回非 0 code，测试 `TestListParticipants_SFUError` 覆盖 | 已修复（历史 B05 回归） |
 | 前端 server state 收敛 | 架构审查 G1/G2 仍成立：`domainStore` 手写缓存 + react-query 重复键；首屏 `/my-domains` 多次请求 | 部分处理 |
 | 桌面覆盖层场景深化 | 覆盖层为 MyGo `ui` 原生 GPU 绘制（`app/desktop/overlay_view.go`），非 WebView、非 GPUI crate；能力已较完整，场景化能力待定 | 待探索 |
 
@@ -76,7 +76,7 @@ React 19 迁移时已全部重写，下列旧占位文件均已不存在：
 
 | 模块 | 缺口 | 优先级 |
 |------|------|--------|
-| Signal | `ListParticipants` 上游失败应返回非 0 code（历史 B05 回归防护） | 高 |
+| Signal | `ListParticipants` 上游失败返回非 0 code 已由 `TestListParticipants_SFUError` 覆盖（历史 B05 回归防护已补） | 已完成 |
 | Invite | 过期码不建 users、需审核域只建 pending、并发消耗、跨域隔离 | 高 |
 | Mute | `/mute/*` 端点集成覆盖 | 中 |
 | Storage / SFU Config / OAuth Admin / Permission RBAC | 集成覆盖较薄 | 低 |

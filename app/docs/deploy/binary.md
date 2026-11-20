@@ -18,6 +18,50 @@ GOSpeak 支持编译为单文件二进制部署形态：前端资源已内嵌其
 
 若希望减少部署步骤，可使用 [Docker Compose](/deploy/compose)，该方案会一并管理 LiveKit。
 
+## 一键安装（推荐）
+
+仓库的 `deploy/install-binary.sh` 会自动识别当前平台的系统与架构，从 GitHub Releases 拉取最新版本的 GOSpeak 与 LiveKit，校验 SHA256 后落地为可直接运行的服务：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/install-binary.sh | bash
+```
+
+默认安装到 `/opt/gospeak`，包含：
+
+```
+/opt/gospeak/
+├── gospeak            GOSpeak 单二进制
+├── livekit-server     LiveKit（非 Linux 平台自动跳过）
+├── livekit.yaml       LiveKit 配置，密钥由 .env 注入
+├── .env               随机生成的配置（权限 600）
+└── data/              SQLite 与应用数据
+```
+
+会同时写入 `gospeak.service` 与 `livekit.service`（无 systemd 环境自动跳过），并已为 `.env` 填入随机的 `JWT_KEY` / `STORAGE_ENCRYPT_KEY` / `LIVEKIT_KEY` / `LIVEKIT_SECRET`。
+
+先看要装什么，不下载：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/install-binary.sh | bash -s -- --dry-run
+```
+
+常用参数：
+
+| 参数 | 作用 |
+|------|------|
+| `--dir DIR` | 安装目录，默认 `/opt/gospeak` |
+| `--user USER` | systemd 运行用户，默认当前用户（sudo 时为 `SUDO_USER`） |
+| `--target OS-ARCH` | 指定平台，如 `linux-amd64`，默认自动检测 |
+| `--version VER` | 指定 GOSpeak 版本，默认最新 |
+| `--livekit-version VER` | 指定 LiveKit 版本，默认最新 |
+| `--without-livekit` | 只要应用，不下载 LiveKit |
+| `--without-systemd` | 只落盘，不写 systemd 单元 |
+| `--dry-run` | 只解析版本与 URL |
+
+**重复执行即升级**：脚本会替换二进制，但**不覆盖已存在的 `.env` 与 `livekit.yaml`**。
+
+安装完成后仍需放行端口（见 [端口](/deploy/#端口)）：`8998/TCP`、`7882/TCP+UDP`、`3478/UDP`。单机自用可先只开 8998，语音功能则必须开放后两者。
+
 ## 下载
 
 从 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 页面下载 `gospeak-server-v` 开头的版本：对应二进制位于各 release 页面底部的 **Assets** 列表中，文件名形如 `gospeak-server-v<版本>-<系统>-<架构>`：
@@ -55,7 +99,7 @@ chmod +x gospeak-server-v1.0.0-linux-amd64
 
 | 参数 | 作用 |
 |------|------|
-| `server` | 启动服务（默认 `prod` 环境） |
+| `server` | 启动服务（未指定 `-e` 时默认 `dev` 环境；生产需显式 `server -e prod`） |
 | `server -e dev` | 开发环境，读 `.env.dev` |
 | `version` | 打印版本号 |
 

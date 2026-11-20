@@ -47,8 +47,6 @@ const (
 	EventMessageUpdated  = protocol.EventMessageUpdated
 	EventMessageDeleted  = protocol.EventMessageDeleted
 	EventMessageReaction = protocol.EventMessageReaction
-	EventMessageAck      = protocol.EventMessageAck
-	EventMessageError    = protocol.EventMessageError
 
 	EventPrivateSend = protocol.EventPrivateSend
 	EventPrivateNew  = protocol.EventPrivateNew

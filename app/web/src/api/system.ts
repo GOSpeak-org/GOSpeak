@@ -24,6 +24,7 @@ export interface ServerUpdateInfo {
 export async function getServerVersion(): Promise<ServerVersionInfo> {
 	const data = await apiClient.get<ServerVersionInfo>({
 		url: "/api/v1/system/update/current",
+		silentError: true,
 	});
 	return (
 		data || {
@@ -38,7 +39,7 @@ export async function checkServerUpdate(): Promise<ServerUpdateInfo> {
 	const data = await apiClient.get<ServerUpdateInfo>({
 		url: "/api/v1/system/update/check",
 		// 失败（多为 GitHub 网络问题）由调用方在卡片内展示，不走全局 toast。
-		skipErrorToast: true,
+		silentError: true,
 	});
 	// data 缺失说明响应异常（网关改写、旧后端、code 0 但 data null）。绝不能兜底成
 	// { available: false }：那会让监控卡片渲染成「已是最新版本」的成功态。

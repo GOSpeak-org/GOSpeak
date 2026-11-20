@@ -63,6 +63,7 @@ export async function listInvites(domainUUID: string): Promise<DomainInvite[]> {
 	const result = await apiClient.post<{ invites: DomainInvite[] }>({
 		url: "/api/v1/domain/invites/list",
 		data: { domain_uuid: domainUUID },
+		silentError: true,
 	});
 	return result?.invites ?? [];
 }

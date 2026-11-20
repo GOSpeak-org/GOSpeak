@@ -4,7 +4,7 @@
   <h1>GOSpeak</h1>
 
   <p>
-    <a href="https://go.dev" target="_blank"><img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go" /></a>
+    <a href="https://go.dev" target="_blank"><img src="https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go&logoColor=white" alt="Go" /></a>
     <a href="https://react.dev" target="_blank"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://www.livekit.io" target="_blank"><img src="https://img.shields.io/badge/SFU-LiveKit-0fa5ab?logo=livekit" alt="LiveKit" /></a>
     <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License" /></a>
@@ -41,7 +41,7 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 - 单二进制部署：前端通过 `go:embed` 内嵌，下载即用。
 - 同源 LiveKit：内置 `/livekit` 反向代理，信令走应用域名，媒体走 WebRTC UDP 直连。
 - 内置 Caddy：传入域名即可自动申请 HTTPS 证书并处理 WebSocket 升级。
-- 渐进式数据库：SQLite、PostgreSQL、MySQL，由 GORM 自动迁移。
+- 渐进式数据库：SQLite、PostgreSQL、MySQL、Turso（libSQL），由 GORM 自动迁移。
 - 多种认证方式：JWT 与 OAuth2（GitHub、Google、QQ）。
 - 可选组件：对象存储（RustFS、R2）与可观测性（Prometheus、Grafana、Loki）。
 - 原生桌面客户端：关窗进托盘、开机自启、全局快捷键、系统通知、游戏内覆盖层，与网页版共用同一套前端。
@@ -51,7 +51,15 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 
 ### 单二进制
 
-从 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
+一条命令装好应用与 LiveKit（自动识别平台、取最新发行包、校验 SHA256）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/install-binary.sh | bash
+```
+
+默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](app/docs/deploy/binary.md)。
+
+也可以手动从 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
 
 ```bash
 chmod +x gospeak-server-v1.0.3-linux-amd64
@@ -62,7 +70,7 @@ chmod +x gospeak-server-v1.0.3-linux-amd64
 
 ### 源码开发
 
-需要 Go 1.26+、Node.js 20+、pnpm 10+ 与 Docker。
+需要 Go 1.27.3+、Node.js 20+、pnpm 10+ 与 Docker。
 
 ```bash
 git clone https://github.com/NoelOrin/GOSpeak.git
@@ -115,6 +123,7 @@ docker compose up -d --build
 ```env
 DB_TYPE="SQLite"                                      # 默认，无外部依赖
 DB_TYPE="PostgreSQL"  DB_HOST=postgres  DB_PORT=5432  # 或在 COMPOSE_PROFILES 追加 postgres
+DB_TYPE="Turso"      TURSO_DATABASE_URL=...          # libSQL 远程数据库（可选）
 
 # COMPOSE_PROFILES 可选档位
 # rustfs         对象存储
@@ -131,7 +140,7 @@ DB_TYPE="PostgreSQL"  DB_HOST=postgres  DB_PORT=5432  # 或在 COMPOSE_PROFILES 
 - [桌面客户端](./app/docs/guide/desktop.md)
 - [SFU 配置与成熟度](./docs/sfu-provider-maturity.md)
 - [架构设计](./ARCHITECTURE.md)
-- [开发者指南与 API 路由表](./AGENTS.md)
+- [开发者指南（API 路由表见 routes.go）](./AGENTS.md)
 
 ## 贡献
 

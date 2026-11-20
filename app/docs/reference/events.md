@@ -58,8 +58,6 @@ ws(s)://你的域名/ws
 | `message:updated` | S→C | | 消息已编辑 |
 | `message:deleted` | S→C | | 消息已删除 |
 | `message:reaction` | S→C | | 表情反应变更 |
-| `message:error` | S→C | | 消息操作错误推送（协议已声明、前端已监听；当前服务端无发送点，勿依赖） |
-| `message:ack` | S→C | | 旧版遗留事件：协议中保留但当前服务端不发送；实际确认走 ACK 信封，勿依赖 |
 
 ### 私聊
 
@@ -76,7 +74,7 @@ ws(s)://你的域名/ws
 | `user:muted` | S→C | | 当前用户被禁言（MuteInfo：禁言原因/到期时间） |
 | `user:unmuted` | S→C | | 当前用户禁言被解除 |
 | `announcement:new` | S→C | | 系统公告推送 |
-| `sfu:provider-changed` | S→C | | SFU 管理端切换 provider 后广播（payload 含 `provider`）；前端收到后重连媒体会话 |
+| `sfu:provider-changed` | S→C | | livekit 配置更新导致媒体会话需重建时广播（payload 含 `provider`）；前端收到后重连媒体会话，不再表示 provider 切换 |
 
 ## 进房完整流程
 

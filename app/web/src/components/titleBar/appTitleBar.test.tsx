@@ -35,6 +35,16 @@ describe("AppTitleBar", () => {
 		expect(useThemeStore.getState().isDark).toBe(true);
 	});
 
+	it("通知按钮位于主题切换左侧", () => {
+		render(<AppTitleBar title="聊天" />);
+		const notification = screen.getByRole("button", { name: "通知" });
+		const theme = screen.getByRole("button", { name: "切换到深色" });
+		expect(
+			theme.compareDocumentPosition(notification) &
+				Node.DOCUMENT_POSITION_PRECEDING,
+		).toBeTruthy();
+	});
+
 	const connection = () => screen.queryByRole("button", { name: /^服务器/ });
 
 	it("未登录时不渲染连接指示", () => {

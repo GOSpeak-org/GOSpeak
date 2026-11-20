@@ -41,12 +41,26 @@ window.mygo = {
 - `isDesktop()` 等价于 `window.mygo?.isMyGo()`；纯浏览器里 `window.mygo` 不存在，`isMyGo()` 为 false。
 
 ```ts
-// packages/desktop/src/capabilities/overlay.ts（节选）
+// 调用侧：显隐由宿主决定（快捷键 / 显示策略），页面只订阅变化
+import { createDesktop } from "@gospeak/desktop";
+
+const overlay = createDesktop().overlay;
+const off = overlay.onVisibilityChange((visible) => {
+  console.log("覆盖层可见性变化", visible);
+});
+await overlay.setEnabled(true);
+off();
+```
+
+实现层（`packages/desktop/src/capabilities/overlay.ts`）：
+
+```ts
 const native: Overlay = {
   // 位置参数对齐 Go 的 `func (Overlay) SetEnabled(v bool)`
   setEnabled: (v) => bridge.invoke(command("Overlay", "SetEnabled"), v),
-  // 订阅宿主经 mygo.Broadcast 发出的事件
-  onState: (handler) => bridge.listen("overlay:state", (s) => handler(s as OverlaySnapshot)),
+  // 订阅宿主 Broadcast 的 overlay.visibility 事件
+  onVisibilityChange: (handler) =>
+    bridge.listen("overlay.visibility", (visible) => handler(Boolean(visible))),
 };
 ```
 
@@ -57,12 +71,14 @@ const native: Overlay = {
 ### 平台隔离
 
 - `isDesktop()` 由 `window.mygo.isMyGo()` 决定——纯 Web 构建（dev server 标签页）里它永远是 false。
-- 因此 `@gospeak/web` 的「桌面端」设置 tab 只在桌面端注册；覆盖层路由 `/overlay` 在浏览器里打开时
-  只显示提示文案，不渲染 HUD、不调用任何原生 API。
-- 覆盖层是一个**独立的 WebView 窗口**，与主窗口各自拥有独立的 JS 上下文与 store 实例。为避免
-  覆盖层重新加入语音房（`DUPLICATE_IDENTITY`/双 join），覆盖层**不连接 socket / SFU**：
-  主窗口把房间成员与发言状态接力（`overlay.pushState` → 宿主 `Broadcast` → 覆盖层 `onState`）
-  给覆盖层，覆盖层只做展示。这条接力链只在桌面端生效，浏览器里两端都是 no-op。
+- 因此 `@gospeak/web` 的「桌面端」设置 tab 只在桌面端注册。
+- 覆盖层**不是第二个 WebView，也没有独立的 JS 上下文与 store**：它是宿主的一个 mygo Panel 窗口
+  （`Panel: true`、无边框、透明、`AlwaysOnTop`），HUD 由 mygo 的 `ui` 包在 GPU 上原生绘制
+  （`WindowOptions.Content`；见 `app/desktop/overlay.go` 的 `createOverlayWindow` 与 `overlay_view.go`）。
+  为避免覆盖层重新加入语音房（`DUPLICATE_IDENTITY` / 双 join），覆盖层**不连接 socket / SFU**：
+  主窗口的 `useOverlayRelay` 把房间成员与发言状态经 `overlay.pushState()` 交给宿主，宿主画进 HUD，
+  并用 `overlay.visibility` / `overlay.enabled` / `overlay.lock` 事件把开关状态回推主窗口。
+  这条接力链只在桌面端生效，浏览器里两端都是 no-op。
 - 所有能力方法在浏览器里都是安全的 no-op / Web 等价实现，不会抛错或崩溃。
 
 ## 用法
@@ -94,12 +110,18 @@ showNotification({ title: "有人邀请你加入语音房", body: "点击加入"
 | 窗口控制 | `createWindowControls()` | `Window.*` | `document.title` / `window.close` |
 | 窗口外观 | `createWindowControls().setAppearance()` | `Window.SetAppearance` | 无操作 |
 | 系统托盘 | `createSystemTray()` | `Tray.*` | 无操作 |
-| 原生通知 | `showNotification()` | `Notification.*` | Web Notifications API |
+| 原生通知 | `showNotification()` / `requestNotificationPermission()` | `Notification.*` | Web Notifications API |
 | 开机自启 | `createAutoStart()` | `AutoStart.*` | 无操作 |
-| 深链 | `onDeepLink()` | `DeepLink.*` | 无操作 |
-| 文件对话框 | `openFileDialog()` 等 | `Dialog.*` | `<input type=file>` / `confirm` |
+| 深链 | `onDeepLink()` / `getInitialDeepLink()` | `DeepLink.*` | 无操作 |
+| 文件对话框 | `openFileDialog()` / `saveFileDialog()` / `showMessageBox()` | `Dialog.*` | `<input type=file>` / `confirm` |
 | 自动更新 | `createUpdater()` | `Updater.*` | 无操作 |
+| 游戏内覆盖层 | `createOverlay()` | `Overlay.*` | 全部 no-op（`isVisible()` 恒为 `false`） |
 | 服务器地址 | `createServerConfig()` | `ServerConfig.*` | `localStorage` |
+| 客户端日志副本 | `createClientLog()` | `ClientLog.*` | 全部 no-op（`snapshot()` 返回空数组） |
+| 屏幕录制权限 | `checkScreenRecording()` / `guideScreenRecording()` | `ScreenCapture.Check` / `ScreenCapture.Guide` | 返回 `"granted"` |
+
+`createDesktop()` 只聚合其中常用的 6 项（`window` / `tray` / `autostart` / `updater` / `overlay` / `clientLog`）；
+通知、深链、对话框、服务器地址、屏幕录制权限按需直接调用上表的具名导出。
 
 ## 服务器地址：双持久化
 
@@ -127,12 +149,13 @@ showNotification({ title: "有人邀请你加入语音房", body: "点击加入"
 
 ### 机制
 
-Vite 通过 `define` 注入两个编译期常量（由 `GOSPEAK_TARGET` 环境变量驱动，默认 `web`）：
+Vite 通过 `define` 注入三个编译期常量（由 `GOSPEAK_TARGET` 环境变量驱动，默认 `web`）：
 
 | Token | 类型 | 值 |
 | --- | --- | --- |
-| `__GOSPEAK_TARGET__` | `"web" \| "desktop"` | 构建目标 |
+| `__GOSPEAK_TARGET__` | `"web" \| "desktop" \| "mobile"` | 构建目标 |
 | `__GOSPEAK_DESKTOP__` | `boolean` 字面量 | 是否桌面构建 |
+| `__GOSPEAK_MOBILE__` | `boolean` 字面量 | 是否移动构建 |
 
 未注入 token 的环境（tsc / vitest / Node 直跑源码）按 `web` 兜底，因此本包在任何
 上下文中都安全。
@@ -176,6 +199,8 @@ Vite 通过 `define` 注入两个编译期常量（由 `GOSPEAK_TARGET` 环境�
 pnpm --filter @gospeak/web build            # Web 构建（桌面独享模块剔除）
 pnpm --filter @gospeak/web build:desktop    # 桌面构建（GOSPEAK_TARGET=desktop）
 pnpm --filter @gospeak/web dev:desktop      # 桌面目标 dev server
+pnpm --filter @gospeak/web build:mobile     # 移动构建（GOSPEAK_TARGET=mobile）
+pnpm --filter @gospeak/web dev:mobile       # 移动目标 dev server
 GOSPEAK_TARGET=desktop pnpm --filter @gospeak/desktop test   # 桌面目标跑测试
 ```
 

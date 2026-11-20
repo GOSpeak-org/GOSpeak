@@ -102,6 +102,17 @@ public class AudioSessionPlugin extends Plugin {
                 audio.startBluetoothSco();
                 audio.setBluetoothScoOn(true);
                 audio.setSpeakerphoneOn(false);
+            } else if ("headset".equals(kind)) {
+                if (!audio.isWiredHeadsetOn()) {
+                    call.reject("wired headset audio route is unavailable");
+                    return;
+                }
+                audio.stopBluetoothSco();
+                audio.setBluetoothScoOn(false);
+                audio.setSpeakerphoneOn(false);
+            } else {
+                call.reject("unsupported audio route: " + kind);
+                return;
             }
             call.resolve();
         } catch (Exception error) {

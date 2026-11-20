@@ -4,9 +4,11 @@ import axios, {
 	type AxiosRequestConfig,
 	type AxiosResponse,
 } from "axios";
-import { toast } from "@gospeak/components";
 import { refreshSession } from "@/api/authTransport";
-import { unreachableMessage } from "@/utils/apiError";
+import { clearSessionCache } from "@/api/sessionCache";
+import { backendMessage, unreachableMessage } from "@/utils/apiError";
+import { localizedApiMessage } from "@/utils/errorMessages";
+import { toastErrorOnce } from "@/utils/toast";
 
 export interface Result<T = any> {
 	code: number;
@@ -21,6 +23,11 @@ declare module "axios" {
 		 * 用于后端 msg 是英文/不友好、需要前端定制中文提示的接口。
 		 */
 		skipErrorToast?: boolean;
+		/**
+		 * 后台 / 非关键请求（轮询、探测、上报等）：失败时完全静默，
+		 * 并把错误标记为「已提示」，避免下游 toast helper 再补一条。
+		 */
+		silentError?: boolean;
 	}
 }
 
@@ -38,6 +45,20 @@ const markSilent = (error: unknown) => {
 	if (error && typeof error === "object") {
 		(error as ToastMarked).__toastShown = false;
 	}
+};
+
+/** 有后端 msg 就翻中文/保留原文，否则用按状态码定制的兜底，避免全是「请求失败」。 */
+const toastMessage = (error: unknown, fallback: string): string => {
+	const raw = backendMessage(error);
+	return raw ? localizedApiMessage(error, raw) : fallback;
+};
+
+const statusFallback = (status: number | undefined): string => {
+	if (status === 404) return "请求的接口不存在（404）";
+	if (status === 403) return "没有操作权限";
+	if (status === 400) return "请求参数不正确";
+	if (status && status >= 500) return "服务器错误，请稍后重试";
+	return "请求失败";
 };
 
 // Token 相关错误码
@@ -61,6 +82,9 @@ export function shouldSkipLoginRedirect(path: string): boolean {
 }
 
 const redirectToLogin = (banned = false) => {
+	// 会话确实失效才走到这里：先清掉本地缓存的 user，
+	// 否则 /login 的 beforeLoad 看到缓存又 redirect 回 '/'，形成整页重载死循环。
+	clearSessionCache();
 	const path = window.location.pathname;
 	// 封禁是强制登出信号，公开入口也要走；但已在登录页时不要重复刷新
 	if (banned) {
@@ -96,16 +120,20 @@ const createInstance = (baseURL?: string) => {
 			const body = res.data as unknown as { code?: unknown; msg?: unknown };
 			const businessCode = body?.code;
 			if (typeof businessCode === "number" && businessCode !== 0) {
-				const silent = res.config?.skipErrorToast === true;
-				if (!silent) {
-					const msg =
+				const silent = res.config?.silentError === true;
+				const skipToast = silent || res.config?.skipErrorToast === true;
+				if (!skipToast) {
+					const raw =
 						typeof body.msg === "string" && body.msg.trim() !== ""
 							? body.msg
-							: `请求失败（错误码 ${businessCode}）`;
-					toast.error(msg);
+							: "";
+					const msg = raw
+						? localizedApiMessage({ response: { data: { msg: raw } } }, raw)
+						: `请求失败（错误码 ${businessCode}）`;
+					toastErrorOnce(msg);
 				}
-				// 记录给 APIClient.request 的 reject 用，保证调用方能判断是否已提示
-				(res.config as ToastMarked).__toastShown = !silent;
+				// silent 请求让下游 helper 也闭嘴；skipErrorToast 留给调用方出文案
+				(res.config as ToastMarked).__toastShown = silent ? true : !skipToast;
 			}
 			return res;
 		},
@@ -117,9 +145,12 @@ const createInstance = (baseURL?: string) => {
 			const originalRequest = error.config as AxiosRequestConfig & {
 				_retry?: boolean;
 			};
-			// 调用方要自己展示文案的接口，拦截器全程闭嘴
-			const silent = originalRequest?.skipErrorToast === true;
-			if (silent) markSilent(error);
+			// silentError：后台/非关键请求，拦截器与下游 helper 全程静默；
+			// skipErrorToast：调用方自己展示定制文案，拦截器不弹但保留「未提示」标记。
+			const silent = originalRequest?.silentError === true;
+			const skipToast = silent || originalRequest?.skipErrorToast === true;
+			if (silent) markToasted(error);
+			else if (skipToast) markSilent(error);
 
 			// 被封禁等需要强制登出的错误
 			if (
@@ -137,8 +168,8 @@ const createInstance = (baseURL?: string) => {
 				error.response?.data?.code &&
 				MUTE_ERROR_CODES.has(error.response.data.code)
 			) {
-				if (!silent) {
-					toast.warning(error.response.data?.msg || "你已被禁言");
+				if (!skipToast) {
+					toastErrorOnce(error.response.data?.msg || "你已被禁言");
 					markToasted(error);
 				}
 				return Promise.reject(error);
@@ -148,8 +179,8 @@ const createInstance = (baseURL?: string) => {
 			// 不要和普通服务器错误混在一起，避免用户误以为要重新登录。
 			const unreachable = unreachableMessage(error);
 			if (unreachable) {
-				if (!silent) {
-					toast.error(unreachable);
+				if (!skipToast) {
+					toastErrorOnce(unreachable);
 					markToasted(error);
 				}
 				return Promise.reject(error);
@@ -177,18 +208,18 @@ const createInstance = (baseURL?: string) => {
 				return Promise.reject(error);
 			}
 
-			// 其余 HTTP/网络错误，统一 toast
+			// 其余 HTTP/网络错误：后台/自行处理的请求直接静默返回
+			if (skipToast) return Promise.reject(error);
 			const status = error.response?.status;
-			if (silent) return Promise.reject(error);
+			let message: string;
 			if (!error.response) {
-				toast.error("网络连接失败，请检查网络");
-			} else if (status && status >= 500) {
-				toast.error(error.response.data?.msg || "服务器错误，请稍后重试");
+				message = "网络连接失败，请检查网络";
 			} else if (status && status >= 400) {
-				toast.error(error.response.data?.msg || "请求失败");
+				message = toastMessage(error, statusFallback(status));
 			} else {
 				return Promise.reject(error);
 			}
+			toastErrorOnce(message);
 			markToasted(error);
 
 			return Promise.reject(error);

@@ -57,27 +57,29 @@ function DiscoverDomainGrid(props: DiscoverDomainGridProps) {
 						))}
 					</div>
 
-					<div className="mt-4 flex items-center justify-between gap-3">
-						<Button
-							type="button"
-							variant="outline"
-							disabled={props.page <= 1}
-							onClick={() => props.onPageChange(Math.max(1, props.page - 1))}
-						>
-							上一页
-						</Button>
-						<span className="text-faint-foreground text-xs">
-							{props.page} / {props.totalPages}
-						</span>
-						<Button
-							type="button"
-							variant="outline"
-							disabled={props.page >= props.totalPages}
-							onClick={() => props.onPageChange(props.page + 1)}
-						>
-							下一页
-						</Button>
-					</div>
+					{props.totalPages > 1 && (
+						<div className="mt-4 flex items-center justify-between gap-3">
+							<Button
+								type="button"
+								variant="outline"
+								disabled={props.page <= 1}
+								onClick={() => props.onPageChange(Math.max(1, props.page - 1))}
+							>
+								上一页
+							</Button>
+							<span className="text-faint-foreground text-xs">
+								{props.page} / {props.totalPages}
+							</span>
+							<Button
+								type="button"
+								variant="outline"
+								disabled={props.page >= props.totalPages}
+								onClick={() => props.onPageChange(props.page + 1)}
+							>
+								下一页
+							</Button>
+						</div>
+					)}
 				</>
 			)}
 

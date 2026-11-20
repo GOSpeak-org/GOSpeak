@@ -27,7 +27,7 @@ pnpm --filter @gospeak/mobile run:android   # 同步后跑 Android
 
 ## 共享反代规则层（app/shared/proxyrules）
 
-移动端与桌面端的本地反代判定（服务器地址校验、Set-Cookie 重写、worker 可信来源、host:port 归一）只有一份实现：`app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，四个导出函数，无 CGO / 平台依赖）。
+移动端与桌面端的本地反代判定（服务器地址校验、Set-Cookie 重写、worker 可信来源、host:port 归一）只有一份实现：`app/shared/proxyrules`（module `gospeak/proxyrules`，纯 Go，五个导出函数，无 CGO / 平台依赖）。
 
 - 桌面宿主直接 `import "gospeak/proxyrules"`（`app/desktop/go.mod` 用 `replace` 指向本地目录）。
 - 移动端经 `gomobile bind` 产出的 AAR / XCFramework 调用，**原生调用点已接入**，内联等价实现已删除：
@@ -58,7 +58,7 @@ node scripts/mobile-bind-proxyrules.mjs --target=all   # 默认 all；另有 and
 ```
 
 - 产物目录 `app/mobile/build/proxyrules/`，已被根 `.gitignore` 的 `build/` 覆盖，不入库。
-- `gobind`（`-lang=objc` / `-lang=java`）**不需要 Xcode / Android SDK**，是任何机器都能跑的门禁：脚本解析生成的 `Proxyrules.objc.h` 与 `Proxyrules.java`，断言四个导出函数都在，并拒绝任何 `// skipped function ...` 行——gobind 遇到不支持的签名会静默跳过函数且仍 exit 0，只看退出码等于没门禁。
+- `gobind`（`-lang=objc` / `-lang=java`）**不需要 Xcode / Android SDK**，是任何机器都能跑的门禁：脚本解析生成的 `Proxyrules.objc.h` 与 `Proxyrules.java`，断言五个导出函数都在，并拒绝任何 `// skipped function ...` 行——gobind 遇到不支持的签名会静默跳过函数且仍 exit 0，只看退出码等于没门禁。
 - `gomobile bind` 缺 Xcode / Android SDK / NDK / JDK 时脚本以 **exit 0** 退出并打印下一步（已知且已文档化的降级）；绑定真的坏了才 exit 1。
 - **本机现状**：`xcode-select -p` 仍指向 CommandLineTools（无 Xcode），且无 Android SDK/NDK/JDK，因此本地只能验证 gobind；AAR/XCFramework 由手动触发的移动端构建产出。
 - **CI 现状**：移动端原生构建已从 CI 拆出为独立手动 workflow `.github/workflows/build-mobile.yml`——push / PR / `workflow_call` 都不会跑它，也不进 CI Gate。手动 Run workflow 时**只构建 Android**（`assembleDebug`），产物 APK 发布到固定 pre-release `gospeak-mobile-test`（同名覆盖），可用 `gh release download gospeak-mobile-test -p '*.apk'` 拿最新测试包；XCFramework 一并上传。**iOS 构建已暂时禁用**（新 workflow 末尾保留注释形式，解开即恢复）。因此改 `app/mobile/ios/` 或 `App.xcodeproj` 目前**不会被 CI 拦住**，只能靠本地 `swiftc -typecheck` 与 release 前的人工验证。iOS 原生接入本身不是未验证状态——它在 run 44006296505 实跑通过过一次。

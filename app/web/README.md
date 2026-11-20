@@ -16,8 +16,8 @@
 | 样式 | Tailwind CSS 4（`@tailwindcss/vite`），主题变量见 `packages/components/src/theme.css` |
 | 图标 / 通知 | `lucide-react` / sonner |
 | 表单 | react-hook-form + zod |
-| 构建 | rolldown-vite 7 + `@vitejs/plugin-react` + `@tanstack/router-plugin/vite` + `@tanstack/devtools-vite` |
-| 测试 | vitest 4 + `@testing-library/react` |
+| 构建 | Vite 8（Rolldown） + `@vitejs/plugin-react` + `@tanstack/router-plugin/vite` + `@tanstack/devtools-vite` |
+| 测试 | vitest 5 + `@testing-library/react` |
 | 规范 | Biome（tab 缩进、LF、双引号） |
 
 ## 命令
@@ -48,7 +48,7 @@ src/
 ├── components/     # 业务组件，按 room / textRoom / chat / domain / discover / manage / modal / form / home / oauth / profile / dashboard … 分组
 │   └── common/     # 通用组件，含 ErrorBoundary / PageErrorBoundary / RouteErrorComponent / withErrorBoundary
 ├── stores/         # zustand store，详见 docs/design/AGENTS-stores.md
-├── hooks/          # React hooks（media / useAuthParallax / useUpload / useErrorHandler）
+├── hooks/          # React hooks（media / useAuthParallax / useUpload）
 ├── api/            # HTTP 客户端与按领域拆分的 API 模块
 ├── socket/         # WebSocket 客户端（重连、ACK、房间状态、SFU 热切换）
 ├── handler_audio/  # AudioContext、按成员音量控制
@@ -71,7 +71,7 @@ src/
 - **页面级**：`src/pages/(app)/route.tsx` 用 `<PageErrorBoundary resetKeys={[pathname]}>` 包住 `Layout` + `Outlet`，路由切换（`resetKeys` 变化）自动 `reset()`。
 - **路由级**：`src/main.tsx` 的 `defaultErrorComponent` 与 `src/pages/__root.tsx` 的 `errorComponent` 均指向 `RouteErrorComponent`（接 router `errorComponent`）。
 
-异步错误用 `useErrorHandler()`（返回 `(error: unknown) => void` 的函数）在 Promise.catch / 事件回调中重抛到最近的边界；`window.error` / `unhandledrejection` 由 `installGlobalErrorHandlers()` 兜底上报，会触发 `router.invalidate()` 重试。生产环境的错误详情不暴露堆栈。
+异步错误（Promise / 事件回调）不重抛进边界：用户可见反馈由 `apiClient` 拦截器 toast 与 `utils/backgroundFailure.ts` 的后台失败节流提示承担；`window.error` / `unhandledrejection` 由 `installGlobalErrorHandlers()` 兜底上报，会触发 `router.invalidate()` 重试。生产环境的错误详情不暴露堆栈。
 
 ## 开发约定
 

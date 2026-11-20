@@ -144,6 +144,26 @@ export function bindServerEvents(
 		},
 	);
 
+	// 自己离开房间的确认：服务端只投递给离开者本人，且与 room:joined 对称
+	// （join ack 后 emit room_joined，这里清空当前房间意图并 emit room_left）。
+	// 仅在仍处于该房间时清理：切房时旧房 room:left 可能晚于新房 join ack 到达，
+	// 无条件清空会把新房状态一起抹掉。
+	adapter.onServerEvent(
+		EVENTS.ROOM_LEFT,
+		(data: { room: string; domain_uuid?: string }) => {
+			console.log("[Socket] room:left", data.room);
+			if (data.room !== deps.currentRoom()) return;
+			deps.setCurrentRoom(null);
+			deps.setSelectedRoomInfo(null);
+			deps.emitActivity({
+				type: "room_left",
+				room: data.room,
+				domain_uuid: data.domain_uuid,
+				timestamp: Date.now(),
+			});
+		},
+	);
+
 	adapter.onServerEvent(
 		EVENTS.MEMBER_UPDATED,
 		(data: {

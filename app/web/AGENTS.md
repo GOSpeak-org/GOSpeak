@@ -10,6 +10,8 @@
 pnpm dev              # Vite，端口 3000
 pnpm build            # vite build + tsc
 pnpm build:desktop    # GOSPEAK_TARGET=desktop（桌面目标）
+pnpm build:mobile     # GOSPEAK_TARGET=mobile（移动目标）
+pnpm dev:mobile       # GOSPEAK_TARGET=mobile dev
 pnpm typecheck        # tsr generate && tsc --noEmit
 pnpm test             # vitest run
 ```
@@ -18,8 +20,9 @@ pnpm test             # vitest run
 
 | 常量 | 来源 | 用途 |
 |------|------|------|
-| `__GOSPEAK_TARGET__` | `GOSPEAK_TARGET` | `"web"` / `"desktop"` |
+| `__GOSPEAK_TARGET__` | `GOSPEAK_TARGET` | `"web"` / `"desktop"` / `"mobile"` |
 | `__GOSPEAK_DESKTOP__` | 同上 | 布尔，桌面分支开关 |
+| `__GOSPEAK_MOBILE__` | 同上 | 布尔，移动分支开关 |
 | `__APP_VERSION__` | `package.json` version | 导出日志版本头 |
 
 类型声明在 `types/gospeak-build.d.ts`。

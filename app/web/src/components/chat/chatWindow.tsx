@@ -120,10 +120,12 @@ export default function ChatWindow() {
 	if (!active) {
 		return (
 			<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
-				<header className="border-border flex h-12 shrink-0 items-center gap-2 border-b px-3">
-					<span className="bg-muted text-foreground flex size-7 shrink-0 items-center justify-center rounded-sm">
-						<MessageSquareText size={16} />
-					</span>
+				{/* 与域页 ChannelHeader 同构：h-10 + 裸图标，非图标方块 */}
+				<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+					<MessageSquareText
+						size={20}
+						className="text-muted-foreground shrink-0"
+					/>
 					<span className="text-foreground truncate text-sm font-semibold">
 						选择一个会话
 					</span>
@@ -139,10 +141,11 @@ export default function ChatWindow() {
 	return (
 		<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
 			{/* 面板标题栏：图标 + 对方名称 */}
-			<header className="border-border flex h-12 shrink-0 items-center gap-2 border-b px-3">
-				<span className="bg-muted text-foreground flex size-7 shrink-0 items-center justify-center rounded-sm">
-					<MessageSquareText size={16} />
-				</span>
+			<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+				<MessageSquareText
+					size={20}
+					className="text-muted-foreground shrink-0"
+				/>
 				<span className="text-foreground truncate text-sm font-semibold">
 					{peerName}
 				</span>
@@ -156,7 +159,9 @@ export default function ChatWindow() {
 				<AsyncState
 					loading={isLoading && messages.length === 0}
 					loadingText="正在加载消息…"
-					skeleton={<SkeletonListRows rows={6} className="max-w-2xl" />}
+					skeleton={
+						<SkeletonListRows rows={6} className="h-full justify-between" />
+					}
 					empty={messages.length === 0 && !isLoading}
 					emptyText="发送一条消息开始对话"
 				>
@@ -192,15 +197,18 @@ export default function ChatWindow() {
 											) : (
 												<div className="hover:bg-muted flex gap-3 px-4 py-1">
 													<Avatar
-														name={row.msg.author_id}
-														alt={row.msg.author_id}
+														src={row.msg.author_avatar}
+														name={row.msg.author_name || row.msg.author_id}
+														alt={row.msg.author_name || row.msg.author_id}
 														className="mt-0.5 size-9 shrink-0"
 														textClass="text-xs"
 													/>
 													<div className="min-w-0 flex-1">
 														<div className="flex items-baseline gap-2">
 															<span className="text-foreground truncate text-sm font-semibold">
-																{row.msg.author_id || "?"}
+																{row.msg.author_name ||
+																	row.msg.author_id ||
+																	"?"}
 															</span>
 															<span className="text-faint-foreground shrink-0 text-2xs">
 																{formatMessageTime(row.msg.created_at)}

@@ -14,7 +14,7 @@
 
 ### 是否必须使用 Docker？
 
-并非必须。系统支持以单个二进制文件运行，前端资源已打包在内；但该方式需要自行另外部署 LiveKit。详见 [单二进制部署](/deploy/binary)。
+并非必须。系统支持以单个二进制文件运行，前端资源已打包在内。用 `deploy/install-binary.sh` 一键安装时会把 LiveKit 一并下载并配置好（LiveKit 官方发行包仅提供 Linux，其它平台需自行部署）。详见 [单二进制部署](/deploy/binary)。
 
 ### 没有域名时能否使用？
 
@@ -133,7 +133,7 @@ Docker 部署还需要修改 compose 中的端口映射。
 
 Docker 部署需要使用 `docker compose up -d`，不能使用 `restart`——后者不会重新读取环境变量。
 
-后台修改过的配置（SFU、存储、邮件、OAuth）保存在数据库中，优先级高于环境变量。
+存储/邮件/OAuth 为数据库配置优先；SFU 相反——非空的 `LIVEKIT_HOST` / `LIVEKIT_KEY` / `LIVEKIT_SECRET` 环境变量优先，数据库值仅在对应 env 留空时生效。
 
 ### 能否修改界面文字？
 

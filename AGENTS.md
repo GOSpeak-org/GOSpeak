@@ -16,8 +16,8 @@ GOSpeak 是自托管的游戏语音平台（类似可私有部署的 Discord 语
 
 | 层 | 技术 |
 |----|------|
-| 后端 | Go 1.26 · Gin · GORM · cobra CLI |
-| 前端 | React 19 · TypeScript · @tanstack/react-router + react-query · zustand · Tailwind CSS 4 · rolldown-vite 7 |
+| 后端 | Go 1.27 · Gin · GORM · cobra CLI |
+| 前端 | React 19 · TypeScript · @tanstack/react-router + react-query · zustand · Tailwind CSS 4 · Vite 8（Rolldown） |
 | UI | workspace 包 `packages/components`（Radix + 自有主题 token，shadcn 风格）· lucide-react · sonner · react-hook-form + zod |
 | 信令 | 原生 WebSocket（`internal/ws` + `internal/signal`，路径 `/ws`） |
 | SFU | LiveKit（**唯一**支持的后端） |
@@ -26,7 +26,7 @@ GOSpeak 是自托管的游戏语音平台（类似可私有部署的 Discord 语
 | 存储 | local / S3 兼容（RustFS、R2） |
 | 认证 | JWT（access + refresh，HttpOnly Cookie）+ OAuth2（GitHub/Google/QQ） |
 | 桌面端 | Go · MyGo · 系统 WebView（`app/desktop` 宿主 + `packages/desktop` 能力 SDK） |
-| 工具链 | pnpm 10 · Turbo · Biome · Vitest 4 · Lefthook · commitlint |
+| 工具链 | pnpm 10 · Turbo · Biome · Vitest 5 · Lefthook · commitlint |
 
 **目录骨架**
 
@@ -80,7 +80,7 @@ agent_test_logs/     agent 测试记录（规范见 agent_test_logs/AGENTS.md）
 | 前端技术约定细节 | `app/web/docs/AGENTS.md` |
 | 设计 token（圆角/字号/图标尺寸） | `packages/components/src/theme.css` |
 | 桌面桥接命令 | Go 侧 `mygo.Bind(...)` 声明（`app/desktop/*.go`）+ TS 侧 `packages/desktop/src/bridge.ts`；一致性由 `scripts/check-desktop-commands.mjs` 校验 |
-| 三端共享反代纯规则（地址校验 / `Set-Cookie` 改写 / worker 白名单） | `app/shared/proxyrules/`（纯 Go，桌面直接 import，移动端经 gomobile bind） |
+| 三端共享反代纯规则（地址校验与归一 / `Set-Cookie` 改写 / worker 白名单） | `app/shared/proxyrules/`（纯 Go，桌面直接 import，移动端经 gomobile bind） |
 | 部署方式 | `deploy/DEPLOY.md`、`docs/deployment-guide.md` |
 | 每个模块的开发约定 | 各目录下的 `AGENTS.md`（见第 7 节） |
 
@@ -153,7 +153,7 @@ WS 事件协议只有一个定义处：`app/server/internal/protocol`。
 ### 4.5 Git / 文档卫生
 
 - **Conventional Commits**（`feat:` / `fix:` / `refactor:` / `docs:` / `chore:` …），由 commitlint + lefthook 强制。
-- **分支**：`release`（生产，默认分支）/ `dev`（开发）/ `feature/*`。PR 前确认 lint、typecheck、build 通过。
+- **分支**：只有 `release` 一条常驻分支（生产，默认分支），是唯一的事实源；其余分支均为从 `release` 拉出、合并后即删的短期分支——按日迭代分支 `dev-MMDD`、功能分支 `feature/*`、修复分支 `fix/*`。不设长期 `dev` 分支。PR 前确认 lint、typecheck、build 通过。
 - **从 `release` 签出分支再合入**：改动一律从最新的 `origin/release` 签出新分支（`git fetch origin && git switch -c <branch> origin/release`），不要基于已分叉的本地旧分支直接开 PR；合入目标默认 `release`。历史分支与 `release` 分叉时，应把工作区改动变基到最新 `release` 之上，而不是带着分叉历史合并。
 - **文档单一事实源**：同一事实只在一处陈述。**不要把易变清单（路由表、模型字段、env 全表、事件全表）复制进指南**——这正是历史上文档腐化的原因。
 - **文档与代码同 PR 更新**：改路由/模型/env/事件时，同步更新对应的 `AGENTS.md` 指针或说明。

@@ -4,7 +4,7 @@ import {
 	DialogContent,
 	DialogTitle,
 } from "@gospeak/components";
-import { Info, Mic, Monitor, Palette, Volume2, X } from "lucide-react";
+import { Info, Link2, Mic, Monitor, Palette, Volume2, X } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
 import { TABS } from "./tab_item";
@@ -25,6 +25,7 @@ const ICON_MAP: Record<
 	volume: Volume2,
 	palette: Palette,
 	monitor: Monitor,
+	link: Link2,
 	info: Info,
 };
 

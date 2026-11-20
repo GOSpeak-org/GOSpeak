@@ -9,12 +9,12 @@
 | `runtime.ts` | `isDesktop()` / `runtime`（**仅供 SDK 内部与能力降级使用**） |
 | `conditional.ts` | `BUILD_TARGET` `DESKTOP_BUILD` `WEB_BUILD` `inDesktop()` `assertDesktop` `ifDesktop` `desktopOnly` `webOnly` `importDesktop` `importWeb` |
 | `bridge.ts` | `bridge`：`mygo-runtime` 的 `call("<Struct>.<Method>")` / `on(event)` 封装 |
-| `capabilities/*` | window / tray / notification / autostart / overlay / deeplink / dialog / updater / server / clientlog |
+| `capabilities/*` | window / tray / notification / autostart / overlay / deeplink / dialog / updater / server / clientlog / screenCapture |
 | `index.ts` | 具名导出 + `createDesktop()` 聚合对象 |
 
 ## 条件编译
 
-Vite 注入 `__GOSPEAK_TARGET__`（由 `GOSPEAK_TARGET=web|desktop` 决定）。桌面独享模块在 Web 构建中被摇树剔除，因此：
+Vite 注入 `__GOSPEAK_TARGET__`（由 `GOSPEAK_TARGET=web|desktop|mobile` 决定）。桌面独享模块在 Web 与移动构建中被摇树剔除，因此：
 
 - **业务代码判定平台一律用 `inDesktop()`**；禁止新增裸 `isDesktop()` 调用点。
 - 改本包或 `app/desktop/` 后必须跑 `pnpm --filter @gospeak/web build:desktop` 验证（`tsc --noEmit` 会完整检查死分支）。

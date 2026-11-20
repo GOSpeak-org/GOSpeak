@@ -27,16 +27,16 @@ func NewGenericProvider(name string, cfg *ProviderConfig, fields FieldMapping) *
 	return &GenericProvider{cfg: cfg, name: name, fields: fields}
 }
 
-func (g *GenericProvider) GetAuthURL(state string) string {
-	return g.cfg.toOAuth2Config().AuthCodeURL(state)
+func (g *GenericProvider) GetAuthURL(state, codeChallenge string) string {
+	return authCodeURL(g.cfg, state, codeChallenge)
 }
 
-func (g *GenericProvider) ExchangeToken(code string) (string, error) {
-	token, err := exchangeOAuthCode(g.cfg, code)
+func (g *GenericProvider) ExchangeToken(code, codeVerifier string) (string, string, error) {
+	token, err := exchangeOAuthCode(g.cfg, code, codeVerifier)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return token.AccessToken, nil
+	return token.AccessToken, token.RefreshToken, nil
 }
 
 func (g *GenericProvider) GetUserInfo(accessToken string) (*UserInfo, error) {

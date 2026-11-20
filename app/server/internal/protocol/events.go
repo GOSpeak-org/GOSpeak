@@ -60,8 +60,6 @@ const (
 	EventMessageUpdated  = "message:updated"
 	EventMessageDeleted  = "message:deleted"
 	EventMessageReaction = "message:reaction"
-	EventMessageAck      = "message:ack"
-	EventMessageError    = "message:error"
 
 	EventPrivateSend = "private:send"
 	EventPrivateNew  = "private:new"
@@ -75,33 +73,37 @@ type Event struct {
 	Name    string    // wire 事件名
 	Dir     Direction // 方向；DirInternal 不产出前端 TS
 	Ack     bool      // 上行是否需要 ACK（仅 c2s/both 有意义）
-	Payload string    // payloads.go 中的 struct 名；"" 表示 P1 未挂 payload（P2 补齐）
+	Payload string    // payloads.go 中的 struct 名；"" 表示该事件无业务字段（内部连接事件等）
 }
 
 // payloadStructs 供测试校验 Payload 引用；每新增 payload struct 同步登记。
 var payloadStructs = map[string]bool{
-	"RoomRequest": true,
-	"MemberInfo":  true,
-	"RoomInfo":    true,
-	"MuteInfo":    true,
+	"RoomRequest":           true,
+	"RoomListRequest":       true,
+	"RoomKickRequest":       true,
+	"MemberMicStatePayload": true,
+	"MemberSpeakingPayload": true,
+	"MemberInfo":            true,
+	"RoomInfo":              true,
+	"MuteInfo":              true,
 
-	"PermissionsInvalidatedPayload":     true,
-	"MuteChangedPayload":                true,
-	"MuteExpiredPayload":                true,
-	"DomainMembershipChangedPayload":    true,
-	"DomainMemberAddedPayload":          true,
-	"RoomListChangedPayload":            true,
-	"DomainPolicyChangedPayload":        true,
+	"PermissionsInvalidatedPayload":  true,
+	"MuteChangedPayload":             true,
+	"MuteExpiredPayload":             true,
+	"DomainMembershipChangedPayload": true,
+	"DomainMemberAddedPayload":       true,
+	"RoomListChangedPayload":         true,
+	"DomainPolicyChangedPayload":     true,
 
-	"MemberLeftPayload":          true,
-	"MemberUpdatedPayload":       true,
-	"RoomActiveSpeakersPayload":  true,
-	"TypingPayload":              true,
-	"RoomListResultPayload":      true,
-	"RoomKickedPayload":          true,
-	"RoomLeftPayload":            true,
-	"MemberMutedStatePayload":    true,
-	"SFUProviderChangedPayload":  true,
+	"MemberLeftPayload":         true,
+	"MemberUpdatedPayload":      true,
+	"RoomActiveSpeakersPayload": true,
+	"TypingPayload":             true,
+	"RoomListResultPayload":     true,
+	"RoomKickedPayload":         true,
+	"RoomLeftPayload":           true,
+	"MemberMutedStatePayload":   true,
+	"SFUProviderChangedPayload": true,
 
 	"MessageDTO":             true,
 	"MessageReactionPayload": true,
@@ -138,8 +140,8 @@ var eventConsts = map[string]string{
 	EventRoomActiveSpeakers: EventRoomActiveSpeakers,
 	EventTyping:             EventTyping,
 
-	EventUserMuted:   EventUserMuted,
-	EventUserUnmuted: EventUserUnmuted,
+	EventUserMuted:     EventUserMuted,
+	EventUserUnmuted:   EventUserUnmuted,
 	EventMemberMuted:   EventMemberMuted,
 	EventMemberUnmuted: EventMemberUnmuted,
 
@@ -155,34 +157,33 @@ var eventConsts = map[string]string{
 	EventMessageUpdated:  EventMessageUpdated,
 	EventMessageDeleted:  EventMessageDeleted,
 	EventMessageReaction: EventMessageReaction,
-	EventMessageAck:      EventMessageAck,
-	EventMessageError:    EventMessageError,
 
 	EventPrivateSend: EventPrivateSend,
 	EventPrivateNew:  EventPrivateNew,
 
 	EventAnnouncementNew: EventAnnouncementNew,
 
-	EventPermissionsInvalidated:    EventPermissionsInvalidated,
-	EventMuteChanged:               EventMuteChanged,
-	EventDomainMembershipChanged:   EventDomainMembershipChanged,
-	EventMuteExpired:               EventMuteExpired,
-	EventDomainMemberAdded:         EventDomainMemberAdded,
-	EventRoomListChanged:           EventRoomListChanged,
-	EventDomainPolicyChanged:       EventDomainPolicyChanged,
+	EventPermissionsInvalidated:  EventPermissionsInvalidated,
+	EventMuteChanged:             EventMuteChanged,
+	EventDomainMembershipChanged: EventDomainMembershipChanged,
+	EventMuteExpired:             EventMuteExpired,
+	EventDomainMemberAdded:       EventDomainMemberAdded,
+	EventRoomListChanged:         EventRoomListChanged,
+	EventDomainPolicyChanged:     EventDomainPolicyChanged,
 }
 
 // Catalog 是全部事件的权威目录。Ack 标志与 signal/hub.go SetupFanout 的
-// Handle/HandleAck 注册一一对应；P2 逐事件补 Payload。
+// Handle/HandleAck 注册一一对应；Payload 指向该事件在 wire 上的实际结构，
+// c2s 条目只登记 signal 层真正反序列化读取的字段。
 var Catalog = []Event{
 	{Name: EventConnect, Dir: DirInternal},
 	{Name: EventDisconnect, Dir: DirInternal},
 
-	{Name: EventRoomCreate, Dir: DirClientToServer},
+	{Name: EventRoomCreate, Dir: DirClientToServer, Payload: "RoomRequest"},
 	{Name: EventRoomJoin, Dir: DirClientToServer, Ack: true, Payload: "RoomRequest"},
 	{Name: EventRoomLeave, Dir: DirClientToServer, Ack: true, Payload: "RoomRequest"},
-	{Name: EventRoomList, Dir: DirClientToServer},
-	{Name: EventRoomJoinSFU, Dir: DirClientToServer, Ack: true},
+	{Name: EventRoomList, Dir: DirClientToServer, Payload: "RoomListRequest"},
+	{Name: EventRoomJoinSFU, Dir: DirClientToServer, Ack: true, Payload: "RoomRequest"},
 
 	{Name: EventRoomCreated, Dir: DirServerToClient},
 	{Name: EventRoomLeft, Dir: DirServerToClient, Payload: "RoomLeftPayload"},
@@ -192,11 +193,11 @@ var Catalog = []Event{
 	{Name: EventMemberUpdated, Dir: DirServerToClient, Payload: "MemberUpdatedPayload"},
 	{Name: EventRoomListResult, Dir: DirServerToClient, Payload: "RoomListResultPayload"},
 
-	{Name: EventMemberMicState, Dir: DirClientToServer},
-	{Name: EventRoomKick, Dir: DirClientToServer},
+	{Name: EventMemberMicState, Dir: DirClientToServer, Payload: "MemberMicStatePayload"},
+	{Name: EventRoomKick, Dir: DirClientToServer, Payload: "RoomKickRequest"},
 	{Name: EventRoomKicked, Dir: DirServerToClient, Payload: "RoomKickedPayload"},
 
-	{Name: EventMemberSpeaking, Dir: DirClientToServer},
+	{Name: EventMemberSpeaking, Dir: DirClientToServer, Payload: "MemberSpeakingPayload"},
 	{Name: EventRoomActiveSpeakers, Dir: DirServerToClient, Payload: "RoomActiveSpeakersPayload"},
 	{Name: EventTyping, Dir: DirBoth, Payload: "TypingPayload"},
 
@@ -216,8 +217,6 @@ var Catalog = []Event{
 	{Name: EventMessageUpdated, Dir: DirServerToClient, Payload: "MessageDTO"},
 	{Name: EventMessageDeleted, Dir: DirServerToClient, Payload: "MessageDTO"},
 	{Name: EventMessageReaction, Dir: DirServerToClient, Payload: "MessageReactionPayload"},
-	{Name: EventMessageAck, Dir: DirServerToClient},
-	{Name: EventMessageError, Dir: DirServerToClient},
 
 	{Name: EventPrivateSend, Dir: DirClientToServer, Ack: true, Payload: "PrivateSendPayload"},
 	{Name: EventPrivateNew, Dir: DirServerToClient, Payload: "MessageDTO"},

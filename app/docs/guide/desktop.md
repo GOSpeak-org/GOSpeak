@@ -131,7 +131,7 @@ https://voice.example.com
 
 ## 从源码构建
 
-需要 Go 1.27 或更高版本（MyGo 要求，高于后端的 1.26）。
+桌面宿主与后端均要求 Go 1.27.3+（MyGo 0.8.3 要求），二者版本要求一致。
 
 ```bash
 pnpm install

@@ -18,8 +18,8 @@ GOSpeak 前端客户端：React 19 + TypeScript 的单页应用，提供语音�
 - **Forms**: react-hook-form + zod
 - **Realtime**: 原生 WebSocket + `@gospeak/sfu-client`（当前仅 LiveKit 实现）
 - **Lint/Format**: Biome（tab 缩进、LF、双引号）
-- **Test**: vitest 4 + `@testing-library/react`（jsdom）
-- **Build**: rolldown-vite 7 + `@vitejs/plugin-react` + `@tanstack/router-plugin/vite` + `@tailwindcss/vite`
+- **Test**: vitest 5 + `@testing-library/react`（jsdom）
+- **Build**: Vite 8（Rolldown） + `@vitejs/plugin-react` + `@tanstack/router-plugin/vite` + `@tailwindcss/vite`
 
 ## Commands
 
@@ -98,13 +98,14 @@ src/
 ### Error Handling
 - 三层边界：组件级 `<ErrorBoundary>`（局部 fallback + 重试 + `resetKeys`）、页面级 `PageErrorBoundary`（`(app)/route.tsx` 以 `resetKeys={[pathname]}` 包住 Layout + Outlet，路由切换自动 `reset()`）、路由级 `RouteErrorComponent`（`main.tsx` 的 `defaultErrorComponent` 与 `__root.tsx` 的 `errorComponent`）
 - loader 抛错时重试需 `router.invalidate()`，由 `main.tsx` 注入 `onRetry`
-- 异步错误用 `useErrorHandler()` 重抛到最近的边界；`window.error` / `unhandledrejection` 由 `installGlobalErrorHandlers()` 兜底上报
+- 异步错误不重抛进边界：用户可见反馈走 `apiClient` 拦截器 toast 与 `utils/backgroundFailure.ts`；`window.error` / `unhandledrejection` 由 `installGlobalErrorHandlers()` 兜底上报
 - 统一上报入口 `src/utils/errorReport.ts`，导出 `normalizeError` / `registerErrorReporter`（可接 Sentry 等外部日志服务）/ `reportError` / `errorSummary` / `installGlobalErrorHandlers`，`ErrorScope = "component" | "page" | "route" | "global"`；生产环境错误详情不暴露堆栈
 
 ### Desktop 条件编译
 
-- 同一代码库产出 Web 与桌面两个目标，由 `GOSPEAK_TARGET`（web|desktop）决定，Vite 注入 `__GOSPEAK_TARGET__`。
+- 同一代码库产出 Web、桌面与移动三个目标，由 `GOSPEAK_TARGET`（web|desktop|mobile）决定，Vite 注入 `__GOSPEAK_TARGET__` / `__GOSPEAK_DESKTOP__` / `__GOSPEAK_MOBILE__`。
 - 业务代码判定平台一律用 `inDesktop()`（`@gospeak/desktop`），**禁止新增裸 `isDesktop()`**——它仅限 SDK 内部 `capabilities/*` 的浏览降级使用。
+- 移动端平台判定用 `inMobile()`（`@gospeak/mobile-capabilities`）。
 - 改动 `app/desktop/` 或 `packages/desktop/` 后必须跑一次 `pnpm --filter @gospeak/web build:desktop` 验证；桌面独享模块在 Web 构建中被摇树剔除。
 - 详细约束见根 `AGENTS.md` §4.4。
 

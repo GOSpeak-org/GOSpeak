@@ -19,7 +19,7 @@ export function LoadingRegion({
 			aria-live="polite"
 			aria-busy="true"
 			aria-label={label}
-			className={`w-full ${className ?? ""}`}
+			className={`h-full w-full ${className ?? ""}`}
 		>
 			<span className="sr-only">{label}</span>
 			{children}
@@ -83,30 +83,36 @@ export function SkeletonListRows({
 	);
 }
 
-/** 通知列表骨架：几何对齐通知条目（标题行 + 级别/时间行）。 */
+/** 通知列表骨架：几何对齐通知条目（未读圆点 + 标题行 + 范围/时间行）。 */
 export function SkeletonNotificationList({ rows = 6 }: { rows?: number }) {
 	return (
 		<div data-skeleton="notification-list" className="flex flex-col">
 			{Array.from({ length: rows }, (_, i) => (
 				<div
 					key={i}
-					className="border-border flex flex-col items-start gap-1.5 border-b px-3 py-2.5"
+					className="border-border flex w-full flex-col items-start gap-1 border-b px-3 py-2.5"
 				>
-					<Skeleton className="h-3.5 w-2/3" />
-					<Skeleton className="h-2.5 w-1/2" />
+					<div className="flex w-full items-center gap-1.5">
+						<Skeleton className="size-1.5 shrink-0 rounded-full" />
+						<Skeleton className="h-3.5 w-2/3" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="h-2.5 w-6" />
+						<Skeleton className="h-2.5 w-14" />
+					</div>
 				</div>
 			))}
 		</div>
 	);
 }
 
-/** 通知详情骨架：标题 + 元信息 + 正文段落。外层容器的 p-5 已提供内边距。 */
+/** 通知详情骨架：标题 + 元信息 + 多行正文，间距对齐弹窗详情（mb-1 / mb-4）。 */
 export function SkeletonNotificationDetail() {
 	return (
-		<div data-skeleton="notification-detail" className="flex flex-col gap-2">
-			<Skeleton className="h-6 w-1/2" />
-			<Skeleton className="h-3 w-1/3" />
-			<div className="mt-4 flex flex-col gap-2.5">
+		<div data-skeleton="notification-detail" className="flex flex-col">
+			<Skeleton className="mb-1 h-6 w-1/2" />
+			<Skeleton className="mb-4 h-3 w-1/3" />
+			<div className="flex flex-col gap-2.5">
 				<Skeleton className="h-3.5 w-full" />
 				<Skeleton className="h-3.5 w-full" />
 				<Skeleton className="h-3.5 w-4/5" />

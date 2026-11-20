@@ -106,8 +106,10 @@ import { createClientLog } from "./capabilities/clientlog";
 import { isDesktop } from "./runtime";
 
 /**
- * Single object that bundles every desktop capability. Use this from the web
- * app when you want one import instead of individual `create*` factories.
+ * Single object that bundles the commonly used capabilities: window, tray,
+ * autostart, updater, overlay and clientLog. Notification, deep link, dialog,
+ * server-config and screen-recording helpers stay standalone exports so this
+ * surface does not grow with every new capability.
  *
  * In the browser all members are inert fallbacks; in the desktop host they map
  * to native implementations.

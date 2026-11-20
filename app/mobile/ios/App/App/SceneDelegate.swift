@@ -29,7 +29,8 @@ final class GospeakBridgeViewController: CAPBridgeViewController {
     override func instanceDescriptor() -> InstanceDescriptor {
         let descriptor = super.instanceDescriptor()
         if descriptor.serverURL == nil || (descriptor.serverURL?.isEmpty ?? true) {
-            let port = LocalProxyServer.shared.port
+            LocalProxyServer.shared.start()
+            let port = LocalProxyServer.shared.boundPort()
             if port > 0 {
                 descriptor.serverURL = "http://localhost:\(port)/"
             }

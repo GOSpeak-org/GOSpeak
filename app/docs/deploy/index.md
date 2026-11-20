@@ -229,7 +229,15 @@ docker compose up -d --build
 
 ## 不使用 Docker
 
-可运行单个二进制文件，前端已内嵌：
+**一键安装（推荐）**：自动识别平台，从 Releases 取最新的 GOSpeak 与 LiveKit，校验 SHA256 后装到 `/opt/gospeak`，并生成 `.env` 与 systemd 服务。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/install-binary.sh | bash
+```
+
+重复执行即升级，已存在的 `.env` 不会被覆盖。
+
+**手动方式**：下载单个二进制，前端已内嵌：
 
 ```bash
 # 从 Release 下载对应平台的 gospeak-server-v1.0.0-linux-amd64
@@ -237,7 +245,7 @@ chmod +x gospeak-server-v1.0.0-linux-amd64
 ./gospeak-server-v1.0.0-linux-amd64 server -e prod
 ```
 
-配合 systemd 实现开机自启与崩溃重启。此方式下 LiveKit 需单独运行。
+配合 systemd 实现开机自启与崩溃重启。此方式下 LiveKit 需单独运行；本页方案不含内置 Caddy，HTTPS 需自备反代或配置 `TLS_CERT` / `TLS_KEY`。
 
 详见 [单二进制部署](/deploy/binary)。
 

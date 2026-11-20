@@ -157,7 +157,7 @@ export default function ProfileForm({
 	const displayAvatar = preview || avatar;
 	const avatarName = displayName || user?.display_name || user?.name || "?";
 	const avatarSize = isCompact ? "size-16" : "size-24";
-	const avatarText = isCompact ? "text-xl" : "text-3xl";
+	const avatarText = isCompact ? "text-lg" : "text-xl";
 
 	const btnBase =
 		"inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-sm px-4 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50";

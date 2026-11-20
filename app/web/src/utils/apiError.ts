@@ -19,3 +19,10 @@ export function unreachableMessage(error: unknown): string | null {
 		? "无法连接到服务器，请检查地址或网络"
 		: null;
 }
+
+/** 只取后端响应体里的 msg；不取 axios 自带的 "Request failed with status code 404" 等技术文案。 */
+export function backendMessage(error: unknown): string {
+	const msg = (error as { response?: { data?: { msg?: unknown } } })?.response
+		?.data?.msg;
+	return typeof msg === "string" && msg.trim() !== "" ? msg : "";
+}

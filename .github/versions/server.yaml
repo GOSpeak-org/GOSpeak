@@ -13,29 +13,37 @@
 #
 # 同步约束（release.yml 的 version-check 会校验）：根 VERSION 与根 package.json
 # 的 version 必须与本文件一致。
-version: "1.1.0-rc.3"
+version: "1.1.0-rc.4"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时由 scripts/build-changelog.mjs 按 conventional commits 生成，
 # 基线只取本组件的历史 tag。
 notes: |
-  GOSpeak 1.1.0-rc.2 —— Casbin 权限权威化、原生能力增强与稳定性修复。
+  GOSpeak 1.1.0-rc.4 —— 语音房与 IM 体验增强、OAuth PKCE、推送通知与多端稳定性修复。
 
-  ## 权限与管理
-  - Casbin 成为权限判定的权威来源，角色权限页重新设计
-  - 管理端页面错误处理与布局打磨
+  ## 语音房与音视频
+  - 共享画面支持多人切换并使用原生全屏控件
+  - 广播本地说话状态；文本房移除人数上限并打磨房间体验
+  - 修复安卓语音房因非同源 LiveKit 地址自动断连
+
+  ## 聊天与通知
+  - 私聊补充对方名称与头像，消息删除状态与会话查询更稳健
+  - 通知中心重新设计并支持全部标为已读；新增 Push token 注册与通知入口
+  - 事件协议对齐并补充 C2S 请求 payload
+
+  ## 权限与认证
+  - 允许跳过默认管理员密码修改
+  - OAuth 新增 PKCE 流程与账号绑定
 
   ## Web / UI
-  - API 错误 toast 交由调用方决定（skipErrorToast），避免重复与误报
-  - 新增 dropdown / popover 基础组件并打磨交互
-  - 房间 created_by 贯穿 protocol、signal 与前端客户端
+  - 侧边栏设置入口调整，导航高亮与移动端触摸目标优化
+  - 通用 UI token 收敛并加固检查；新增移动端设置页与跨平台服务器地址配置
+  - 错误提示去重窗口延长至 30 秒，后台请求静默与提示中文化
 
   ## 桌面端
-  - 修复打开应用设置页导致应用卡死
-  - 代理与原生能力增强、Aurora 主题与成员列表体验修复
+  - 原生能力 fallback 与桥接契约加固，冷启动即时而入
 
-  ## 移动端
-  - 弹窗响应式、平台判定与性能热点优化
-  - 接通 Push 前端注册与 token 上报适配器，权限被拒后可重试
-  - 音频路由回读原生状态并修正 Android 默认外放；语音房使用 microphone 前台服务
-  - 注册 iOS ServerConfig 插件并补注册门禁
+  ## 部署与依赖
+  - 新增一键二进制安装脚本（含 LiveKit 下载）
+  - 统一本地与 S3 存储后端；三端共享服务器地址归一规则
+  - 升级 livekit-client、objectstore 与 biome 等依赖

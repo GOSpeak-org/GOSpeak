@@ -34,9 +34,14 @@ type MessageListResult struct {
 	UnreadCount int          `json:"unread_count,omitempty"` // 离线拉取时返回该会话当前未读数
 }
 
+type userByNames interface {
+	GetByNames(names []string) (map[string]*model.User, error)
+}
+
 type ConversationService struct {
 	convRepo         *repository.ConversationRepository
 	messageRepo      *repository.MessageRepository
+	userRepo         userByNames
 	eventBus         bus.EventBus
 	queue            MessageJobQueue
 	syncWriteAllowed bool
@@ -65,6 +70,11 @@ func (s *ConversationService) SetSyncWriteAllowed(allowed bool) {
 	s.syncWriteAllowed = allowed
 }
 
+// SetUserRepo injects the user lookup used to enrich conversation peers.
+func (s *ConversationService) SetUserRepo(u userByNames) {
+	s.userRepo = u
+}
+
 // ConversationDTO is the client-facing view of a conversation.
 type ConversationDTO struct {
 	ConversationID     string `json:"conversation_id"`
@@ -77,6 +87,41 @@ type ConversationDTO struct {
 	UnreadCount        int    `json:"unread_count"`
 }
 
+// enrichPrivateAuthors fills author display name and avatar for private messages.
+func (s *ConversationService) enrichPrivateAuthors(messages []MessageDTO) {
+	if s.userRepo == nil || len(messages) == 0 {
+		return
+	}
+	names := make([]string, 0, len(messages))
+	seen := make(map[string]struct{}, len(messages))
+	for _, m := range messages {
+		if m.AuthorID == "" {
+			continue
+		}
+		if _, ok := seen[m.AuthorID]; ok {
+			continue
+		}
+		seen[m.AuthorID] = struct{}{}
+		names = append(names, m.AuthorID)
+	}
+	if len(names) == 0 {
+		return
+	}
+	users, err := s.userRepo.GetByNames(names)
+	if err != nil {
+		return
+	}
+	for i := range messages {
+		if u := users[messages[i].AuthorID]; u != nil {
+			messages[i].AuthorName = u.DisplayName
+			if messages[i].AuthorName == "" {
+				messages[i].AuthorName = u.Name
+			}
+			messages[i].AuthorAvatar = u.Avatar
+		}
+	}
+}
+
 // List returns all conversations involving the given identity.
 func (s *ConversationService) List(identity string, limit int) ([]ConversationDTO, error) {
 	if identity == "" {
@@ -86,6 +131,26 @@ func (s *ConversationService) List(identity string, limit int) ([]ConversationDT
 	if err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	peerNames := make([]string, 0, len(rows))
+	seen := make(map[string]struct{}, len(rows))
+	for _, cp := range rows {
+		peer := cp.IdentityB
+		if cp.IdentityA != identity {
+			peer = cp.IdentityA
+		}
+		if _, ok := seen[peer]; ok {
+			continue
+		}
+		seen[peer] = struct{}{}
+		peerNames = append(peerNames, peer)
+	}
+	var users map[string]*model.User
+	if s.userRepo != nil && len(peerNames) > 0 {
+		if got, err := s.userRepo.GetByNames(peerNames); err == nil {
+			users = got
+		}
+	}
+
 	out := make([]ConversationDTO, 0, len(rows))
 	for _, cp := range rows {
 		other := cp.IdentityB
@@ -98,14 +163,22 @@ func (s *ConversationService) List(identity string, limit int) ([]ConversationDT
 		if cp.LastMessageAt != nil {
 			lat = cp.LastMessageAt.UnixMilli()
 		}
-		out = append(out, ConversationDTO{
+		dto := ConversationDTO{
 			ConversationID:     cp.ConversationID,
 			OtherIdentity:      other,
 			LastContent:        cp.LastContent,
 			LastSenderIdentity: cp.LastSenderIdentity,
 			LastMessageAt:      lat,
 			UnreadCount:        unread,
-		})
+		}
+		if u := users[other]; u != nil {
+			dto.OtherDisplayName = u.DisplayName
+			if dto.OtherDisplayName == "" {
+				dto.OtherDisplayName = u.Name
+			}
+			dto.OtherAvatar = u.Avatar
+		}
+		out = append(out, dto)
 	}
 	return out, nil
 }
@@ -171,6 +244,7 @@ func (s *ConversationService) GetMessages(conversationID, identity, before strin
 	for i := range rows {
 		out.Messages = append(out.Messages, toPrivateMessageDTO(&rows[i]))
 	}
+	s.enrichPrivateAuthors(out.Messages)
 	if hasMore && len(rows) > 0 {
 		out.NextCursor = rows[0].UUID
 	}
@@ -229,6 +303,9 @@ func (s *ConversationService) SendDirect(senderIdentity, targetIdentity, content
 		ConversationID: convID,
 		TargetIdentity: targetIdentity,
 	}
+	enriched := []MessageDTO{*dto}
+	s.enrichPrivateAuthors(enriched)
+	*dto = enriched[0]
 
 	// 定向投递到双方的个人房间，避免 private:new 广播给所有在线连接。
 	// Hub.OnConnect 会把每个已认证连接加入 __user:{identity}。

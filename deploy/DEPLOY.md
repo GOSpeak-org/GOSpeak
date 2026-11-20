@@ -74,6 +74,31 @@ docker compose -f deploy/docker-compose.simple.yml logs -f gospeak
 两个文件共用同一份 `deploy/.env` 和同名 volume，**可在两者间切换而不丢数据**。
 需要 PostgreSQL、对象存储或监控时改用完整版 `docker-compose.yml`。
 
+---
+
+## 1.2 单二进制（不用 Docker）
+
+目标机器没有 Docker 时，用 `deploy/install-binary.sh` 一条命令装好应用与 LiveKit：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/install-binary.sh | bash
+```
+
+脚本自动识别系统与架构，从 Releases 取当前平台**最新**的 GOSpeak 与 LiveKit 发行包，校验 SHA256 后安装到 `/opt/gospeak`，并生成：
+
+| 产物 | 说明 |
+|------|------|
+| `gospeak` / `livekit-server` | 可执行文件（LiveKit 仅 Linux 有官方包，其它平台跳过） |
+| `.env` | 随机 `JWT_KEY` / `STORAGE_ENCRYPT_KEY` / `LIVEKIT_KEY` / `LIVEKIT_SECRET`，权限 600 |
+| `livekit.yaml` | 密钥仍由 `.env` 注入，与 compose 方案同一约定 |
+| `gospeak.service` / `livekit.service` | systemd 单元（无 systemd 时跳过） |
+
+`--dry-run` 只解析版本与 URL 不下载；`--dir` / `--user` / `--version` / `--without-livekit` / `--without-systemd` 按需组合。**重复执行即升级**，已存在的 `.env` 与 `livekit.yaml` 不会被覆盖。
+
+该形态下没有内置 Caddy：需要 HTTPS 时自备反代指向 `8998`，或配置 `TLS_CERT` / `TLS_KEY`。端口放行与 compose 方案一致（见第 3 节）。
+
+详见 [单二进制部署](/deploy/binary)。
+
 ## 2. 三种场景
 
 按你的实际情况选一个，不要混用。
@@ -262,6 +287,8 @@ docker compose up -d
 ```
 
 数据库表结构启动时自动迁移。升级前先备份。
+
+LiveKit 镜像在 compose 里固定 tag（当前 `v1.13.11`），不跟随 `latest`：换 SFU 版本需要显式改那一行再 `docker compose pull livekit && docker compose up -d`，避免某次 pull 顺手换掉音视频后端。
 
 ### 停止
 

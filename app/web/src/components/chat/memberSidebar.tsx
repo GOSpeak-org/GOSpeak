@@ -5,7 +5,7 @@ import { LoadingRegion, SkeletonListRows } from "@/components/common/Skeletons";
 import { type RosterMember, useMemberRoster } from "@/hooks/useMemberRoster";
 
 interface MemberSidebarProps {
-	onStartChat: (identity: string, display_name: string) => void;
+	onStartChat: (identity: string, display_name: string, avatar: string) => void;
 }
 
 function MemberRow({
@@ -103,13 +103,14 @@ export default function MemberSidebar({ onStartChat }: MemberSidebarProps) {
 		onStartChat(
 			member.identity,
 			member.display_name || member.name || member.identity,
+			member.avatar,
 		);
 	};
 
 	return (
-		<div className="border-border ml-auto flex h-full w-52 shrink-0 flex-col overflow-hidden border-l">
+		<div className="border-border bg-card ml-auto flex h-full w-52 shrink-0 flex-col overflow-hidden border-l">
 			<div className="border-border text-muted-foreground flex h-10 items-center border-b px-3 text-xs font-bold">
-				服务器成员 ({roster.total})
+				成员 ({roster.total})
 			</div>
 			<div className="min-h-0 flex-1 overflow-y-auto px-1 py-1">
 				{!connected && !hasGroups ? (

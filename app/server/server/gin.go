@@ -102,6 +102,7 @@ func StartGin(env EnvEnum) error {
 	domainRepo := repository.NewDomainRepository(db)
 	domainRoleRepo := repository.NewDomainRoleRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
+	pushTokenRepo := repository.NewPushTokenRepository(db)
 	sfuConfigSvc := service.NewSFUConfigService(sfuConfigRepo, cfg)
 	if err := seedControlPlane(db, roleRepo, userRepo, permRepo, sfuConfigSvc); err != nil {
 		return fmt.Errorf("seed control plane: %w", err)
@@ -145,6 +146,7 @@ func StartGin(env EnvEnum) error {
 	roomSvc := service.NewRoomService(roomRepo)
 	messageSvc := service.NewMessageService(messageRepo, roomRepo, domainSvc, userRepo)
 	muteSvc := service.NewMuteService(muteRepo, userRepo)
+	pushTokenSvc := service.NewPushTokenService(pushTokenRepo)
 	var sfuProvider sfu.Provider = factory.NewDynamicProvider(sfuConfigSvc.ResolveConfig)
 
 	r := gin.New()
@@ -198,6 +200,7 @@ func StartGin(env EnvEnum) error {
 		streamResolver = snr
 	}
 	conversationSvc := service.NewConversationService(conversationRepo, messageRepo)
+	conversationSvc.SetUserRepo(userRepo)
 	conversationSvc.SetEventBus(eventBus)
 	signalHub := signal.NewHubWithOptions(roomSvc, muteSvc, userSvc, permSvc, signal.HubOptions{
 		Fanout:                  wsFanout,
@@ -320,10 +323,12 @@ func StartGin(env EnvEnum) error {
 	msgH := handler.NewMessageHandler(messageSvc, permSvc, roomSvc, domainSvc)
 	permH := handler.NewPermissionHandler(permSvc)
 	muteH := handler.NewMuteHandler(muteSvc, userSvc, signalHub, auditSvc)
+	pushTokenH := handler.NewPushTokenHandler(pushTokenSvc)
 
 	// 临时禁言到期扫描：ListActiveMutes 会清理过期记录并触发 onExpired（广播 + SFU 恢复）。
 	// 之前的到期清理依赖查询路径惰性触发，无定时任务时到期后订阅端会残留静音状态。
-	_ = jobs.StartMuteExpiryScanner(context.Background(), func() {
+	// stop 必须保存并交给优雅关闭：否则关闭时扫描器仍在跑，会继续广播/调 SFU。
+	stopMuteExpiryScanner := jobs.StartMuteExpiryScanner(context.Background(), func() {
 		if _, err := muteSvc.ListActiveMutes(); err != nil {
 			logger.WithComponent("MuteExpiry").Warnf("scan expired mutes: %v", err)
 		}
@@ -414,6 +419,7 @@ func StartGin(env EnvEnum) error {
 		Conversation: conversationH,
 		Audit:        auditH,
 		Announcement: announcementH,
+		PushToken:    pushTokenH,
 	})
 
 	port := cfg.ServerPort
@@ -457,11 +463,12 @@ func StartGin(env EnvEnum) error {
 
 	// 优雅关闭：监听系统信号，先关 WebSocket 连接再关 HTTP
 	go runGracefulShutdown(shutdownDeps{
-		srv:           srv,
-		signalHub:     signalHub,
-		wsUpgrader:    wsUpgrader,
-		auditSvc:      auditSvc,
-		closeEventBus: closeEventBus,
+		srv:                   srv,
+		signalHub:             signalHub,
+		wsUpgrader:            wsUpgrader,
+		auditSvc:              auditSvc,
+		closeEventBus:         closeEventBus,
+		stopMuteExpiryScanner: stopMuteExpiryScanner,
 	})
 
 	if err := serveHTTP(srv, cfg.TLSCertFile, cfg.TLSKeyFile); err != nil && err != http.ErrServerClosed {

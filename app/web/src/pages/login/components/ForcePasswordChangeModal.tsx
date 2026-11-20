@@ -1,4 +1,5 @@
 import {
+	Button,
 	Dialog,
 	DialogContent,
 	DialogHeader,
@@ -9,6 +10,7 @@ import PasswordChangeForm from "@/components/form/PasswordChangeForm";
 export interface ForcePasswordChangeModalProps {
 	open: boolean;
 	onClose: () => void;
+	onSkip?: () => void;
 	onSubmit: (values: {
 		username?: string;
 		oldPassword?: string;
@@ -20,6 +22,7 @@ export interface ForcePasswordChangeModalProps {
 export default function ForcePasswordChangeModal({
 	open,
 	onClose,
+	onSkip,
 	onSubmit,
 }: ForcePasswordChangeModalProps) {
 	if (!open) return null;
@@ -31,7 +34,7 @@ export default function ForcePasswordChangeModal({
 					<DialogTitle>修改密码</DialogTitle>
 				</DialogHeader>
 				<p className="text-muted-foreground text-sm">
-					检测到您使用的是默认密码，请修改密码后继续。
+					检测到您使用的是默认密码，建议修改后继续；也可以跳过，暂不修改。
 				</p>
 				<PasswordChangeForm
 					showOldPassword={false}
@@ -39,6 +42,16 @@ export default function ForcePasswordChangeModal({
 					submitText="修改密码"
 					onSubmit={onSubmit}
 				/>
+				{onSkip && (
+					<Button
+						type="button"
+						variant="ghost"
+						className="mt-2 w-full"
+						onClick={onSkip}
+					>
+						跳过，暂不修改
+					</Button>
+				)}
 			</DialogContent>
 		</Dialog>
 	);

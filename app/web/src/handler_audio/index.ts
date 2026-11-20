@@ -4,7 +4,9 @@ import type {
 	RemoteTrackInfo,
 	SFUClient,
 } from "@gospeak/sfu-client/types";
+import { EVENTS } from "@/socket/events";
 import { useVoiceChatStore } from "@/stores/voiceChatStore";
+import { socketStore } from "@/stores/socketStore";
 import { speakingStore } from "./speakingStore";
 
 const tracks = new Map<string, RemoteAudioTrackLike>();
@@ -145,6 +147,18 @@ export function setupAudioHandler(client: SFUClient) {
 	client.onRemoteAudioTrack(onTrackSubscribed);
 	client.onRemoteAudioTrackRemoved(onTrackUnsubscribed);
 	client.onActiveSpeakers(speakingStore.set);
+	if (client.onLocalSpeakingChange) {
+		client.onLocalSpeakingChange((speaking) => {
+			if (boundClient !== client) return;
+			const room = socketStore.currentRoom();
+			if (!room) return;
+			socketStore.getSocket().emitFireAndForget(EVENTS.MEMBER_SPEAKING, {
+				room,
+				domain_uuid: socketStore.currentDomainUUID() ?? undefined,
+				speaking,
+			});
+		});
+	}
 	// 补齐 join 竞态：joinRoom 已订阅但早于回调注册的远端 track。
 	for (const info of client.getExistingRemoteAudioTracks()) {
 		onTrackSubscribed(info);

@@ -7,7 +7,7 @@
 #     -e LIVEKIT_WEBHOOK_API_KEY="devkey" \
 #     -p 7880:7880 -p 7881:7881 -p 7882:7882 -p 7882:7882/udp \
 #     -v "$PWD/deploy/livekit/livekit.docker.yaml:/etc/livekit.yaml:ro" \
-#     livekit/livekit-server:latest --config /etc/livekit.yaml
+#     livekit/livekit-server:v1.13.11 --config /etc/livekit.yaml
 #
 # 与 livekit.local.yaml 的差别：webhook 用 host.docker.internal 指回宿主机
 # 的 Go 后端（容器内的 localhost 是容器自己）。

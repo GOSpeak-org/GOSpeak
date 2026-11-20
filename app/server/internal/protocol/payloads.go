@@ -44,6 +44,32 @@ type MuteInfo struct {
 	Permanent bool   `json:"permanent"`
 	Reason    string `json:"reason"`
 	ExpiresAt string `json:"expires_at,omitempty"`
+	// Enforcement 是媒体层强制结果：hard / degraded / soft，语义同 MemberLeftPayload.Enforcement。
+	Enforcement string `json:"enforcement,omitempty"`
+}
+
+// ─── c2s 上行请求 payload（json tag 与 signal 层实际读取的字段逐字一致）───
+
+type RoomListRequest struct {
+	DomainUUID string `json:"domain_uuid,omitempty"`
+}
+
+type RoomKickRequest struct {
+	Room           string `json:"room"`
+	DomainUUID     string `json:"domain_uuid,omitempty"`
+	TargetIdentity string `json:"target_identity"`
+}
+
+type MemberMicStatePayload struct {
+	Room       string `json:"room"`
+	DomainUUID string `json:"domain_uuid,omitempty"`
+	IsMicMuted bool   `json:"is_mic_muted"`
+}
+
+type MemberSpeakingPayload struct {
+	Room       string `json:"room"`
+	DomainUUID string `json:"domain_uuid,omitempty"`
+	Speaking   bool   `json:"speaking"`
 }
 
 // ─── P2 首批：signal 层广播 payload（json tag 与既有 wire 逐字一致，行为等价迁移）───

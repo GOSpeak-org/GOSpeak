@@ -9,7 +9,7 @@ const toastMock = vi.hoisted(() => ({
 
 vi.mock("@gospeak/components", () => ({ toast: toastMock }));
 
-import { toastActionError } from "./toast";
+import { resetToastDedup, toastActionError, toastErrorOnce } from "./toast";
 
 /** 模拟 axios 错误：拦截器处理过 4xx/5xx/网络错误，都会带 isAxiosError。 */
 const axiosError = (
@@ -68,5 +68,50 @@ describe("toastActionError", () => {
 	it("uses the fallback copy when the error carries no message", () => {
 		expect(toastActionError(undefined, "删除失败")).toBe("删除失败");
 		expect(toastMock.error).toHaveBeenCalledWith("删除失败");
+	});
+});
+
+describe("toastErrorOnce", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		resetToastDedup();
+		vi.useRealTimers();
+	});
+
+	it("shows an identical error only once inside the dedup window", () => {
+		expect(toastErrorOnce("请求失败")).toBe(true);
+		expect(toastErrorOnce("请求失败")).toBe(false);
+		expect(toastErrorOnce("请求失败")).toBe(false);
+		expect(toastMock.error).toHaveBeenCalledTimes(1);
+	});
+
+	it("still shows a different error message", () => {
+		toastErrorOnce("请求失败");
+		expect(toastErrorOnce("房间不存在")).toBe(true);
+		expect(toastMock.error).toHaveBeenCalledTimes(2);
+	});
+
+	it("allows the same message again after the window", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+		expect(toastErrorOnce("请求失败")).toBe(true);
+		vi.setSystemTime(new Date("2026-01-01T00:00:31Z"));
+		expect(toastErrorOnce("请求失败")).toBe(true);
+		expect(toastMock.error).toHaveBeenCalledTimes(2);
+		vi.useRealTimers();
+	});
+});
+
+describe("toastActionError de-duplication", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		resetToastDedup();
+	});
+
+	it("does not stack the same local failure repeatedly", () => {
+		const error = new Error("操作太快了");
+		expect(toastActionError(error, "加入失败")).toBe("操作太快了");
+		expect(toastActionError(error, "加入失败")).toBe("操作太快了");
+		expect(toastMock.error).toHaveBeenCalledTimes(1);
 	});
 });

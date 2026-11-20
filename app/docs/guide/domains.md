@@ -87,7 +87,7 @@ https://你的域名/invite/d/<邀请码>
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/v1/domain/create` | 建域（限流 10 次/分钟） |
-| POST | `/api/v1/domain/list-public` | 公开域列表，无需登录 |
+| POST | `/api/v1/domain/list-public` | 公开域列表，需登录（JWT + BanCheck），但不要求额外权限码 |
 | POST | `/api/v1/domain/my-domains` | 当前用户加入的域 |
 | POST | `/api/v1/domain/join` | 加入 |
 | POST | `/api/v1/domain/leave` | 退出 |

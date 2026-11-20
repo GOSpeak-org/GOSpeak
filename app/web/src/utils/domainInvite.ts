@@ -92,3 +92,14 @@ export function domainInviteUrl(code: string, base?: string): string {
 	const origin = (base ?? publicBaseUrl()).replace(/\/+$/, "");
 	return `${origin}/invite/d/${encodeURIComponent(code)}`;
 }
+
+/**
+ * 链接/剪贴板自动识别到邀请码后，是否需要弹「加入域」确认框。
+ * 已加入的域无需再确认，否则会出现「已进入的域还反复弹进入弹窗」。
+ */
+export function shouldAutoOpenInvitePreview(
+	previewedDomainUUID: string,
+	myDomainUUIDs: readonly string[],
+): boolean {
+	return !myDomainUUIDs.includes(previewedDomainUUID);
+}

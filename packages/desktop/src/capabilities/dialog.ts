@@ -34,6 +34,12 @@ export function openFileDialog(options?: OpenDialogOptions): Promise<string[]> {
 			const files = Array.from(input.files ?? []).map((f) => f.name);
 			resolve(files);
 		};
+		// Dismissing the native picker fires `cancel`; without this the promise
+		// stays pending forever. jsdom/older WebViews may lack the `oncancel`
+		// property, so register both forms (resolving twice is harmless).
+		const onCancel = () => resolve([]);
+		input.oncancel = onCancel;
+		input.addEventListener("cancel", onCancel);
 		input.click();
 	});
 }

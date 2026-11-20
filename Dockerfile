@@ -21,7 +21,7 @@ RUN pnpm --filter @gospeak/web build
 
 # ── Stage 2: Go backend (embed frontend) ─────────────────────────────────
 # 同样在构建机平台上执行，用 GOARCH 交叉编译；纯 Go、CGO 关闭，无需模拟。
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go-builder
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS go-builder
 WORKDIR /build
 ARG TARGETARCH
 

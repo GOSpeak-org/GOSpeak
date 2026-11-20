@@ -8,9 +8,7 @@
 hooks/
 ├── media.ts              # 音频设备枚举（getAudioDevices，getUserMedia 授权后 enumerateDevices）
 ├── useAuthParallax.ts    # 登录/注册页鼠标视差（lerp 缓动写 --px/--py，尊重 prefers-reduced-motion）
-├── useUpload.ts          # 统一文件上传（presign → PUT 直传 / POST → confirm，含进度与错误态）
-├── useErrorHandler.ts    # 返回一个 (error: unknown) => void 函数，供 Promise.catch / 事件回调把异步错误重抛到渲染阶段，交给最近的 ErrorBoundary
-└── useErrorHandler.test.tsx
+└── useUpload.ts          # 统一文件上传（presign → PUT 直传 / POST → confirm，含进度与错误态）
 ```
 
 语音会话不在 `hooks/` 里，已收敛到 `components/room/` 的分层结构（见下）：
@@ -47,9 +45,6 @@ components/room/
 统一上传：按 `category` 走 presign → PUT 直传（S3）或 POST（Local）→ confirm，返回 `public_url` / `object_key`，并暴露 `uploading` / `progress` / `error`。
 
 Local 模式的中转上传**必须用原生 `fetch`**（见 `api/storage.ts#uploadFile`）：axios 实例默认 `Content-Type: application/json` 会把 `FormData` 序列化成 JSON，而手动设置 `multipart/form-data` 又会缺少 `boundary` 导致服务端 `c.FormFile` 解析失败；交给浏览器生成 `boundary` 才正确。
-
-### useErrorHandler.ts
-签名：`const handleError = useErrorHandler(): (error: unknown) => void`——返回一个函数，供 `Promise.catch` / 事件回调调用，把异步错误重抛到渲染阶段交给最近的边界（React 错误边界本身捕获不到异步错误，需此 hook 重抛）。
 
 ### 语音会话分层职责
 - `useVoiceSession`：`useQuery` 拉 join token、维护会话阶段与 teardown，调用 `runVoiceJoin` 完成进房。

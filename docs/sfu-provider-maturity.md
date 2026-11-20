@@ -11,22 +11,29 @@
 
 | Provider | 成熟度 | 接口方法覆盖 | 关键缺口 |
 |----------|--------|--------------|----------|
-| LiveKit | 完整 | 8/8 ✅ | 无 |
+| LiveKit | 完整 | 15/15 ✅ | 无 |
 
 ### 2. 方法覆盖矩阵
 
 | 方法 | LiveKit |
 |------|---------|
+| `ProviderName` | ✅ |
+| `Capabilities` | ✅ |
 | `GenerateToken` | ✅ |
-| `GenerateAdminToken` | ✅ |
+| `GenerateTokenWithPublish` | ✅ |
 | `ListRooms` | ✅ |
-| `ListParticipants` | ✅（但 HTTP 层 `ListParticipants` 错误处理有回归，见下） |
+| `ListParticipants` | ✅ |
 | `MuteParticipant` | ✅ |
+| `MuteParticipantTimed` | ✅ |
 | `RemoveParticipant` | ✅ |
 | `DeleteRoom` | ✅ |
 | `GetHost` | ✅ |
+| `SupportsStream` | ✅ |
+| `StreamName` | ✅ |
+| `StreamInfo` | ✅ |
+| `ClientInfo` | ✅ |
 
-> 注意：`handler/signal_handler.go` 的 `/signal/participants` 仍把 SFU 查询错误映射为 `code:0` 空数组，属于历史 B05 回归；provider 层无此问题，但监控与前端无法区分"房间无人"与"上游故障"。
+> 历史 B05 回归已修复：`handler/signal_handler.go` 的 `/signal/participants` 现在通过 `pkg.HandleError` 返回非 0 错误码，监控与前端可区分"房间无人"与"上游故障"；回归测试见 `signal_handler_test.go:TestListParticipants_SFUError`。
 
 ### 3. 实现说明
 

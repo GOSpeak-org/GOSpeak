@@ -76,7 +76,8 @@ services:
   livekit:
     <<: *restart
     profiles: ["livekit"]
-    image: livekit/livekit-server:latest
+    # 固定 tag：升级 SFU 需显式改这一行，不做 latest 浮标。
+    image: livekit/livekit-server:v1.13.11
     container_name: gospeak-livekit
     ports:
       # 不再对公网发布 7880（信令）与 7881（RTC over TCP/TLS）：

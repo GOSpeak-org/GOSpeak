@@ -207,10 +207,12 @@ export default function RoomList() {
 	};
 
 	const viewportRef = useRef<HTMLDivElement>(null);
+	// estimateSize 只是首屏估算：真实行高由 measureElement 动态测量，
+	// 桌面紧凑行与移动端 44px 触控行都能自动跟上，不会出现固定高度留下的空隙。
 	const virtualizer = useVirtualizer({
 		count: connected && visibleRooms.length > 0 ? visibleRooms.length : 0,
 		getScrollElement: () => viewportRef.current,
-		estimateSize: () => 68,
+		estimateSize: () => 40,
 		overscan: 8,
 	});
 
@@ -238,7 +240,9 @@ export default function RoomList() {
 									return (
 										<div
 											key={`${room.domain_uuid}:${room.name}`}
-											className="absolute top-0 left-0 w-full"
+											data-index={virtualRow.index}
+											ref={virtualizer.measureElement}
+											className="absolute top-0 left-0 w-full pb-1"
 											style={{ transform: `translateY(${virtualRow.start}px)` }}
 										>
 											<RoomItem
@@ -261,8 +265,16 @@ export default function RoomList() {
 							) : roomsLoading ? (
 								<RoomListLoading label="正在加载房间..." />
 							) : (
-								<div className="text-faint-foreground flex h-20 items-center justify-center text-xs">
-									暂无房间
+								<div className="text-faint-foreground flex flex-col items-center justify-center gap-3 py-10 text-xs">
+									<span>暂无房间，创建第一个语音频道吧</span>
+									<button
+										type="button"
+										onClick={openCreateRoomModal}
+										className="bg-primary text-primary-foreground inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90"
+									>
+										<CirclePlus size={16} />
+										创建房间
+									</button>
 								</div>
 							)
 						) : (

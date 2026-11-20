@@ -26,12 +26,11 @@ const (
 
 // 审计动作常量
 const (
-	ActionKickMember  = "kick_member"
-	ActionMuteUser    = "mute_user"
-	ActionUnmuteUser  = "unmute_user"
-	ActionDeleteRoom  = "delete_room"
-	ActionDeleteUser  = "delete_user"
-	ActionResetInvite = "reset_invite"
+	ActionKickMember = "kick_member"
+	ActionMuteUser   = "mute_user"
+	ActionUnmuteUser = "unmute_user"
+	ActionDeleteRoom = "delete_room"
+	ActionDeleteUser = "delete_user"
 )
 
 // 审计目标类型
@@ -40,24 +39,21 @@ const (
 	TargetRoom   = "room"
 	TargetUser   = "user"
 	TargetMute   = "mute"
-	TargetDomain = "domain"
 )
 
 var (
 	validActions = map[string]struct{}{
-		ActionKickMember:  {},
-		ActionMuteUser:    {},
-		ActionUnmuteUser:  {},
-		ActionDeleteRoom:  {},
-		ActionDeleteUser:  {},
-		ActionResetInvite: {},
+		ActionKickMember: {},
+		ActionMuteUser:   {},
+		ActionUnmuteUser: {},
+		ActionDeleteRoom: {},
+		ActionDeleteUser: {},
 	}
 	validTargetTypes = map[string]struct{}{
 		TargetMember: {},
 		TargetRoom:   {},
 		TargetUser:   {},
 		TargetMute:   {},
-		TargetDomain: {},
 	}
 )
 

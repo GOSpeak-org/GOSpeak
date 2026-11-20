@@ -56,7 +56,7 @@ func TestOAuthHandler_Callback_BadState(t *testing.T) {
 }
 
 func TestOAuthHandler_CallbackPayloadCarriesExpiresIn(t *testing.T) {
-	payload, err := oauthSuccessPayload()
+	payload, err := oauthSuccessPayload("login")
 	if err != nil {
 		t.Fatalf("marshal payload: %v", err)
 	}

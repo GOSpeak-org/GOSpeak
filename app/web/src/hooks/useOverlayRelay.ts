@@ -43,7 +43,7 @@ function toOverlayMember(m: MemberInfo): OverlayMember {
  * Pushes are de-duplicated by JSON key, so a throttle window with no real
  * change sends nothing at all.
  *
- * No-op in a plain browser (isDesktop() is false), preserving platform
+ * No-op in a plain browser (inDesktop() is false), preserving platform
  * isolation.
  */
 export function useOverlayRelay() {

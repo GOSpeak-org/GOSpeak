@@ -56,7 +56,7 @@ export const KEEP_ALIVE_PAGES: Record<string, ReactNode> = {
 /**
  * 当前页面是否处于前台（可见、可交互）。隐藏页据此暂停轮询 / 订阅等副作用。
  *
- * 用法（页面侧尚未接入，见 KeepAliveOutlet 的注释）：
+ * 用法（需要按可见性暂停副作用的页面自行接入）：
  *   const isActive = useKeepAliveActive();
  *   useEffect(() => { if (!isActive) return; ... }, [isActive]);
  *

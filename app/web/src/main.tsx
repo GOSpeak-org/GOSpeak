@@ -44,7 +44,7 @@ const router = createRouter({
 function NotFound() {
 	return (
 		<div className="bg-background text-foreground flex min-h-[calc(100dvh-var(--mygo-titlebar-height,0px))] flex-col items-center justify-center gap-4">
-			<span className="text-primary text-2xl font-semibold">GOSpeak</span>
+			<span className="text-primary text-xl font-semibold">GOSpeak</span>
 			<p className="text-muted-foreground text-sm">
 				页面不存在，请检查地址或返回首页。
 			</p>

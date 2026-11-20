@@ -271,7 +271,7 @@ function Component() {
 
 `errorReport.ts` 导出：`normalizeError`（归一化任意错误）、`registerErrorReporter`（可接 Sentry 等外部日志服务）、`reportError`、`errorSummary`、`installGlobalErrorHandlers`（在 `main.tsx` 注册 `window.error` + `unhandledrejection` 兜底，会触发 `router.invalidate()` 重试），`ErrorScope = "component" | "page" | "route" | "global"`。`ErrorFallback` 按 `ErrorLevel = "component" | "page"` 区分局部虚线框与全屏兜底。
 
-loader 抛错时，重试需要 `router.invalidate()` 才会重新发起请求，因此 `main.tsx` 给 `RouteErrorComponent` 注入了 `onRetry`。事件回调和 Promise 里的异步错误不会被 React 边界捕获，用 `useErrorHandler()`（返回 `(error: unknown) => void` 的函数）重抛到渲染阶段；`installGlobalErrorHandlers()` 负责 `window.error` / `unhandledrejection` 兜底上报。
+loader 抛错时，重试需要 `router.invalidate()` 才会重新发起请求，因此 `main.tsx` 给 `RouteErrorComponent` 注入了 `onRetry`。事件回调和 Promise 里的异步错误不会被 React 边界捕获，也不重抛进边界：用户可见反馈走 `apiClient` 拦截器 toast 与 `utils/backgroundFailure.ts`，`installGlobalErrorHandlers()` 负责 `window.error` / `unhandledrejection` 兜底上报。
 
 ---
 
