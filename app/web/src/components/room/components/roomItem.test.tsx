@@ -166,11 +166,20 @@ describe("RoomItem / 移动端触控适配", () => {
 		expect(screen.getByText("2/10")).toBeTruthy();
 	});
 
-	it("主行与更多操作按钮保持不小于 44px 的触控目标", () => {
+	it("文字房间不显示任何人数标注", () => {
+		renderRoom({ type: "text", count: 3, limit: 12 });
+
+		expect(screen.getByText("大厅")).toBeTruthy();
+		expect(screen.queryByText("3 人")).toBeNull();
+		expect(screen.queryByText("3/12")).toBeNull();
+	});
+
+	it("主行只在移动端放大到 44px 触控目标，且不再渲染更多操作按钮", () => {
 		const { container } = renderRoom();
 		const buttons = container.querySelectorAll("button");
 
-		expect(buttons[0].className).toContain("min-h-11");
-		expect(buttons[1].className).toContain("size-11");
+		// 桌面保持紧凑行高，触控放大用 max-md 限定，不能撑高桌面列表
+		expect(buttons[0].className).toContain("max-md:min-h-11");
+		expect(container.querySelector('button[aria-label="更多操作"]')).toBeNull();
 	});
 });

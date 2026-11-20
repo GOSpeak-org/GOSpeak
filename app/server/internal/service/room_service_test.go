@@ -121,6 +121,46 @@ func TestRoomService_Create_PersistsFields(t *testing.T) {
 	}
 }
 
+func TestRoomService_CreateRoom_TextRoomHasNoLimit(t *testing.T) {
+	svc, _ := setupRoomServiceTestDB(t)
+	room, err := svc.CreateRoom("general", "", "text channel", 50, false, false, "user-1", model.RoomTypeText, "domain-a")
+	if err != nil {
+		t.Fatalf("CreateRoom: %v", err)
+	}
+	if room.Limit != 0 {
+		t.Fatalf("text room limit = %d, want 0 (unlimited)", room.Limit)
+	}
+	if !room.AudioOnly {
+		t.Fatal("text room should be audio_only")
+	}
+	saved, err := svc.GetByUUID(room.UUID)
+	if err != nil {
+		t.Fatalf("GetByUUID: %v", err)
+	}
+	if saved.Limit != 0 {
+		t.Fatalf("persisted text room limit = %d, want 0", saved.Limit)
+	}
+}
+
+func TestRoomService_Update_TextRoomHasNoLimit(t *testing.T) {
+	svc, _ := setupRoomServiceTestDB(t)
+	room, err := svc.CreateRoom("general", "", "text channel", 0, false, false, "user-1", model.RoomTypeText, "domain-a")
+	if err != nil {
+		t.Fatalf("CreateRoom: %v", err)
+	}
+	room.Limit = 50
+	if err := svc.Update(room); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	saved, err := svc.GetByUUID(room.UUID)
+	if err != nil {
+		t.Fatalf("GetByUUID: %v", err)
+	}
+	if saved.Limit != 0 {
+		t.Fatalf("updated text room limit = %d, want 0", saved.Limit)
+	}
+}
+
 func TestRoomService_List_ClampsPageBelowOne(t *testing.T) {
 	svc, db := setupRoomServiceTestDB(t)
 	seedRoomServiceRooms(t, db, "domain-a", model.RoomTypeVoice, "room", 5)

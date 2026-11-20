@@ -332,7 +332,7 @@ function MemberCard({
 					name={displayName}
 					alt={member.name}
 					className="size-20"
-					textClass="text-2xl"
+					textClass="text-xl"
 				/>
 
 				<div className="bg-sunken absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 py-1.5">

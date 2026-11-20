@@ -52,6 +52,7 @@ const TONE = {
 export default function VoiceStatusBar({ className }: { className?: string }) {
 	const selectedRoom = useSocketStore((s) => s.selectedRoomInfo);
 	const currentRoom = useSocketStore((s) => s.currentRoom);
+	const rooms = useSocketStore((s) => s.rooms);
 	const domainCache = useDomainStore((s) => s.domainCache);
 	const {
 		phase,
@@ -95,6 +96,17 @@ export default function VoiceStatusBar({ className }: { className?: string }) {
 	if (!selectedRoom && !currentRoom) return null;
 
 	const roomName = selectedRoom?.name ?? currentRoom ?? "";
+
+	// 文字频道为了收消息/在线成员也走 room:join，会把 currentRoom 设成该频道名，
+	// 但它没有语音会话。这里按房间类型过滤，避免文字频道下出现「准备连接…」这一条。
+	const activeRoom =
+		selectedRoom ??
+		rooms.find(
+			(r) =>
+				r.name === roomName &&
+				(r.domain_uuid || "") === (socketStore.currentDomainUUID() || ""),
+		);
+	if (activeRoom?.type === "text") return null;
 	const domainName = selectedRoom?.domain_uuid
 		? domainCache[selectedRoom.domain_uuid]?.name
 		: undefined;

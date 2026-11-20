@@ -24,6 +24,7 @@ export default function EditRoomModal({
 	onClose,
 	onSaved,
 }: EditRoomModalProps) {
+	const isText = room.type === "text";
 	const fields: FormFieldConfig[] = [
 		{
 			name: "name",
@@ -33,15 +34,19 @@ export default function EditRoomModal({
 			required: true,
 			validation: (v: string) => fieldError(roomNameSchema, v),
 		},
-		{
-			name: "limit",
-			label: "人数上限",
-			type: "number",
-			required: true,
-			validation: (v: number) => fieldError(editRoomLimitSchema, v),
-		},
+		...(isText
+			? []
+			: [
+					{
+						name: "limit",
+						label: "人数上限",
+						type: "number" as const,
+						required: true,
+						validation: (v: number) => fieldError(editRoomLimitSchema, v),
+					},
+				]),
 		{ name: "audio_only", label: "仅语音模式", type: "switch" },
-		{ name: "allow_audience", label: "允许听众加入", type: "switch" },
+		{ name: "allow_audience", label: "允许旁听", type: "switch" },
 		{
 			name: "description",
 			label: "房间说明",
@@ -57,7 +62,7 @@ export default function EditRoomModal({
 				id: room.id,
 				name: formValues.name.trim(),
 				description: formValues.description.trim(),
-				limit: formValues.limit,
+				limit: isText ? 0 : formValues.limit,
 				audio_only: formValues.audio_only,
 				allow_audience: formValues.allow_audience,
 			});
@@ -81,13 +86,16 @@ export default function EditRoomModal({
 					type="button"
 					className="hover:bg-muted absolute top-2 right-2 z-10 flex size-9 cursor-pointer items-center justify-center rounded-full border-0"
 					onClick={onClose}
+					aria-label="关闭"
 				>
 					<X size={16} />
 				</button>
 				<div className="border-border shrink-0 border-b px-6 py-5">
 					<DialogTitle className="text-lg font-semibold">编辑房间</DialogTitle>
 					<p className="text-muted-foreground mt-1 text-sm">
-						修改房间名称、说明、人数上限与接入策略。密码不在本页修改。
+						修改房间名称、说明与接入策略。
+						{isText ? "文字房不限制人数。" : "语音房可设置人数上限。"}
+						密码不在本页修改。
 					</p>
 				</div>
 				<div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-6 py-5">
@@ -102,6 +110,7 @@ export default function EditRoomModal({
 						}}
 						formClassName="grid gap-2 md:grid-cols-2 md:gap-x-4"
 						submitButtonText="保存修改"
+						onCancel={onClose}
 						onSubmit={handleSubmit}
 					/>
 				</div>

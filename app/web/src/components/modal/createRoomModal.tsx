@@ -40,7 +40,7 @@ export default function CreateRoomModal({
 	onCreated,
 }: CreateRoomModalProps) {
 	const navigate = useNavigate();
-	const [values, setValues] = useState({
+	const [values, setValues] = useState<Record<string, any>>({
 		type: "voice",
 		name: "",
 		password: "",
@@ -51,11 +51,7 @@ export default function CreateRoomModal({
 		description: "",
 	});
 
-	const _set = (
-		k: keyof typeof values,
-		v: (typeof values)[keyof typeof values],
-	) => setValues((prev) => ({ ...prev, [k]: v }));
-
+	const isText = values.type === "text";
 	const fields: Array<FormFieldConfig & { kind?: "switch" }> = [
 		{
 			name: "type",
@@ -81,15 +77,19 @@ export default function CreateRoomModal({
 			placeholder: "选填，留空表示公开房间",
 			validation: (v: string) => fieldError(roomPasswordSchema, v),
 		},
-		{
-			name: "limit",
-			label: "人数上限",
-			type: "number",
-			required: true,
-			validation: (v: number) => fieldError(createRoomLimitSchema, v),
-		},
+		...(isText
+			? []
+			: [
+					{
+						name: "limit",
+						label: "人数上限",
+						type: "number" as const,
+						required: true,
+						validation: (v: number) => fieldError(createRoomLimitSchema, v),
+					},
+				]),
 		{ name: "audio_only", label: "仅语音模式", type: "switch" },
-		{ name: "allow_audience", label: "允许听众加入", type: "switch" },
+		{ name: "allow_audience", label: "允许旁听", type: "switch" },
 		{ name: "joinAfterCreate", label: "创建后进入域页", type: "switch" },
 		{
 			name: "description",
@@ -123,7 +123,7 @@ export default function CreateRoomModal({
 			const payload: CreateRoomConfig = {
 				name: formValues.name.trim(),
 				password: formValues.password,
-				limit: formValues.limit,
+				limit: formValues.type === "text" ? 0 : formValues.limit,
 				joinAfterCreate: formValues.joinAfterCreate,
 				audio_only: formValues.audio_only,
 				allow_audience: formValues.allow_audience,
@@ -178,19 +178,20 @@ export default function CreateRoomModal({
 		<Dialog open onOpenChange={(v) => !v && onClose()}>
 			<DialogContent
 				showClose={false}
-				className="flex max-h-[100dvh] max-w-3xl flex-col gap-0 overflow-hidden rounded-lg p-0"
+				className="flex max-h-[90dvh] max-w-3xl flex-col gap-0 overflow-y-auto rounded-lg p-0 pb-[env(safe-area-inset-bottom)]"
 			>
 				<button
 					type="button"
 					className="hover:bg-muted absolute top-2 right-2 z-10 flex size-9 cursor-pointer items-center justify-center rounded-full border-0"
 					onClick={onClose}
+					aria-label="关闭"
 				>
 					<X size={16} />
 				</button>
 				<div className="border-border shrink-0 border-b px-6 py-5">
 					<DialogTitle className="text-lg font-semibold">新建房间</DialogTitle>
 					<p className="text-muted-foreground mt-1 text-sm">
-						填写基础配置后创建房间。房间说明、人数上限和接入策略会随房间信息一起保存。
+						填写基础配置后创建房间。语音房可设置人数上限，文字房不限制人数；房间说明与接入策略会随房间信息一起保存。
 					</p>
 				</div>
 
@@ -199,8 +200,11 @@ export default function CreateRoomModal({
 						<Form
 							fields={fields}
 							defaultValues={values}
+							onValuesChange={setValues}
 							formClassName="grid gap-2 md:grid-cols-2 md:gap-x-4"
 							submitButtonText="创建房间"
+							onCancel={onClose}
+							actionsFullWidthOnMobile
 							onSubmit={handleSubmit}
 						/>
 					</div>
@@ -217,7 +221,7 @@ export default function CreateRoomModal({
 							<div>
 								<div className="text-faint-foreground">接入规模</div>
 								<div className="mt-1 font-medium">
-									最多 {summary.limit || "-"} 人
+									{isText ? "不限制人数" : `最多 ${summary.limit || "-"} 人`}
 								</div>
 							</div>
 							<div>

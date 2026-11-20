@@ -9,7 +9,7 @@ import {
 	Switch,
 } from "@gospeak/components";
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 export interface FormFieldConfig {
@@ -40,6 +40,9 @@ export interface FormProps {
 	formClassName?: string;
 	showSubmitButton?: boolean;
 	submitButtonText?: string;
+	onCancel?: () => void;
+	actionsFullWidthOnMobile?: boolean;
+	onValuesChange?: (values: Record<string, any>) => void;
 	onSubmit: (values: Record<string, any>) => void | Promise<void>;
 }
 
@@ -65,7 +68,11 @@ function Field({
 	onBlur: () => void;
 }) {
 	const fieldId = `field-${field.name}`;
+	const errorId = `${fieldId}-error`;
 	const showError = touched && !!error;
+	const ariaInvalid = showError ? true : undefined;
+	const ariaDescribedBy = showError ? errorId : undefined;
+	const ariaRequired = field.required || undefined;
 
 	const body = (() => {
 		switch (field.type) {
@@ -81,12 +88,16 @@ function Field({
 								id={fieldId}
 								checked={value ?? false}
 								onCheckedChange={onChange}
+								aria-invalid={ariaInvalid}
+								aria-describedby={ariaDescribedBy}
 							/>
 						) : (
 							<Checkbox
 								id={fieldId}
 								checked={value ?? false}
 								onCheckedChange={(checked) => onChange(checked === true)}
+								aria-invalid={ariaInvalid}
+								aria-describedby={ariaDescribedBy}
 							/>
 						)}
 						<span className="text-sm">{field.label}</span>
@@ -100,7 +111,13 @@ function Field({
 						value={raw === "" ? EMPTY_VALUE : raw}
 						onValueChange={(next) => onChange(next === EMPTY_VALUE ? "" : next)}
 					>
-						<SelectTrigger id={fieldId} className="bg-transparent">
+						<SelectTrigger
+							id={fieldId}
+							className="bg-transparent"
+							aria-invalid={ariaInvalid}
+							aria-describedby={ariaDescribedBy}
+							aria-required={ariaRequired}
+						>
 							<SelectValue placeholder={field.placeholder ?? "请选择"} />
 						</SelectTrigger>
 						<SelectContent>
@@ -121,6 +138,9 @@ function Field({
 					<textarea
 						id={fieldId}
 						name={field.name}
+						aria-invalid={ariaInvalid}
+						aria-describedby={ariaDescribedBy}
+						aria-required={ariaRequired}
 						className={clsx(inputClass, "h-auto py-2", field.className)}
 						placeholder={field.placeholder}
 						rows={3}
@@ -136,6 +156,9 @@ function Field({
 						id={fieldId}
 						type="number"
 						name={field.name}
+						aria-invalid={ariaInvalid}
+						aria-describedby={ariaDescribedBy}
+						aria-required={ariaRequired}
 						className={inputClass}
 						placeholder={field.placeholder}
 						value={value ?? ""}
@@ -156,6 +179,9 @@ function Field({
 						id={fieldId}
 						type={field.type}
 						name={field.name}
+						aria-invalid={ariaInvalid}
+						aria-describedby={ariaDescribedBy}
+						aria-required={ariaRequired}
 						className={inputClass}
 						placeholder={field.placeholder}
 						value={value ?? ""}
@@ -179,12 +205,19 @@ function Field({
 			{field.type !== "switch" && field.type !== "checkbox" && (
 				<label htmlFor={fieldId} className="mb-1 block text-sm">
 					{field.label}
-					{field.required && <span className="text-destructive ml-0.5">*</span>}
+					{field.required && (
+						<span className="text-destructive ml-0.5" aria-hidden="true">
+							*
+						</span>
+					)}
 				</label>
 			)}
 			{body}
 			{showError && (
-				<p className="text-destructive absolute top-full left-1 mt-0.5 text-xs">
+				<p
+					id={errorId}
+					className="text-destructive absolute top-full left-1 mt-0.5 text-xs"
+				>
 					{error}
 				</p>
 			)}
@@ -198,6 +231,9 @@ export function Form({
 	formClassName,
 	showSubmitButton = true,
 	submitButtonText = "提交",
+	onCancel,
+	actionsFullWidthOnMobile = false,
+	onValuesChange,
 	onSubmit,
 }: FormProps) {
 	const [values, setValues] = useState<Record<string, any>>(() => ({
@@ -206,9 +242,17 @@ export function Form({
 	}));
 	const [touched, setTouched] = useState<Record<string, boolean>>({});
 	const [submitting, setSubmitting] = useState(false);
+	const valuesRef = useRef(values);
+
+	useEffect(() => {
+		valuesRef.current = values;
+	}, [values]);
 
 	const handleChange = (name: string, v: any) => {
-		setValues((prev) => ({ ...prev, [name]: v }));
+		const next = { ...valuesRef.current, [name]: v };
+		valuesRef.current = next;
+		setValues(next);
+		onValuesChange?.(next);
 	};
 
 	const handleSubmit = async (e: FormEvent) => {
@@ -243,8 +287,33 @@ export function Form({
 				/>
 			))}
 			{showSubmitButton && (
-				<div className="mt-3 flex justify-end">
-					<Button type="submit" disabled={submitting}>
+				<div
+					className={clsx(
+						"col-span-full mt-3 flex gap-2",
+						actionsFullWidthOnMobile
+							? "flex-col sm:flex-row sm:justify-end"
+							: "justify-end",
+					)}
+				>
+					{onCancel && (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={onCancel}
+							className={
+								actionsFullWidthOnMobile ? "w-full sm:w-auto" : undefined
+							}
+						>
+							取消
+						</Button>
+					)}
+					<Button
+						type="submit"
+						disabled={submitting}
+						className={
+							actionsFullWidthOnMobile ? "w-full sm:w-auto" : undefined
+						}
+					>
 						{submitting ? "提交中..." : submitButtonText}
 					</Button>
 				</div>

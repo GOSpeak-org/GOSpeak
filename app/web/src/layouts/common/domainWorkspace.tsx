@@ -1,20 +1,24 @@
+import { toast } from "@gospeak/components";
 import {
 	Hash,
 	Headphones,
 	Lock,
 	MessageSquareText,
 	Mic,
+	Plus,
 	// Search, 搜索入口暂停用
 	Users,
 	X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "@/components/common/errorBoundary";
+import CreateRoomModal from "@/components/modal/createRoomModal";
 import MemberSidebar from "@/components/room/components/memberSidebar";
 import { visibleRoomsForDomain } from "@/components/room/roomListUtils";
 import RoomDetail from "@/components/room/roomDetail";
 import TextRoomPanel from "@/components/textRoom/TextRoomPanel";
 import ChannelHeader from "@/layouts/common/channelHeader";
+import { iconButtonClass } from "@/layouts/common/iconButtonClass";
 import type { RoomInfo } from "@/socket/types";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { socketStore, useSocketStore } from "@/stores/socketStore";
@@ -39,7 +43,7 @@ interface DomainWorkspaceProps {
  *   只换上方内容，聊天区与其高度保持不动。
  * - 成员列表是工作区的独立兄弟节点，从页面顶部开始，保持原有组件、
  *   原有宽度与原有浅色（由根容器底色提供，不额外包裹）。
- * - 深色只作用于主工作区（ds-surface），全局主题 token 不变。
+ * - 主工作区使用 card/foreground 语义 token 着色，全局主题 token 不变。
  */
 export default function DomainWorkspace({
 	isDomain,
@@ -172,8 +176,8 @@ export default function DomainWorkspace({
 			className="bg-card border-border flex h-full w-full flex-1 border-t"
 			style={{ display: isDomain ? undefined : "none" }}
 		>
-			{/* 主工作区：深色 Discord 表面 */}
-			<div className="ds-surface flex min-w-0 flex-1 flex-col">
+			{/* 主工作区：card token 表面 */}
+			<div className="bg-card text-foreground flex min-w-0 flex-1 flex-col">
 				{/* 纯文字频道（无语音舞台选中）：头部由聊天面板自身承担，避免重复 */}
 				{!(textRoom && !selectedRoom) && (
 					<ChannelHeader
@@ -245,7 +249,7 @@ export default function DomainWorkspace({
 								aria-label="文字聊天"
 							>
 								<div className="border-border flex h-12 shrink-0 items-center gap-2 border-b px-3">
-									<span className="bg-muted text-foreground flex size-7 shrink-0 items-center justify-center rounded-sm">
+									<span className="text-foreground flex size-7 shrink-0 items-center justify-center">
 										<MessageSquareText size={16} />
 									</span>
 									<span className="text-foreground truncate text-sm font-semibold">
@@ -297,7 +301,7 @@ export default function DomainWorkspace({
 */}
 										<button
 											type="button"
-											className="ds-icon-btn text-muted-foreground"
+											className={iconButtonClass}
 											data-active={membersOpen}
 											onClick={toggleMembers}
 											title="显示成员列表"
@@ -307,7 +311,7 @@ export default function DomainWorkspace({
 										</button>
 										<button
 											type="button"
-											className="ds-icon-btn text-muted-foreground"
+											className={iconButtonClass}
 											onClick={() => setChatOpen(false)}
 											title="收起文字聊天"
 											aria-label="收起文字聊天"
@@ -405,11 +409,11 @@ function ChannelPicker({
 					{room.has_password && (
 						<Lock size={12} className="text-muted-foreground shrink-0" />
 					)}
-					<span className="text-muted-foreground shrink-0 text-xs">
-						{kind === "text"
-							? `${room.count} 人`
-							: `${room.count}/${room.limit}`}
-					</span>
+					{kind !== "text" && (
+						<span className="text-muted-foreground shrink-0 text-xs">
+							{`${room.count}/${room.limit}`}
+						</span>
+					)}
 				</button>
 			))}
 		</div>
@@ -418,18 +422,50 @@ function ChannelPicker({
 
 function VoiceEmptyState() {
 	const list = useChannelList("voice").slice(0, 6);
+	const [createRoomOpen, setCreateRoomOpen] = useState(false);
+	const domainUUID = socketStore.currentDomainUUID();
+	const noRooms = list.length === 0;
+
+	const openCreate = () => {
+		if (!domainUUID) {
+			toast.warning("请先选择域");
+			return;
+		}
+		setCreateRoomOpen(true);
+	};
+
 	return (
-		<div className="bg-card flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
-			<div className="bg-muted border-border flex size-16 items-center justify-center rounded-full border">
-				<Headphones size={32} strokeWidth={1.5} className="text-foreground" />
+		<>
+			<div className="bg-card flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
+				<div className="bg-muted border-border flex size-16 items-center justify-center rounded-full border">
+					<Headphones size={32} strokeWidth={1.5} className="text-foreground" />
+				</div>
+				<h2 className="text-foreground text-lg font-bold">
+					{noRooms ? "创建第一个语音频道" : "选择一个语音频道"}
+				</h2>
+				<p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
+					{noRooms
+						? "当前域还没有语音频道，创建后即可邀请成员一起通话。"
+						: "点下面的频道直接进入，切换频道不会中断通话。"}
+				</p>
+				{noRooms ? (
+					<button
+						type="button"
+						className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+						onClick={openCreate}
+					>
+						<Plus size={16} />
+						创建第一个语音频道
+					</button>
+				) : (
+					<ChannelPicker kind="voice" list={list} />
+				)}
 			</div>
-			<h2 className="text-foreground text-lg font-bold">选择一个语音频道</h2>
-			<p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
-				{list.length > 0
-					? "点下面的频道直接进入，切换频道不会中断通话。"
-					: "双击左侧列表里的语音频道加入通话。"}
-			</p>
-			<ChannelPicker kind="voice" list={list} />
-		</div>
+			<CreateRoomModal
+				open={createRoomOpen}
+				domainUUID={domainUUID ?? ""}
+				onClose={() => setCreateRoomOpen(false)}
+			/>
+		</>
 	);
 }

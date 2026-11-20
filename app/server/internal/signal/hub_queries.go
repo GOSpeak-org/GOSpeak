@@ -81,6 +81,10 @@ func (h *Hub) CheckRoomLimit(domainUUID, roomName string) (bool, uint, int, erro
 	limit := uint(0)
 	switch {
 	case err == nil && dbRoom != nil:
+		if model.NormalizeRoomType(dbRoom.Type) == model.RoomTypeText {
+			// 文字房间不设人数上限
+			return false, 0, 0, nil
+		}
 		limit = dbRoom.Limit
 	case errors.Is(err, pkg.ErrNotFound):
 		// 临时房间：继续用共享元数据兜底，not-found 不是错误。

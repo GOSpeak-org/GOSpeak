@@ -6,6 +6,7 @@ import {
 	Volume2,
 	X,
 } from "lucide-react";
+import { iconButtonClass } from "@/layouts/common/iconButtonClass";
 import { useChatStore } from "@/stores/chatStore";
 import { useTextRoomUiStore } from "@/stores/textRoomUiStore";
 import { useWorkspaceUiStore } from "@/stores/workspaceUiStore";
@@ -63,26 +64,26 @@ export default function ChannelHeader({
 				{textRoom && (
 					<button
 						type="button"
-						className="ds-icon-btn"
+						className={iconButtonClass}
 						data-active={chatOpen}
 						onClick={toggleChat}
 						title="显示/隐藏文字聊天"
 						aria-label="显示/隐藏文字聊天"
 						aria-pressed={chatOpen}
 					>
-						<MessageSquare size={20} />
+						<MessageSquare size={16} />
 					</button>
 				)}
 				<button
 					type="button"
-					className="ds-icon-btn"
+					className={iconButtonClass}
 					data-active={membersOpen}
 					onClick={toggleMembers}
 					title="显示成员列表"
 					aria-label="显示成员列表"
 					aria-pressed={membersOpen}
 				>
-					<Users size={20} />
+					<Users size={16} />
 				</button>
 			</div>
 			{/* 供无障碍与后续扩展：标题栏当前频道标识 */}
