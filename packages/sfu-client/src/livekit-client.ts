@@ -38,6 +38,7 @@ import type {
 export class LiveKitSFUClient implements SFUClient {
 	private room: Room;
 	private onActiveSpeakersCb?: (ids: string[]) => void;
+	private onLocalSpeakingChangeCb?: (speaking: boolean) => void;
 	private onRemoteAudioTrackCb?: (info: RemoteTrackInfo) => void;
 	private onRemoteAudioTrackRemovedCb?: (identity: string) => void;
 	private onRemoteVideoTrackCb?: (info: RemoteVideoTrackInfo) => void;
@@ -92,6 +93,7 @@ export class LiveKitSFUClient implements SFUClient {
 					this.onReconnectingCb = undefined;
 					this.onReconnectedCb = undefined;
 					this.onActiveSpeakersCb = undefined;
+					this.onLocalSpeakingChangeCb = undefined;
 					this.onRemoteAudioTrackCb = undefined;
 					this.onRemoteAudioTrackRemovedCb = undefined;
 					this.onRemoteVideoTrackCb = undefined;
@@ -112,6 +114,9 @@ export class LiveKitSFUClient implements SFUClient {
 			})
 			.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
 				this.onActiveSpeakersCb?.(speakers.map((speaker) => speaker.identity));
+				this.onLocalSpeakingChangeCb?.(
+					speakers.some((speaker) => speaker.isLocal),
+				);
 			})
 			.on(
 				RoomEvent.TrackSubscribed,
@@ -189,6 +194,7 @@ export class LiveKitSFUClient implements SFUClient {
 		// Remove all listeners first to prevent stale reconnect handling
 		this.room.removeAllListeners();
 		this.onActiveSpeakersCb = undefined;
+		this.onLocalSpeakingChangeCb = undefined;
 		this.onRemoteAudioTrackCb = undefined;
 		this.onRemoteAudioTrackRemovedCb = undefined;
 		this.onRemoteVideoTrackCb = undefined;
@@ -344,6 +350,10 @@ export class LiveKitSFUClient implements SFUClient {
 
 	onActiveSpeakers(cb: (ids: string[]) => void): void {
 		this.onActiveSpeakersCb = cb;
+	}
+
+	onLocalSpeakingChange(cb: (speaking: boolean) => void): void {
+		this.onLocalSpeakingChangeCb = cb;
 	}
 
 	onRemoteAudioTrack(cb: (info: RemoteTrackInfo) => void): void {
