@@ -23,7 +23,10 @@ import {
 	ManageSection,
 } from "@/components/manage/ManageShell";
 import { domainStore, useDomainStore } from "@/stores/domainStore";
-import { extractDomainInviteCode } from "@/utils/domainInvite";
+import {
+	extractDomainInviteCode,
+	shouldAutoOpenInvitePreview,
+} from "@/utils/domainInvite";
 import { localizedApiMessage } from "@/utils/errorMessages";
 import { useKeepAliveActive } from "@/components/common/keepAliveOutlet";
 
@@ -82,16 +85,36 @@ export function DiscoverPage() {
 		return !!domain && isJoined(domain.uuid);
 	};
 
-	async function openPreview(code: string, domainUUID = "") {
+	function openPublicPreview(domain: Domain) {
 		if (previewLoading) return;
 		setPreviewOpen(true);
+		setPreviewLoading(false);
+		setPreviewError("");
+		setPreviewDomain(domain);
+		setPreviewCode("");
+		setPreviewDomainUUID(domain.uuid);
+	}
+
+	async function openPreview(code: string, opts?: { skipIfJoined?: boolean }) {
+		if (previewLoading) return;
+		const skipIfJoined = opts?.skipIfJoined ?? false;
+		if (!skipIfJoined) setPreviewOpen(true);
 		setPreviewLoading(true);
 		setPreviewError("");
 		setPreviewDomain(null);
 		setPreviewCode(code);
-		setPreviewDomainUUID(domainUUID);
+		setPreviewDomainUUID("");
 		try {
 			const data = await previewInvite(code);
+			if (
+				skipIfJoined &&
+				!shouldAutoOpenInvitePreview(
+					data.domain.uuid,
+					useDomainStore.getState().myDomainUUIDs,
+				)
+			) {
+				return;
+			}
 			setPreviewDomain({
 				id: 0,
 				uuid: data.domain.uuid,
@@ -103,12 +126,22 @@ export function DiscoverPage() {
 				require_join_approval: data.requires_approval,
 				created_at: "",
 			});
+			setPreviewOpen(true);
 		} catch (e) {
 			// previewInvite 已设 skipErrorToast，这里是唯一的提示出口
 			setPreviewError(localizedApiMessage(e, "邀请码无效"));
+			setPreviewOpen(true);
 		} finally {
 			setPreviewLoading(false);
 		}
+	}
+
+	function retryPreview() {
+		if (!previewCode) {
+			setPreviewOpen(false);
+			return;
+		}
+		void openPreview(previewCode);
 	}
 
 	function handleInviteSubmit(e: React.FormEvent) {
@@ -197,17 +230,18 @@ export function DiscoverPage() {
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 挂载时读取一次 URL 邀请码与剪贴板参数，后续加入动作由用户事件触发，不应随渲染重复执行
 	useEffect(() => {
-		domainStore.loadMyDomains();
 		void (async () => {
 			try {
+				// 先等已加入域列表就绪，否则 isJoined 会读到旧数据而误弹已加入域的确认框
+				await domainStore.loadMyDomains();
 				if (!navigator.clipboard?.readText) return;
 				const text = await navigator.clipboard.readText();
 				const code = extractDomainInviteCode(text);
 				if (!code) return;
 				setInviteInput(code);
-				await openPreview(code);
+				await openPreview(code, { skipIfJoined: true });
 			} catch {
-				// 浏览器未授权读取剪贴板时静默处理，用户可手动输入。
+				// 浏览器未授权读取剪贴板、或域列表加载失败时静默处理，用户可手动输入。
 			}
 		})();
 	}, []);
@@ -218,7 +252,7 @@ export function DiscoverPage() {
 				<ManageHeader
 					icon={<Compass size={20} />}
 					title="发现域"
-					description="搜索公开语音域，或通过邀请码加入"
+					description="搜索公开语音域"
 					actions={
 						<button
 							type="button"
@@ -275,7 +309,7 @@ export function DiscoverPage() {
 							totalPages={totalPages}
 							joinedUUIDs={useDomainStore.getState().myDomainUUIDs}
 							pendingUUIDs={pendingDomainUUIDs}
-							onOpen={(domain) => void openPreview("", domain.uuid)}
+							onOpen={openPublicPreview}
 							onEnter={(domain) =>
 								navigate({
 									to: "/domain/$domainUUID",
@@ -316,6 +350,7 @@ export function DiscoverPage() {
 					joining={joining}
 					onConfirm={joinPreview}
 					onCancel={() => setPreviewOpen(false)}
+					onRetry={retryPreview}
 				/>
 			)}
 
@@ -341,6 +376,7 @@ function DomainJoinPreviewModal(props: {
 	joining: boolean;
 	onConfirm: () => void;
 	onCancel: () => void;
+	onRetry: () => void;
 }) {
 	// 用 Radix Dialog 而不是手写遮罩：Esc 关闭、焦点陷阱、aria-labelledby 都是白拿的
 	return (
@@ -355,6 +391,7 @@ function DomainJoinPreviewModal(props: {
 					joining={props.joining}
 					onConfirm={props.onConfirm}
 					onCancel={props.onCancel}
+					onRetry={props.onRetry}
 				/>
 			</DialogContent>
 		</Dialog>

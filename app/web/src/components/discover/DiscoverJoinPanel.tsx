@@ -62,7 +62,7 @@ function DiscoverJoinPanel(props: DiscoverJoinPanelProps) {
 				</label>
 				<Button type="submit" variant="outline" className="justify-start">
 					<Link2 size={16} />
-					查看邀请
+					通过邀请码加入
 				</Button>
 			</form>
 		</div>

@@ -4,6 +4,7 @@ import {
 	domainInviteUrl,
 	extractDomainInviteCode,
 	parseInviteLink,
+	shouldAutoOpenInvitePreview,
 } from "./domainInvite";
 
 /** 36 字符邀请码：字符集 [A-HJ-NP-Z2-9]（排除 I、O、0、1）。 */
@@ -110,5 +111,23 @@ describe("domainInviteUrl / domainDeepLinkUrl", () => {
 
 	it("builds the gospeak scheme link", () => {
 		expect(domainDeepLinkUrl(VALID)).toBe(`gospeak://invite/d/${VALID}`);
+	});
+});
+
+describe("shouldAutoOpenInvitePreview", () => {
+	it("returns false when the previewed domain is already joined", () => {
+		expect(
+			shouldAutoOpenInvitePreview("domain-1", ["domain-1", "domain-2"]),
+		).toBe(false);
+	});
+
+	it("returns true when the previewed domain is not joined", () => {
+		expect(
+			shouldAutoOpenInvitePreview("domain-3", ["domain-1", "domain-2"]),
+		).toBe(true);
+	});
+
+	it("returns true when the joined list is empty", () => {
+		expect(shouldAutoOpenInvitePreview("domain-1", [])).toBe(true);
 	});
 });
