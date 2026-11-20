@@ -103,6 +103,6 @@ jobs:
         working-directory: app/server
         env:
           # 固定版本：@latest 会让门禁结果随上游发版无声变化，无法复现历史结论。
-          # v1.4.0 起依赖 x/tools >= v0.46.0，兼容 Go 1.27 的 go/types；旧版在该工具链上会 panic。
-          GOVULNCHECK_VERSION: v1.4.0
+          # 固定到最新稳定版：旧版（<= v1.3.0）依赖的 x/tools 不兼容 Go 1.27 的 go/types，会 panic。
+          GOVULNCHECK_VERSION: v1.10.0
         run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
