@@ -29,6 +29,13 @@ export interface EnabledProvider {
 	icon_url: string;
 }
 
+/** 当前用户已绑定的第三方账号（服务端返回，无 token）。 */
+export interface LinkedAccount {
+	provider: string;
+	display_name: string;
+	icon_url: string;
+}
+
 export interface CreateProviderInput {
 	name: string;
 	display_name?: string;
@@ -116,4 +123,22 @@ export async function getEnabledProviders(): Promise<EnabledProvider[]> {
 export function getOAuthLoginURL(provider: string): string {
 	const name = encodeURIComponent(provider);
 	return `/api/v1/oauth/login/${name}`;
+}
+
+/** 浏览器跳转 OAuth「关联已有账号」授权页（需已登录）。 */
+export function getOAuthBindURL(provider: string): string {
+	const name = encodeURIComponent(provider);
+	return `/api/v1/oauth/bind/${name}`;
+}
+
+/** 当前用户已绑定的第三方账号。 */
+export function listLinkedAccounts(): Promise<LinkedAccount[]> {
+	return apiClient.get<LinkedAccount[]>({ url: "/api/v1/oauth/accounts" });
+}
+
+/** 解绑当前用户的第三方账号。 */
+export function unlinkAccount(provider: string): Promise<null> {
+	return apiClient.delete<null>({
+		url: `/api/v1/oauth/accounts/${encodeURIComponent(provider)}`,
+	});
 }

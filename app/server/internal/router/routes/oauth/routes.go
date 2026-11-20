@@ -14,6 +14,13 @@ func Register(r *gin.RouterGroup, h *handler.OAuthHandler) {
 	r.GET("/providers", h.ListEnabledProviders)
 }
 
+// RegisterProtected 注册需要登录态的「关联/解绑」接口；挂在 protected 组，JWTAuth + BanCheck 已生效。
+func RegisterProtected(r *gin.RouterGroup, h *handler.OAuthHandler) {
+	r.GET("/bind/:provider", h.Bind)
+	r.GET("/accounts", h.ListLinkedAccounts)
+	r.DELETE("/accounts/:provider", h.UnlinkAccount)
+}
+
 func RegisterAdmin(r *gin.RouterGroup, h *handler.OAuthHandler) {
 	r.GET("/providers", middleware.RequirePermission(permcode.PermOAuthRead), h.ListProviders)
 	r.POST("/providers", middleware.RequirePermission(permcode.PermOAuthManage), h.CreateProvider)

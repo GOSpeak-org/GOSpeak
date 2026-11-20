@@ -130,9 +130,12 @@ function LoginPage() {
 			const data = event.data as {
 				type?: string;
 				ok?: boolean;
+				action?: string;
 				expires_in?: number;
 			} | null;
 			if (data?.type !== "gospeak-oauth") return;
+			// bind 流程的回调由设置页监听，登录页不处理。
+			if (data.action === "bind") return;
 			if (data.ok) completeOAuthLogin(data.expires_in);
 		}
 

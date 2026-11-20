@@ -4,6 +4,9 @@ package oauth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -57,12 +60,24 @@ type UserInfo struct {
 
 // Provider 定义 OAuth2 认证流程的三步接口。
 type Provider interface {
-	// GetAuthURL 构造授权页面 URL，用户浏览器跳转到此 URL 完成授权。
-	GetAuthURL(state string) string
-	// ExchangeToken 用授权回调中的 code 兑换 access_token。
-	ExchangeToken(code string) (string, error)
+	// GetAuthURL 构造授权页面 URL，附带 S256 PKCE challenge。
+	GetAuthURL(state, codeChallenge string) string
+	// ExchangeToken 用 code + PKCE verifier 兑换 access_token / refresh_token。
+	ExchangeToken(code, codeVerifier string) (accessToken, refreshToken string, err error)
 	// GetUserInfo 用 access_token 获取用户基本信息。
 	GetUserInfo(accessToken string) (*UserInfo, error)
+}
+
+// GeneratePKCE 生成一对 PKCE verifier / S256 challenge。
+func GeneratePKCE() (verifier, challenge string, err error) {
+	b := make([]byte, 32)
+	if _, err = rand.Read(b); err != nil {
+		return "", "", err
+	}
+	verifier = base64.RawURLEncoding.EncodeToString(b)
+	sum := sha256.Sum256([]byte(verifier))
+	challenge = base64.RawURLEncoding.EncodeToString(sum[:])
+	return verifier, challenge, nil
 }
 
 // NewProvider 根据平台名创建对应的 Provider 实例。不支持的平台返回 nil。
@@ -98,14 +113,24 @@ var oauthHTTPClient = &http.Client{
 	},
 }
 
-// exchangeOAuthCode 兑换 access_token。oauth2 默认忽略 http.Client 超时，
-// 必须显式传入带 deadline 的 context，避免慢端点永久占住请求 goroutine。
-func exchangeOAuthCode(cfg *ProviderConfig, code string) (*oauth2.Token, error) {
+// exchangeOAuthCode 兑换 token。附带 PKCE code_verifier；部分老 provider 忽略该参数。
+// oauth2 默认忽略 http.Client 超时，必须显式传入带 deadline 的 context。
+func exchangeOAuthCode(cfg *ProviderConfig, code, codeVerifier string) (*oauth2.Token, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), oauthHTTPTimeout)
 	defer cancel()
 	// oauth2 默认用 http.DefaultClient；注入带 SSRF 防护的 client 并保留 deadline。
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, oauthHTTPClient)
-	return cfg.toOAuth2Config().Exchange(ctx, code)
+	return cfg.toOAuth2Config().Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
+}
+
+func authCodeURL(cfg *ProviderConfig, state, codeChallenge string, extra ...oauth2.AuthCodeOption) string {
+	opts := make([]oauth2.AuthCodeOption, 0, len(extra)+2)
+	opts = append(opts,
+		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	)
+	opts = append(opts, extra...)
+	return cfg.toOAuth2Config().AuthCodeURL(state, opts...)
 }
 
 // isLoopbackHost 判断 host 是否本地回环（开发环境的自建 OAuth 允许明文 http）。
@@ -235,16 +260,16 @@ type GitHubProvider struct {
 	cfg *ProviderConfig
 }
 
-func (g *GitHubProvider) GetAuthURL(state string) string {
-	return g.cfg.toOAuth2Config().AuthCodeURL(state)
+func (g *GitHubProvider) GetAuthURL(state, codeChallenge string) string {
+	return authCodeURL(g.cfg, state, codeChallenge)
 }
 
-func (g *GitHubProvider) ExchangeToken(code string) (string, error) {
-	token, err := exchangeOAuthCode(g.cfg, code)
+func (g *GitHubProvider) ExchangeToken(code, codeVerifier string) (string, string, error) {
+	token, err := exchangeOAuthCode(g.cfg, code, codeVerifier)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return token.AccessToken, nil
+	return token.AccessToken, token.RefreshToken, nil
 }
 
 func (g *GitHubProvider) GetUserInfo(accessToken string) (*UserInfo, error) {
@@ -277,16 +302,16 @@ type GoogleProvider struct {
 	cfg *ProviderConfig
 }
 
-func (gp *GoogleProvider) GetAuthURL(state string) string {
-	return gp.cfg.toOAuth2Config().AuthCodeURL(state, oauth2.AccessTypeOffline)
+func (gp *GoogleProvider) GetAuthURL(state, codeChallenge string) string {
+	return authCodeURL(gp.cfg, state, codeChallenge, oauth2.AccessTypeOffline)
 }
 
-func (gp *GoogleProvider) ExchangeToken(code string) (string, error) {
-	token, err := exchangeOAuthCode(gp.cfg, code)
+func (gp *GoogleProvider) ExchangeToken(code, codeVerifier string) (string, string, error) {
+	token, err := exchangeOAuthCode(gp.cfg, code, codeVerifier)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return token.AccessToken, nil
+	return token.AccessToken, token.RefreshToken, nil
 }
 
 func (gp *GoogleProvider) GetUserInfo(accessToken string) (*UserInfo, error) {
@@ -319,16 +344,16 @@ type QQProvider struct {
 	cfg *ProviderConfig
 }
 
-func (q *QQProvider) GetAuthURL(state string) string {
-	return q.cfg.toOAuth2Config().AuthCodeURL(state)
+func (q *QQProvider) GetAuthURL(state, codeChallenge string) string {
+	return authCodeURL(q.cfg, state, codeChallenge)
 }
 
-func (q *QQProvider) ExchangeToken(code string) (string, error) {
-	token, err := exchangeOAuthCode(q.cfg, code)
+func (q *QQProvider) ExchangeToken(code, codeVerifier string) (string, string, error) {
+	token, err := exchangeOAuthCode(q.cfg, code, codeVerifier)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return token.AccessToken, nil
+	return token.AccessToken, token.RefreshToken, nil
 }
 
 func (q *QQProvider) GetUserInfo(accessToken string) (*UserInfo, error) {

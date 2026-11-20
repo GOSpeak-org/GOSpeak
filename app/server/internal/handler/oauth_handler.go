@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -10,13 +11,46 @@ import (
 	"strconv"
 	"strings"
 
+	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/pkg/oauth"
 	"GOSpeak/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 const oauthStateCookie = "gospeak_oauth_state"
+
+// oauthFlowState 是一次 OAuth 往返的服务端私有状态，base64(JSON) 存于 HttpOnly cookie。
+// verifier 用于 PKCE，action=bind 时 callback 走「关联已有账号」而非登录。
+type oauthFlowState struct {
+	State    string `json:"s"`
+	Verifier string `json:"v"`
+	Action   string `json:"a,omitempty"`
+}
+
+func encodeOAuthFlow(s oauthFlowState) (string, error) {
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+func decodeOAuthFlow(value string) (*oauthFlowState, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return nil, err
+	}
+	var s oauthFlowState
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, err
+	}
+	if s.State == "" || s.Verifier == "" {
+		return nil, errors.New("incomplete oauth flow state")
+	}
+	return &s, nil
+}
 
 type OAuthHandler struct {
 	oauthService *service.OAuthService
@@ -37,31 +71,77 @@ func (h *OAuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 服务端生成高熵 state，写入 HttpOnly cookie，callback 强制校验，防 OAuth Login CSRF。
+	// 服务端生成高熵 state + PKCE verifier，写入 HttpOnly cookie，callback 强制校验。
 	// 不信任客户端传入的 state：统一服务端生成，避免预置固定 state。
-	generated, err := randomState(16)
+	state, err := randomState(16)
 	if err != nil {
 		redirectOAuthError(c, "failed to generate oauth state")
 		return
 	}
-	state := generated
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     oauthStateCookie,
-		Value:    state,
-		Path:     "/",
-		MaxAge:   600,
-		HttpOnly: true,
-		Secure:   h.cookie.secure(c.Request),
-		SameSite: http.SameSiteLaxMode,
-	})
+	verifier, challenge, err := oauth.GeneratePKCE()
+	if err != nil {
+		redirectOAuthError(c, "failed to generate oauth verifier")
+		return
+	}
+	if err := h.setFlowState(c, oauthFlowState{State: state, Verifier: verifier}); err != nil {
+		redirectOAuthError(c, "failed to persist oauth state")
+		return
+	}
 
-	authURL, err := h.oauthService.GetAuthURL(provider, state)
+	authURL, err := h.oauthService.GetAuthURL(provider, state, challenge)
 	if err != nil {
 		// 浏览器从登录页跳入，错误统一回登录页展示，避免卡在 JSON 页。
 		redirectOAuthError(c, oauthErrorMessage(err, "oauth provider unavailable"))
 		return
 	}
 
+	c.Redirect(http.StatusFound, authURL)
+}
+
+func (h *OAuthHandler) setFlowState(c *gin.Context, s oauthFlowState) error {
+	value, err := encodeOAuthFlow(s)
+	if err != nil {
+		return err
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     oauthStateCookie,
+		Value:    value,
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   h.cookie.secure(c.Request),
+		SameSite: http.SameSiteLaxMode,
+	})
+	return nil
+}
+
+// Bind 发起「关联已有账号」流程：要求已登录，回调走 LinkAccount 而非建号/登录。
+func (h *OAuthHandler) Bind(c *gin.Context) {
+	provider := c.Param("provider")
+	if provider == "" || middleware.CurrentUser(c) == nil {
+		redirectOAuthError(c, "login required")
+		return
+	}
+
+	state, err := randomState(16)
+	if err != nil || state == "" {
+		redirectOAuthError(c, "failed to generate oauth state")
+		return
+	}
+	verifier, challenge, err := oauth.GeneratePKCE()
+	if err != nil {
+		redirectOAuthError(c, "failed to generate oauth verifier")
+		return
+	}
+	if err := h.setFlowState(c, oauthFlowState{State: state, Verifier: verifier, Action: "bind"}); err != nil {
+		redirectOAuthError(c, "failed to persist oauth state")
+		return
+	}
+	authURL, err := h.oauthService.GetAuthURL(provider, state, challenge)
+	if err != nil {
+		redirectOAuthError(c, oauthErrorMessage(err, "oauth provider unavailable"))
+		return
+	}
 	c.Redirect(http.StatusFound, authURL)
 }
 
@@ -75,7 +155,12 @@ func (h *OAuthHandler) Callback(c *gin.Context) {
 
 	state := c.Query("state")
 	cookie, err := c.Request.Cookie(oauthStateCookie)
-	if err != nil || cookie.Value == "" || state == "" || state != cookie.Value {
+	if err != nil || cookie.Value == "" || state == "" {
+		redirectOAuthError(c, "invalid oauth state")
+		return
+	}
+	flow, err := decodeOAuthFlow(cookie.Value)
+	if err != nil || flow.State != state {
 		redirectOAuthError(c, "invalid oauth state")
 		return
 	}
@@ -100,25 +185,44 @@ func (h *OAuthHandler) Callback(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.oauthService.HandleCallback(provider, code)
-	if err != nil {
-		redirectOAuthError(c, oauthErrorMessage(err, "oauth login failed"))
-		return
+	action := "login"
+	if flow.Action == "bind" {
+		claims := middleware.CurrentUser(c)
+		if claims == nil {
+			// callback 是公开路由：bind 流程用 access cookie 恢复身份后再校验。
+			if authCookie, err := c.Request.Cookie(h.cookie.AccessName); err == nil {
+				claims, _ = middleware.VerifyToken(authCookie.Value)
+			}
+		}
+		if claims == nil || claims.UserUUID == "" {
+			redirectOAuthError(c, "login required")
+			return
+		}
+		if err := h.oauthService.LinkAccount(claims.UserUUID, provider, code, flow.Verifier); err != nil {
+			redirectOAuthError(c, oauthErrorMessage(err, "oauth link failed"))
+			return
+		}
+		action = "bind"
+	} else {
+		resp, err := h.oauthService.HandleCallback(provider, code, flow.Verifier)
+		if err != nil {
+			redirectOAuthError(c, oauthErrorMessage(err, "oauth login failed"))
+			return
+		}
+		h.cookie.Set(c, resp.Token, resp.RefreshToken)
 	}
-
-	h.cookie.Set(c, resp.Token, resp.RefreshToken)
 
 	// 浏览器回调：token 已写入 HttpOnly Cookie，同源 postMessage 只通知 opener 成功，
 	// 避免 token 出现在 URL fragment、浏览器历史、代理日志或跨窗口消息中。
-	payload, _ := oauthSuccessPayload()
+	payload, _ := oauthSuccessPayload(action)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'")
 	_, _ = c.Writer.Write([]byte(oauthBridgeHTML(payload)))
 }
 
 // oauthSuccessPayload 通知 opener 登录成功并附带 access token 有效期（秒）。
-func oauthSuccessPayload() ([]byte, error) {
-	return json.Marshal(map[string]any{"ok": true, "expires_in": pkg.AccessTokenExpiresIn()})
+func oauthSuccessPayload(action string) ([]byte, error) {
+	return json.Marshal(map[string]any{"ok": true, "action": action, "expires_in": pkg.AccessTokenExpiresIn()})
 }
 
 // oauthBridgeHTML 返回 OAuth 回调落地页：同源窗口通过 postMessage 单次交付 token。
@@ -133,7 +237,7 @@ func oauthBridgeHTML(payload []byte) string {
   var data = ` + string(payload) + `;
   if (window.opener && window.opener !== window) {
     try {
-      window.opener.postMessage({type: "gospeak-oauth", ok: data.ok === true}, window.location.origin);
+      window.opener.postMessage({type: "gospeak-oauth", ok: data.ok === true, action: data.action}, window.location.origin);
     } catch (e) {}
     window.close();
     return;
@@ -210,6 +314,35 @@ func (h *OAuthHandler) ListEnabledProviders(c *gin.Context) {
 		return
 	}
 	pkg.Success(c, providers)
+}
+
+// ListLinkedAccounts 返回当前用户已绑定的第三方账号。
+func (h *OAuthHandler) ListLinkedAccounts(c *gin.Context) {
+	claims := middleware.CurrentUser(c)
+	if claims == nil {
+		pkg.Fail(c, pkg.TOKEN_NOT_EXIST)
+		return
+	}
+	accounts, err := h.oauthService.ListLinkedAccounts(claims.UserUUID)
+	if err != nil {
+		pkg.HandleError(c, err)
+		return
+	}
+	pkg.Success(c, accounts)
+}
+
+// UnlinkAccount 解除当前用户在指定 provider 上的绑定。
+func (h *OAuthHandler) UnlinkAccount(c *gin.Context) {
+	claims := middleware.CurrentUser(c)
+	if claims == nil {
+		pkg.Fail(c, pkg.TOKEN_NOT_EXIST)
+		return
+	}
+	if err := h.oauthService.UnlinkAccount(claims.UserUUID, c.Param("provider")); err != nil {
+		pkg.HandleError(c, err)
+		return
+	}
+	pkg.Success(c, nil)
 }
 
 func (h *OAuthHandler) ListProviders(c *gin.Context) {
