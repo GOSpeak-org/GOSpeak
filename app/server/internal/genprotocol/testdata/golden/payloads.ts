@@ -37,9 +37,21 @@ export interface MemberLeftPayload {
 	enforcement?: string;
 }
 
+export interface MemberMicStatePayload {
+	room: string;
+	domain_uuid?: string;
+	is_mic_muted: boolean;
+}
+
 export interface MemberMutedStatePayload {
 	identity: string;
 	muted: boolean;
+}
+
+export interface MemberSpeakingPayload {
+	room: string;
+	domain_uuid?: string;
+	speaking: boolean;
 }
 
 export interface MemberUpdatedPayload {
@@ -97,6 +109,8 @@ export interface MuteInfo {
 	permanent: boolean;
 	reason: string;
 	expires_at?: string;
+	/** Enforcement 是媒体层强制结果：hard / degraded / soft，语义同 MemberLeftPayload.Enforcement。 */
+	enforcement?: string;
 }
 
 export interface PrivateSendPayload {
@@ -128,6 +142,12 @@ export interface RoomInfo {
 	created_by?: string;
 }
 
+export interface RoomKickRequest {
+	room: string;
+	domain_uuid?: string;
+	target_identity: string;
+}
+
 export interface RoomKickedPayload {
 	room: string;
 	domain_uuid?: string;
@@ -137,6 +157,10 @@ export interface RoomKickedPayload {
 
 export interface RoomLeftPayload {
 	room: string;
+	domain_uuid?: string;
+}
+
+export interface RoomListRequest {
 	domain_uuid?: string;
 }
 

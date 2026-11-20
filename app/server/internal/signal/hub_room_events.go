@@ -75,9 +75,7 @@ func (h *Hub) OnRoomLeave(c ws.ClientMessenger, data string) (string, error) {
 // ─── 房间列表 ───
 
 func (h *Hub) OnRoomList(c ws.ClientMessenger, data string) {
-	var req struct {
-		DomainUUID string `json:"domain_uuid"`
-	}
+	var req protocol.RoomListRequest
 	_ = parseJSON(data, &req)
 
 	if !h.domainMemberAllowed(c, req.DomainUUID) {
@@ -104,11 +102,7 @@ func (h *Hub) OnRoomList(c ws.ClientMessenger, data string) {
 // ─── 踢出成员 ───
 
 func (h *Hub) OnRoomKick(c ws.ClientMessenger, data string) {
-	var req struct {
-		Room           string `json:"room"`
-		DomainUUID     string `json:"domain_uuid,omitempty"`
-		TargetIdentity string `json:"target_identity"`
-	}
+	var req protocol.RoomKickRequest
 	if err := parseJSON(data, &req); err != nil || req.Room == "" || req.TargetIdentity == "" {
 		return
 	}
@@ -206,11 +200,7 @@ func (h *Hub) OnRoomKick(c ws.ClientMessenger, data string) {
 
 func (h *Hub) OnMemberMicState(c ws.ClientMessenger, data string) {
 	// identity 以 JWT 为准（客户端不再自报），caller 即本人。
-	var req struct {
-		Room       string `json:"room"`
-		DomainUUID string `json:"domain_uuid,omitempty"`
-		IsMicMuted bool   `json:"is_mic_muted"`
-	}
+	var req protocol.MemberMicStatePayload
 	if err := parseJSON(data, &req); err != nil || req.Room == "" {
 		return
 	}
@@ -248,11 +238,7 @@ func (h *Hub) OnMemberMicState(c ws.ClientMessenger, data string) {
 // 仅持有本地麦克风的成员可上报自身状态，避免伪造他人发言态。
 func (h *Hub) OnMemberSpeaking(c ws.ClientMessenger, data string) {
 	// identity 以 JWT 为准（客户端不再自报），caller 即本人。
-	var req struct {
-		Room       string `json:"room"`
-		DomainUUID string `json:"domain_uuid,omitempty"`
-		Speaking   bool   `json:"speaking"`
-	}
+	var req protocol.MemberSpeakingPayload
 	if err := parseJSON(data, &req); err != nil || req.Room == "" {
 		return
 	}

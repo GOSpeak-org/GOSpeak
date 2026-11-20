@@ -98,6 +98,45 @@ describe("server mute socket events", () => {
 	});
 });
 
+describe("room socket events", () => {
+	it("room:left clears current room state and emits room_left", async () => {
+		const { bindServerEvents } = await import("@/socket/socketEvents");
+		const adapter = createFakeAdapter();
+		const deps = fakeDeps();
+		deps.currentRoom = () => "lobby";
+		bindServerEvents(adapter as any, deps);
+
+		adapter.emit(EVENTS.ROOM_LEFT, {
+			room: "lobby",
+			domain_uuid: "domain-1",
+		});
+
+		expect(deps.setCurrentRoom).toHaveBeenCalledWith(null);
+		expect(deps.setSelectedRoomInfo).toHaveBeenCalledWith(null);
+		expect(deps.emitActivity).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "room_left",
+				room: "lobby",
+				domain_uuid: "domain-1",
+			}),
+		);
+	});
+
+	it("room:left for another room does not clear the new room state", async () => {
+		const { bindServerEvents } = await import("@/socket/socketEvents");
+		const adapter = createFakeAdapter();
+		const deps = fakeDeps();
+		deps.currentRoom = () => "new-room";
+		bindServerEvents(adapter as any, deps);
+
+		adapter.emit(EVENTS.ROOM_LEFT, { room: "old-room" });
+
+		expect(deps.setCurrentRoom).not.toHaveBeenCalled();
+		expect(deps.setSelectedRoomInfo).not.toHaveBeenCalled();
+		expect(deps.emitActivity).not.toHaveBeenCalled();
+	});
+});
+
 describe("announcement socket events", () => {
 	it("announcement:new is forwarded to the deps handler", async () => {
 		const { bindServerEvents } = await import("@/socket/socketEvents");
