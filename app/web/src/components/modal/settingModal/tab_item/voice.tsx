@@ -7,14 +7,14 @@ import {
 import { Field, Page, Section, Toggle } from "./shared";
 import type { SettingTabConfig } from "./types";
 
-function VoiceForm() {
+export function VoicePanel() {
 	const muteOnJoin = useAudioDeviceStore((s) => s.muteOnJoin);
 	const notificationSounds = useAudioDeviceStore((s) => s.notificationSounds);
 	const data = useVoiceChatStore();
 	const { setInputVolume, setOutputVolume } = useVoiceChatActions();
 
 	return (
-		<Page title="语音行为" desc="进房默认状态、本机输入/输出音量与提示音。">
+		<>
 			<Section title="进房行为">
 				<Toggle
 					label="加入房间时静音麦克风"
@@ -52,6 +52,14 @@ function VoiceForm() {
 					/>
 				</Field>
 			</Section>
+		</>
+	);
+}
+
+function VoiceForm() {
+	return (
+		<Page title="语音行为" desc="进房默认状态、本机输入/输出音量与提示音。">
+			<VoicePanel />
 		</Page>
 	);
 }

@@ -27,6 +27,12 @@ vi.mock("@gospeak/mobile-capabilities", () => ({
 		getBaseUrl: async () => "",
 		setBaseUrl: async () => {},
 	}),
+	createAudioRoute: () => ({
+		list: async () => [],
+		refresh: async () => {},
+		current: () => "speaker",
+		set: async () => {},
+	}),
 }));
 
 vi.mock("@gospeak/desktop", () => ({
@@ -47,6 +53,35 @@ vi.mock("@/components/common/serverUrlField", () => ({
 
 vi.mock("@/components/mobile/serverSwitch", () => ({
 	clearSessionForServerSwitch: () => h.clearSession(),
+}));
+
+vi.mock("idb-keyval", () => ({
+	get: vi.fn(async () => undefined),
+	set: vi.fn(async () => {}),
+	del: vi.fn(async () => {}),
+}));
+
+vi.mock("@/components/modal/settingModal/tab_item/audio", () => ({
+	AudioPanel: () => <div data-testid="audio-panel" />,
+}));
+vi.mock("@/components/modal/settingModal/tab_item/voice", () => ({
+	VoicePanel: () => <div data-testid="voice-panel" />,
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+	useQuery: () => ({ data: [] }),
+	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
+
+vi.mock("@/api/oauth", () => ({
+	getEnabledProviders: vi.fn(async () => []),
+	getOAuthBindURL: (p: string) => `/api/v1/oauth/bind/${p}`,
+	listLinkedAccounts: vi.fn(async () => []),
+	unlinkAccount: vi.fn(async () => null),
+}));
+
+vi.mock("@/api/auth", () => ({
+	changePassword: vi.fn(async () => {}),
 }));
 
 vi.mock("@/stores/userStore", () => ({
@@ -94,5 +129,35 @@ describe("移动端设置页", () => {
 		expect(h.fieldProps?.onBeforeSwitch).toBeTypeOf("function");
 		await h.fieldProps?.onBeforeSwitch?.();
 		expect(h.clearSession).toHaveBeenCalled();
+	});
+
+	it("窄视口下提供音频与语音设置入口", () => {
+		render(<SettingsPage />);
+		expect(screen.getByText("音频设备")).toBeTruthy();
+		expect(screen.getByText("语音行为")).toBeTruthy();
+	});
+
+	it("窄视口下同样提供修改密码入口", () => {
+		render(<SettingsPage />);
+		expect(screen.getByLabelText("当前密码")).toBeTruthy();
+		expect(screen.getByLabelText("新密码")).toBeTruthy();
+		expect(screen.getByLabelText("确认新密码")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "修改密码" })).toBeTruthy();
+	});
+
+	it("两次新密码不一致时提示且不发请求", async () => {
+		const { changePassword } = await import("@/api/auth");
+		render(<SettingsPage />);
+		fireEvent.change(screen.getByLabelText("新密码"), {
+			target: { value: "aaa111" },
+		});
+		fireEvent.change(screen.getByLabelText("确认新密码"), {
+			target: { value: "bbb222" },
+		});
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+		});
+		expect(screen.getByText("两次输入的新密码不一致")).toBeTruthy();
+		expect(changePassword).not.toHaveBeenCalled();
 	});
 });

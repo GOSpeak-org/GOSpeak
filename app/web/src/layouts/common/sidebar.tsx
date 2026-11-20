@@ -1,7 +1,7 @@
 import { ScrollArea } from "@gospeak/components";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Bell, Home, MessageSquare, Settings, ShieldCheck } from "lucide-react";
+import { Home, MessageSquare, Settings, ShieldCheck } from "lucide-react";
 import { useEffect } from "react";
 import OptionSquare from "@/components/common/optionSquare";
 import { LoadingRegion, SkeletonIconRail } from "@/components/common/Skeletons";
@@ -9,12 +9,10 @@ import DomainIcon from "@/components/domain/DomainIcon";
 import { firstAccessibleManagePath } from "@/components/manage/manageNav";
 import { getMyDomainsDetailed } from "@/api/domain";
 import { domainStore, useDomainStore } from "@/stores/domainStore";
-import { useNotificationStore } from "@/stores/notificationStore";
 import { hasManageAccess } from "@/utils/permissions";
 
 interface SidebarProps {
 	onOpenSettings?: () => void;
-	onOpenNotifications?: () => void;
 }
 
 /** 侧栏图标统一 20px / 默认描边（与全站图标规范一致） */
@@ -22,12 +20,8 @@ const iconProps = {
 	size: 20,
 } as const;
 
-export default function Sidebar({
-	onOpenSettings,
-	onOpenNotifications,
-}: SidebarProps) {
+export default function Sidebar({ onOpenSettings }: SidebarProps) {
 	const navigate = useNavigate();
-	const unreadCount = useNotificationStore((s) => s.unreadCount);
 	const myDomainUUIDs = useDomainStore((s) => s.myDomainUUIDs);
 	const currentDomainUUID = useDomainStore((s) => s.currentDomainUUID);
 
@@ -77,13 +71,6 @@ export default function Sidebar({
 					</OptionSquare>
 					<OptionSquare label="聊天" onClick={() => navigate({ to: "/chat" })}>
 						<MessageSquare {...iconProps} />
-					</OptionSquare>
-					<OptionSquare
-						label="通知"
-						badge={unreadCount}
-						onClick={() => onOpenNotifications?.()}
-					>
-						<Bell {...iconProps} />
 					</OptionSquare>
 					<OptionSquare label="设置" onClick={() => onOpenSettings?.()}>
 						<Settings {...iconProps} />

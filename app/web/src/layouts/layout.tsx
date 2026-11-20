@@ -4,7 +4,6 @@ import {
 	Headphones,
 	Home,
 	MessageSquare,
-	Settings,
 	ShieldCheck,
 	Users,
 } from "lucide-react";
@@ -32,6 +31,10 @@ import { useChatStore } from "@/stores/chatStore";
 import { useWorkspaceUiStore } from "@/stores/workspaceUiStore";
 import { useDomainStore } from "@/stores/domainStore";
 import { useSocketStore } from "@/stores/socketStore";
+import {
+	notificationStore,
+	useNotificationStore,
+} from "@/stores/notificationStore";
 import { useOverlayRelay } from "@/hooks/useOverlayRelay";
 import DynamicRender from "@/components/common/dynamicRender";
 import ManageNav from "@/components/manage/manageNav";
@@ -56,18 +59,11 @@ interface LayoutState {
 	isMobile: boolean;
 	splitWidth: string;
 	onOpenSettings: () => void;
-	onOpenNotifications: () => void;
 	splitDragRef: React.RefObject<HTMLDivElement | null>;
 	children: ReactNode;
 }
 
-function MobileBottomNav({
-	isDomain,
-	isManage,
-	isHome,
-	isSettings,
-	onOpenSettings,
-}: LayoutState) {
+function MobileBottomNav({ isDomain, isManage, isHome }: LayoutState) {
 	const navigate = useNavigate();
 	return (
 		<nav className="border-border bg-card relative z-20 flex shrink-0 border-t">
@@ -94,14 +90,6 @@ function MobileBottomNav({
 			>
 				<Headphones size={20} />
 				<span>域</span>
-			</button>
-			<button
-				type="button"
-				className={`flex flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 py-1.5 text-2xs transition-colors ${isSettings ? "text-primary" : "text-faint-foreground"}`}
-				onClick={onOpenSettings}
-			>
-				<Settings size={20} />
-				<span>设置</span>
 			</button>
 			{hasManageAccess() && (
 				<button
@@ -191,97 +179,102 @@ function MobileLayout(
 
 	return (
 		<div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-			{/* 域舞台：选中房间后全屏 */}
-			{isDomain && mobileStage ? (
-				<div className="bg-muted flex min-h-0 flex-1 flex-col overflow-hidden">
-					<div className="border-border bg-card flex h-11 shrink-0 items-center gap-1 border-b px-1">
-						<button
-							type="button"
-							className="hover:bg-muted flex size-9 cursor-pointer items-center justify-center rounded-sm transition-colors"
-							onClick={leaveMobileStage}
-							aria-label="返回列表"
-						>
-							<ArrowLeft size={20} />
-						</button>
-						<div className="min-w-0 flex-1 truncate text-sm font-semibold">
-							{stageTitle()}
+			{/* 内容区：Sidebar 在左，主内容在右；下方 hub 横跨整宽，Sidebar 不挤占 */}
+			<div className="flex min-h-0 flex-1 overflow-hidden">
+				<Sidebar onOpenSettings={onOpenSettings} />
+				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+					{/* 域舞台：选中房间后全屏 */}
+					{isDomain && mobileStage ? (
+						<div className="bg-muted flex min-h-0 flex-1 flex-col overflow-hidden">
+							<div className="border-border bg-card flex h-11 shrink-0 items-center gap-1 border-b px-1">
+								<button
+									type="button"
+									className="hover:bg-muted flex size-9 cursor-pointer items-center justify-center rounded-sm transition-colors"
+									onClick={leaveMobileStage}
+									aria-label="返回列表"
+								>
+									<ArrowLeft size={20} />
+								</button>
+								<div className="min-w-0 flex-1 truncate text-sm font-semibold">
+									{stageTitle()}
+								</div>
+								<span className="text-faint-foreground shrink-0 pr-2 text-xs">
+									{membersCount ?? 0} 人
+								</span>
+							</div>
+							<MobileStageTabs stageTab={stageTab} setStageTab={setStageTab} />
+							<div className="min-h-0 flex-1 overflow-hidden">
+								{stageTab === "voice" && (
+									<div className="h-full">
+										<ErrorBoundary
+											name="mobile-voice-stage"
+											resetKeys={[currentRoom, stageTab]}
+											title="语音舞台加载失败"
+										>
+											<RoomDetail />
+										</ErrorBoundary>
+									</div>
+								)}
+								{stageTab === "text" && (
+									<div className="bg-card h-full">
+										<ErrorBoundary
+											name="mobile-text-room"
+											resetKeys={[textRoomName, stageTab]}
+											title="文字频道加载失败"
+										>
+											<TextRoomPanel />
+										</ErrorBoundary>
+									</div>
+								)}
+								{stageTab === "members" && (
+									<div className="bg-card h-full">
+										<ErrorBoundary
+											name="mobile-member-sidebar"
+											resetKeys={[stageTab]}
+											title="成员列表加载失败"
+										>
+											<MemberSidebar fullWidth />
+										</ErrorBoundary>
+									</div>
+								)}
+							</div>
 						</div>
-						<span className="text-faint-foreground shrink-0 pr-2 text-xs">
-							{membersCount ?? 0} 人
-						</span>
-					</div>
-					<MobileStageTabs stageTab={stageTab} setStageTab={setStageTab} />
-					<div className="min-h-0 flex-1 overflow-hidden">
-						{stageTab === "voice" && (
-							<div className="h-full">
-								<ErrorBoundary
-									name="mobile-voice-stage"
-									resetKeys={[currentRoom, stageTab]}
-									title="语音舞台加载失败"
-								>
-									<RoomDetail />
-								</ErrorBoundary>
+					) : (
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+							<div className="border-border min-h-0 flex-1 overflow-hidden border-t">
+								{isDomain && (
+									<div className="bg-card flex h-full flex-col">
+										<div className="min-h-0 flex-1 overflow-hidden">
+											<DynamicRender />
+										</div>
+									</div>
+								)}
+								{isManage && (
+									<div className="bg-muted flex h-full min-h-0 flex-col">
+										<div className="border-border bg-card max-h-40 shrink-0 overflow-y-auto border-b">
+											<ManageNavMobile />
+										</div>
+										<div className="min-h-0 flex-1 overflow-hidden">
+											{children}
+										</div>
+									</div>
+								)}
+								{!isDomain && !isManage && (
+									<div className="bg-muted h-full overflow-y-auto">
+										{children}
+									</div>
+								)}
 							</div>
-						)}
-						{stageTab === "text" && (
-							<div className="bg-card h-full">
-								<ErrorBoundary
-									name="mobile-text-room"
-									resetKeys={[textRoomName, stageTab]}
-									title="文字频道加载失败"
-								>
-									<TextRoomPanel />
-								</ErrorBoundary>
-							</div>
-						)}
-						{stageTab === "members" && (
-							<div className="bg-card h-full">
-								<ErrorBoundary
-									name="mobile-member-sidebar"
-									resetKeys={[stageTab]}
-									title="成员列表加载失败"
-								>
-									<MemberSidebar fullWidth />
-								</ErrorBoundary>
-							</div>
-						)}
-					</div>
-					<VoiceStatusBar />
-					<UserBar
-						className="border-border border-t"
-						onOpenSettings={onOpenSettings}
-					/>
+						</div>
+					)}
 				</div>
-			) : (
-				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-					<div className="border-border min-h-0 flex-1 overflow-hidden border-t">
-						{isDomain && (
-							<div className="bg-card flex h-full flex-col">
-								<div className="min-h-0 flex-1 overflow-hidden">
-									<DynamicRender />
-								</div>
-							</div>
-						)}
-						{isManage && (
-							<div className="bg-muted flex h-full min-h-0 flex-col">
-								<div className="border-border bg-card max-h-40 shrink-0 overflow-y-auto border-b">
-									<ManageNavMobile />
-								</div>
-								<div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-							</div>
-						)}
-						{!isDomain && !isManage && (
-							<div className="bg-muted h-full overflow-y-auto">{children}</div>
-						)}
-					</div>
-					<VoiceStatusBar />
-					<UserBar
-						className="border-border border-t"
-						onOpenSettings={onOpenSettings}
-					/>
-				</div>
-			)}
-
+			</div>
+			{/* 底部 hub：横跨整宽，不被 Sidebar 挤开 */}
+			<VoiceStatusBar />
+			<UserBar
+				className="border-border border-t"
+				onOpenSettings={onOpenSettings}
+			/>
 			{!(isDomain && mobileStage) && <MobileBottomNav {...state} />}
 		</div>
 	);
@@ -293,14 +286,8 @@ function ManageNavMobile() {
 }
 
 function DesktopLayout(state: LayoutState) {
-	const {
-		isDomain,
-		onOpenSettings,
-		onOpenNotifications,
-		splitDragRef,
-		splitWidth,
-		children,
-	} = state;
+	const { isDomain, onOpenSettings, splitDragRef, splitWidth, children } =
+		state;
 
 	return (
 		<div className="flex h-full flex-1 overflow-hidden">
@@ -311,10 +298,7 @@ function DesktopLayout(state: LayoutState) {
 					style={{ width: splitWidth }}
 				>
 					<div className="flex min-h-0 flex-1">
-						<Sidebar
-							onOpenSettings={onOpenSettings}
-							onOpenNotifications={onOpenNotifications}
-						/>
+						<Sidebar onOpenSettings={onOpenSettings} />
 						<div className="border-border box-border min-w-0 min-h-0 flex-1 border-t border-l border-solid">
 							<DynamicRender />
 						</div>
@@ -378,7 +362,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 			(inMobile() || window.matchMedia("(max-width: 767px)").matches),
 	);
 	const [settingsOpen, setSettingsOpen] = useState(false);
-	const [notificationsOpen, setNotificationsOpen] = useState(false);
+	const notificationsOpen = useNotificationStore((s) => s.modalOpen);
 
 	const selectedRoomInfo = useSocketStore((s) => s.selectedRoomInfo);
 	const currentRoom = useSocketStore((s) => s.currentRoom);
@@ -519,7 +503,6 @@ export default function Layout({ children }: { children: ReactNode }) {
 			if (isMobile) navigate({ to: "/settings" });
 			else setSettingsOpen(true);
 		},
-		onOpenNotifications: () => setNotificationsOpen(true),
 		splitDragRef,
 		children,
 	};
@@ -552,7 +535,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 				/>
 				<NotificationModal
 					open={notificationsOpen}
-					onClose={() => setNotificationsOpen(false)}
+					onClose={() => notificationStore.closeModal()}
 				/>
 				{/* 设备增删时全局询问是否切换（单例，与设置弹窗互不干扰） */}
 				<DeviceChangeNotice />

@@ -1,4 +1,5 @@
 import { Moon, Sun } from "lucide-react";
+import NotificationButton from "@/components/common/notificationButton";
 import ConnectionIndicator from "@/layouts/common/connectionIndicator";
 import { toggleDark, useThemeStore } from "@/stores/themeStore";
 
@@ -42,6 +43,7 @@ export default function AppTitleBar({
 			    窗口照样靠标题栏拖动。 */}
 			<div className="ml-auto flex shrink-0 items-center gap-1 [--app-region:no-drag]">
 				{showConnection && <ConnectionIndicator />}
+				<NotificationButton />
 				<button
 					type="button"
 					className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"

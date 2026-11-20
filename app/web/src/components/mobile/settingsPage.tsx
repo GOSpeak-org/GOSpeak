@@ -4,10 +4,19 @@ import { ArrowLeft, LogOut, Palette, UserRound } from "lucide-react";
 import { useState } from "react";
 import { inMobile } from "@gospeak/mobile-capabilities";
 import ServerUrlField from "@/components/common/serverUrlField";
+import { AudioPanel } from "@/components/modal/settingModal/tab_item/audio";
+import {
+	OAuthBindingPanel,
+	PasswordSection,
+} from "@/components/modal/settingModal/tab_item/account";
+import { VoicePanel } from "@/components/modal/settingModal/tab_item/voice";
 import { clearSessionForServerSwitch } from "@/components/mobile/serverSwitch";
 import { useUserStore } from "@/stores/userStore";
 
-/** 移动端专有设置页：重点是服务器地址可改，其余项先简洁呈现。 */
+/**
+ * 窄视口 / 移动端设置页（`/settings`）：Layout 在 isMobile 时导航到这里而不是弹窗，
+ * 因此桌面 App 缩窄窗口同样会进入本页。账号安全相关面板与设置弹窗共用同一份组件。
+ */
 export default function SettingsPage() {
 	const navigate = useNavigate();
 	const user = useUserStore((s) => s.user);
@@ -62,6 +71,24 @@ export default function SettingsPage() {
 					</div>
 				</section>
 
+				<details className="bg-card border-border rounded-lg border">
+					<summary className="cursor-pointer px-4 py-3 text-sm font-semibold select-none">
+						音频设备
+					</summary>
+					<div className="border-border border-t p-4">
+						<AudioPanel />
+					</div>
+				</details>
+
+				<details className="bg-card border-border rounded-lg border">
+					<summary className="cursor-pointer px-4 py-3 text-sm font-semibold select-none">
+						语音行为
+					</summary>
+					<div className="border-border border-t p-4">
+						<VoicePanel />
+					</div>
+				</details>
+
 				<section className="bg-card border-border rounded-lg border p-4">
 					<h2 className="mb-3 text-sm font-semibold">账号</h2>
 					<div className="flex items-center gap-3">
@@ -75,6 +102,8 @@ export default function SettingsPage() {
 							</div>
 						</div>
 					</div>
+					<PasswordSection />
+					<OAuthBindingPanel />
 					<Button
 						variant="outline"
 						className="mt-4 w-full"
