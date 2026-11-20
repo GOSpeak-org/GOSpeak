@@ -1,6 +1,6 @@
 import { ScrollArea } from "@gospeak/components";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Home, MessageSquare, Settings, ShieldCheck } from "lucide-react";
 import { useEffect } from "react";
 import OptionSquare from "@/components/common/optionSquare";
@@ -13,6 +13,7 @@ import { hasManageAccess } from "@/utils/permissions";
 
 interface SidebarProps {
 	onOpenSettings?: () => void;
+	settingsOpen?: boolean;
 }
 
 /** 侧栏图标统一 20px / 默认描边（与全站图标规范一致） */
@@ -20,8 +21,12 @@ const iconProps = {
 	size: 20,
 } as const;
 
-export default function Sidebar({ onOpenSettings }: SidebarProps) {
+export default function Sidebar({
+	onOpenSettings,
+	settingsOpen,
+}: SidebarProps) {
 	const navigate = useNavigate();
+	const { pathname } = useLocation();
 	const myDomainUUIDs = useDomainStore((s) => s.myDomainUUIDs);
 	const currentDomainUUID = useDomainStore((s) => s.currentDomainUUID);
 
@@ -38,6 +43,14 @@ export default function Sidebar({ onOpenSettings }: SidebarProps) {
 			);
 		},
 	});
+
+	const homeActive =
+		pathname === "/" ||
+		pathname.startsWith("/index") ||
+		pathname.startsWith("/discover");
+	const chatActive = pathname.startsWith("/chat");
+	const manageActive = pathname.startsWith("/manage");
+	const settingsActive = pathname === "/settings" || !!settingsOpen;
 
 	const handleSelect = async (uuid: string) => {
 		const previousUUID = useDomainStore.getState().currentDomainUUID;
@@ -65,19 +78,29 @@ export default function Sidebar({ onOpenSettings }: SidebarProps) {
 					{/* 直达最终路由：/ 与 /manage 的 beforeLoad 是重定向，跳转中转站会让整个布局卸载一帧（白闪） */}
 					<OptionSquare
 						label="首页"
+						active={homeActive}
 						onClick={() => navigate({ to: "/discover" })}
 					>
 						<Home {...iconProps} />
 					</OptionSquare>
-					<OptionSquare label="聊天" onClick={() => navigate({ to: "/chat" })}>
+					<OptionSquare
+						label="聊天"
+						active={chatActive}
+						onClick={() => navigate({ to: "/chat" })}
+					>
 						<MessageSquare {...iconProps} />
 					</OptionSquare>
-					<OptionSquare label="设置" onClick={() => onOpenSettings?.()}>
+					<OptionSquare
+						label="设置"
+						active={settingsActive}
+						onClick={() => onOpenSettings?.()}
+					>
 						<Settings {...iconProps} />
 					</OptionSquare>
 					{hasManageAccess() && (
 						<OptionSquare
 							label="管理"
+							active={manageActive}
 							onClick={() =>
 								navigate({
 									to: `/manage/${firstAccessibleManagePath() ?? "users"}`,

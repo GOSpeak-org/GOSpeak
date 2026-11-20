@@ -92,7 +92,7 @@ export default function SettingsPage() {
 				<section className="bg-card border-border rounded-lg border p-4">
 					<h2 className="mb-3 text-sm font-semibold">账号</h2>
 					<div className="flex items-center gap-3">
-						<UserRound className="text-muted-foreground" size={28} />
+						<UserRound className="text-muted-foreground" size={32} />
 						<div className="min-w-0 flex-1">
 							<div className="truncate text-sm font-medium">
 								{user?.display_name || user?.name || "未登录"}
