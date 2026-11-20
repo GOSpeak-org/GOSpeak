@@ -5,6 +5,7 @@ import axios, {
 	type AxiosResponse,
 } from "axios";
 import { refreshSession } from "@/api/authTransport";
+import { clearSessionCache } from "@/api/sessionCache";
 import { backendMessage, unreachableMessage } from "@/utils/apiError";
 import { localizedApiMessage } from "@/utils/errorMessages";
 import { toastErrorOnce } from "@/utils/toast";
@@ -81,6 +82,9 @@ export function shouldSkipLoginRedirect(path: string): boolean {
 }
 
 const redirectToLogin = (banned = false) => {
+	// 会话确实失效才走到这里：先清掉本地缓存的 user，
+	// 否则 /login 的 beforeLoad 看到缓存又 redirect 回 '/'，形成整页重载死循环。
+	clearSessionCache();
 	const path = window.location.pathname;
 	// 封禁是强制登出信号，公开入口也要走；但已在登录页时不要重复刷新
 	if (banned) {

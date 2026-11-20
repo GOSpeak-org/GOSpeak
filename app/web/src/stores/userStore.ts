@@ -7,6 +7,7 @@ import {
 	recordSessionExpiry as persistSessionExpiry,
 	refreshSession,
 } from "@/api/authTransport";
+import { USER_STORAGE_KEY } from "@/api/sessionCache";
 
 export interface UserInfo {
 	id: number;
@@ -18,7 +19,7 @@ export interface UserInfo {
 	permissions?: string[];
 }
 
-const STORAGE_USER = "user";
+const STORAGE_USER = USER_STORAGE_KEY;
 const EXPIRE_MARGIN_MS = 60_000;
 const UNVERIFIED_GRACE_MS = 10 * 60_000;
 
