@@ -113,7 +113,7 @@ export default function UserGroupPanel() {
 				<div>
 					<h2 className="text-lg font-semibold">用户分组</h2>
 					<p className="text-muted-foreground mt-1 text-sm leading-6">
-						用命名分组整理常用联系人，方便后续快速筛选和发起会话。
+						维护命名分组：创建、重命名、删除。分组目前只保存名称，成员归属与按分组筛选尚未接入。
 					</p>
 				</div>
 			</div>

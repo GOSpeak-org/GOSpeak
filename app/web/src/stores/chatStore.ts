@@ -145,7 +145,6 @@ function addListeners() {
 		socket.onServerEvent(EVENTS.MESSAGE_UPDATED, handleUpdated),
 		socket.onServerEvent(EVENTS.MESSAGE_DELETED, handleDeleted),
 		socket.onServerEvent(EVENTS.MESSAGE_REACTION, handleReaction),
-		socket.onServerEvent(EVENTS.MESSAGE_ERROR, handleError),
 	];
 }
 
@@ -203,17 +202,6 @@ function handleReaction(dto: {
 	emoji: string;
 }) {
 	applyReaction(dto);
-}
-
-function handleError(data: { client_nonce?: string; error?: string }) {
-	if (data.client_nonce) {
-		pendingNonces.set(data.client_nonce, "failed");
-	}
-	if (data.error) {
-		toast.error(data.error);
-	} else if (data.client_nonce) {
-		toast.error("消息发送失败");
-	}
 }
 
 async function joinTextRoom(room: {
@@ -408,6 +396,7 @@ function send(
 		uuid: client_nonce,
 		room_uuid: room,
 		author_id: me?.name ?? "",
+		author_uuid: me?.uuid ?? "",
 		author_name: me?.display_name || me?.name || "",
 		author_avatar: me?.avatar || "",
 		content,
@@ -533,7 +522,7 @@ function applyUpdated(dto: MessageDTO) {
 	}));
 }
 
-function applyDeleted(dto: MessageDTO) {
+function applyDeleted(dto: Pick<MessageDTO, "uuid">) {
 	useChatStore.setState((prev) => ({
 		messages: prev.messages.map((m) =>
 			m.uuid === dto.uuid ? { ...m, deleted: true } : m,
@@ -572,19 +561,34 @@ function applyReaction(dto: {
 	});
 }
 
+function restoreDeleted(messageUUID: string) {
+	useChatStore.setState((prev) => ({
+		messages: prev.messages.map((m) =>
+			m.uuid === messageUUID ? { ...m, deleted: false } : m,
+		),
+	}));
+}
+
 function deleteMessage(messageUUID: string) {
 	const roomName = getState().textRoomName;
 	if (!roomName) return;
-	// Optimistic: mark as deleted locally
-	applyDeleted({ uuid: messageUUID } as MessageDTO);
 	const socket = socketStore.getSocket();
-	if (socket?.isConnected()) {
-		socket.emitFireAndForget(EVENTS.MESSAGE_DELETE, {
+	if (!socket?.isConnected()) return;
+	// 乐观置删后必须等 ACK：服务端拒绝时回滚，否则服务端仍有该消息而本地永久显示已删除
+	const wasDeleted = getState().messages.some(
+		(m) => m.uuid === messageUUID && m.deleted,
+	);
+	applyDeleted({ uuid: messageUUID });
+	void socket
+		.emitAck(EVENTS.MESSAGE_DELETE, {
 			room: roomName,
 			domain_uuid: getState().textRoomDomainUUID ?? undefined,
 			message_uuid: messageUUID,
+		})
+		.catch((err: unknown) => {
+			if (!wasDeleted) restoreDeleted(messageUUID);
+			toast.error(localizedApiMessage(err));
 		});
-	}
 }
 
 // ------------------------------------------------------------------
@@ -917,7 +921,8 @@ function sendDirect(convID: string, content: string) {
 		.catch(markFailed);
 }
 
-async function startConversation(identity: string) {
+async function startConversation(identity: string, displayName?: string) {
+	const otherDisplayName = displayName || identity;
 	const existing = getState().conversations.find(
 		(c) => c.other_identity === identity,
 	);
@@ -937,7 +942,7 @@ async function startConversation(identity: string) {
 				{
 					conversation_id: convID,
 					other_identity: identity,
-					other_display_name: identity,
+					other_display_name: otherDisplayName,
 					other_avatar: "",
 					last_content: "",
 					last_sender_identity: "",

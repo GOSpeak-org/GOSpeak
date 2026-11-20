@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"time"
-
 	"GOSpeak/internal/model"
 
 	"gorm.io/gorm"
@@ -22,7 +20,6 @@ func (r *ConversationRepository) Upsert(cp *model.ConversationParticipant) error
 	return r.db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "conversation_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
-			"last_message_id",
 			"last_content",
 			"last_sender_identity",
 			"last_message_at",
@@ -123,16 +120,4 @@ func (r *ConversationRepository) ResetUnread(conversationID, identity string) er
 	return r.db.Model(&model.ConversationParticipant{}).
 		Where("conversation_id = ?", conversationID).
 		Update("unread_count_b", 0).Error
-}
-
-// UpdateLastMessage updates the conversation's summary fields with the latest message info.
-func (r *ConversationRepository) UpdateLastMessage(convID, msgID, content, senderID string, t time.Time) error {
-	return r.db.Model(&model.ConversationParticipant{}).
-		Where("conversation_id = ?", convID).
-		Updates(map[string]interface{}{
-			"last_message_id":      msgID,
-			"last_content":         content,
-			"last_sender_identity": senderID,
-			"last_message_at":      t,
-		}).Error
 }

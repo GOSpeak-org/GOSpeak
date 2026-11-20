@@ -61,6 +61,8 @@ const (
 
 	PermAnnouncementRead   = permcode.PermAnnouncementRead
 	PermAnnouncementManage = permcode.PermAnnouncementManage
+
+	PermAuditRead = permcode.PermAuditRead
 )
 
 // DefaultPermissions 种子权限列表
@@ -107,6 +109,9 @@ var DefaultPermissions = []Permission{
 
 	{Code: PermAnnouncementRead, Name: "查看公告", Description: "查看系统公告列表与未读数"},
 	{Code: PermAnnouncementManage, Name: "管理公告", Description: "创建、编辑、删除系统公告"},
+
+	// 需手工授予：只登记定义使 SyncRolePermissions 可校验通过，不放进 DefaultRolePermissions。
+	{Code: PermAuditRead, Name: "查看审计日志", Description: "查询平台操作审计日志"},
 }
 
 // RolePermission 角色-权限关联表
@@ -127,7 +132,7 @@ var DefaultRolePermissions = map[string][]string{
 		PermUserRead, PermUserUpdate, PermUserDelete,
 		PermRoleRead, PermRoleManage,
 		PermSignalKick,
-		PermRoomCreate, PermMuteManage, PermSFUManage,
+		PermMuteManage, PermSFUManage,
 		PermDomainCreate, PermDomainRead, PermDomainManage, PermDomainDelete,
 		PermDomainInvite, PermDomainInviteManage, PermDomainMemberReview, PermDomainKick, PermDomainRoleManage,
 		PermEmailConfigRead, PermEmailConfigManage,
@@ -145,13 +150,4 @@ var DefaultRolePermissions = map[string][]string{
 		PermAnnouncementRead,
 	},
 	"ban": {},
-}
-
-// ValidPermissionSet 返回所有已知权限码集合，用于校验外部传入的权限码。
-func ValidPermissionSet() map[string]struct{} {
-	set := make(map[string]struct{}, len(DefaultPermissions))
-	for _, p := range DefaultPermissions {
-		set[p.Code] = struct{}{}
-	}
-	return set
 }

@@ -1,16 +1,10 @@
-export type MessageDTO = {
-	uuid: string;
-	room_uuid: string;
-	author_id: string;
-	author_name?: string;
-	author_avatar?: string;
-	content: string;
-	reply_to?: string;
-	mentions?: string[];
-	edited_at?: string | null;
-	deleted: boolean;
-	created_at: string;
-	client_nonce?: string;
+import type { MessageDTO as WireMessageDTO } from "@/protocol/generated/payloads";
+
+/**
+ * S→C 消息 wire DTO：字段以 @/protocol/generated/payloads 为准，仅追加本地状态。
+ * C→S 的 MessageSendPayload 不在此定义，避免把本地字段写进上行载荷。
+ */
+export type MessageDTO = WireMessageDTO & {
 	/**
 	 * 仅前端本地使用，不来自服务端：
 	 * pending = 乐观插入、等 ack；failed = 发送失败，保留在列表里等用户重试。

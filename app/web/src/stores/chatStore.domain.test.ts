@@ -67,8 +67,9 @@ describe("chatStore domain payloads", () => {
 			expect.objectContaining({ domain_uuid: "domain-1" }),
 		);
 
+		// 删除同样改走 ACK：失败应答要能回滚本地乐观删除
 		chatStore.deleteMessage("msg-1");
-		expect(socketMock.emitFireAndForget).toHaveBeenCalledWith(
+		expect(socketMock.emitAck).toHaveBeenCalledWith(
 			EVENTS.MESSAGE_DELETE,
 			expect.objectContaining({ domain_uuid: "domain-1" }),
 		);

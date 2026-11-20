@@ -21,13 +21,6 @@ func (r *MessageRepository) Create(msg *model.Message) error {
 	return r.db.Create(msg).Error
 }
 
-func (r *MessageRepository) CreateMentions(mentions []model.MessageMention) error {
-	if len(mentions) == 0 {
-		return nil
-	}
-	return r.db.Create(&mentions).Error
-}
-
 // EnsureMentions 幂等写入 @提及关系，job 重放/兜底并发时不产生重复行。
 func (r *MessageRepository) EnsureMentions(mentions []model.MessageMention) error {
 	if len(mentions) == 0 {
