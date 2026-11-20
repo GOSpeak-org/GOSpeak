@@ -196,16 +196,6 @@ func (s *AuthService) Register(req *RegisterRequest) (*AuthResponse, error) {
 	}, nil
 }
 
-// RefreshToken 用已有身份信息生成新 access_token。
-// 优先走 RefreshFromToken：会重载用户最新 role/ban/TokenVersion，避免 JWT 快照过期权限续命。
-func (s *AuthService) RefreshToken(username, displayName, userUUID, role string, tokenVersion uint) (string, error) {
-	token, err := pkg.GenerateToken(username, displayName, userUUID, role, tokenVersion)
-	if err != nil {
-		return "", pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
-	}
-	return token, nil
-}
-
 // RefreshAccessForUserUUID 按用户 UUID 重载最新身份并签发 access_token（供已鉴权的 /auth/refresh 使用）。
 func (s *AuthService) RefreshAccessForUserUUID(userUUID string) (string, error) {
 	user, err := s.userRepo.GetByUUID(userUUID)

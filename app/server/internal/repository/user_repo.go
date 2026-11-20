@@ -106,15 +106,6 @@ func (r *UserRepository) Delete(id uint) error {
 	return r.db.Delete(&model.User{}, id).Error
 }
 
-func (r *UserRepository) UpdateEmail(userID uint, email string) error {
-	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("email", email).Error
-}
-
-func (r *UserRepository) UpdateEmailVerified(userID uint, verified bool) error {
-	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("email_verified", verified).Error
-}
-
-// IncrementTokenVersion 递增用户的 TokenVersion，使所有已签发的 access/refresh token 失效。
 // UpdatePasswordAndInvalidate 原子地保存新密码并递增 TokenVersion，
 // 避免两步独立写间失败导致旧 token 仍有效（auth_service 改密/重置场景）。
 func (r *UserRepository) UpdatePasswordAndInvalidate(user *model.User) error {
@@ -127,28 +118,11 @@ func (r *UserRepository) UpdatePasswordAndInvalidate(user *model.User) error {
 	})
 }
 
-// IncrementTokenVersion 递增用户 TokenVersion，使已签发 token 失效。
-func (r *UserRepository) IncrementTokenVersion(userID uint) error {
-	return r.db.Model(&model.User{}).Where("id = ?", userID).
-		UpdateColumn("token_version", gorm.Expr("token_version + 1")).Error
-}
-
 // UpdateRoleStatusAndInvalidate 原子更新角色、状态并递增 TokenVersion。
 func (r *UserRepository) UpdateRoleStatusAndInvalidate(userID uint, role, status string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.User{}).Where("id = ?", userID).
 			Updates(map[string]interface{}{"role": role, "status": status}).Error; err != nil {
-			return err
-		}
-		return tx.Model(&model.User{}).Where("id = ?", userID).
-			UpdateColumn("token_version", gorm.Expr("token_version + 1")).Error
-	})
-}
-
-// UpdateRoleAndInvalidate 原子更新角色并递增 TokenVersion，使旧 JWT 立即失效。
-func (r *UserRepository) UpdateRoleAndInvalidate(userID uint, role string) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.User{}).Where("id = ?", userID).Update("role", role).Error; err != nil {
 			return err
 		}
 		return tx.Model(&model.User{}).Where("id = ?", userID).
