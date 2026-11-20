@@ -235,9 +235,9 @@ function RegisterPage() {
 						<div className="card-tilt">
 							<div className="border-foreground/10 bg-card rounded-lg border shadow-xl shadow-black/20">
 								<div className="p-6 sm:p-8">
-									<div className="mb-6 hidden items-center justify-between md:flex">
+									<div className="mb-6 hidden text-center md:block">
 										<h2 className="text-lg font-semibold">注册账号</h2>
-										<span className="text-faint-foreground font-mono text-2xs uppercase">
+										<span className="text-faint-foreground mt-1 block font-mono text-2xs uppercase tracking-widest">
 											Register
 										</span>
 									</div>
@@ -307,9 +307,11 @@ function RegisterPage() {
 												autoComplete="email"
 												onChange={(e) => setEmail(e.target.value)}
 											/>
-											<p className="text-faint-foreground mt-1 text-xs">
-												选填。若服务器开启邮箱验证，则邮箱与验证码必填
-											</p>
+											{email.trim() && (
+												<p className="text-faint-foreground mt-1 text-xs">
+													选填。若服务器开启邮箱验证，则邮箱与验证码必填
+												</p>
+											)}
 										</label>
 										{email.trim() && (
 											<label className="relative mb-4 block">

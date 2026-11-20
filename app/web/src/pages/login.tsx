@@ -26,6 +26,8 @@ import ForgotPasswordModal from "@/pages/login/components/ForgotPasswordModal";
 import { showLoginSuccessToast } from "@/pages/login/components/loginSuccessToast";
 import { serverConfigForPlatform } from "@/utils/serverConfigForPlatform";
 
+const SKIP_DEFAULT_PASSWORD_CHANGE_KEY = "gospeak_skip_default_password_change";
+
 export const Route = createFileRoute("/login")({
 	// 有缓存用户就直接进首页，不在登录页等网络；会话是否仍然有效由
 	// (app) 的后台校验与 apiClient 的 401 拦截器兜底（失效会带着清空后的
@@ -56,6 +58,13 @@ function LoginPage() {
 		const target = resolveLoginRedirect();
 		void router.preloadRoute({ to: target });
 		navigate({ to: target });
+	}
+
+	function handleSkipPasswordChange() {
+		localStorage.setItem(SKIP_DEFAULT_PASSWORD_CHANGE_KEY, "1");
+		setShowChangeModal(false);
+		showLoginSuccessToast();
+		goToApp();
 	}
 
 	const [banned, setBanned] = useState(false);
@@ -171,7 +180,12 @@ function LoginPage() {
 			});
 			if (data.need_change_password) {
 				await useUserStore.getState().login(data.user, data.expires_in);
-				setShowChangeModal(true);
+				if (localStorage.getItem(SKIP_DEFAULT_PASSWORD_CHANGE_KEY) === "1") {
+					showLoginSuccessToast();
+					goToApp();
+				} else {
+					setShowChangeModal(true);
+				}
 				return;
 			}
 			await useUserStore.getState().login(data.user, data.expires_in);
@@ -257,9 +271,9 @@ function LoginPage() {
 						<div className="card-tilt">
 							<div className="border-foreground/10 bg-card rounded-lg border shadow-xl shadow-black/20">
 								<div className="p-6 sm:p-8">
-									<div className="mb-6 hidden items-center justify-between md:flex">
+									<div className="mb-6 hidden text-center md:block">
 										<h2 className="text-lg font-semibold">登录账号</h2>
-										<span className="text-faint-foreground font-mono text-2xs uppercase">
+										<span className="text-faint-foreground mt-1 block font-mono text-2xs uppercase tracking-widest">
 											Login
 										</span>
 									</div>
@@ -364,7 +378,7 @@ function LoginPage() {
 															<ProviderIcon
 																name={p.name}
 																iconUrl={p.icon_url}
-																size={22}
+																size={24}
 															/>
 														</Button>
 													);
@@ -411,7 +425,8 @@ function LoginPage() {
 			{/* Admin 首次登录强制改密 Modal */}
 			<ForcePasswordChangeModal
 				open={showChangeModal}
-				onClose={() => setShowChangeModal(false)}
+				onClose={handleSkipPasswordChange}
+				onSkip={handleSkipPasswordChange}
 				onSubmit={async ({ newPassword, name }) => {
 					const result = await firstChangePasswordApi(newPassword ?? "", name);
 					await useUserStore.getState().login(result.user, result.expires_in);
