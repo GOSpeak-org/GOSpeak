@@ -14,7 +14,6 @@ import EditRoomModal from "@/components/modal/editRoomModal";
 import UserInfoPopover from "@/components/room/components/userInfoPopover";
 import { RoomItem } from "@/components/room/components/roomItem";
 import {
-	estimateRoomItemHeight,
 	toEditRoomRecord,
 	visibleRoomsForDomain,
 } from "@/components/room/roomListUtils";
@@ -208,14 +207,12 @@ export default function RoomList() {
 	};
 
 	const viewportRef = useRef<HTMLDivElement>(null);
-	// 首屏估算按成员数贴近真实行高，measureElement 只做小幅修正；
-	// getItemKey 让测量缓存跟随房间而非数组下标，避免列表变动时高度串位。
+	// estimateSize 只是首屏估算：真实行高由 measureElement 动态测量，
+	// 桌面紧凑行与移动端 44px 触控行都能自动跟上，不会出现固定高度留下的空隙。
 	const virtualizer = useVirtualizer({
 		count: connected && visibleRooms.length > 0 ? visibleRooms.length : 0,
 		getScrollElement: () => viewportRef.current,
-		estimateSize: (index) =>
-			estimateRoomItemHeight(visibleRooms[index] ?? { members: [] }),
-		getItemKey: (index) => visibleRooms[index]?.uuid ?? index,
+		estimateSize: () => 40,
 		overscan: 8,
 	});
 
