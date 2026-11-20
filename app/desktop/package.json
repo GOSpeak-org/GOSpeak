@@ -8,6 +8,6 @@
 		"build": "mygo build"
 	},
 	"devDependencies": {
-		"mygo-cli": "^0.9.0"
+		"mygo-cli": "^0.10.0"
 	}
 }

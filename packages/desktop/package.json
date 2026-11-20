@@ -22,10 +22,10 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
-		"mygo-runtime": "0.9.0"
+		"mygo-runtime": "0.10.0"
 	},
 	"devDependencies": {
 		"typescript": "^7.0.2",
-		"vitest": "^5.1.0"
+		"vitest": "^5.1.1"
 	}
 }
