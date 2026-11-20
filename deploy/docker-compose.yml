@@ -29,7 +29,7 @@ services:
     # 默认 latest 跟随最近一次发布（含 -rc 预发布）；生产稳妥选版本线标签 :1，
     # 固定版本用 :1.1.0 这类精确标签
     image: ${GOSPEAK_IMAGE:-ghcr.io/noelorin/gospeak:latest}
-    pull_policy: ${GOSPEAK_PULL_POLICY:-missing}
+    pull_policy: ${GOSPEAK_PULL_POLICY:-always}
     container_name: gospeak-app
     # 唯一配置来源：deploy/.env（compose 插值与应用 env 共用）
     env_file:

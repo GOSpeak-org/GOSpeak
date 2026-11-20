@@ -217,10 +217,10 @@ docker compose restart gospeak
 
 ```ini
 GOSPEAK_IMAGE=ghcr.io/noelorin/gospeak:1
-GOSPEAK_PULL_POLICY=missing
+GOSPEAK_PULL_POLICY=always
 ```
 
-`missing` 表示本地不存在镜像时才拉取，`always` 表示每次都拉取最新版本。
+`always` 是默认值，表示每次 `up -d` 都拉取最新镜像，避免停留在旧版本；`missing` 表示本地不存在镜像时才拉取。
 
 **关于 `latest`**：默认的 `ghcr.io/noelorin/gospeak:latest` 跟随最近一次发布，
 **包括 `-rc` 预发布**。预发布一经发布就会顶掉 `latest`，因此它不适合作长期默认；
@@ -232,7 +232,8 @@ GOSPEAK_PULL_POLICY=missing
 cd GOSpeak
 git pull
 cd deploy
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 数据库表结构在启动时自动迁移。升级前进行备份是良好的操作习惯。

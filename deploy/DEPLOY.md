@@ -3,7 +3,7 @@
 > 唯一权威部署入口。  
 > 入口文件：`deploy/docker-compose.yml`  
 > 配置文件：`deploy/.env`（唯一配置文件，compose 插值与应用环境变量共用）  
-> 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/noelorin/gospeak:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/noelorin/gospeak:1`，要固定版本用 `ghcr.io/noelorin/gospeak:1.1.0` 这类精确标签。要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
+> 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/noelorin/gospeak:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/noelorin/gospeak:1`，要固定版本用 `ghcr.io/noelorin/gospeak:1.1.0` 这类精确标签。compose 默认 `pull_policy: always`（每次 `up -d` 都会拉取最新镜像，避免停留在旧版本；如需关闭在 `.env` 设 `GOSPEAK_PULL_POLICY=missing`）。要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
 
 核心结论先放在前面：
 
@@ -283,10 +283,11 @@ curl -sI https://voice.example.com | head -1
 ```bash
 git pull
 cd deploy
+docker compose pull
 docker compose up -d
 ```
 
-数据库表结构启动时自动迁移。升级前先备份。
+`docker compose pull` 显式拉取最新镜像；compose 默认 `pull_policy: always`，即使省略这一步 `up -d` 也会拉取，但显式写出便于发现拉取失败。数据库表结构启动时自动迁移。升级前先备份。
 
 LiveKit 镜像在 compose 里固定 tag（当前 `v1.13.11`），不跟随 `latest`：换 SFU 版本需要显式改那一行再 `docker compose pull livekit && docker compose up -d`，避免某次 pull 顺手换掉音视频后端。
 

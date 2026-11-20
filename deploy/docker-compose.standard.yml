@@ -33,7 +33,7 @@ services:
     #   docker build --build-arg VERSION=$(cat VERSION) --build-arg COMMIT=$(git rev-parse --short HEAD) -t gospeak:local .
     # （不注入 buildinfo.Version/Commit 时镜像内恒为 dev/unknown，更新检查永远报不出新版本）
     image: ${GOSPEAK_IMAGE:-ghcr.io/noelorin/gospeak:latest}
-    pull_policy: ${GOSPEAK_PULL_POLICY:-missing}
+    pull_policy: ${GOSPEAK_PULL_POLICY:-always}
     container_name: gospeak-app
     # 唯一配置来源: deploy/.env（compose 插值与应用 env 共用）
     env_file:
