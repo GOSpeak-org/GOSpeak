@@ -28,7 +28,7 @@ Authorization: Bearer <your-jwt-token>
 
 ### 获取 Token
 
-1. 调用 `POST /api/v1/auth/login` 获取 `token` 和 `refresh_token`
+1. 调用 `POST /api/v1/auth/login` 获取 `access_token` 和 `refresh_token`
 2. 在 Swagger UI 中点击 **Authorize** 按钮，输入 `Bearer <token>`
 3. Token 过期后使用 `POST /api/v1/auth/refresh_token` 刷新
 
@@ -89,7 +89,7 @@ Authorization: Bearer <your-jwt-token>
 
 ## 接口列表
 
-> 完整路由以 `internal/router/router.go` 与各 `routes/*/routes.go` 为准；下表覆盖当前全部已注册端点（基础路径 `/api/v1`）。✅ = 需 JWT，❌ = 公开。
+> 完整路由以 `internal/router/router.go` 与各 `routes/*/routes.go` 为准；下表列出主要端点（基础路径 `/api/v1`），新增端点以代码为准。✅ = 需 JWT，❌ = 公开。
 
 | 模块 | 路径 | 方法 | 需鉴权 |
 |------|------|------|--------|

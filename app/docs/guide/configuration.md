@@ -51,7 +51,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `LIVEKIT_KEY` | — | 见上 |
 | `LIVEKIT_SECRET` | — | 见上 |
 
-亦可在管理后台「SFU 管理」中修改存入数据库；但非空的 `LIVEKIT_HOST` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` 环境变量优先，数据库值仅在对应 env 留空时生效。
+亦可在管理后台「SFU 管理」中修改存入数据库；但非空的 `LIVEKIT_HOST` / `LIVEKIT_KEY` / `LIVEKIT_SECRET` 环境变量优先，数据库值仅在对应 env 留空时生效。
 
 ## 存储
 

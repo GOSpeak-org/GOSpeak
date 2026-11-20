@@ -8,7 +8,7 @@
 | `layouts/` | 应用外壳 `layout.tsx` + `common/`（header/main/sidebar/domainWorkspace） |
 | `components/` | 业务组件，按 room / chat / textRoom / domain / discover / manage / modal / form / oauth / profile / dashboard 分组；`common/` 含三层错误边界 |
 | `stores/` | zustand：`useXxxStore` hook + `xxxStore` 门面（socket/user/domain/chat/voiceChat/theme/notification/screenShare/…） |
-| `hooks/` | React hooks（media、useUpload、useErrorHandler、useDeepLinkNavigation、useOverlayRelay、useMemberRoster、useTypingReporter…） |
+| `hooks/` | React hooks（media、useUpload、useDeepLinkNavigation、useOverlayRelay、useMemberRoster、useTypingReporter…） |
 | `api/` | `apiClient`(axios) + `authTransport`(懒续期) + 按领域拆分的 typed API |
 | `socket/` | `wsClient` / `events`(重导出 protocol) / `socketEvents` / `roomState` / `providerReload` / `tabLock` |
 | `handler_audio/` | 音频装配：`index`、`speakingStore`、`notificationSounds` |
@@ -19,7 +19,7 @@
 
 - 页面只做编排：复杂 UI 下沉到同级 `components/`（该目录不参与路由生成）。
 - 服务端状态用 react-query；客户端状态用 zustand 双入口；组件用 selector 订阅。
-- 异步错误用 `useErrorHandler()` 重抛到最近边界；全局兜底在 `utils/errorReport.ts`。
+- 异步错误不重抛进边界：UI 反馈走 `apiClient` 拦截器 toast / `utils/backgroundFailure.ts`，`utils/errorReport.ts` 的 `installGlobalErrorHandlers()` 只负责 `window.error` / `unhandledrejection` 上报。
 - 事件名/payload 只从 `socket/events.ts`（即 `protocol/generated`）取，禁止手写字符串。
 - 图标 `lucide-react`、品牌图标 `components/oauth/ProviderIcon.tsx`；样式只用 token 类名。
 

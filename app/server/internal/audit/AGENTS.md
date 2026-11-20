@@ -13,8 +13,8 @@
 
 ## 动作与目标白名单
 
-动作：`kick_member` `mute_user` `unmute_user` `delete_room` `delete_user` `reset_invite`。
-目标类型：`member` `room` `user` `mute` `domain`。
+动作：`kick_member` `mute_user` `unmute_user` `delete_room` `delete_user`。
+目标类型：`member` `room` `user` `mute`。
 
 **新增动作/目标类型必须同时改常量与 `validActions`/`validTargetTypes`**，否则写入被拒。
 

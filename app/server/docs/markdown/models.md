@@ -60,7 +60,7 @@
 |------|------|------|
 | code | ErrCode | 业务状态码 |
 | msg | string | 提示信息 |
-| data.token | string | JWT access token |
+| data.access_token | string | JWT access token |
 | data.refresh_token | string | 刷新 token |
 | data.user | User | 用户信息 |
 
@@ -111,7 +111,8 @@
 ```json
 {
   "room": "my-room",
-  "identity": "user-123"
+  "domain_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "password": ""
 }
 ```
 
@@ -120,31 +121,12 @@
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | room | string | ✅ | 房间名称 |
-| identity | string | ✅ | 用户身份标识 |
+| domain_uuid | string | ❌ | 域 UUID |
+| password | string | ❌ | 房间密码 |
 
----
-
-## SignalRequest
-
-信令消息请求
-
-```json
-{
-  "type": "offer",
-  "room": "my-room",
-  "identity": "user-123",
-  "data": {}
-}
-```
-
-**字段说明:**
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| type | string | ✅ | 信令类型 (offer/answer/ice_candidate) |
-| room | string | ❌ | 房间名称 |
-| identity | string | ❌ | 用户身份标识 |
-| data | object | ❌ | 信令数据体 |
+> `identity` 不接收客户端输入，由 access token 中的登录用户推导。
+>
+> 历史 HTTP 信令中继（`SignalRequest` / `/signal/signal`）已移除，WebRTC 信令走 `/ws`。
 
 ---
 

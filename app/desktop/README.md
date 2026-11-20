@@ -35,7 +35,7 @@ GOSpeak 桌面端的**本体**：一个用 [MyGo](https://github.com/egoist/mygo
 | --- | --- |
 | `go.mod` | Go module（`gospeak-desktop`），依赖 `github.com/egoist/mygo` |
 | `main.go` | 入口：`mygo.Bind(...)` 注册服务 + 创建内嵌前端的窗口 |
-| `window.go` / `tray.go` / `notification.go` / `autostart.go` / `deeplink.go` / `dialog.go` / `updater.go` | 桌面能力服务的 Go 实现（mygo 绑定后生成 TS 客户端） |
+| `window.go` / `tray.go` / `notification.go` / `autostart.go` / `deeplink.go` / `dialog.go` / `updater.go` / `screencapture.go` | 桌面能力服务的 Go 实现（mygo 绑定后生成 TS 客户端；`screencapture.go` 提供 `ScreenCapture.Check/Guide` 屏幕录制权限检查与系统设置引导） |
 | `deeplink.go` | `gospeak://invite/d/<CODE>` 深链：注册协议、归一化为应用内路径、冷启动暂存与运行中广播 |
 | `mygo.config.ts` | MyGo 项目配置（应用名、identifier、devUrl 指向 `@gospeak/web`） |
 | `package.json` | 通过 `mygo-cli` 提供 `mygo dev` / `mygo build` |

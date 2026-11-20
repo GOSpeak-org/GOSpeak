@@ -25,7 +25,8 @@
 ```json
 {
   "room": "my-room",
-  "identity": "user-123"
+  "domain_uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "password": ""
 }
 ```
 
@@ -34,7 +35,10 @@
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | room | string | ✅ | 房间名称 |
-| identity | string | ✅ | 用户身份标识 |
+| domain_uuid | string | ❌ | 域 UUID |
+| password | string | ❌ | 房间密码 |
+
+> `identity` 不接收客户端输入，由已认证用户的 access token 推导。
 
 ### Response (200)
 
@@ -43,7 +47,7 @@
   "code": 0,
   "msg": "success",
   "data": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
+    "token": "eyJhbGciOiJIUzI1NiIs...",
     "room": "my-room",
     "identity": "user-123"
   }

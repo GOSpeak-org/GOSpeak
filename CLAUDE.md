@@ -11,15 +11,15 @@ GOSpeak 是基于 WebRTC 的实时音视频沟通平台。pnpm monorepo：Go 后
 | 层 | 技术 |
 |----|------|
 | 后端 | Go 1.27 · Gin · GORM · cobra CLI |
-| 前端 | React 19 · TypeScript · @tanstack/react-router/query · zustand · Tailwind 4 · packages/components · rolldown-vite 7 · lucide-react · sonner · react-hook-form + zod |
+| 前端 | React 19 · TypeScript · @tanstack/react-router/query · zustand · Tailwind 4 · packages/components · Vite 8（Rolldown） · lucide-react · sonner · react-hook-form + zod |
 | 信令 | 原生 WebSocket (internal/ws，/ws) |
 | SFU | LiveKit（唯一后端；`sfu.Provider` 抽象保留） |
-| DB | SQLite(默认) / PostgreSQL / MySQL — GORM 自动迁移 |
+| DB | SQLite(默认) / PostgreSQL / MySQL / Turso(libSQL, TURSO_DATABASE_URL) — GORM 自动迁移 |
 | 事件总线 | 内嵌 NATS KV — JWT 轮换 + Token 黑名单（固定 embedded）|
 | 存储 | local / S3(RustFS/R2) |
 | 认证 | JWT + OAuth2(GitHub/Google/QQ) |
 | 桌面端 | Go 1.27 · MyGo 0.8 · 系统 WebView（`app/desktop` 宿主 + `packages/desktop` 能力 SDK）|
-| 工具链 | pnpm 10 · Turbo · Biome(lint/format) · Vitest 4 + @testing-library/react · Lefthook · commitlint |
+| 工具链 | pnpm 10 · Turbo · Biome(lint/format) · Vitest 5 + @testing-library/react · Lefthook · commitlint |
 
 ---
 
@@ -51,7 +51,7 @@ app/
 │   │   ├── api/             # apiClient (axios) + typed API
 │   │   ├── socket/          # WebSocket client
 │   │   ├── stores/          # zustand (useXxxStore + xxxStore 门面)
-│   │   ├── hooks/           # React hooks (media / useAuthParallax / useUpload / useErrorHandler — 重抛异步错误到最近边界)
+│   │   ├── hooks/           # React hooks (media / useAuthParallax / useUpload)
 │   │   ├── components/      # 业务组件（通用 UI 来自 packages/components；common/ 含错误边界 ErrorBoundary/PageErrorBoundary/RouteErrorComponent）
 │   │   ├── layouts/         # layout.tsx + common/
 │   │   ├── types/
@@ -213,7 +213,7 @@ OpenAPI: `app/server/docs/swagger.yaml`，访问 `/swagger/*any`。
 ## Git 工作流
 
 - commit 规范: Conventional Commits (`feat:` / `fix:` / `refactor:` / `docs:` / `chore:`), enforced by commitlint + lefthook
-- 分支: `release`(生产，默认分支) / `dev`(开发) / `feature/*`
+- 分支: 常驻 `release`(生产，默认分支) 一条；其余为合并后即删的短期分支 (`dev-MMDD` 迭代 / `feature/*` / `fix/*`)，无长期 `dev`
 - PR 前确认 lint + build 通过
 
 ---

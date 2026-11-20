@@ -111,7 +111,7 @@ type Provider interface {
 
 当前仅有 LiveKit 一个实现。接口的意义在于：业务层不依赖具体的底层实现，将来接入其他服务时无需修改业务代码。
 
-`sfu.NewDynamicProvider()` 在运行时解析当前使用的实现，支持在管理后台切换而无需重启。
+`sfu.NewDynamicProvider()` 仅在唯一的 livekit provider 内按配置指纹重建实例；当前不支持在管理后台切换到第二个 provider。
 
 ## 数据模型
 
@@ -191,7 +191,7 @@ React 19 + TanStack Router（文件路由）+ TanStack Query（服务端状态�
 | 页面 | `PageErrorBoundary` | 页面级错误可整页重试 |
 | 路由 | `RouteErrorComponent` | 路由级兜底 |
 
-异步错误（Promise 与事件回调中产生的）由 `useErrorHandler` 重抛至渲染阶段，交由最近的边界处理。
+异步错误（Promise 与事件回调中产生的）不会被上述边界捕获：用户可见反馈由 HTTP 拦截器的 toast 与后台加载失败提示承担，`window.error` / `unhandledrejection` 由全局监听兜底上报。
 
 ## 桌面端
 
@@ -249,7 +249,7 @@ React 19 + TanStack Router（文件路由）+ TanStack Query（服务端状态�
 | 状态 | zustand | 较 Redux 更简洁，满足当前需求 |
 | 样式 | Tailwind 4 | 无需维护独立 CSS 文件 |
 | 组件 | Radix + 自建 | 无样式、可访问性好 |
-| 构建 | rolldown-vite | 构建速度快于 vite |
+| 构建 | Vite 8（Rolldown） | 基于 Rolldown 的快速构建 |
 | 桌面 | MyGo | 纯 Go，无 cgo，产物小 |
 
 ## 下一步

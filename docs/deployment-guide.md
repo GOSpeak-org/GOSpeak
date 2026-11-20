@@ -13,7 +13,7 @@ GOSpeak 实时音视频平台的部署文档。覆盖本地开发、Docker 部�
 
 | 组件 | 版本 | 用途 |
 |------|------|------|
-| Go | 1.26+ | 后端编译 (需要 CGO, 因 SQLite) |
+| Go | 1.27.3+ | 后端编译 (需要 CGO, 因 SQLite) |
 | Node.js | 22+ | 前端构建 (Vite) |
 | pnpm | 10+ | monorepo 包管理 |
 | Docker | 24+ | 容器化部署 |
@@ -182,7 +182,26 @@ docker run -d \
   gospeak:latest
 ```
 
-应用读 `deploy/.env`，默认 `prod` 环境（无需 `-e` flag）。
+应用读 `deploy/.env`；未指定 `-e` 时默认 `dev`，生产需显式 `server -e prod`。
+
+### 4.4 单二进制（不装 Docker）
+
+与上面 4.1–4.3 的容器方案二选一。目标机器上没有 Docker 时，用 `deploy/install-binary.sh` 一条命令完成安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/install-binary.sh | bash
+```
+
+- 自动识别系统与架构，从 Releases 取当前平台最新的 GOSpeak 与 LiveKit 发行包
+- 校验 `SHA256SUMS-gospeak-server-*.txt` 与 LiveKit `checksums.txt`
+- 安装到 `/opt/gospeak`，生成 `.env`（随机密钥，600）、`livekit.yaml`、systemd 单元
+- 重复执行即升级，**不覆盖已有 `.env` / `livekit.yaml`**
+
+常用参数：`--dry-run`（只解析不下载）、`--dir`、`--user`、`--version`、`--without-livekit`、`--without-systemd`。
+
+该形态无内置 Caddy，HTTPS 需自备反代指向 `8998` 或配置 `TLS_CERT` / `TLS_KEY`；局域网自用可直接访问 `http://<host>:8998`（但语音需要 HTTPS 或 localhost）。
+
+详见 [app/docs/deploy/binary.md](../app/docs/deploy/binary.md)。
 
 ---
 
@@ -224,7 +243,7 @@ docker run -d \
   gospeak:latest
 
 # 5. 验证
-curl http://localhost:8998/api/v1/health  # (若该端点存在)
+curl http://localhost:8998/ping      # 存活探针（另有 /readyz 就绪探针）
 ```
 
 ### 5.3 反向代理与 HTTPS
@@ -254,7 +273,7 @@ docker compose -f deploy/docker-compose.yml down
 docker logs -f gospeak
 ```
 
-应用日志由 `logrus` 输出至 stdout（Text 格式，含时间戳）。
+应用日志由 `logrus` 输出，格式与目标由 `LOG_FORMAT`（prod 默认 json）、`LOG_OUTPUT`（默认 stdout）、`LOG_FILE` 控制，可通过部署档位调整。
 
 ### 6.2 健康检查
 
