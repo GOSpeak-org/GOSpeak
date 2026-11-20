@@ -14,6 +14,8 @@ github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc
 github.com/KyleBanks/depth v1.2.1/go.mod h1:jzSb9d0L43HxTQfT+oSA1EEp2q+ne2uh6XgeJcm8brE=
 github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29 h1:0kQAzHq8vLs7Pptv+7TxjdETLf/nIqJpIB4oC6Ba4vY=
 github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29/go.mod h1:ZWa7ssZJT30CCDGJ7fk/2SBTq9BIQrrVjrcss0UW2s0=
+github.com/NoelOrin/objectstore v0.1.0 h1:Wk6uZvloOOgB68STBtkvluSHSKyWLH3IC/2oTDVYNA8=
+github.com/NoelOrin/objectstore v0.1.0/go.mod h1:vyfdI2xQ4Hxd/xnRlyB+rAyOKw4lHjLu1GW4qWzjwrE=
 github.com/aarondl/authboss/v3 v3.5.3 h1:eF2G85mGjADsRQnBekMSsgqvW5Naec6kew5B0PRT1nE=
 github.com/aarondl/authboss/v3 v3.5.3/go.mod h1:Q/t4SEfVVI+i/JPVuB6gB5LBSkqBnsf4JezLekg5X/g=
 github.com/antithesishq/antithesis-sdk-go v0.9.0-default-no-op h1:TfLnk/It42eZEgaWL/e+xBKBAhX9ru4mRn2+0Xeukmc=

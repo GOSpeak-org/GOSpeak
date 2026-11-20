@@ -3,7 +3,7 @@ module GOSpeak
 go 1.27.3
 
 require (
-	github.com/NoelOrin/objectstore v0.0.0-20261119095706-54344c398295
+	github.com/NoelOrin/objectstore v0.1.0
 	github.com/aarondl/authboss/v3 v3.5.3
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/casbin/casbin/v2 v2.135.0
@@ -198,5 +198,3 @@ require (
 	modernc.org/memory v1.12.1 // indirect
 	modernc.org/sqlite v1.62.0 // indirect
 )
-
-replace github.com/NoelOrin/objectstore => /Users/noelorin/mono_go/projects/objectstore
