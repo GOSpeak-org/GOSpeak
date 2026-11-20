@@ -51,6 +51,8 @@ export async function markConversationRead(
 	await apiClient.post({
 		url: "/api/v1/conversation/mark-read",
 		data: { conversation_id: conversationID },
+		// 尽力而为：异步落库完成后才知道会话是否已存在，404 不该打扰用户
+		silentError: true,
 	});
 }
 

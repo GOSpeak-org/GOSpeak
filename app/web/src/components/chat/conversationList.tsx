@@ -44,7 +44,7 @@ export default function ConversationList() {
 							<Avatar
 								className="size-8 shrink-0"
 								textClass="text-xs"
-								src=""
+								src={conv.other_avatar}
 								name={conv.other_identity}
 							/>
 							<div className="flex min-w-0 flex-1 flex-col">

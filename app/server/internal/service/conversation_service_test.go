@@ -286,3 +286,86 @@ func TestConversationService_SendDirect_RejectsSyncWriteOnDataPlane(t *testing.T
 		t.Fatal("expected data-plane sync-write rejection")
 	}
 }
+
+func TestConversationService_List_EnrichesOtherUser(t *testing.T) {
+	svc, db := setupConversationServiceTestDB(t)
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		t.Fatal(err)
+	}
+	svc.SetUserRepo(repository.NewUserRepository(db))
+
+	if err := db.Create(&model.User{
+		Name:        "bob",
+		DisplayName: "Bob",
+		Avatar:      "/uploads/bob.png",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ConversationParticipant{
+		ConversationID: "conv-enrich",
+		IdentityA:      "alice",
+		IdentityB:      "bob",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := svc.List("alice", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("want 1 conversation, got %d", len(list))
+	}
+	if list[0].OtherDisplayName != "Bob" {
+		t.Fatalf("other_display_name = %q, want Bob", list[0].OtherDisplayName)
+	}
+	if list[0].OtherAvatar != "/uploads/bob.png" {
+		t.Fatalf("other_avatar = %q, want /uploads/bob.png", list[0].OtherAvatar)
+	}
+}
+
+func TestConversationService_GetMessages_EnrichesAuthor(t *testing.T) {
+	svc, db := setupConversationServiceTestDB(t)
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		t.Fatal(err)
+	}
+	svc.SetUserRepo(repository.NewUserRepository(db))
+
+	if err := db.Create(&model.User{
+		Name:        "bob",
+		DisplayName: "Bob",
+		Avatar:      "/uploads/bob.png",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	convID := "conv-author"
+	if err := db.Create(&model.ConversationParticipant{
+		ConversationID: convID,
+		IdentityA:      "alice",
+		IdentityB:      "bob",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.Message{
+		AuthorID:         "bob",
+		Content:          "hello",
+		ConversationType: model.ConversationTypePrivate,
+		ConversationID:   &convID,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := svc.GetMessages(convID, "alice", "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Messages) != 1 {
+		t.Fatalf("want 1 message, got %d", len(out.Messages))
+	}
+	if out.Messages[0].AuthorName != "Bob" {
+		t.Fatalf("author_name = %q, want Bob", out.Messages[0].AuthorName)
+	}
+	if out.Messages[0].AuthorAvatar != "/uploads/bob.png" {
+		t.Fatalf("author_avatar = %q, want /uploads/bob.png", out.Messages[0].AuthorAvatar)
+	}
+}

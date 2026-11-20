@@ -200,6 +200,7 @@ func StartGin(env EnvEnum) error {
 		streamResolver = snr
 	}
 	conversationSvc := service.NewConversationService(conversationRepo, messageRepo)
+	conversationSvc.SetUserRepo(userRepo)
 	conversationSvc.SetEventBus(eventBus)
 	signalHub := signal.NewHubWithOptions(roomSvc, muteSvc, userSvc, permSvc, signal.HubOptions{
 		Fanout:                  wsFanout,

@@ -30,8 +30,8 @@ export function ChatPage() {
 		<div className="flex h-full w-full flex-row">
 			<ChatWindow />
 			<MemberSidebar
-				onStartChat={(identity, displayName) => {
-					void chatStore.startConversation(identity, displayName);
+				onStartChat={(identity, displayName, avatar) => {
+					void chatStore.startConversation(identity, displayName, avatar);
 				}}
 			/>
 		</div>

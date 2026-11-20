@@ -599,6 +599,10 @@ function tempConversationID(identity: string) {
 	return `pm_${identity}`;
 }
 
+function isLocalConversationID(id: string): boolean {
+	return id.startsWith("pm_");
+}
+
 function replaceConversationID(from: string, to: string) {
 	if (!from || !to || from === to) return;
 	useChatStore.setState((prev) => ({
@@ -704,6 +708,11 @@ function acceptPrivateMessage(dto: PrivateMessageDTO) {
 	}
 	appendPrivateMessage(convID, dto);
 	upsertPrivateConversation(dto);
+	const me = useUserStore.getState().user?.name ?? "";
+	// 自己发出的消息：乐观会话已由 upsertPrivateConversation 落地，未读数本来就是 0。
+	// 服务端异步落库此时可能还没写入 conversation_participants，刷新列表会把刚建的
+	// 会话从列表冲掉，mark-read 也会 404 并弹出误导性的「资源不存在」。
+	if (dto.author_id && dto.author_id === me) return;
 	void loadConversations();
 	if (getState().activeConversationID === convID) {
 		void markRead(convID);
@@ -765,6 +774,10 @@ async function selectConversation(convID: string) {
 				},
 			}));
 		}
+		// 本地占位会话尚未落库，服务端查不到记录：拉取历史会 404 并被全局
+		// 拦截器提示「资源不存在」。等第一条消息落库后再走服务端历史。
+		if (isLocalConversationID(convID)) return;
+
 		const result = await getConversationMessages(convID);
 		useChatStore.setState((prev) => ({
 			pmMessages: { ...prev.pmMessages, [convID]: result.messages },
@@ -837,9 +850,12 @@ function sendDirect(convID: string, content: string) {
 	const targetIdentity = conv.other_identity;
 	const clientNonce = crypto.randomUUID();
 
+	const me = useUserStore.getState().user;
 	const pending: PrivateMessageDTO = {
 		uuid: clientNonce,
-		author_id: useUserStore.getState().user?.name ?? "",
+		author_id: me?.name ?? "",
+		author_name: me?.display_name || me?.name || "",
+		author_avatar: me?.avatar || "",
 		content,
 		deleted: false,
 		created_at: new Date().toISOString(),
@@ -921,7 +937,11 @@ function sendDirect(convID: string, content: string) {
 		.catch(markFailed);
 }
 
-async function startConversation(identity: string, displayName?: string) {
+async function startConversation(
+	identity: string,
+	displayName?: string,
+	avatar?: string,
+) {
 	const otherDisplayName = displayName || identity;
 	const existing = getState().conversations.find(
 		(c) => c.other_identity === identity,
@@ -943,7 +963,7 @@ async function startConversation(identity: string, displayName?: string) {
 					conversation_id: convID,
 					other_identity: identity,
 					other_display_name: otherDisplayName,
-					other_avatar: "",
+					other_avatar: avatar ?? "",
 					last_content: "",
 					last_sender_identity: "",
 					last_message_at: 0,
