@@ -19,3 +19,8 @@ func Register(r *gin.RouterGroup, h *handler.UserHandler) {
 	r.POST("/delete", middleware.RequirePermission(permcode.PermUserDelete), h.Delete)
 	r.POST("/update-role", middleware.RequirePermission(permcode.PermUserUpdate), h.UpdateRole)
 }
+
+// RegisterPushToken 挂载推送 token 上报（protected 组内）。
+func RegisterPushToken(r *gin.RouterGroup, h *handler.PushTokenHandler) {
+	r.POST("/push-token", h.Register)
+}

@@ -13,12 +13,15 @@ interface NotificationState {
 	unreadCount: number;
 	items: AnnouncementDTO[];
 	loading: boolean;
+	/** 通知弹窗开关，顶栏按钮与 Layout 共享 */
+	modalOpen: boolean;
 }
 
 export const useNotificationStore = create<NotificationState>(() => ({
 	unreadCount: 0,
 	items: [],
 	loading: false,
+	modalOpen: false,
 }));
 
 /** 重连后必须重新拉一次：WS 不重放断线期间的事件。 */
@@ -75,7 +78,20 @@ async function markRead(uuid: string): Promise<void> {
 }
 
 function reset(): void {
-	useNotificationStore.setState({ unreadCount: 0, items: [], loading: false });
+	useNotificationStore.setState({
+		unreadCount: 0,
+		items: [],
+		loading: false,
+		modalOpen: false,
+	});
+}
+
+function openModal(): void {
+	useNotificationStore.setState({ modalOpen: true });
+}
+
+function closeModal(): void {
+	useNotificationStore.setState({ modalOpen: false });
 }
 
 export const notificationStore = {
@@ -87,6 +103,8 @@ export const notificationStore = {
 	handleIncoming,
 	markRead,
 	reset,
+	openModal,
+	closeModal,
 };
 
 // socket 事件自行驱动（socketStore 只负责连接，不反向调用本 store）：

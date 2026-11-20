@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect } from "react";
+import NotificationButton from "@/components/common/notificationButton";
 import { useRouteTitle } from "@/components/titleBar/useRouteTitle";
 import { initTheme, toggleDark, useThemeStore } from "@/stores/themeStore";
 import ConnectionIndicator from "./connectionIndicator";
@@ -28,6 +29,7 @@ export default function Header() {
 			<div className="flex items-center justify-center">{title}</div>
 			<div className="flex flex-1 items-center justify-end gap-1">
 				<ConnectionIndicator />
+				<NotificationButton />
 				<button
 					type="button"
 					className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"

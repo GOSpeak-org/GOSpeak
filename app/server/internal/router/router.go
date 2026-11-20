@@ -67,6 +67,7 @@ type Handlers struct {
 	Conversation *handler.ConversationHandler
 	Audit        *handler.AuditHandler
 	Announcement *handler.AnnouncementHandler
+	PushToken    *handler.PushTokenHandler
 }
 
 func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
@@ -118,6 +119,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 	userGroupRoutes.RegisterProtected(protected.Group("/user-group"), h.UserGroup)
 	authRoutes.RegisterProtected(protected.Group("/auth"), h.Auth)
 	signalRoutes.RegisterProtected(protected.Group("/signal"), h.Signal)
+	oauthRoutes.RegisterProtected(protected.Group("/oauth"), h.OAuth)
 	oauthRoutes.RegisterAdmin(protected.Group("/oauth/admin"), h.OAuth)
 	roleRoutes.RegisterProtected(protected.Group("/role"), h.Role)
 	muteRoutes.RegisterProtected(protected.Group("/mute"), h.Mute)
@@ -136,6 +138,9 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 	auditRoutes.RegisterProtected(protected.Group("/audit"), h.Audit)
 	if h.Announcement != nil {
 		announcementRoutes.RegisterProtected(protected.Group("/announcement"), h.Announcement)
+	}
+	if h.PushToken != nil {
+		userRoutes.RegisterPushToken(protected.Group("/user"), h.PushToken)
 	}
 	if h.Invite != nil {
 		inviteRoutes.Register(protected.Group(""), h.Invite)

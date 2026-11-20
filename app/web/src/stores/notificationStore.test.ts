@@ -42,6 +42,7 @@ describe("notificationStore", () => {
 			unreadCount: 0,
 			items: [],
 			loading: false,
+			modalOpen: false,
 		});
 	});
 
@@ -98,5 +99,12 @@ describe("notificationStore", () => {
 		});
 		await notificationStore.markRead("a");
 		expect(markAnnouncementRead).not.toHaveBeenCalled();
+	});
+
+	it("opens and closes the notification modal", () => {
+		notificationStore.openModal();
+		expect(useNotificationStore.getState().modalOpen).toBe(true);
+		notificationStore.closeModal();
+		expect(useNotificationStore.getState().modalOpen).toBe(false);
 	});
 });

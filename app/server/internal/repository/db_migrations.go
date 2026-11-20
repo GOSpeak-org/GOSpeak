@@ -264,16 +264,27 @@ func autoMigrate() error {
 		&model.DomainInviteRedemption{},
 		&model.Announcement{},
 		&model.AnnouncementRead{},
+		&model.PushToken{},
 	); err != nil {
 		return err
 	}
 	if err := dropLegacyGuestSchema(getDB()); err != nil {
 		return err
 	}
+	if err := dropLegacyConversationColumns(getDB()); err != nil {
+		return err
+	}
 	return migrateConversationQueryIndexes(getDB())
 }
 
-// dropLegacyGuestSchema 删除访客体系与旧邀请码列/表。
+// legacyColumnDrop 描述一次幂等删列：目标表、列名，以及引用该列的前置索引。
+type legacyColumnDrop struct {
+	table   string
+	column  string
+	indexes []string
+}
+
+// dropLegacyColumns 删除已从模型移除的列。
 //
 // 不使用 gorm.Migrator.DropColumn：SQLite 实现会 recreateTable 并按 Go 模型
 // schema 反查该列对应的字段，而这些字段已从模型删除，反查返回 nil 会 panic。
@@ -283,22 +294,7 @@ func autoMigrate() error {
 // "error in index ... after drop column"。
 //
 // 幂等：表/列/索引不存在时静默跳过。
-func dropLegacyGuestSchema(db *gorm.DB) error {
-	type columnDrop struct {
-		table   string
-		column  string
-		indexes []string
-	}
-	drops := []columnDrop{
-		{table: "domains", column: "allow_guest"},
-		{table: "domains", column: "guest_can_listen"},
-		{table: "domains", column: "guest_can_speak"},
-		{table: "domains", column: "guest_can_message"},
-		{table: "domains", column: "guest_limit"},
-		{table: "domains", column: "invite_code", indexes: []string{"idx_domains_invite_code"}},
-		{table: "users", column: "is_guest", indexes: []string{"idx_users_is_guest"}},
-	}
-
+func dropLegacyColumns(db *gorm.DB, drops []legacyColumnDrop) error {
 	for _, drop := range drops {
 		if !db.Migrator().HasTable(drop.table) {
 			continue
@@ -316,6 +312,22 @@ func dropLegacyGuestSchema(db *gorm.DB) error {
 			return fmt.Errorf("drop column %s.%s: %w", drop.table, drop.column, err)
 		}
 	}
+	return nil
+}
+
+// dropLegacyGuestSchema 删除访客体系与旧邀请码列/表。
+func dropLegacyGuestSchema(db *gorm.DB) error {
+	if err := dropLegacyColumns(db, []legacyColumnDrop{
+		{table: "domains", column: "allow_guest"},
+		{table: "domains", column: "guest_can_listen"},
+		{table: "domains", column: "guest_can_speak"},
+		{table: "domains", column: "guest_can_message"},
+		{table: "domains", column: "guest_limit"},
+		{table: "domains", column: "invite_code", indexes: []string{"idx_domains_invite_code"}},
+		{table: "users", column: "is_guest", indexes: []string{"idx_users_is_guest"}},
+	}); err != nil {
+		return err
+	}
 
 	if db.Migrator().HasTable("domain_guest_bans") {
 		if err := db.Exec("DROP TABLE IF EXISTS " + quoteIdent("domain_guest_bans")).Error; err != nil {
@@ -323,6 +335,13 @@ func dropLegacyGuestSchema(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+// dropLegacyConversationColumns 删除会话参与者上已从模型移除的列。
+func dropLegacyConversationColumns(db *gorm.DB) error {
+	return dropLegacyColumns(db, []legacyColumnDrop{
+		{table: "conversation_participants", column: "last_message_id"},
+	})
 }
 
 // quoteIdent 用双引号包裹标识符，避免保留字与大小写问题。

@@ -19,4 +19,15 @@ describe("Header / Web 顶栏品牌", () => {
 		expect(brand.getAttribute("src")).toBe("/favicon-256.png");
 		expect(brand.nextElementSibling?.textContent).toBe("GOSpeak");
 	});
+
+	it("通知按钮位于主题切换左侧", () => {
+		render(<Header />);
+
+		const notification = screen.getByRole("button", { name: "通知" });
+		const theme = screen.getByRole("button", { name: "切换到深色" });
+		expect(
+			theme.compareDocumentPosition(notification) &
+				Node.DOCUMENT_POSITION_PRECEDING,
+		).toBeTruthy();
+	});
 });
