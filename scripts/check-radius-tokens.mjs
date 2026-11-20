@@ -8,8 +8,9 @@ const SCAN_DIRS = ["app/web/src", "packages/components/src"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "_solid-legacy"]);
 const SCRIPT_EXTS = /\.(tsx?|jsx?)$/;
 const STYLE_EXTS = /\.css$/;
-const ARBITRARY_RADIUS = /\brounded-[trblsexy]*-\[[^\]]+\]/;
-const LITERAL_RADIUS = /border-radius:\s*-?(?:\d|\.\d)(?:px|rem|em)/;
+const ARBITRARY_RADIUS = /\brounded-(?:[trblsexy]+-)?\[[^\]]+\]/;
+const LITERAL_RADIUS =
+	/border-radius:\s*-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)\b/;
 
 function walk(dir, files = []) {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {

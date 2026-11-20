@@ -23,7 +23,7 @@ Node 原生脚本（仅用 `node:*` 内置模块，零第三方依赖）。多�
 - **发布类脚本必须配同名 `.test.mjs`**（`build-changelog` / `check-version` / `release-naming` / `release-notes` / `check-desktop-commands`），由 `node --test` 在 CI `test-scripts` job 跑；改脚本必须同步改测试。
 - `mobile-bind-proxyrules.mjs` 的单测覆盖 stderr 分类（缺 Xcode/Android SDK/NDK/JDK → exit 0）与 gobind 产物解析（`skipped function` → exit 1），由 CI `test-scripts` 的 `node --test scripts/*.test.mjs` 自动带上。
 - `check-mobile-bridge.mjs` 只校验仓库自有的 3 个自定义原生插件：push / keyboard / local-notification / deeplink / back-button / lifecycle 走官方 Capacitor 插件，本地没有原生实现可比对。要校验就必须先在 `app/mobile` 落地原生实现，**不要**为了让门禁显得更全面而扩白名单。其单测 `check-mobile-bridge.test.mjs` 在 CI `lint` 里随脚本一起跑。
-- `check-ui-tokens` / `check-radius-tokens` / `check-hook-deps` 没有单测，靠 CI 直接跑全仓扫描 —— 改它们等于改全仓门禁，先本地跑一遍再提交。
+- `check-radius-tokens` / `check-hook-deps` 没有单测，靠 CI 直接跑全仓扫描 —— 改它们等于改全仓门禁，先本地跑一遍再提交。`check-ui-tokens` 已有 `check-ui-tokens.test.mjs`（覆盖裸圆角/CSS 字面量圆角/斜杠行高字号/任意属性顺序图标尺寸与误报），改门禁时须同步补测试。
 - 版本单一事实源在 `.github/versions/*.yaml`，不要在脚本里硬编码版本号。
 - `check-version.mjs` 覆盖 server / desktop / mobile：mobile 以 `.github/versions/mobile.yaml` 为声明源，校验 `app/mobile/package.json`；release-naming 未定义 mobile tag，须显式传 `component=mobile`。
 - `check-hook-deps.mjs` 的基线代表已存在的技术债：**下调基线需要先修掉对应告警**，不要为了过门禁放宽。

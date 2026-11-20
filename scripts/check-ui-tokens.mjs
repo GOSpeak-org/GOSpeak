@@ -9,19 +9,22 @@ import { checkRadiusTokens } from "./check-radius-tokens.mjs";
 // 拦住 5 类回退：
 //   1. 任意圆角        rounded-[6px]                 → 用 rounded-sm/md/lg/xl/2xl
 //   2. ds-* 语义双轨   ds-text / ds-panel / ds-border → 用 text-foreground / bg-card / border-border
-//   3. 任意字号        text-[13px]                    → 用 text-2xs/xs/sm/base/lg/xl
+//   3. 任意字号        text-[13px/20px]               → 用 text-2xs/xs/sm/base/lg/xl
 //   4. 文字透明度档位  text-foreground/45             → 用 text-foreground / -muted-foreground / -faint-foreground
 //   5. 裸圆角与越界图标 rounded / size={15}           → 用 rounded-sm / size={12|14|16|20|24|32}
 const SCAN_DIRS = ["app/web/src", "packages/components/src"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "_solid-legacy"]);
 const SCRIPT_EXTS = /\.(tsx?|jsx?)$/;
+const STYLE_EXTS = /\.css$/;
+const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
 
 const DS_DUPLICATE =
 	/\bds-(?:text|body|muted|faint|border|bg|panel|userbar|subtle|hover|active|deep|blurple|divider|input-bg|msg-row|danger)\b/;
-const ARBITRARY_FONT_SIZE = /\btext-\[\d+(?:\.\d+)?(?:px|rem)\]/;
+const ARBITRARY_FONT_SIZE =
+	/\btext-\[\d+(?:\.\d+)?(?:px|rem)(?:\/\d+(?:\.\d+)?(?:px|rem|%)?)?\]/;
 const FOREGROUND_OPACITY = /\btext-foreground\/\d+/;
 const BARE_ROUNDED = /(?<![\w-])rounded(?![\w-])/;
-const ICON_SIZE = /<[A-Z][A-Za-z0-9]*\s+size=\{(\d+)\}/g;
+const ICON_SIZE = /<[A-Z][A-Za-z0-9]*(?:\s+[^>]*?)?\s+size=\{(\d+)\}/g;
 const ICON_SIZES = new Set([12, 14, 16, 20, 24, 32]);
 
 const RULES = [
@@ -51,7 +54,7 @@ function walk(dir, files = []) {
 			}
 			continue;
 		}
-		if (SCRIPT_EXTS.test(entry.name)) {
+		if (SCRIPT_EXTS.test(entry.name) || STYLE_EXTS.test(entry.name)) {
 			files.push(join(dir, entry.name));
 		}
 	}
@@ -70,7 +73,12 @@ export function checkUiTokens(rootDir) {
 		}
 
 		for (const file of files) {
-			const lines = readFileSync(file, "utf8").split("\n");
+			const isStyle = STYLE_EXTS.test(file);
+			const raw = readFileSync(file, "utf8");
+			const source = isStyle
+				? raw.replace(CSS_COMMENT, (comment) => comment.replace(/[^\n]/g, " "))
+				: raw;
+			const lines = source.split("\n");
 
 			lines.forEach((line, index) => {
 				for (const rule of RULES) {
@@ -84,19 +92,25 @@ export function checkUiTokens(rootDir) {
 						});
 					}
 				}
-
-				ICON_SIZE.lastIndex = 0;
-				for (const match of line.matchAll(ICON_SIZE)) {
-					const size = Number(match[1]);
-					if (ICON_SIZES.has(size)) continue;
-					violations.push({
-						file: relative(rootDir, file),
-						line: index + 1,
-						found: `size={${size}}`,
-						hint: `图标尺寸只有 ${[...ICON_SIZES].join(" / ")} 六档`,
-					});
-				}
 			});
+
+			if (isStyle) continue;
+
+			ICON_SIZE.lastIndex = 0;
+			for (const match of source.matchAll(ICON_SIZE)) {
+				const size = Number(match[1]);
+				if (ICON_SIZES.has(size)) continue;
+				const sizeIndex = match[0].lastIndexOf(`size={${size}}`);
+				const line = source
+					.slice(0, match.index + sizeIndex)
+					.split("\n").length;
+				violations.push({
+					file: relative(rootDir, file),
+					line,
+					found: `size={${size}}`,
+					hint: `图标尺寸只有 ${[...ICON_SIZES].join(" / ")} 六档`,
+				});
+			}
 		}
 	}
 

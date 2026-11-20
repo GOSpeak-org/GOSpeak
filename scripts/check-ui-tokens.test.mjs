@@ -1,0 +1,98 @@
+import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { after, test } from "node:test";
+import { checkRadiusTokens } from "./check-radius-tokens.mjs";
+import { checkUiTokens } from "./check-ui-tokens.mjs";
+
+const tempRoots = [];
+
+function fixture(files) {
+	const root = mkdtempSync(join(tmpdir(), "gospeak-ui-token-"));
+	tempRoots.push(root);
+	for (const [file, content] of Object.entries(files)) {
+		const fullPath = join(root, file);
+		mkdirSync(dirname(fullPath), { recursive: true });
+		writeFileSync(fullPath, content, "utf8");
+	}
+	return root;
+}
+
+after(() => {
+	for (const root of tempRoots) {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("裸 rounded-[4px] 命中圆角门禁", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": '<div className="rounded-[4px]" />\n',
+	});
+	const violations = checkRadiusTokens(root);
+	assert.equal(violations.length, 1);
+	assert.equal(violations[0].found, "rounded-[4px]");
+	assert.equal(violations[0].line, 1);
+});
+
+test("CSS 里无空格的 border-radius:0.5rem 命中圆角门禁", () => {
+	const root = fixture({
+		"app/web/src/probe.css": ".x { border-radius:0.5rem; }\n",
+	});
+	const violations = checkRadiusTokens(root);
+	assert.equal(violations.length, 1);
+	assert.equal(violations[0].found, "border-radius:0.5rem");
+});
+
+test("带行高的任意字号在 CSS 与 tsx 中均命中", () => {
+	const root = fixture({
+		"app/web/src/probe.css": ".x { @apply text-[13px/20px]; }\n",
+		"packages/components/src/probe.tsx":
+			'<div className="text-[0.875rem/1.25rem]" />\n',
+	});
+	const violations = checkUiTokens(root);
+	const found = violations.map((v) => `${v.file}:${v.found}`);
+	assert.equal(violations.length, 2);
+	assert.ok(found.includes("app/web/src/probe.css:text-[13px/20px]"));
+	assert.ok(
+		found.includes("packages/components/src/probe.tsx:text-[0.875rem/1.25rem]"),
+	);
+});
+
+test("图标 size 属性乱序与跨行均命中", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": [
+			'<Icon className="x" size={15} />',
+			"<ProviderIcon",
+			'\tname="p"',
+			"\tsize={22}",
+			"/>",
+		].join("\n"),
+	});
+	const violations = checkUiTokens(root);
+	assert.equal(violations.length, 2);
+	assert.deepEqual(
+		violations.map((v) => v.found),
+		["size={15}", "size={22}"],
+	);
+	assert.deepEqual(
+		violations.map((v) => v.line),
+		[1, 4],
+	);
+});
+
+test("合法 token 写法与 CSS 注释不误报", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": [
+			'<div className="rounded-lg rounded-t-md text-sm text-2xs" />',
+			"<Icon size={16} />",
+			'<Icon className="x" size={32} />',
+		].join("\n"),
+		"app/web/src/probe.css": [
+			"/* text-[13px] text-foreground/45 .ds-text */",
+			".x { border-radius: 0; border-radius: var(--radius-sm); }",
+		].join("\n"),
+	});
+	assert.deepEqual(checkRadiusTokens(root), []);
+	assert.deepEqual(checkUiTokens(root), []);
+});
