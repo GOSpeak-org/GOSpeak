@@ -90,13 +90,6 @@ export default function Sidebar({
 					>
 						<MessageSquare {...iconProps} />
 					</OptionSquare>
-					<OptionSquare
-						label="设置"
-						active={settingsActive}
-						onClick={() => onOpenSettings?.()}
-					>
-						<Settings {...iconProps} />
-					</OptionSquare>
 					{hasManageAccess() && (
 						<OptionSquare
 							label="管理"
@@ -110,6 +103,13 @@ export default function Sidebar({
 							<ShieldCheck {...iconProps} />
 						</OptionSquare>
 					)}
+					<OptionSquare
+						label="设置"
+						active={settingsActive}
+						onClick={() => onOpenSettings?.()}
+					>
+						<Settings {...iconProps} />
+					</OptionSquare>
 					<div className="bg-border my-1 h-px w-full shrink-0" />
 					{isLoading ? (
 						<LoadingRegion label="正在加载域">
