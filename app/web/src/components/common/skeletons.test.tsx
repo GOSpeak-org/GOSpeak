@@ -48,14 +48,18 @@ describe("Skeletons", () => {
 		);
 	});
 
-	it("SkeletonNotificationList 每行渲染标题 + 元信息共 2 块", () => {
+	it("SkeletonNotificationList 每行渲染未读圆点 + 标题 + 范围/时间共 4 块", () => {
 		const { container } = render(<SkeletonNotificationList rows={4} />);
-		expect(
-			container.querySelectorAll('[data-skeleton="notification-list"] > div'),
-		).toHaveLength(4);
-		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
-			8,
+		const rows = container.querySelectorAll(
+			'[data-skeleton="notification-list"] > div',
 		);
+		expect(rows).toHaveLength(4);
+		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
+			16,
+		);
+		const dot = rows[0]?.querySelector('[data-slot="skeleton"]');
+		expect(dot?.className).toContain("size-1.5");
+		expect(dot?.className).toContain("rounded-full");
 	});
 
 	it("SkeletonNotificationDetail 渲染标题 + 元信息 + 4 行正文", () => {

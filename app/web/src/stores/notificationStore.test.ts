@@ -20,6 +20,7 @@ vi.mock("@/stores/userStore", () => ({
 	useUserStore: { subscribe: vi.fn(() => () => {}) },
 }));
 
+import { toast } from "@gospeak/components";
 import { getUnreadCount, markAnnouncementRead } from "@/api/announcement";
 import { notificationStore, useNotificationStore } from "./notificationStore";
 
@@ -38,6 +39,8 @@ const dto = (uuid: string, isRead = false) => ({
 describe("notificationStore", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		vi.mocked(markAnnouncementRead).mockReset();
+		vi.mocked(markAnnouncementRead).mockImplementation(async () => {});
 		useNotificationStore.setState({
 			unreadCount: 0,
 			items: [],
@@ -106,5 +109,102 @@ describe("notificationStore", () => {
 		expect(useNotificationStore.getState().modalOpen).toBe(true);
 		notificationStore.closeModal();
 		expect(useNotificationStore.getState().modalOpen).toBe(false);
+	});
+
+	describe("markAllRead", () => {
+		it("marks all unread items read and zeroes the count on full success", async () => {
+			useNotificationStore.setState({
+				unreadCount: 2,
+				items: [dto("a"), dto("b", true), dto("c")],
+				loading: false,
+			});
+
+			await notificationStore.markAllRead();
+
+			const state = useNotificationStore.getState();
+			expect(state.items.every((item) => item.is_read)).toBe(true);
+			expect(state.unreadCount).toBe(0);
+			expect(markAnnouncementRead).toHaveBeenCalledTimes(2);
+			expect(markAnnouncementRead).toHaveBeenCalledWith("a");
+			expect(markAnnouncementRead).toHaveBeenCalledWith("c");
+			expect(markAnnouncementRead).not.toHaveBeenCalledWith("b");
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+
+		it("restores failed items and recomputes the count on partial failure", async () => {
+			vi.mocked(markAnnouncementRead).mockImplementation(async (uuid) => {
+				if (uuid === "b") throw new Error("boom");
+			});
+			useNotificationStore.setState({
+				unreadCount: 3,
+				items: [dto("a"), dto("b"), dto("c")],
+				loading: false,
+			});
+
+			await notificationStore.markAllRead();
+
+			const state = useNotificationStore.getState();
+			expect(state.items.find((item) => item.uuid === "a")?.is_read).toBe(true);
+			expect(state.items.find((item) => item.uuid === "b")?.is_read).toBe(
+				false,
+			);
+			expect(state.items.find((item) => item.uuid === "c")?.is_read).toBe(true);
+			expect(state.unreadCount).toBe(1);
+			expect(toast.error).toHaveBeenCalledTimes(1);
+		});
+
+		it("is a no-op when nothing is unread", async () => {
+			useNotificationStore.setState({
+				unreadCount: 0,
+				items: [dto("a", true), dto("b", true)],
+				loading: false,
+			});
+
+			await notificationStore.markAllRead();
+
+			expect(markAnnouncementRead).not.toHaveBeenCalled();
+			expect(useNotificationStore.getState().unreadCount).toBe(0);
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+	});
+
+	it("keeps the unread count correct when marking several items concurrently", async () => {
+		useNotificationStore.setState({
+			unreadCount: 3,
+			items: [dto("a"), dto("b"), dto("c")],
+			loading: false,
+		});
+
+		await Promise.all([
+			notificationStore.markRead("a"),
+			notificationStore.markRead("b"),
+			notificationStore.markRead("c"),
+		]);
+
+		const state = useNotificationStore.getState();
+		expect(state.unreadCount).toBe(0);
+		expect(state.items.every((item) => item.is_read)).toBe(true);
+	});
+
+	it("only reverts the failed item when concurrent marks interleave", async () => {
+		vi.mocked(markAnnouncementRead).mockImplementation(async (uuid) => {
+			if (uuid === "a") throw new Error("boom");
+		});
+		useNotificationStore.setState({
+			unreadCount: 2,
+			items: [dto("a"), dto("b")],
+			loading: false,
+		});
+
+		await Promise.all([
+			notificationStore.markRead("a"),
+			notificationStore.markRead("b"),
+		]);
+
+		const state = useNotificationStore.getState();
+		expect(state.unreadCount).toBe(1);
+		expect(state.items.find((item) => item.uuid === "a")?.is_read).toBe(false);
+		expect(state.items.find((item) => item.uuid === "b")?.is_read).toBe(true);
+		expect(toast.error).toHaveBeenCalledTimes(1);
 	});
 });

@@ -55,25 +55,69 @@ function handleIncoming(dto: AnnouncementDTO): void {
 }
 
 async function markRead(uuid: string): Promise<void> {
-	const before = useNotificationStore.getState();
-	const target = before.items.find((item) => item.uuid === uuid);
+	const target = useNotificationStore
+		.getState()
+		.items.find((item) => item.uuid === uuid);
 	if (!target || target.is_read) return;
 
-	useNotificationStore.setState({
-		unreadCount: Math.max(0, before.unreadCount - 1),
-		items: before.items.map((item) =>
-			item.uuid === uuid ? { ...item, is_read: true } : item,
-		),
+	useNotificationStore.setState((state) => {
+		const current = state.items.find((item) => item.uuid === uuid);
+		if (!current || current.is_read) return state;
+		return {
+			unreadCount: Math.max(0, state.unreadCount - 1),
+			items: state.items.map((item) =>
+				item.uuid === uuid ? { ...item, is_read: true } : item,
+			),
+		};
 	});
 
 	try {
 		await markAnnouncementRead(uuid);
 	} catch {
-		useNotificationStore.setState({
-			unreadCount: before.unreadCount,
-			items: before.items,
+		useNotificationStore.setState((state) => {
+			const current = state.items.find((item) => item.uuid === uuid);
+			if (!current?.is_read) return state;
+			return {
+				unreadCount: state.unreadCount + 1,
+				items: state.items.map((item) =>
+					item.uuid === uuid ? { ...item, is_read: false } : item,
+				),
+			};
 		});
 		toast.error("标记已读失败");
+	}
+}
+
+async function markAllRead(): Promise<void> {
+	const unread = useNotificationStore
+		.getState()
+		.items.filter((item) => !item.is_read);
+	if (unread.length === 0) return;
+
+	const results = await Promise.allSettled(
+		unread.map((item) => markAnnouncementRead(item.uuid)),
+	);
+	const failed = new Set(
+		unread
+			.filter((_, index) => results[index].status === "rejected")
+			.map((item) => item.uuid),
+	);
+	const attempted = new Set(unread.map((item) => item.uuid));
+
+	useNotificationStore.setState((state) => {
+		const items = state.items.map((item) =>
+			attempted.has(item.uuid)
+				? { ...item, is_read: !failed.has(item.uuid) }
+				: item,
+		);
+		return {
+			items,
+			unreadCount: items.filter((item) => !item.is_read).length,
+		};
+	});
+
+	if (failed.size > 0) {
+		toast.error("部分通知标记已读失败");
 	}
 }
 
@@ -102,6 +146,7 @@ export const notificationStore = {
 	loadList,
 	handleIncoming,
 	markRead,
+	markAllRead,
 	reset,
 	openModal,
 	closeModal,

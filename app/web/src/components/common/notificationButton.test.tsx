@@ -37,4 +37,20 @@ describe("NotificationButton", () => {
 		expect(document.querySelector('[data-slot="badge"]')).toBeNull();
 		expect(screen.getByRole("button", { name: "通知" })).toBeTruthy();
 	});
+
+	it("未读数超过 99 时徽章显示 99+", () => {
+		state.unreadCount = 150;
+		render(<NotificationButton />);
+
+		expect(screen.getByText("99+")).toBeTruthy();
+	});
+
+	it("入口按钮提供 44px 触摸目标", () => {
+		state.unreadCount = 0;
+		render(<NotificationButton />);
+
+		const button = screen.getByRole("button", { name: "通知" });
+		expect(button.className).toContain("after:-inset-y-2.5");
+		expect(button.className).not.toContain("size-11");
+	});
 });

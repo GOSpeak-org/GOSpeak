@@ -12,7 +12,7 @@ export default function NotificationButton() {
 	return (
 		<button
 			type="button"
-			className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"
+			className="hover:bg-muted relative flex shrink-0 cursor-pointer items-center justify-center rounded-sm px-2 py-1 text-xs transition-colors after:absolute after:-inset-y-2.5 after:inset-x-0 after:content-''"
 			onClick={() => notificationStore.openModal()}
 			title="通知"
 			aria-label="通知"
