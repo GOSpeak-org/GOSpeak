@@ -37,20 +37,66 @@ export function showNotification(
 		};
 	}
 
-	// Browser fallback via the Web Notifications API.
-	const n = new Notification(options.title, {
-		body: options.body,
-		icon: options.icon,
-	});
+	// Browser fallback via the Web Notifications API. Always degrade to an
+	// inert handle instead of throwing when the API or permission is missing.
 	const handlers = new Set<() => void>();
-	n.onclick = () => {
-		for (const handler of handlers) handler();
-	};
-	return {
+	const handle: NotificationHandle = {
 		onClick(handler) {
 			handlers.add(handler);
 		},
 	};
+
+	try {
+		if (typeof Notification === "undefined") {
+			console.warn("[gospeak-desktop] Notifications API unavailable; dropped.");
+			return handle;
+		}
+
+		const display = () => {
+			try {
+				const n = new Notification(options.title, {
+					body: options.body,
+					icon: options.icon,
+				});
+				n.onclick = () => {
+					for (const handler of handlers) handler();
+				};
+			} catch {
+				console.warn(
+					"[gospeak-desktop] Failed to display notification; dropped.",
+				);
+			}
+		};
+
+		if (Notification.permission === "granted") {
+			display();
+		} else if (
+			Notification.permission === "default" &&
+			typeof Notification.requestPermission === "function"
+		) {
+			// requestPermission is async, so display once the user answers;
+			// the handle is handed back synchronously with handlers intact.
+			void Promise.resolve(Notification.requestPermission())
+				.then((permission) => {
+					if (permission === "granted") {
+						display();
+					} else {
+						console.warn(
+							"[gospeak-desktop] Notification permission not granted; dropped.",
+						);
+					}
+				})
+				.catch(() => {});
+		} else {
+			console.warn(
+				"[gospeak-desktop] Notification permission denied; dropped.",
+			);
+		}
+	} catch {
+		console.warn("[gospeak-desktop] Notification fallback failed; dropped.");
+	}
+
+	return handle;
 }
 
 /** Request/check notification permission (mirrors the browser API). */

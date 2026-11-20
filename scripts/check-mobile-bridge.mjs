@@ -1,6 +1,9 @@
 #!/usr/bin/env node
-// 校验移动桥接契约：TS 侧 pluginMethod("Plugin", "method") 必须与原生侧
-// 插件名 + 方法名逐字一致（iOS jsName/CAPPluginMethod、Android @CapacitorPlugin/@PluginMethod）。
+// 校验移动端**自定义原生插件**的桥接契约：TS 侧 pluginMethod("Plugin", "method") 必须与
+// 原生侧插件名 + 方法名逐字一致（iOS jsName/CAPPluginMethod、Android @CapacitorPlugin/@PluginMethod）。
+// 范围仅限本仓库自己写的原生实现（见下方 CUSTOM_PLUGINS：AudioSession / MediaControl / ServerConfig）；
+// push / keyboard / local-notification / deeplink / back-button / lifecycle 走官方 Capacitor 插件，
+// 本地没有原生实现可比对，因此不在校验范围内——不要为「更全面」而扩白名单。
 // 拼错时运行期只会得到 "not implemented"，多数能力会静默吞掉，因此在 CI 拦截。
 // iOS 与 Android 分开比对：任一平台缺失即失败；iOS 只看真正参与编译的文件。
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -345,6 +348,8 @@ function collectAndroid(root) {
 	};
 }
 
+// 仓库自有的自定义原生插件：只有这三个在 app/mobile/{ios,android} 里有对应的
+// Swift / ObjC / Java 实现，其余移动能力复用官方 Capacitor 插件，本地无可比对的原生代码。
 const CUSTOM_PLUGINS = new Set([
 	"AudioSession",
 	"MediaControl",
@@ -448,5 +453,5 @@ if (
 		}
 	}
 	if (failed) process.exitCode = 1;
-	else console.log("mobile bridge methods are in sync");
+	else console.log("custom mobile plugin bridge methods are in sync");
 }

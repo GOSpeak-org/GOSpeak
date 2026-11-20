@@ -76,10 +76,30 @@ public class AudioSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         let kind = call.getString("kind") ?? "speaker"
         do {
             let session = AVAudioSession.sharedInstance()
+            let available = session.availableInputs ?? []
             if kind == "speaker" {
                 try session.overrideOutputAudioPort(.speaker)
             } else if kind == "earpiece" {
                 try session.overrideOutputAudioPort(.none)
+            } else if kind == "bluetooth" {
+                guard available.contains(where: {
+                    $0.portType == .bluetoothHFP || $0.portType == .bluetoothLE
+                }) else {
+                    call.reject("bluetooth audio route is unavailable")
+                    return
+                }
+                try session.overrideOutputAudioPort(.none)
+            } else if kind == "headset" {
+                guard available.contains(where: {
+                    $0.portType == .headsetMic || $0.portType == .headphones
+                }) else {
+                    call.reject("wired headset audio route is unavailable")
+                    return
+                }
+                try session.overrideOutputAudioPort(.none)
+            } else {
+                call.reject("unsupported audio route: \(kind)")
+                return
             }
             call.resolve()
         } catch {
