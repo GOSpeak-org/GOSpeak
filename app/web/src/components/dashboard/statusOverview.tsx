@@ -18,28 +18,24 @@ export default function StatusOverview() {
 			value: connected ? "已连接" : "已断开",
 			hint: connected ? "语音服务正常" : "正在重连…",
 			icon: Activity,
-			tone: connected ? "text-success" : "text-destructive",
 		},
 		{
 			label: "我的域",
 			value: String(myDomainUUIDs.length),
 			hint: "已加入的语音空间",
 			icon: Headphones,
-			tone: "text-primary",
 		},
 		{
 			label: "在线成员",
 			value: String(members.length),
 			hint: "当前域的成员",
 			icon: Users,
-			tone: "text-primary",
 		},
 		{
 			label: "语音频道",
 			value: String(currentRooms.length),
 			hint: "当前域的频道",
 			icon: Radio,
-			tone: "text-primary",
 		},
 	];
 
@@ -53,9 +49,9 @@ export default function StatusOverview() {
 				{stats.map((stat) => (
 					<div
 						key={stat.label}
-						className="border-border/80 bg-muted/30 flex items-center gap-3 rounded-lg border px-3 py-3"
+						className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0"
 					>
-						<stat.icon size={20} className={`${stat.tone} shrink-0`} />
+						<stat.icon size={20} className="text-muted-foreground shrink-0" />
 						<div className="min-w-0 flex-1">
 							<div className="text-faint-foreground text-2xs">{stat.label}</div>
 							<div className="mt-0.5 truncate text-sm font-semibold">

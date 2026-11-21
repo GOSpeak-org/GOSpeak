@@ -67,10 +67,6 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 	return (
 		<>
 			<section className="bg-primary relative overflow-hidden rounded-panel px-6 py-5 md:px-8">
-				<div
-					className="bg-primary-foreground/10 pointer-events-none absolute -top-16 -right-12 size-64 rounded-full"
-					aria-hidden="true"
-				/>
 				<div className="relative">
 					<h1 className="text-primary-foreground text-xl font-bold">
 						找到你的下一个语音房
