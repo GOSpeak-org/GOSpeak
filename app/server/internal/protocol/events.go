@@ -100,6 +100,8 @@ var payloadStructs = map[string]bool{
 	"RoomActiveSpeakersPayload": true,
 	"TypingPayload":             true,
 	"RoomListResultPayload":     true,
+	"RoomListLayoutPayload":     true,
+	"RoomListGroupPayload":      true,
 	"RoomKickedPayload":         true,
 	"RoomLeftPayload":           true,
 	"MemberMutedStatePayload":   true,

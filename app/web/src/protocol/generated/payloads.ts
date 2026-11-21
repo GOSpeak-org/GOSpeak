@@ -140,6 +140,8 @@ export interface RoomInfo {
 	count: number;
 	created_at: number;
 	created_by?: string;
+	group_uuid?: string;
+	sort_order: number;
 }
 
 export interface RoomKickRequest {
@@ -160,6 +162,17 @@ export interface RoomLeftPayload {
 	domain_uuid?: string;
 }
 
+export interface RoomListGroupPayload {
+	uuid: string;
+	name: string;
+	sort_order: number;
+}
+
+export interface RoomListLayoutPayload {
+	groups: RoomListGroupPayload[];
+	ungrouped_position: number;
+}
+
 export interface RoomListRequest {
 	domain_uuid?: string;
 }
@@ -167,6 +180,7 @@ export interface RoomListRequest {
 export interface RoomListResultPayload {
 	rooms: RoomInfo[];
 	count: number;
+	layout: RoomListLayoutPayload;
 }
 
 export interface RoomRequest {

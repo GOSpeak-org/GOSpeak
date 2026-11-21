@@ -37,6 +37,14 @@ func (r *RoomLayoutRepository) GetLayout(domainUUID string) (model.DomainRoomLay
 	return layout, err
 }
 
+func (r *RoomLayoutRepository) Groups(domainUUID string) ([]model.DomainRoomGroup, error) {
+	return r.ListGroups(domainUUID)
+}
+
+func (r *RoomLayoutRepository) Layout(domainUUID string) (model.DomainRoomLayout, error) {
+	return r.GetLayout(domainUUID)
+}
+
 func (r *RoomLayoutRepository) DomainRooms(domainUUID string) ([]model.Room, error) {
 	var rooms []model.Room
 	err := r.db.Where("domain_uuid = ?", domainUUID).Order("id ASC").Find(&rooms).Error

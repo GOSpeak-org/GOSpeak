@@ -14,10 +14,11 @@ type RoomLayoutHandler struct {
 	svc       *service.RoomLayoutService
 	permSvc   *service.PermissionService
 	domainSvc *service.DomainService
+	onSaved   func(domainUUID string)
 }
 
-func NewRoomLayoutHandler(svc *service.RoomLayoutService, permSvc *service.PermissionService, domainSvc *service.DomainService) *RoomLayoutHandler {
-	return &RoomLayoutHandler{svc: svc, permSvc: permSvc, domainSvc: domainSvc}
+func NewRoomLayoutHandler(svc *service.RoomLayoutService, permSvc *service.PermissionService, domainSvc *service.DomainService, onSaved func(string)) *RoomLayoutHandler {
+	return &RoomLayoutHandler{svc: svc, permSvc: permSvc, domainSvc: domainSvc, onSaved: onSaved}
 }
 
 type roomLayoutGetReq struct {
@@ -69,6 +70,9 @@ func (h *RoomLayoutHandler) Save(c *gin.Context) {
 	if appErr != nil {
 		pkg.HandleError(c, appErr)
 		return
+	}
+	if h.onSaved != nil {
+		h.onSaved(req.DomainUUID)
 	}
 	pkg.Success(c, view)
 }

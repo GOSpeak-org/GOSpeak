@@ -19,7 +19,7 @@ func TestRoomLayoutHandler_Get(t *testing.T) {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	db.AutoMigrate(&model.Room{}, &model.DomainRoomGroup{}, &model.DomainRoomLayout{})
 	db.Create(&model.Room{Name: "a", DomainUUID: "domain-a", UUID: "room-a"})
-	h := NewRoomLayoutHandler(service.NewRoomLayoutService(repository.NewRoomLayoutRepository(db)), nil, nil)
+	h := NewRoomLayoutHandler(service.NewRoomLayoutService(repository.NewRoomLayoutRepository(db)), nil, nil, nil)
 
 	r := gin.New()
 	r.POST("/get", h.Get)

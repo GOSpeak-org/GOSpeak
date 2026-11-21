@@ -215,6 +215,7 @@ func StartGin(env EnvEnum) error {
 		DomainChecker:           domainSvc.IsMember,
 		DomainPermissionChecker: domainSvc.HasDomainPermission,
 		MembershipStore:         store,
+		LayoutStore:             roomLayoutRepo,
 		InstanceID:              instanceID,
 		StateNotifier:           eventBus,
 		DisconnectGrace:         signal.DefaultDisconnectGracePeriod,
@@ -352,7 +353,7 @@ func StartGin(env EnvEnum) error {
 		signalHub.KickUserFromDomain, signalHub.KickUserFromDomain,
 		func(serverUUID string) { signalHub.OnDomainDelete(serverUUID) })
 	domainLayoutH := handler.NewDomainLayoutHandler(domainLayoutSvc)
-	roomLayoutH := handler.NewRoomLayoutHandler(service.NewRoomLayoutService(roomLayoutRepo), permSvc, domainSvc)
+	roomLayoutH := handler.NewRoomLayoutHandler(service.NewRoomLayoutService(roomLayoutRepo), permSvc, domainSvc, signalHub.BroadcastRoomList)
 	auditH := handler.NewAuditHandler(auditSvc)
 	announcementSvc := service.NewAnnouncementService(announcementRepo, domainRepo)
 	announcementSvc.SetEventBus(eventBus)

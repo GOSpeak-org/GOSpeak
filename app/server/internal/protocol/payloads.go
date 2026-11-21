@@ -35,6 +35,8 @@ type RoomInfo struct {
 	Count         int          `json:"count"`
 	CreatedAt     int64        `json:"created_at"`
 	CreatedBy     string       `json:"created_by,omitempty"`
+	GroupUUID     string       `json:"group_uuid,omitempty"`
+	SortOrder     int          `json:"sort_order"`
 }
 
 // MuteInfo is the DTO broadcast to clients for mute/unmute events.
@@ -103,9 +105,21 @@ type TypingPayload struct {
 	Typing     bool   `json:"typing"`
 }
 
+type RoomListGroupPayload struct {
+	UUID      string `json:"uuid"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sort_order"`
+}
+
+type RoomListLayoutPayload struct {
+	Groups            []RoomListGroupPayload `json:"groups"`
+	UngroupedPosition int                    `json:"ungrouped_position"`
+}
+
 type RoomListResultPayload struct {
-	Rooms []RoomInfo `json:"rooms"`
-	Count int        `json:"count"`
+	Rooms  []RoomInfo            `json:"rooms"`
+	Count  int                   `json:"count"`
+	Layout RoomListLayoutPayload `json:"layout"`
 }
 
 type RoomKickedPayload struct {
