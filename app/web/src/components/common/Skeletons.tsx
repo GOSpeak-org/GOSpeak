@@ -181,7 +181,7 @@ export function SkeletonCardGrid({
 			className={`grid gap-3 ${gridCols} ${className ?? ""}`}
 		>
 			{Array.from({ length: cards }).map((_, i) => (
-				<div key={i} className="border-border/60 rounded-lg border p-4">
+				<div key={i} className="border-border rounded-lg border p-4">
 					<div className="flex items-center gap-3">
 						<Skeleton className="size-10 shrink-0 rounded-lg" />
 						<div className="flex flex-1 flex-col gap-2">

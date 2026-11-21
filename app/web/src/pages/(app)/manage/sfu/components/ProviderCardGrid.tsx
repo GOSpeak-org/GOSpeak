@@ -38,10 +38,10 @@ export default function ProviderCardGrid({
 						type="button"
 						className={`group relative flex min-h-[5.25rem] cursor-pointer flex-col justify-between gap-3 overflow-hidden rounded-lg border px-4 py-3.5 text-left transition-all duration-150 ${
 							isSelected && !disabled
-								? "border-foreground/25 bg-card shadow-sm ring-foreground/10 ring-1"
+								? "border-foreground/25 bg-selected shadow-sm ring-2 ring-primary"
 								: !isSelected && !disabled
-									? "border-border/80 bg-card hover:border-foreground/15 hover:bg-muted/40 hover:shadow-sm"
-									: "border-border bg-muted text-faint-foreground cursor-not-allowed"
+									? "border-border bg-card hover:border-foreground/15 hover:bg-muted/40 hover:shadow-sm"
+									: "border-border bg-card text-muted-foreground cursor-not-allowed disabled:opacity-50"
 						}`}
 						disabled={disabled}
 						onClick={() => onSelect(option.value)}

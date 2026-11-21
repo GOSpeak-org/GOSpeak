@@ -267,7 +267,7 @@ function SFUPage() {
 
 			{!isLoading && !error && (
 				<>
-					<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">提供商选择</div>
@@ -304,7 +304,7 @@ function SFUPage() {
 						/>
 					</section>
 
-					<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-3 flex flex-wrap items-start justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">
@@ -334,7 +334,7 @@ function SFUPage() {
 							{enforcementProfile().details.map((item) => (
 								<div
 									key={item.label}
-									className="border-border/70 bg-muted/20 rounded-lg border px-3 py-2.5"
+									className="border-border bg-muted/40 rounded-lg border px-3 py-2.5"
 								>
 									<div className="mb-1 flex items-center justify-between gap-2">
 										<span className="text-foreground text-xs font-medium">
@@ -356,7 +356,7 @@ function SFUPage() {
 							))}
 						</div>
 
-						<div className="border-border/70 bg-muted/20 text-muted-foreground mt-3 rounded-lg border px-3 py-2 text-2xs">
+						<div className="border-border bg-muted/40 text-muted-foreground mt-3 rounded-lg border px-3 py-2 text-2xs">
 							统一策略：业务/信令 soft 始终执行；媒体强制成功时事件标
 							<code className="mx-1">enforcement=hard|degraded</code>
 							，否则为
@@ -366,7 +366,7 @@ function SFUPage() {
 					</section>
 
 					<section className="space-y-3">
-						<div className="border-border/80 bg-card text-muted-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm shadow-sm">
+						<div className="border-border bg-card text-muted-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm shadow-sm">
 							<Info
 								size={16}
 								className="text-faint-foreground mt-0.5 shrink-0"
@@ -381,7 +381,7 @@ function SFUPage() {
 						</div>
 
 						{showSwitch && (
-							<div className="border-border/80 bg-muted/30 text-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm">
+							<div className="border-border bg-muted/40 text-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm">
 								<Info
 									size={16}
 									className="text-faint-foreground mt-0.5 shrink-0"
@@ -397,7 +397,7 @@ function SFUPage() {
 						)}
 					</section>
 
-					<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">
@@ -436,7 +436,7 @@ function SFUPage() {
 						</div>
 
 						{selectedProvider && (
-							<div className="border-border/70 bg-muted/20 rounded-lg border p-3 md:p-4">
+							<div className="border-border bg-muted/40 rounded-lg border p-3 md:p-4">
 								<ProviderConfigForm
 									provider={selectedProvider}
 									form={form()}

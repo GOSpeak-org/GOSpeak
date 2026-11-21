@@ -16,7 +16,7 @@ export default function ProviderPresetPicker({
 	onCustom,
 }: ProviderPresetPickerProps) {
 	return (
-		<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+		<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 			<div className="flex flex-col gap-4">
 				<div className="flex items-center gap-2">
 					<button

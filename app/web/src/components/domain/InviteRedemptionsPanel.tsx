@@ -72,13 +72,13 @@ export default function InviteRedemptionsPanel({
 				</LoadingRegion>
 			)}
 			{!loading && items.length === 0 && (
-				<p className="text-muted-foreground text-xs">还没有使用记录</p>
+				<p className="text-faint-foreground text-xs">还没有使用记录</p>
 			)}
 			<ul className="flex-1 overflow-auto">
 				{items.map((item) => (
 					<li
 						key={item.id}
-						className="border-border/60 border-b py-2 text-xs last:border-0"
+						className="border-border border-b py-2 text-xs last:border-0"
 					>
 						<div className="flex items-center justify-between">
 							<span>
@@ -86,7 +86,7 @@ export default function InviteRedemptionsPanel({
 									? "成功"
 									: `失败 · ${FAIL_LABEL[item.fail_reason ?? ""] ?? item.fail_reason}`}
 							</span>
-							<span className="text-faint-foreground">
+							<span className="text-muted-foreground">
 								{new Date(item.created_at).toLocaleString("zh-CN")}
 							</span>
 						</div>

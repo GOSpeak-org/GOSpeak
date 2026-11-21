@@ -373,7 +373,7 @@ function UsersPage() {
 							<SkeletonTableRows rows={8} cols={6} />
 						</LoadingRegion>
 					) : users.length === 0 ? (
-						<div className="border-border/60 bg-muted/20 text-muted-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
+						<div className="border-border bg-muted/40 text-faint-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
 							暂无用户
 						</div>
 					) : (
@@ -398,7 +398,7 @@ function UsersPage() {
 									return (
 										<tr
 											key={user.id}
-											className={`${manageTableRowClass} ${muted ? "bg-muted/25" : ""}`}
+											className={`${manageTableRowClass} ${muted ? "bg-muted/40" : ""}`}
 										>
 											<td className="text-muted-foreground px-3 py-2 font-mono text-xs">
 												{user.id}
@@ -503,7 +503,7 @@ function UsersPage() {
 						</table>
 					)}
 				</div>
-				<div className="border-border/70 flex items-center justify-between gap-3 border-t px-4 py-3">
+				<div className="border-border flex items-center justify-between gap-3 border-t px-4 py-3">
 					<span className="text-faint-foreground text-xs">
 						共 {userTotal} 人
 					</span>
@@ -571,7 +571,7 @@ function UsersPage() {
 										))}
 									</SelectContent>
 								</Select>
-								<div className="border-border/60 bg-muted/25 text-muted-foreground mt-3 rounded-lg border px-3 py-2 text-xs">
+								<div className="border-border bg-muted/40 text-muted-foreground mt-3 rounded-lg border px-3 py-2 text-xs">
 									{muteUserId
 										? `将禁言：${userMap.get(muteUserId) ?? `#${muteUserId}`}`
 										: "请先选择要禁言的用户"}
@@ -621,7 +621,7 @@ function UsersPage() {
 								<SkeletonTableRows rows={4} cols={4} />
 							</LoadingRegion>
 						) : mutes.length === 0 ? (
-							<div className="border-border/60 bg-muted/20 text-muted-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
+							<div className="border-border bg-muted/40 text-faint-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
 								暂无活跃禁言
 							</div>
 						) : (

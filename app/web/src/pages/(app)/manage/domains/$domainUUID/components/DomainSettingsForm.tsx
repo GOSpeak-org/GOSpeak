@@ -70,23 +70,23 @@ export function DomainSettingsForm(props: DomainSettingsFormProps) {
 						name={props.domain?.name ?? ""}
 						iconUrl={props.domain?.icon_url ?? ""}
 					/>
-					<span className="text-faint-foreground text-xs">域头像</span>
+					<span className="text-muted-foreground text-xs">域头像</span>
 				</div>
 				<dl className="grid gap-2">
 					<div>
-						<dt className="text-faint-foreground text-xs">域名称</dt>
+						<dt className="text-muted-foreground text-xs">域名称</dt>
 						<dd>{props.domain?.name}</dd>
 					</div>
 					<div>
-						<dt className="text-faint-foreground text-xs">描述</dt>
+						<dt className="text-muted-foreground text-xs">描述</dt>
 						<dd>{props.domain?.description || "-"}</dd>
 					</div>
 					<div>
-						<dt className="text-faint-foreground text-xs">公开状态</dt>
+						<dt className="text-muted-foreground text-xs">公开状态</dt>
 						<dd>{props.domain?.is_public ? "公开" : "私有"}</dd>
 					</div>
 					<div>
-						<dt className="text-faint-foreground text-xs">加入审核</dt>
+						<dt className="text-muted-foreground text-xs">加入审核</dt>
 						<dd>
 							{props.domain?.require_join_approval ? "需审核" : "无需审核"}
 						</dd>
@@ -125,7 +125,7 @@ export function DomainSettingsForm(props: DomainSettingsFormProps) {
 							</Button>
 						)}
 					</div>
-					<span className="text-faint-foreground text-xs">
+					<span className="text-muted-foreground text-xs">
 						{props.iconUploading
 							? `正在上传 ${props.iconProgress}%`
 							: "支持 PNG / JPG / WebP，按 1:1 展示"}

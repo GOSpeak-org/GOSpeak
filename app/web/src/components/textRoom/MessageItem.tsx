@@ -137,7 +137,7 @@ function MessageItem({
 				<button
 					type="button"
 					aria-label="消息操作"
-					className="text-faint-foreground active:bg-muted absolute top-1 right-1 z-10 flex size-8 cursor-pointer items-center justify-center rounded-sm"
+					className="text-muted-foreground active:bg-muted absolute top-1 right-1 z-10 flex size-8 cursor-pointer items-center justify-center rounded-sm"
 					onClick={() => setActionsOpen((v) => !v)}
 				>
 					<MoreHorizontal size={16} />
@@ -156,7 +156,7 @@ function MessageItem({
 				<ReactionBar roomUuid={msg.room_uuid} messageUuid={msg.uuid} />
 				<button
 					type="button"
-					className="ds-icon-btn size-7"
+					className="ds-icon-btn text-muted-foreground size-7"
 					onClick={() => onReply?.(msg.uuid)}
 					title="回复"
 					aria-label="回复"
@@ -165,7 +165,7 @@ function MessageItem({
 				</button>
 				<button
 					type="button"
-					className="ds-icon-btn size-7"
+					className="ds-icon-btn text-muted-foreground size-7"
 					onClick={() => onOpenThread?.(msg.uuid)}
 					title="打开线程"
 					aria-label="打开线程"
@@ -175,7 +175,7 @@ function MessageItem({
 				{isOwn && (
 					<button
 						type="button"
-						className="ds-icon-btn hover:text-destructive size-7"
+						className="ds-icon-btn text-muted-foreground hover:text-destructive size-7"
 						onClick={() => setConfirmDelete(true)}
 						title="删除消息"
 						aria-label="删除消息"

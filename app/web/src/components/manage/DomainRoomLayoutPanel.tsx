@@ -60,7 +60,7 @@ function SortableHandle({ id }: { id: string }) {
 			}}
 			className={clsx(
 				"text-muted-foreground hover:text-foreground cursor-grab px-1",
-				isDragging && "opacity-30",
+				isDragging && "bg-selected",
 			)}
 			{...attributes}
 			{...listeners}
@@ -90,8 +90,8 @@ function SortableRoom({
 				transition,
 			}}
 			className={clsx(
-				"border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs",
-				isDragging && "opacity-30",
+				"border-border flex items-center gap-2 rounded-sm border px-2 py-1 text-xs",
+				isDragging && "bg-selected",
 			)}
 		>
 			{editable && <SortableHandle id={`room:${room.uuid}`} />}
@@ -262,7 +262,7 @@ export default function DomainRoomLayoutPanel({
 							{block.uuid === UNGROUPED && index > 0 && (
 								<div className="bg-border my-1 h-px w-full shrink-0" />
 							)}
-							<div className="border-border/70 rounded-lg border p-2">
+							<div className="border-border rounded-lg border p-2">
 								<div className="mb-2 flex items-center gap-2">
 									{editable && (
 										<SortableHandle
@@ -320,7 +320,7 @@ export default function DomainRoomLayoutPanel({
 				</SortableContext>
 				<DragOverlay dropAnimation={null}>
 					{activeDrag?.type === "room" ? (
-						<div className="bg-popover text-popover-foreground border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs shadow-xl">
+						<div className="bg-popover text-popover-foreground border-border flex items-center gap-2 rounded-sm border px-2 py-1 text-xs shadow-xl">
 							<GripVertical size={14} className="text-muted-foreground" />
 							<span className="min-w-0 flex-1 truncate">
 								{activeDrag.room.name}
@@ -330,7 +330,7 @@ export default function DomainRoomLayoutPanel({
 							</span>
 						</div>
 					) : activeDrag?.type === "block" ? (
-						<div className="bg-popover text-muted-foreground border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs shadow-xl">
+						<div className="bg-popover text-muted-foreground border-border flex items-center gap-2 rounded-sm border px-2 py-1 text-xs shadow-xl">
 							<GripVertical size={14} />
 							<span className="min-w-0 flex-1 truncate font-semibold">
 								{activeDrag.block.name}

@@ -43,7 +43,7 @@ export default function StatusOverview() {
 	];
 
 	return (
-		<div className="bg-card flex h-full min-h-0 flex-col overflow-y-auto px-3 py-4">
+		<div className="flex h-full min-h-0 flex-col overflow-y-auto px-3 py-4">
 			<div className="mb-4 min-w-0">
 				<h2 className="text-lg font-semibold">状态概览</h2>
 				<p className="text-muted-foreground text-sm">当前账号与语音状态</p>
@@ -52,15 +52,15 @@ export default function StatusOverview() {
 				{stats.map((stat) => (
 					<div
 						key={stat.label}
-						className="flex items-center gap-3 border-b border-border/60 py-2.5 last:border-0"
+						className="flex items-center gap-3 border-b border-border py-2.5 last:border-0"
 					>
 						<stat.icon size={20} className="text-muted-foreground shrink-0" />
 						<div className="min-w-0 flex-1">
-							<div className="text-faint-foreground text-2xs">{stat.label}</div>
+							<div className="text-muted-foreground text-2xs">{stat.label}</div>
 							<div className="mt-0.5 truncate text-sm font-semibold">
 								{stat.value}
 							</div>
-							<div className="text-faint-foreground mt-0.5 truncate text-2xs">
+							<div className="text-muted-foreground mt-0.5 truncate text-2xs">
 								{stat.hint}
 							</div>
 						</div>

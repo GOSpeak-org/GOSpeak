@@ -144,7 +144,7 @@ export default function ManageNav() {
 							key={tab.path}
 							to={tab.to}
 							preload="intent"
-							className={`hover:bg-muted flex h-11 min-h-11 shrink-0 items-center justify-start gap-2 rounded-sm px-3 no-underline transition-colors ${active ? "bg-muted" : ""}`}
+							className={`hover:bg-muted text-muted-foreground flex h-11 min-h-11 shrink-0 items-center justify-start gap-2 rounded-sm px-3 no-underline transition-colors ${active ? "bg-selected" : ""}`}
 							aria-current={active ? "page" : undefined}
 						>
 							<Icon size={16} />

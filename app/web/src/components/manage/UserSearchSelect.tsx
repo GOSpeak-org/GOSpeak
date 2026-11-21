@@ -85,7 +85,7 @@ export default function UserSearchSelect({
 					</SelectContent>
 				</Select>
 				{loading && (
-					<span className="text-faint-foreground text-xs">搜索中...</span>
+					<span className="text-muted-foreground text-xs">搜索中...</span>
 				)}
 			</div>
 		</div>

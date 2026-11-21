@@ -35,7 +35,7 @@ export default function SettingsPage() {
 	};
 
 	return (
-		<div className="bg-muted flex h-full flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+		<div className="bg-background flex h-full flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)]">
 			<header className="border-border bg-card sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-2">
 				<button
 					type="button"
@@ -55,7 +55,7 @@ export default function SettingsPage() {
 						mobile={mobile}
 						onBeforeSwitch={clearSessionForServerSwitch}
 					/>
-					<p className="text-faint-foreground mt-3 text-xs">
+					<p className="text-muted-foreground mt-3 text-xs">
 						切换服务器会清除当前登录会话并重新加载客户端，请使用新服务器的账号重新登录。
 					</p>
 				</section>
@@ -65,7 +65,7 @@ export default function SettingsPage() {
 					<div className="text-muted-foreground flex items-center gap-2 text-sm">
 						<Palette size={16} />
 						<span>主题</span>
-						<span className="text-faint-foreground ml-auto text-xs">
+						<span className="text-muted-foreground ml-auto text-xs">
 							跟随系统
 						</span>
 					</div>
@@ -97,7 +97,7 @@ export default function SettingsPage() {
 							<div className="truncate text-sm font-medium">
 								{user?.display_name || user?.name || "未登录"}
 							</div>
-							<div className="text-faint-foreground text-xs">
+							<div className="text-muted-foreground text-xs">
 								{user?.role ?? ""}
 							</div>
 						</div>

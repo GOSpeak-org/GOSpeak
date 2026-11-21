@@ -78,7 +78,7 @@ function RouteComponent() {
 						</div>
 					)}
 					{domains && domains.domains.length > 0 && (
-						<div className="divide-border/60 divide-y">
+						<div className="divide-border divide-y">
 							{domains.domains.map((domain) => (
 								<div
 									key={domain.uuid}

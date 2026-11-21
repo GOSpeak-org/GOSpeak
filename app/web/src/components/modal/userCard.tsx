@@ -73,7 +73,7 @@ export default function UserCard({ onClose, onOpenSettings }: UserCardProps) {
 	];
 
 	return (
-		<div className="border-border bg-card flex w-56 flex-col overflow-hidden rounded-lg border shadow-xl">
+		<div className="border-border bg-popover flex w-56 flex-col overflow-hidden rounded-lg border shadow-xl">
 			{/* 头部：头像 + 昵称 */}
 			<div className="flex items-center gap-3 p-3">
 				<Avatar

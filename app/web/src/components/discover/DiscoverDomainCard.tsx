@@ -12,7 +12,7 @@ interface DiscoverDomainCardProps {
 
 function DiscoverDomainCard(props: DiscoverDomainCardProps) {
 	return (
-		<div className="border-border/80 hover:border-primary/40 hover:bg-card flex min-h-28 flex-col rounded-lg border bg-muted/30 p-3 shadow-sm transition-colors">
+		<div className="border-border hover:border-primary/40 hover:bg-muted/70 flex min-h-28 flex-col rounded-lg border bg-card p-3 shadow-sm transition-colors">
 			<div className="flex min-w-0 items-start gap-3">
 				<DomainIcon
 					name={props.domain.name}
@@ -24,7 +24,7 @@ function DiscoverDomainCard(props: DiscoverDomainCardProps) {
 						<h4 className="min-w-0 truncate text-sm font-semibold">
 							{props.domain.name}
 						</h4>
-						<span className="bg-muted text-foreground shrink-0 rounded-full px-2 py-0.5 text-2xs">
+						<span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-2xs">
 							公开
 						</span>
 					</div>
@@ -33,7 +33,7 @@ function DiscoverDomainCard(props: DiscoverDomainCardProps) {
 					</p>
 				</div>
 			</div>
-			<div className="border-border/70 mt-3 flex items-center justify-between gap-3 border-t pt-2">
+			<div className="border-border mt-3 flex items-center justify-between gap-3 border-t pt-2">
 				<span className="text-faint-foreground truncate text-2xs">
 					公开语音域
 				</span>

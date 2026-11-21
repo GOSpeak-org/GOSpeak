@@ -125,7 +125,7 @@ export default function DomainRolePanel(props: {
 				<div key={role.name} className="flex items-center gap-1">
 					<button
 						type="button"
-						className={`hover:bg-muted flex flex-1 cursor-pointer items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors ${selected === role.name ? "bg-muted" : ""}`}
+						className={`hover:bg-muted flex flex-1 cursor-pointer items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors ${selected === role.name ? "bg-selected" : ""}`}
 						onClick={() => selectRole(role)}
 					>
 						<span className="truncate">{role.name}</span>
@@ -186,7 +186,7 @@ export default function DomainRolePanel(props: {
 								<label
 									key={code}
 									className={clsx(
-										"border-border/70 hover:bg-muted/40 flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+										"border-border hover:bg-muted/40 flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
 										isFixedRole() && "cursor-not-allowed",
 									)}
 								>

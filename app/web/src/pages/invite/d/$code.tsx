@@ -197,7 +197,7 @@ export function InviteLandingPage() {
 	}
 
 	return (
-		<div className="bg-muted flex min-h-full w-full items-center justify-center px-4">
+		<div className="bg-background flex min-h-full w-full items-center justify-center px-4">
 			<div className="bg-card border-border w-full max-w-md rounded-lg border p-6 shadow-xl">
 				<div className="mb-5 flex items-center gap-2">
 					<span className="text-primary text-lg font-semibold">GOSpeak</span>

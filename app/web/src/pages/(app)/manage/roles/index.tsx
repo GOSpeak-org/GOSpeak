@@ -47,8 +47,8 @@ function RolesPage() {
 				description="分别管理平台角色与域内角色；平台权限跨域生效，域内权限只属于所选域"
 			/>
 
-			<div className="border-border/80 bg-card flex min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm">
-				<div className="border-border/70 flex gap-1 border-b px-2 md:px-3">
+			<div className="border-border bg-card flex min-w-0 flex-col overflow-hidden rounded-xl border shadow-sm">
+				<div className="border-border flex gap-1 border-b px-2 md:px-3">
 					<button
 						type="button"
 						className={tabClass(scope === "platform")}

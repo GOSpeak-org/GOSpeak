@@ -147,7 +147,7 @@ export default function UserGroupPanel() {
 						{groups.map((group) => (
 							<div
 								key={group.id}
-								className="border-border/70 flex items-center gap-2 rounded-lg border px-3 py-2.5"
+								className="border-border flex items-center gap-2 rounded-lg border px-3 py-2.5"
 							>
 								{editingId === group.id ? (
 									<>
@@ -210,7 +210,7 @@ export default function UserGroupPanel() {
 						<SkeletonListRows rows={3} />
 					</LoadingRegion>
 				) : (
-					<div className="bg-muted/70 text-faint-foreground rounded-lg px-4 py-8 text-center text-sm">
+					<div className="bg-muted/40 text-faint-foreground rounded-lg px-4 py-8 text-center text-sm">
 						还没有用户分组
 					</div>
 				)}

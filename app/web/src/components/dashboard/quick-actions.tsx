@@ -51,7 +51,7 @@ export default function QuickActions({ compact }: QuickActionsProps) {
 		else navigate({ to: "/discover" });
 	};
 
-	const cardClass = `bg-muted hover:bg-border flex min-w-0 h-18 cursor-pointer items-center justify-between gap-3 overflow-hidden rounded-lg border-0 px-4 text-left transition-colors`;
+	const cardClass = `bg-card hover:bg-muted flex min-w-0 h-18 cursor-pointer items-center justify-between gap-3 overflow-hidden rounded-lg border-0 px-4 text-left transition-colors`;
 
 	return (
 		<>

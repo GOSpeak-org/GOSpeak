@@ -191,8 +191,8 @@ export function RoomItem({
 					<button
 						className={clsx(
 							"hover:bg-muted active:bg-selected flex min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75 max-md:min-h-11 max-md:py-1.5",
-							isActive ? "bg-muted" : "",
-							isSelected && !isActive ? "bg-muted" : "",
+							isActive ? "bg-selected" : "",
+							isSelected && !isActive ? "bg-selected" : "",
 						)}
 						onContextMenu={openContextMenu}
 						onMouseEnter={showTip}
@@ -242,7 +242,7 @@ export function RoomItem({
 								<Badge count={unread} title={`${unread} 条未读消息`} />
 							)}
 							{room.type !== "text" && (
-								<div>{`${room.count}/${room.limit}`}</div>
+								<div className="text-muted-foreground text-xs">{`${room.count}/${room.limit}`}</div>
 							)}
 						</div>
 					</button>
@@ -287,7 +287,7 @@ export function RoomItem({
 							<div
 								ref={contextMenuRef}
 								role="menu"
-								className="border-border bg-card fixed z-toast min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
+								className="border-border bg-popover fixed z-toast min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
 								style={{
 									left: `${contextMenu.x}px`,
 									top: `${contextMenu.y}px`,

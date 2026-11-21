@@ -191,7 +191,7 @@ export default function MutePage() {
 						<SkeletonTableRows rows={4} cols={6} />
 					</LoadingRegion>
 				) : (mutes?.length || 0) === 0 ? (
-					<div className="border-border/60 bg-muted/20 text-muted-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
+					<div className="border-border bg-muted/40 text-faint-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
 						暂无禁言记录
 					</div>
 				) : (

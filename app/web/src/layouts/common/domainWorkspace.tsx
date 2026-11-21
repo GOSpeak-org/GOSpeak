@@ -170,11 +170,11 @@ export default function DomainWorkspace({
 
 	return (
 		<div
-			className="bg-card border-border flex h-full w-full flex-1 border-t"
+			className="border-border flex h-full w-full flex-1 border-t"
 			style={{ display: isDomain ? undefined : "none" }}
 		>
 			{/* 主工作区：card token 表面 */}
-			<div className="bg-card text-foreground flex min-w-0 flex-1 flex-col">
+			<div className="text-foreground flex min-w-0 flex-1 flex-col">
 				{/* 纯文字频道（无语音舞台选中）：头部由聊天面板自身承担，避免重复 */}
 				{!(textRoom && !selectedRoom) && (
 					<ChannelHeader
@@ -241,7 +241,7 @@ export default function DomainWorkspace({
 								<div className="bg-border group-hover:bg-primary pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 transition-colors" />
 							</div>
 							<section
-								className={`bg-card flex flex-col overflow-hidden ${chatFullscreen ? "min-h-0 flex-1" : "shrink-0"}`}
+								className={`bg-muted flex flex-col overflow-hidden ${chatFullscreen ? "min-h-0 flex-1" : "shrink-0"}`}
 								style={chatFullscreen ? undefined : { height: chatHeight }}
 								aria-label="文字聊天"
 							>
@@ -265,7 +265,7 @@ export default function DomainWorkspace({
 												type="search"
 												value={query}
 												placeholder="搜索"
-												className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
+												className="text-foreground placeholder:text-faint-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
 												onChange={(e) => setQuery(e.currentTarget.value)}
 												onKeyDown={(e) => {
 													if (e.key === "Escape") {
@@ -393,7 +393,7 @@ function ChannelPicker({
 							? "该频道需要密码，请在左侧列表双击进入"
 							: `进入 ${room.name}`
 					}
-					className="bg-muted border-border hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:bg-muted disabled:text-faint-foreground"
+					className="bg-muted border-border hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{kind === "text" ? (
 						<Hash size={16} className="text-muted-foreground shrink-0" />
@@ -422,7 +422,7 @@ function VoiceEmptyState() {
 	const noRooms = list.length === 0;
 
 	return (
-		<div className="bg-card flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
+		<div className="bg-muted flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
 			<div className="bg-muted border-border flex size-16 items-center justify-center rounded-full border">
 				<Headphones size={32} strokeWidth={1.5} className="text-foreground" />
 			</div>
@@ -431,7 +431,7 @@ function VoiceEmptyState() {
 			</h2>
 			{noRooms ? null : (
 				<>
-					<p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
+					<p className="text-faint-foreground max-w-xs text-sm leading-relaxed">
 						点下面的房间直接进入，切换房间不会中断通话。
 					</p>
 					<ChannelPicker kind="voice" list={list} />

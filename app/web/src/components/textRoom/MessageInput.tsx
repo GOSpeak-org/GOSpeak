@@ -225,7 +225,7 @@ export default function MessageInput() {
 	}
 
 	const iconBtn =
-		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 	return (
 		<div

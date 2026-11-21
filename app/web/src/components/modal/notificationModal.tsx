@@ -127,7 +127,7 @@ export default function NotificationModal({
 										onClick={() => select(item)}
 										className={`border-border hover:bg-muted flex w-full flex-col items-start gap-1.5 border-b border-l-2 px-3 py-2.5 text-left ${
 											isSelected
-												? "border-l-primary bg-muted"
+												? "border-l-primary bg-selected"
 												: "border-l-transparent"
 										}`}
 									>
@@ -154,7 +154,7 @@ export default function NotificationModal({
 												</>
 											)}
 										</div>
-										<div className="text-faint-foreground flex w-full items-center gap-1.5 text-2xs">
+										<div className="text-muted-foreground flex w-full items-center gap-1.5 text-2xs">
 											<span className={SCOPE_BADGE}>
 												{SCOPE_LABELS[item.scope_type]}
 											</span>

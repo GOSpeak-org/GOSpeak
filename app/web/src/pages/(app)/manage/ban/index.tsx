@@ -144,7 +144,7 @@ export default function BanPage() {
 						<SkeletonTableRows rows={4} cols={4} />
 					</LoadingRegion>
 				) : bannedUsers.length === 0 ? (
-					<div className="border-border/60 bg-muted/20 text-muted-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
+					<div className="border-border bg-muted/40 text-faint-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
 						暂无封禁用户
 					</div>
 				) : (

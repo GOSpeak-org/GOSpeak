@@ -37,7 +37,7 @@ export default function TooltipIconButton({
 					<Button
 						variant="ghost"
 						size="sm"
-						className="size-7 p-0"
+						className="text-muted-foreground size-7 p-0"
 						aria-label={label}
 						{...props}
 					>

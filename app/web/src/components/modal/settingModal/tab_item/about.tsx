@@ -134,13 +134,13 @@ function AboutForm() {
 			desc="版本信息与客户端日志。遇到问题时导出日志文件附在反馈里，能显著加快定位。"
 		>
 			<Section title="版本">
-				<div className="border-border bg-muted/20 flex flex-col gap-1 rounded-lg border p-4 text-sm">
+				<div className="border-border bg-muted/40 flex flex-col gap-1 rounded-lg border p-4 text-sm">
 					<div className="flex items-center justify-between gap-4">
-						<span className="text-faint-foreground text-xs">客户端版本</span>
+						<span className="text-muted-foreground text-xs">客户端版本</span>
 						<span className="font-medium">{__APP_VERSION__}</span>
 					</div>
 					<div className="flex items-center justify-between gap-4">
-						<span className="text-faint-foreground text-xs">运行环境</span>
+						<span className="text-muted-foreground text-xs">运行环境</span>
 						<span className="font-medium">{desktop ? "桌面端" : "浏览器"}</span>
 					</div>
 				</div>
@@ -199,7 +199,7 @@ function AboutForm() {
 									<span className="ml-2 font-medium">{release.version}</span>
 								</div>
 								{release.notes ? (
-									<div className="text-faint-foreground mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs">
+									<div className="text-muted-foreground mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs">
 										{release.notes}
 									</div>
 								) : null}
@@ -214,7 +214,7 @@ function AboutForm() {
 										style={{ width: `${Math.round(progress * 100)}%` }}
 									/>
 								</div>
-								<p className="text-faint-foreground text-xs">
+								<p className="text-muted-foreground text-xs">
 									正在下载 {release?.assetName}… {Math.round(progress * 100)}%
 								</p>
 							</>
@@ -255,7 +255,7 @@ function AboutForm() {
 					</p>
 				)}
 
-				<p className="text-faint-foreground text-xs">
+				<p className="text-muted-foreground text-xs">
 					当前已记录 {count} 条{logsPath ? `；宿主日志目录：${logsPath}` : ""}
 				</p>
 			</Section>

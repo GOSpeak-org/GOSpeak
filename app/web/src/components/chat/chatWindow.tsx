@@ -116,9 +116,9 @@ export default function ChatWindow() {
 	// 未选中会话时展示与语音域一致的完整空态，而不是一行漂浮的文字。
 	if (!active) {
 		return (
-			<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
+			<div className="flex h-full min-w-0 flex-1 flex-col">
 				{/* 与域页 ChannelHeader 同构：h-10 + 裸图标，非图标方块 */}
-				<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+				<header className="bg-muted border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 					<MessageSquareText
 						size={20}
 						className="text-muted-foreground shrink-0"
@@ -133,12 +133,12 @@ export default function ChatWindow() {
 	}
 
 	const iconBtn =
-		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 	return (
-		<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
+		<div className="flex h-full min-w-0 flex-1 flex-col">
 			{/* 面板标题栏：图标 + 对方名称 */}
-			<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+			<header className="bg-muted border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 				<MessageSquareText
 					size={20}
 					className="text-muted-foreground shrink-0"
@@ -205,7 +205,7 @@ export default function ChatWindow() {
 																	row.msg.author_id ||
 																	"?"}
 															</span>
-															<span className="text-faint-foreground shrink-0 text-2xs">
+															<span className="text-muted-foreground shrink-0 text-2xs">
 																{formatMessageTime(row.msg.created_at)}
 															</span>
 														</div>

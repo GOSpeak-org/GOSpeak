@@ -63,7 +63,7 @@ function FormField({
 
 function Tag({ children }: { children: ReactNode }) {
 	return (
-		<span className="border-border bg-card text-foreground inline-flex items-center rounded-full border px-2 py-0.5 text-2xs font-medium">
+		<span className="border-border bg-card text-muted-foreground inline-flex items-center rounded-full border px-2 py-0.5 text-2xs font-medium">
 			{children}
 		</span>
 	);
@@ -71,7 +71,7 @@ function Tag({ children }: { children: ReactNode }) {
 
 export default function OAuthProviderForm(props: OAuthProviderFormProps) {
 	return (
-		<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+		<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 			{/* 用 form 承接 Enter 提交：比在 div 上挂 keydown 更符合原生语义，
 			     也不会抢走 Switch / 按钮自己的键盘行为 */}
 			<form
@@ -100,7 +100,7 @@ export default function OAuthProviderForm(props: OAuthProviderFormProps) {
 					{props.isNative && <Tag>内置实现</Tag>}
 				</div>
 
-				<div className="text-faint-foreground mt-1 text-xs font-semibold">
+				<div className="text-muted-foreground mt-1 text-xs font-semibold">
 					基本信息
 				</div>
 				<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -134,7 +134,7 @@ export default function OAuthProviderForm(props: OAuthProviderFormProps) {
 					</FormField>
 				</div>
 
-				<div className="text-faint-foreground mt-1 text-xs font-semibold">
+				<div className="text-muted-foreground mt-1 text-xs font-semibold">
 					OAuth 端点
 				</div>
 				<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -208,7 +208,7 @@ export default function OAuthProviderForm(props: OAuthProviderFormProps) {
 
 				{props.showFieldMapping && (
 					<>
-						<div className="text-faint-foreground mt-1 text-xs font-semibold">
+						<div className="text-muted-foreground mt-1 text-xs font-semibold">
 							用户信息字段映射
 						</div>
 						<p className="text-faint-foreground text-xs">

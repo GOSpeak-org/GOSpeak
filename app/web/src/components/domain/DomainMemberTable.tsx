@@ -155,7 +155,7 @@ export default function DomainMemberTable(props: DomainMemberTableProps) {
 					<tbody>
 						{status === "loading" &&
 							Array.from({ length: 5 }).map((_, i) => (
-								<tr key={`sk-${i}`} className="border-border/60 border-b">
+								<tr key={`sk-${i}`} className="border-border border-b">
 									<td className="px-3 py-2.5">
 										<Skeleton className="h-4 w-24" />
 									</td>
@@ -185,10 +185,7 @@ export default function DomainMemberTable(props: DomainMemberTableProps) {
 								props.roles,
 							);
 							return (
-								<tr
-									key={member.user_uuid}
-									className="border-border/60 border-b"
-								>
+								<tr key={member.user_uuid} className="border-border border-b">
 									<td className="min-w-0 max-w-[260px] px-3 py-2">
 										<div className="min-w-0">
 											<div className="truncate font-medium">
@@ -263,7 +260,7 @@ export default function DomainMemberTable(props: DomainMemberTableProps) {
 				{status === "error" && (
 					<div
 						role="alert"
-						className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
+						className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
 					>
 						<span className="text-destructive">成员加载失败：{error}</span>
 						{props.onRefresh && (
@@ -281,7 +278,7 @@ export default function DomainMemberTable(props: DomainMemberTableProps) {
 				{status === "ready-with-error" && (
 					<div
 						role="alert"
-						className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
+						className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
 					>
 						<span className="text-destructive">
 							成员刷新失败，已保留现有数据

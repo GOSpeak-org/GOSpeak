@@ -149,7 +149,7 @@ export default function PlatformRolePanel({
 		list.map((perm) => (
 			<label
 				key={perm.code}
-				className="border-border/70 hover:bg-muted/40 flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
+				className="border-border hover:bg-muted/40 flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
 			>
 				<Checkbox
 					checked={selectedCodes.has(perm.code)}
@@ -199,7 +199,7 @@ export default function PlatformRolePanel({
 						<div key={role.name} className="flex items-center gap-1">
 							<button
 								type="button"
-								className={`hover:bg-muted flex flex-1 cursor-pointer items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors ${selectedRole === role.name ? "bg-muted" : ""}`}
+								className={`hover:bg-muted flex flex-1 cursor-pointer items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors ${selectedRole === role.name ? "bg-selected" : ""}`}
 								onClick={() => setSelectedRole(role.name)}
 							>
 								<span className="truncate">{roleLabel(role.name)}</span>

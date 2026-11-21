@@ -71,7 +71,7 @@ export default function SettingModal({
 					</Button>
 				</div>
 				<div className="flex min-h-0 flex-1 flex-col overflow-hidden select-none @3xl:flex-row">
-					<aside className="border-border bg-muted/70 flex shrink-0 gap-1 overflow-x-auto border-b p-2 @3xl:min-h-0 @3xl:w-44 @3xl:flex-col @3xl:overflow-x-hidden @3xl:overflow-y-auto @3xl:border-r @3xl:border-b-0 @5xl:w-48">
+					<aside className="border-border bg-muted flex shrink-0 gap-1 overflow-x-auto border-b p-2 @3xl:min-h-0 @3xl:w-44 @3xl:flex-col @3xl:overflow-x-hidden @3xl:overflow-y-auto @3xl:border-r @3xl:border-b-0 @5xl:w-48">
 						{TABS.map((tab, index) => {
 							const Icon = ICON_MAP[tab.icon];
 							return (

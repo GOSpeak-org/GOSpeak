@@ -20,7 +20,7 @@ export default function RoomGroupHeader({
 		>
 			{collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
 			<span className="min-w-0 flex-1 truncate">{name}</span>
-			<span className="text-faint-foreground text-2xs">{count}</span>
+			<span className="text-muted-foreground text-xs">{count}</span>
 		</button>
 	);
 }

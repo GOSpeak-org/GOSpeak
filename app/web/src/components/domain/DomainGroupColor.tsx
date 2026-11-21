@@ -28,7 +28,7 @@ export default function DomainGroupColorPicker({
 						"size-4 shrink-0 rounded-full transition-transform",
 						option.swatch,
 						value === option.value
-							? "scale-110 ring-2 ring-foreground"
+							? "scale-110 ring-2 ring-primary"
 							: "hover:scale-110",
 					)}
 				/>

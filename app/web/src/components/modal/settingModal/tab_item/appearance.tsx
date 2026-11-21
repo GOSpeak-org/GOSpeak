@@ -25,7 +25,7 @@ function ThemeCard({
 			type="button"
 			className={`cursor-pointer rounded-lg border p-3 text-left transition ${
 				active
-					? "border-foreground/50 bg-muted/70 ring-foreground/15 ring-1"
+					? "border-foreground/50 bg-selected ring-2 ring-primary"
 					: "border-border hover:border-foreground/25"
 			}`}
 			onClick={onSelect}
@@ -38,7 +38,7 @@ function ThemeCard({
 				<span className="bg-neutral size-3 rounded-full" />
 			</div>
 			<div className="text-foreground text-sm font-medium">{option.label}</div>
-			<div className="text-faint-foreground text-2xs">{option.name}</div>
+			<div className="text-muted-foreground text-2xs">{option.name}</div>
 		</button>
 	);
 }
@@ -65,7 +65,7 @@ function AppearanceForm() {
 			</Section>
 
 			<Section title={isDark ? "深色主题" : "浅色主题"}>
-				<p className="text-faint-foreground -mt-1 mb-1 text-xs leading-relaxed">
+				<p className="text-muted-foreground -mt-1 mb-1 text-xs leading-relaxed">
 					当前正在配置
 					<span className="text-muted-foreground mx-1 font-medium">
 						{isDark ? "深色" : "浅色"}

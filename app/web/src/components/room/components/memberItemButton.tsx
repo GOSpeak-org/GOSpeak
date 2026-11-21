@@ -15,7 +15,7 @@ export default function MemberItemButton({
 	return (
 		<button
 			type="button"
-			className="text-muted-foreground hover:bg-muted/50 flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-4 py-1 text-sm transition-colors"
+			className="hover:bg-muted flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-4 py-1 text-sm transition-colors"
 			onClick={(e) => {
 				const rect = e.currentTarget.getBoundingClientRect();
 				const x = e.detail === 0 ? rect.right : e.clientX;

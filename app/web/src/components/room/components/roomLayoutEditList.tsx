@@ -60,7 +60,7 @@ function RoomRowContent({ room }: { room: RoomInfo }) {
 				)}
 			</span>
 			{room.type !== "text" && (
-				<span className="shrink-0 text-xs">
+				<span className="text-muted-foreground shrink-0 text-xs">
 					{room.count}/{room.limit}
 				</span>
 			)}
@@ -75,7 +75,7 @@ function BlockRowContent({ block }: { block: EditBlock }) {
 			<span className="min-w-0 flex-1 truncate text-xs font-semibold">
 				{block.name}
 			</span>
-			<span className="text-faint-foreground text-2xs">
+			<span className="text-muted-foreground text-xs">
 				{block.rooms.length}
 			</span>
 		</>

@@ -35,7 +35,6 @@ export default function DomainGroupIcon({
 	const previews = domains.slice(0, GRID_SLOTS);
 	return (
 		<span
-			title={label}
 			role="img"
 			aria-label={label}
 			className={clsx(
