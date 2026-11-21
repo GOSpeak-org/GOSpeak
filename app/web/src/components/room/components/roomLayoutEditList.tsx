@@ -13,7 +13,8 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import clsx from "clsx";
-import { GripVertical, Hash, Lock, Mic } from "lucide-react";
+import { Fragment } from "react";
+import { GripVertical, Hash, Lock, Mic, Plus } from "lucide-react";
 import type { RoomInfo } from "@/socket/types";
 
 export type EditBlock = {
@@ -21,6 +22,20 @@ export type EditBlock = {
 	name: string;
 	rooms: RoomInfo[];
 };
+
+function AddGroupRow({ onAdd }: { onAdd: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onAdd}
+			aria-label="新建分组"
+			className="border-border text-muted-foreground hover:bg-muted hover:text-foreground flex w-full items-center justify-center gap-1 rounded-sm border border-dashed px-2 py-1.5 text-xs font-medium transition-colors"
+		>
+			<Plus size={14} />
+			新建分组
+		</button>
+	);
+}
 
 function SortableBlock({
 	block,
@@ -125,6 +140,29 @@ export default function RoomLayoutEditList({
 	saving: boolean;
 }) {
 	const sensors = useSensors(useSensor(PointerSensor));
+
+	const nextGroupName = () => {
+		const taken = new Set(blocks.map((b) => b.name));
+		if (!taken.has("新分组")) return "新分组";
+		let index = 2;
+		while (taken.has(`新分组 ${index}`)) index += 1;
+		return `新分组 ${index}`;
+	};
+
+	const addGroup = () => {
+		const ungroupedIndex = blocks.findIndex((b) => b.uuid === "__ungrouped__");
+		const block: EditBlock = {
+			uuid:
+				typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+					? crypto.randomUUID()
+					: `new-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			name: nextGroupName(),
+			rooms: [],
+		};
+		const next = [...blocks];
+		next.splice(ungroupedIndex < 0 ? next.length : ungroupedIndex, 0, block);
+		onChange(next);
+	};
 	const onDragEnd = (event: DragEndEvent) => {
 		if (!event.over || event.active.id === event.over.id) return;
 		const activeId = String(event.active.id);
@@ -178,17 +216,25 @@ export default function RoomLayoutEditList({
 					strategy={verticalListSortingStrategy}
 				>
 					{blocks.map((block) => (
-						<SortableBlock key={block.uuid} block={block}>
-							<SortableContext
-								items={block.rooms.map((r) => `room:${r.uuid}`)}
-								strategy={verticalListSortingStrategy}
-							>
-								{block.rooms.map((room) => (
-									<SortableRoom key={room.uuid} room={room} />
-								))}
-							</SortableContext>
-						</SortableBlock>
+						<Fragment key={block.uuid}>
+							{block.uuid === "__ungrouped__" && (
+								<AddGroupRow onAdd={addGroup} />
+							)}
+							<SortableBlock block={block}>
+								<SortableContext
+									items={block.rooms.map((r) => `room:${r.uuid}`)}
+									strategy={verticalListSortingStrategy}
+								>
+									{block.rooms.map((room) => (
+										<SortableRoom key={room.uuid} room={room} />
+									))}
+								</SortableContext>
+							</SortableBlock>
+						</Fragment>
 					))}
+					{!blocks.some((b) => b.uuid === "__ungrouped__") && (
+						<AddGroupRow onAdd={addGroup} />
+					)}
 				</SortableContext>
 			</DndContext>
 			<Button type="button" size="xs" disabled={saving} onClick={onSave}>
