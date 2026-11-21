@@ -10,6 +10,7 @@ import { createProviderReloadHandler } from "@/socket/providerReload";
 import { upsertRoomMembersFromAck } from "@/socket/roomState";
 import { createTabLock } from "@/socket/tabLock";
 import type { PrivateMessageDTO } from "@/protocol/conversation";
+import type { RoomListLayoutPayload } from "@/protocol/generated/payloads";
 import type { AnnouncementDTO } from "@/protocol/announcement";
 import type { MessageDTO } from "@/types/message";
 import { useUserStore } from "@/stores/userStore";
@@ -65,6 +66,7 @@ export interface SocketState {
 	connecting: boolean;
 	socketState: WSConnectionState;
 	rooms: RoomInfo[];
+	roomLayout: RoomListLayoutPayload;
 	/** room:list 请求已发出、结果还没回来：列表据此显示骨架而不是「暂无房间」 */
 	roomsLoading: boolean;
 	currentRoom: string | null;
@@ -93,6 +95,7 @@ export const useSocketStore = create<SocketState>(() => ({
 	connecting: false,
 	socketState: "new",
 	rooms: [],
+	roomLayout: { groups: [], ungrouped_position: 0 },
 	roomsLoading: false,
 	currentRoom: null,
 	selectedRoomInfo: null,
@@ -372,6 +375,8 @@ async function connectWithLock(url: string): Promise<string> {
 			useSocketStore.setState({ serverEventsBound: true });
 			bindServerEvents(adapter, {
 				setRooms,
+				setRoomLayout: (value: RoomListLayoutPayload) =>
+					useSocketStore.setState({ roomLayout: value }),
 				setCurrentRoom,
 				setSelectedRoomInfo,
 				setActiveSFUProvider,

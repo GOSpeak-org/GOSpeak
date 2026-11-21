@@ -20,6 +20,10 @@ export interface RoomInfo {
 	created_at?: number;
 	/** 服务端下发的创建者用户名，用于房间管理权限判定 */
 	created_by?: string;
+	/** 域内房间分组；空表示未分组 */
+	group_uuid?: string;
+	/** 组内显示顺序 */
+	sort_order?: number;
 	/** @internal 临时传递密码，不从服务器获取 */
 	_password?: string;
 }

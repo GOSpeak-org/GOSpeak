@@ -3,6 +3,7 @@ import { toast } from "@gospeak/components";
 import { setServerMutedByIdentity } from "@/handler_audio";
 import type { AnnouncementDTO } from "@/protocol/announcement";
 import type { PrivateMessageDTO } from "@/protocol/conversation";
+import type { RoomListLayoutPayload } from "@/protocol/generated/payloads";
 import { EVENTS } from "@/socket/events";
 import type { MessageDTO } from "@/types/message";
 import {
@@ -39,6 +40,7 @@ type Updater<T> = T | ((prev: T) => T);
 
 export interface SocketEventDeps {
 	setRooms: (value: Updater<RoomInfo[]>) => void;
+	setRoomLayout: (value: RoomListLayoutPayload) => void;
 	setCurrentRoom: (value: Updater<string | null>) => void;
 	setSelectedRoomInfo: (value: Updater<RoomInfo | null>) => void;
 	setActiveSFUProvider: (value: Updater<SFUProvider | undefined>) => void;
@@ -179,9 +181,14 @@ export function bindServerEvents(
 
 	adapter.onServerEvent(
 		EVENTS.ROOM_LIST_RESULT as string,
-		(data: { rooms: RoomInfo[]; count: number }) => {
+		(data: {
+			rooms: RoomInfo[];
+			count: number;
+			layout?: RoomListLayoutPayload;
+		}) => {
 			console.log("[Socket] room:list:result", data.rooms.length, "rooms");
 			deps.setRooms(data.rooms);
+			if (data.layout) deps.setRoomLayout(data.layout);
 		},
 	);
 

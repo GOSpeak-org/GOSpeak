@@ -2,7 +2,7 @@ import { toast, Button, ScrollArea, Skeleton } from "@gospeak/components";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { CirclePlus, RotateCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RoomRecord } from "@/api/room";
 import { deleteRoom } from "@/api/room";
 import Divider from "@/components/common/divider";
@@ -14,9 +14,17 @@ import EditRoomModal from "@/components/modal/editRoomModal";
 import UserInfoPopover from "@/components/room/components/userInfoPopover";
 import { RoomItem } from "@/components/room/components/roomItem";
 import {
+	groupRoomsForSidebar,
 	toEditRoomRecord,
 	visibleRoomsForDomain,
 } from "@/components/room/roomListUtils";
+import RoomGroupHeader from "@/components/room/components/roomGroupHeader";
+import RoomLayoutEditBar from "@/components/room/components/roomLayoutEditBar";
+import RoomLayoutEditList, {
+	type EditBlock,
+} from "@/components/room/components/roomLayoutEditList";
+import { saveRoomLayout } from "@/api/domain";
+import { hasDomainPermission } from "@/utils/domainPermissions";
 import { useDomainStore } from "@/stores/domainStore";
 import {
 	type RoomInfo,
@@ -94,7 +102,21 @@ function RoomListFallback({ state }: { state: WSConnectionState }) {
 	);
 }
 
-function RoomListHeader({ onOpenCreate }: { onOpenCreate: () => void }) {
+function RoomListHeader({
+	onOpenCreate,
+	canEdit,
+	editing,
+	saving,
+	onToggleEdit,
+	onSaveLayout,
+}: {
+	onOpenCreate: () => void;
+	canEdit: boolean;
+	editing: boolean;
+	saving: boolean;
+	onToggleEdit: () => void;
+	onSaveLayout: () => void;
+}) {
 	const currentDomainUUID = socketStore.currentDomainUUID();
 	const domainCache = useDomainStore((s) => s.domainCache);
 	const currentDomain = domainCache[currentDomainUUID ?? ""];
@@ -115,6 +137,14 @@ function RoomListHeader({ onOpenCreate }: { onOpenCreate: () => void }) {
 				>
 					<RotateCw size={16} />
 				</TooltipIconButton>
+				{canEdit && (
+					<RoomLayoutEditBar
+						editing={editing}
+						saving={saving}
+						onToggle={onToggleEdit}
+						onSave={onSaveLayout}
+					/>
+				)}
 				{currentDomain && <DomainMenu domainUUID={currentDomain.uuid} />}
 			</div>
 		</div>
@@ -134,6 +164,12 @@ export default function RoomList() {
 	const [deletingRoom, setDeletingRoom] = useState<RoomInfo | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [deleteError, setDeleteError] = useState("");
+	const [editingLayout, setEditingLayout] = useState(false);
+	const [savingLayout, setSavingLayout] = useState(false);
+	const [collapsedGroups, setCollapsedGroups] = useState<
+		Record<string, boolean>
+	>({});
+	const [draftBlocks, setDraftBlocks] = useState<EditBlock[]>([]);
 
 	// 进入时加载房间列表
 	useEffect(() => {
@@ -147,6 +183,64 @@ export default function RoomList() {
 	const currentRoom = useSocketStore((s) => s.currentRoom);
 	const currentDomainUUID = socketStore.currentDomainUUID();
 	const visibleRooms = visibleRoomsForDomain(rooms, currentDomainUUID);
+	const roomLayout = useSocketStore((s) => s.roomLayout);
+	const rows = useMemo(
+		() => groupRoomsForSidebar(visibleRooms, roomLayout),
+		[visibleRooms, roomLayout],
+	);
+	const canEditLayout =
+		!!currentDomainUUID &&
+		hasDomainPermission(currentDomainUUID, "domain:room-layout:manage");
+
+	const toggleEditLayout = () => {
+		if (editingLayout) {
+			setEditingLayout(false);
+			return;
+		}
+		const groups = roomLayout.groups.map((g) => ({
+			uuid: g.uuid,
+			name: g.name,
+			rooms: visibleRooms.filter((r) => r.group_uuid === g.uuid),
+		}));
+		const ungrouped = visibleRooms.filter((r) => !r.group_uuid);
+		const blocks: EditBlock[] = [...groups];
+		blocks.splice(Math.min(roomLayout.ungrouped_position, blocks.length), 0, {
+			uuid: "__ungrouped__",
+			name: "未分组",
+			rooms: ungrouped,
+		});
+		setDraftBlocks(blocks);
+		setEditingLayout(true);
+	};
+
+	const saveLayout = async () => {
+		if (!currentDomainUUID) return;
+		const ungrouped = draftBlocks.find((b) => b.uuid === "__ungrouped__");
+		try {
+			setSavingLayout(true);
+			await saveRoomLayout({
+				domain_uuid: currentDomainUUID,
+				groups: draftBlocks
+					.filter((b) => b.uuid !== "__ungrouped__")
+					.map((b, i) => ({
+						uuid: b.uuid,
+						name: b.name,
+						sort_order: i,
+						room_uuids: b.rooms.map((r) => r.uuid),
+					})),
+				ungrouped_position: draftBlocks.findIndex(
+					(b) => b.uuid === "__ungrouped__",
+				),
+				ungrouped_room_uuids: ungrouped?.rooms.map((r) => r.uuid) ?? [],
+			});
+			toast.success("布局已保存");
+			setEditingLayout(false);
+		} catch (error) {
+			toastActionError(error, "保存布局失败");
+		} finally {
+			setSavingLayout(false);
+		}
+	};
 
 	const openCreateRoomModal = () => {
 		const domainUUID = socketStore.currentDomainUUID();
@@ -210,7 +304,7 @@ export default function RoomList() {
 	// estimateSize 只是首屏估算：真实行高由 measureElement 动态测量，
 	// 桌面紧凑行与移动端 44px 触控行都能自动跟上，不会出现固定高度留下的空隙。
 	const virtualizer = useVirtualizer({
-		count: connected && visibleRooms.length > 0 ? visibleRooms.length : 0,
+		count: connected && !editingLayout && rows.length > 0 ? rows.length : 0,
 		getScrollElement: () => viewportRef.current,
 		estimateSize: () => 40,
 		overscan: 8,
@@ -219,7 +313,14 @@ export default function RoomList() {
 	return (
 		<>
 			<div className="box-border flex h-full min-h-0 flex-col select-none">
-				<RoomListHeader onOpenCreate={openCreateRoomModal} />
+				<RoomListHeader
+					onOpenCreate={openCreateRoomModal}
+					canEdit={canEditLayout}
+					editing={editingLayout}
+					saving={savingLayout}
+					onToggleEdit={toggleEditLayout}
+					onSaveLayout={() => void saveLayout()}
+				/>
 				<Divider className="my-1" />
 				{/* 外框留白统一给到 viewport（px-2）：滚动条绝对定位在 ScrollArea 的
 				    右边缘，落在留白里而不是压在行上，行盒左右都是 8px，和标题行、
@@ -234,34 +335,79 @@ export default function RoomList() {
 						style={{ height: virtualizer.getTotalSize() }}
 					>
 						{connected ? (
-							visibleRooms.length > 0 ? (
-								virtualizer.getVirtualItems().map((virtualRow) => {
-									const room = visibleRooms[virtualRow.index];
-									return (
-										<div
-											key={`${room.domain_uuid}:${room.name}`}
-											data-index={virtualRow.index}
-											ref={virtualizer.measureElement}
-											className="absolute top-0 left-0 w-full pb-1"
-											style={{ transform: `translateY(${virtualRow.start}px)` }}
-										>
-											<RoomItem
-												room={room}
-												isActive={
-													currentRoom === room.name &&
-													(room.domain_uuid || "") === (currentDomainUUID || "")
-												}
-												selectedMember={selectedMember}
-												onSelectMember={(identity, x, y) =>
-													setSelectedMember({ identity, x, y })
-												}
-												onCloseMember={() => setSelectedMember(null)}
-												onEditRoom={setEditingRoom}
-												onDeleteRoom={openDeleteRoom}
-											/>
-										</div>
-									);
-								})
+							editingLayout ? (
+								<RoomLayoutEditList
+									blocks={draftBlocks}
+									onChange={setDraftBlocks}
+									onSave={() => void saveLayout()}
+									saving={savingLayout}
+								/>
+							) : rows.length > 0 ? (
+								(() => {
+									let groupCollapsed = false;
+									return virtualizer.getVirtualItems().map((virtualRow) => {
+										const row = rows[virtualRow.index];
+										if (row.kind === "group") {
+											groupCollapsed = !!collapsedGroups[row.uuid];
+											return (
+												<div
+													key={`group:${row.uuid}`}
+													data-index={virtualRow.index}
+													ref={virtualizer.measureElement}
+													className="absolute top-0 left-0 w-full pb-1"
+													style={{
+														transform: `translateY(${virtualRow.start}px)`,
+													}}
+												>
+													<RoomGroupHeader
+														name={row.name}
+														count={
+															visibleRooms.filter(
+																(r) => r.group_uuid === row.uuid,
+															).length
+														}
+														collapsed={groupCollapsed}
+														onToggle={() =>
+															setCollapsedGroups((prev) => ({
+																...prev,
+																[row.uuid]: !prev[row.uuid],
+															}))
+														}
+													/>
+												</div>
+											);
+										}
+										if (groupCollapsed) return null;
+										const room = row.room;
+										return (
+											<div
+												key={`${room.domain_uuid}:${room.name}`}
+												data-index={virtualRow.index}
+												ref={virtualizer.measureElement}
+												className="absolute top-0 left-0 w-full pb-1"
+												style={{
+													transform: `translateY(${virtualRow.start}px)`,
+												}}
+											>
+												<RoomItem
+													room={room}
+													isActive={
+														currentRoom === room.name &&
+														(room.domain_uuid || "") ===
+															(currentDomainUUID || "")
+													}
+													selectedMember={selectedMember}
+													onSelectMember={(identity, x, y) =>
+														setSelectedMember({ identity, x, y })
+													}
+													onCloseMember={() => setSelectedMember(null)}
+													onEditRoom={setEditingRoom}
+													onDeleteRoom={openDeleteRoom}
+												/>
+											</div>
+										);
+									});
+								})()
 							) : roomsLoading ? (
 								<RoomListLoading label="正在加载房间..." />
 							) : (

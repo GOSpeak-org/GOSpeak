@@ -24,6 +24,7 @@ function createFakeAdapter() {
 function fakeDeps(): SocketEventDeps {
 	return {
 		setRooms: vi.fn(),
+		setRoomLayout: vi.fn(),
 		setCurrentRoom: vi.fn(),
 		setSelectedRoomInfo: vi.fn(),
 		setActiveSFUProvider: vi.fn(),
