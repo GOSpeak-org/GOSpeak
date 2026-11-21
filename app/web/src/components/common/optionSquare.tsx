@@ -1,6 +1,12 @@
-import { Badge } from "@gospeak/components";
+import { Badge, TOOLTIP_CONTENT_CLASS } from "@gospeak/components";
 import clsx from "clsx";
-import { useState, type ReactNode } from "react";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 
 interface OptionSquareProps {
 	className?: string;
@@ -28,17 +34,35 @@ export default function OptionSquare({
 }: OptionSquareProps) {
 	const [tooltip, setTooltip] = useState<{ x: number; y: number } | null>(null);
 	const [tooltipText, setTooltipText] = useState<string | undefined>(label);
+	const buttonRef = useRef<HTMLButtonElement>(null);
 
-	const showTooltip = (
-		event: React.MouseEvent | React.FocusEvent,
-		text?: string,
-	) => {
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+	// 以按钮当前几何为锚点，tooltip 与按钮垂直居中；滚动/布局变化后重新计算，
+	// 避免 tooltip 停在鼠标进入时的旧坐标上（侧栏滚动后与按钮错位）。
+	const updateTooltipPosition = useCallback(() => {
+		const el = buttonRef.current;
+		if (!el) return;
+		const rect = el.getBoundingClientRect();
+		const x = rect.right + 8;
+		const y = rect.top + rect.height / 2;
+		setTooltip((prev) =>
+			prev && prev.x === x && prev.y === y ? prev : { x, y },
+		);
+	}, []);
+
+	const tooltipOpen = tooltip !== null;
+	useEffect(() => {
+		if (!tooltipOpen) return;
+		window.addEventListener("scroll", updateTooltipPosition, true);
+		window.addEventListener("resize", updateTooltipPosition);
+		return () => {
+			window.removeEventListener("scroll", updateTooltipPosition, true);
+			window.removeEventListener("resize", updateTooltipPosition);
+		};
+	}, [tooltipOpen, updateTooltipPosition]);
+
+	const showTooltip = (text?: string) => {
 		setTooltipText(text ?? label ?? actionHint ?? "双击进入");
-		setTooltip({
-			x: rect.right + 8,
-			y: rect.top + rect.height / 2,
-		});
+		updateTooltipPosition();
 	};
 
 	const hideTooltip = () => {
@@ -49,10 +73,11 @@ export default function OptionSquare({
 	return (
 		<div className="relative">
 			<button
+				ref={buttonRef}
 				type="button"
-				onClick={(event) => {
+				onClick={() => {
 					if (requiresDoubleClick) {
-						showTooltip(event, actionHint ?? "双击进入");
+						showTooltip(actionHint ?? "双击进入");
 						return;
 					}
 					void onClick?.();
@@ -69,9 +94,9 @@ export default function OptionSquare({
 						void onDoubleClick?.();
 					}
 				}}
-				onMouseEnter={(event) => showTooltip(event, label)}
+				onMouseEnter={() => showTooltip(label)}
 				onMouseLeave={hideTooltip}
-				onFocus={(event) => showTooltip(event, label)}
+				onFocus={() => showTooltip(label)}
 				onBlur={hideTooltip}
 				aria-current={active ? "true" : undefined}
 				aria-label={label}
@@ -104,7 +129,7 @@ export default function OptionSquare({
 			{label && tooltip && (
 				<div
 					aria-hidden="true"
-					className="bg-neutral text-neutral-foreground pointer-events-none rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
+					className={TOOLTIP_CONTENT_CLASS}
 					style={{
 						position: "fixed",
 						zIndex: 999,

@@ -36,9 +36,7 @@ describe("DesktopTitleBar / 桌面构建", () => {
 		const { container } = render(<DesktopTitleBar />);
 		expect(container.querySelector(".app-titlebar")).not.toBeNull();
 		expect(screen.getByText("域管理").textContent).toBe("域管理");
-		expect(screen.getByTitle("切换到深色").getAttribute("aria-label")).toBe(
-			"切换到深色",
-		);
+		expect(screen.getByRole("button", { name: "切换到深色" })).not.toBeNull();
 	});
 
 	it("把应用主题推给原生外观，主题切换后重推", async () => {

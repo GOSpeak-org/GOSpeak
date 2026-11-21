@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DomainGroup } from "@/api/domainLayout";
 import DomainGroupTile from "./DomainGroupTile";
@@ -26,6 +32,33 @@ vi.mock("@dnd-kit/sortable", () => ({
 	}),
 	verticalListSortingStrategy: {},
 }));
+
+function fakeRect(top: number, right: number): DOMRect {
+	return {
+		x: right - 100,
+		y: top,
+		top,
+		right,
+		bottom: top + 32,
+		left: right - 100,
+		width: 100,
+		height: 32,
+		toJSON: () => ({}),
+	} as DOMRect;
+}
+
+function getAnchor(container: HTMLElement): HTMLElement {
+	const anchors = Array.from(
+		container.querySelectorAll<HTMLElement>("div"),
+	).filter(
+		(el) =>
+			el.style.position === "fixed" &&
+			el.style.width === "0px" &&
+			el.style.height === "0px",
+	);
+	expect(anchors).toHaveLength(1);
+	return anchors[0];
+}
 
 const group: DomainGroup = {
 	uuid: "g1",
@@ -59,6 +92,48 @@ function renderTile(
 
 describe("DomainGroupTile", () => {
 	afterEach(cleanup);
+
+	it("右键菜单锚点与分组按钮顶部对齐，而不是鼠标落点", () => {
+		const { container } = renderTile();
+		const button = screen.getByLabelText("打开分组 工作");
+		vi.spyOn(button, "getBoundingClientRect").mockReturnValue(
+			fakeRect(91, 260),
+		);
+
+		fireEvent.contextMenu(button, { clientX: 999, clientY: 888 });
+
+		const anchor = getAnchor(container);
+		expect(anchor.style.top).toBe("91px");
+		expect(anchor.style.left).toBe("266px");
+		expect(anchor.style.top).not.toBe("894px");
+	});
+
+	it("触摸长按打开的菜单同样与分组按钮顶部对齐", async () => {
+		vi.useFakeTimers();
+		try {
+			const { container } = renderTile();
+			const button = screen.getByLabelText("打开分组 工作");
+			vi.spyOn(button, "getBoundingClientRect").mockReturnValue(
+				fakeRect(72, 240),
+			);
+
+			fireEvent.pointerDown(button, {
+				pointerType: "touch",
+				clientX: 40,
+				clientY: 700,
+			});
+			await act(async () => {
+				vi.advanceTimersByTime(300);
+			});
+
+			const anchor = getAnchor(container);
+			expect(anchor.style.top).toBe("72px");
+			expect(anchor.style.left).toBe("246px");
+			expect(anchor.style.top).not.toBe("706px");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 
 	it("opens the edit panel on right click with name, colors and delete", () => {
 		renderTile();

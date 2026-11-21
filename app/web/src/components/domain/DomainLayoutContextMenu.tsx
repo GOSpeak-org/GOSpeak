@@ -35,7 +35,16 @@ export default function DomainLayoutContextMenu({
 				onContextMenu={(event) => {
 					event.preventDefault();
 					event.stopPropagation();
-					setPoint({ x: event.clientX + 6, y: event.clientY + 6 });
+					// 菜单顶部与域按钮顶部对齐，而不是跟着鼠标落点浮动
+					const root = event.currentTarget as HTMLElement;
+					const anchor =
+						Array.from(root.querySelectorAll("button")).find(
+							(btn) =>
+								btn.getAttribute("aria-label") === label ||
+								btn.getAttribute("title") === label,
+						) ?? root;
+					const rect = anchor.getBoundingClientRect();
+					setPoint({ x: rect.right + 6, y: rect.top });
 					setOpen(true);
 				}}
 			>

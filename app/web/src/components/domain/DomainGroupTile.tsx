@@ -1,4 +1,9 @@
-import { Popover, PopoverAnchor, PopoverContent } from "@gospeak/components";
+import {
+	Popover,
+	PopoverAnchor,
+	PopoverContent,
+	TOOLTIP_CONTENT_CLASS,
+} from "@gospeak/components";
 import { useDroppable } from "@dnd-kit/core";
 import {
 	SortableContext,
@@ -7,7 +12,7 @@ import {
 } from "@dnd-kit/sortable";
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, GripVertical, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DomainIcon from "@/components/domain/DomainIcon";
 import DomainGroupColorPicker from "@/components/domain/DomainGroupColor";
 import DomainGroupIcon from "@/components/domain/DomainGroupIcon";
@@ -79,7 +84,7 @@ function SortableDomainRow({
 				style={style}
 				className={clsx(
 					"flex touch-manipulation items-center gap-1 rounded-lg p-1",
-					isDragging && "opacity-50",
+					isDragging && "bg-selected",
 				)}
 			>
 				<button
@@ -87,7 +92,7 @@ function SortableDomainRow({
 					aria-label={`拖动 ${domain.name}`}
 					{...attributes}
 					{...listeners}
-					className="text-faint-foreground hover:text-foreground flex size-5 shrink-0 cursor-grab items-center justify-center"
+					className="text-muted-foreground hover:text-foreground flex size-5 shrink-0 cursor-grab items-center justify-center"
 				>
 					<GripVertical size={16} />
 				</button>
@@ -149,7 +154,31 @@ export default function DomainGroupTile({
 	const [draft, setDraft] = useState(group.name);
 	const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const pressOrigin = useRef<Point>({ x: 0, y: 0 });
+	const groupButtonRef = useRef<HTMLButtonElement>(null);
+	const [tooltip, setTooltip] = useState<Point | null>(null);
 	useEffect(() => setDraft(group.name), [group.name]);
+
+	const tooltipLabel = `${group.name} · ${domains.length} 个域`;
+	const updateTooltipPosition = useCallback(() => {
+		const el = groupButtonRef.current;
+		if (!el) return;
+		const rect = el.getBoundingClientRect();
+		const x = rect.right + 8;
+		const y = rect.top + rect.height / 2;
+		setTooltip((prev) =>
+			prev && prev.x === x && prev.y === y ? prev : { x, y },
+		);
+	}, []);
+	const tooltipOpen = tooltip !== null;
+	useEffect(() => {
+		if (!tooltipOpen) return;
+		window.addEventListener("scroll", updateTooltipPosition, true);
+		window.addEventListener("resize", updateTooltipPosition);
+		return () => {
+			window.removeEventListener("scroll", updateTooltipPosition, true);
+			window.removeEventListener("resize", updateTooltipPosition);
+		};
+	}, [tooltipOpen, updateTooltipPosition]);
 
 	const cancelPress = () => {
 		if (pressTimer.current) {
@@ -180,8 +209,13 @@ export default function DomainGroupTile({
 			}}
 		>
 			<button
+				ref={groupButtonRef}
 				type="button"
 				aria-label={`打开分组 ${group.name}`}
+				onMouseEnter={updateTooltipPosition}
+				onMouseLeave={() => setTooltip(null)}
+				onFocus={updateTooltipPosition}
+				onBlur={() => setTooltip(null)}
 				onClick={(event) => {
 					if (open && mode === "contents") {
 						setOpen(false);
@@ -195,7 +229,9 @@ export default function DomainGroupTile({
 				onContextMenu={(event) => {
 					event.preventDefault();
 					event.stopPropagation();
-					setPoint({ x: event.clientX + 6, y: event.clientY + 6 });
+					// 菜单顶部与分组按钮顶部对齐，而不是跟着鼠标落点浮动
+					const rect = event.currentTarget.getBoundingClientRect();
+					setPoint({ x: rect.right + 6, y: rect.top });
 					setMode("edit");
 					setOpen(true);
 				}}
@@ -203,11 +239,9 @@ export default function DomainGroupTile({
 					if (event.pointerType !== "touch") return;
 					pressOrigin.current = { x: event.clientX, y: event.clientY };
 					cancelPress();
+					const rect = event.currentTarget.getBoundingClientRect();
 					pressTimer.current = setTimeout(() => {
-						setPoint({
-							x: pressOrigin.current.x + 6,
-							y: pressOrigin.current.y + 6,
-						});
+						setPoint({ x: rect.right + 6, y: rect.top });
 						setMode("edit");
 						setOpen(true);
 					}, 300);
@@ -234,6 +268,21 @@ export default function DomainGroupTile({
 					domains={domains}
 				/>
 			</button>
+			{tooltip && (
+				<div
+					aria-hidden="true"
+					className={TOOLTIP_CONTENT_CLASS}
+					style={{
+						position: "fixed",
+						zIndex: 999,
+						left: `${tooltip.x}px`,
+						top: `${tooltip.y}px`,
+						transform: "translateY(-50%)",
+					}}
+				>
+					{tooltipLabel}
+				</div>
+			)}
 			<PopoverAnchor asChild>
 				<div
 					aria-hidden="true"
@@ -275,7 +324,7 @@ export default function DomainGroupTile({
 									disabled={!canMoveUp}
 									aria-label="上移分组"
 									onClick={onMoveUp}
-									className="text-muted-foreground hover:text-foreground flex size-6 items-center justify-center rounded-md disabled:opacity-40"
+									className="text-muted-foreground hover:text-foreground flex size-6 items-center justify-center rounded-md disabled:opacity-50"
 								>
 									<ArrowUp size={16} />
 								</button>
@@ -284,7 +333,7 @@ export default function DomainGroupTile({
 									disabled={!canMoveDown}
 									aria-label="下移分组"
 									onClick={onMoveDown}
-									className="text-muted-foreground hover:text-foreground flex size-6 items-center justify-center rounded-md disabled:opacity-40"
+									className="text-muted-foreground hover:text-foreground flex size-6 items-center justify-center rounded-md disabled:opacity-50"
 								>
 									<ArrowDown size={16} />
 								</button>

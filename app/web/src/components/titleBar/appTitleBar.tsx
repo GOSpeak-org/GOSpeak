@@ -1,3 +1,9 @@
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@gospeak/components";
 import { Moon, Sun } from "lucide-react";
 import NotificationButton from "@/components/common/notificationButton";
 import ConnectionIndicator from "@/layouts/common/connectionIndicator";
@@ -44,18 +50,30 @@ export default function AppTitleBar({
 			<div className="ml-auto flex shrink-0 items-center gap-1 [--app-region:no-drag]">
 				{showConnection && <ConnectionIndicator />}
 				<NotificationButton />
-				<button
-					type="button"
-					className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"
-					onClick={() => toggleDark()}
-					title={isDark ? "切换到浅色" : "切换到深色"}
-					aria-label={isDark ? "切换到浅色" : "切换到深色"}
-				>
-					<span className="text-muted-foreground text-xs">
-						{isDark ? "深色" : "浅色"}
-					</span>
-					{isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
-				</button>
+				<TooltipProvider delayDuration={150}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								type="button"
+								className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"
+								onClick={() => toggleDark()}
+								aria-label={isDark ? "切换到浅色" : "切换到深色"}
+							>
+								<span className="text-muted-foreground text-xs">
+									{isDark ? "深色" : "浅色"}
+								</span>
+								{isDark ? (
+									<Moon className="size-4" />
+								) : (
+									<Sun className="size-4" />
+								)}
+							</button>
+						</TooltipTrigger>
+						<TooltipContent side="bottom">
+							{isDark ? "切换到浅色" : "切换到深色"}
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			</div>
 		</div>
 	);
