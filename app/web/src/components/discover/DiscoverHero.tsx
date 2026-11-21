@@ -1,8 +1,6 @@
 import { toast } from "@gospeak/components";
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowUpRight, CirclePlus, Search, Shuffle } from "lucide-react";
-import { useState } from "react";
-import CreateRoomModal from "@/components/modal/createRoomModal";
+import { ArrowUpRight, Search, Shuffle } from "lucide-react";
 import { socketStore } from "@/stores/socketStore";
 
 interface DiscoverHeroProps {
@@ -13,18 +11,7 @@ interface DiscoverHeroProps {
 
 export default function DiscoverHero(props: DiscoverHeroProps) {
 	const navigate = useNavigate();
-	const [createRoomOpen, setCreateRoomOpen] = useState(false);
-	const [createRoomDomain, setCreateRoomDomain] = useState("");
 	const currentDomainUUID = socketStore.currentDomainUUID();
-
-	const handleCreateRoom = () => {
-		if (!currentDomainUUID) {
-			toast.warning("请先选择域");
-			return;
-		}
-		setCreateRoomDomain(currentDomainUUID);
-		setCreateRoomOpen(true);
-	};
 
 	const handleJoinRandom = () => {
 		if (!currentDomainUUID) {
@@ -113,14 +100,6 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 						<button
 							type="button"
 							className={chipClass}
-							onClick={handleCreateRoom}
-						>
-							<CirclePlus size={16} />
-							快速创建房间
-						</button>
-						<button
-							type="button"
-							className={chipClass}
 							onClick={handleJoinRandom}
 						>
 							<Shuffle size={16} />
@@ -137,11 +116,6 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 					</div>
 				</div>
 			</section>
-			<CreateRoomModal
-				open={createRoomOpen}
-				domainUUID={createRoomDomain}
-				onClose={() => setCreateRoomOpen(false)}
-			/>
 		</>
 	);
 }
