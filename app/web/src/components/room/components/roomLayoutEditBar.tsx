@@ -1,5 +1,5 @@
 import { Button } from "@gospeak/components";
-import { GripVertical, Save } from "lucide-react";
+import { ArrowUpDown, Check } from "lucide-react";
 
 export default function RoomLayoutEditBar({
 	editing,
@@ -18,10 +18,11 @@ export default function RoomLayoutEditBar({
 				type="button"
 				size="xs"
 				variant={editing ? "outline" : "ghost"}
-				aria-label={editing ? "退出编辑布局" : "编辑布局"}
+				aria-label={editing ? "退出编辑布局" : "编辑布局与排序"}
+				aria-pressed={editing}
 				onClick={onToggle}
 			>
-				<GripVertical size={14} />
+				<ArrowUpDown size={14} />
 			</Button>
 			{editing && (
 				<Button
@@ -31,7 +32,7 @@ export default function RoomLayoutEditBar({
 					aria-label="保存布局"
 					onClick={onSave}
 				>
-					<Save size={14} />
+					<Check size={14} />
 				</Button>
 			)}
 		</div>

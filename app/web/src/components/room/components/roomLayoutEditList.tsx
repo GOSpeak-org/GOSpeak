@@ -12,7 +12,8 @@ import {
 	useSortable,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { GripVertical } from "lucide-react";
+import clsx from "clsx";
+import { GripVertical, Hash, Lock, Mic } from "lucide-react";
 import type { RoomInfo } from "@/socket/types";
 
 export type EditBlock = {
@@ -21,33 +22,15 @@ export type EditBlock = {
 	rooms: RoomInfo[];
 };
 
-function SortableHandle({ id }: { id: string }) {
+function SortableBlock({
+	block,
+	children,
+}: {
+	block: EditBlock;
+	children: React.ReactNode;
+}) {
 	const { attributes, listeners, setNodeRef, transform, transition } =
-		useSortable({ id });
-	return (
-		<button
-			ref={setNodeRef}
-			type="button"
-			aria-label="拖拽排序"
-			style={{
-				transform: transform
-					? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-					: undefined,
-				transition,
-			}}
-			className="text-muted-foreground cursor-grab px-1"
-			{...attributes}
-			{...listeners}
-		>
-			<GripVertical size={12} />
-		</button>
-	);
-}
-
-function SortableRoom({ room }: { room: RoomInfo }) {
-	const { setNodeRef, transform, transition } = useSortable({
-		id: `room:${room.uuid}`,
-	});
+		useSortable({ id: `block:${block.uuid}` });
 	return (
 		<div
 			ref={setNodeRef}
@@ -57,10 +40,75 @@ function SortableRoom({ room }: { room: RoomInfo }) {
 					: undefined,
 				transition,
 			}}
-			className="flex items-center gap-1 py-0.5 text-xs"
+			className="flex flex-col"
 		>
-			<SortableHandle id={`room:${room.uuid}`} />
-			<span className="min-w-0 flex-1 truncate">{room.name}</span>
+			<div className="flex items-center gap-1 px-1 py-1">
+				<button
+					type="button"
+					aria-label={`拖拽排序分组 ${block.name}`}
+					className="text-faint-foreground hover:text-foreground cursor-grab"
+					{...attributes}
+					{...listeners}
+				>
+					<GripVertical size={12} />
+				</button>
+				<span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-semibold">
+					{block.name}
+				</span>
+				<span className="text-faint-foreground text-2xs">
+					{block.rooms.length}
+				</span>
+			</div>
+			{children}
+		</div>
+	);
+}
+
+function SortableRoom({ room }: { room: RoomInfo }) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: `room:${room.uuid}` });
+	return (
+		<div
+			ref={setNodeRef}
+			style={{
+				transform: transform
+					? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+					: undefined,
+				transition,
+			}}
+			className={clsx(
+				"flex w-full min-w-0 items-center",
+				isDragging && "opacity-60",
+			)}
+		>
+			<div
+				{...attributes}
+				{...listeners}
+				className="hover:bg-muted flex w-full min-w-0 cursor-grab touch-manipulation items-center justify-between gap-1 rounded-sm px-1.5 py-2 text-sm transition-colors active:cursor-grabbing"
+			>
+				<span className="flex min-w-0 flex-1 items-center gap-1">
+					{room.type === "text" ? <Hash size={16} /> : <Mic size={16} />}
+					<span className="min-w-0 flex-1 truncate text-left leading-none">
+						{room.name}
+					</span>
+					{room.has_password && (
+						<span className="text-faint-foreground shrink-0">
+							<Lock size={14} />
+						</span>
+					)}
+				</span>
+				{room.type !== "text" && (
+					<span className="shrink-0 text-xs">
+						{room.count}/{room.limit}
+					</span>
+				)}
+			</div>
 		</div>
 	);
 }
@@ -130,16 +178,7 @@ export default function RoomLayoutEditList({
 					strategy={verticalListSortingStrategy}
 				>
 					{blocks.map((block) => (
-						<div
-							key={block.uuid}
-							className="border-border/70 rounded-sm border px-1 py-1"
-						>
-							<div className="flex items-center gap-1">
-								<SortableHandle id={`block:${block.uuid}`} />
-								<span className="text-muted-foreground flex-1 text-xs font-semibold">
-									{block.name}
-								</span>
-							</div>
+						<SortableBlock key={block.uuid} block={block}>
 							<SortableContext
 								items={block.rooms.map((r) => `room:${r.uuid}`)}
 								strategy={verticalListSortingStrategy}
@@ -148,7 +187,7 @@ export default function RoomLayoutEditList({
 									<SortableRoom key={room.uuid} room={room} />
 								))}
 							</SortableContext>
-						</div>
+						</SortableBlock>
 					))}
 				</SortableContext>
 			</DndContext>
