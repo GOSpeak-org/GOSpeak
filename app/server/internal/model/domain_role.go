@@ -37,7 +37,7 @@ func (DomainRolePermission) TableName() string {
 // AssignableDomainPermissions 域角色可分配的权限码白名单。
 var AssignableDomainPermissions = []string{
 	PermDomainManage, PermDomainInvite, PermDomainInviteManage, PermDomainMemberReview,
-	PermDomainKick, PermDomainRoleManage,
+	PermDomainKick, PermDomainRoleManage, PermDomainRoomLayoutManage,
 	PermRoomCreate, PermRoomRead, PermRoomUpdate, PermRoomDelete,
 	PermMessageSend, PermMessageRead, PermMessageDeleteOthers,
 }
@@ -54,7 +54,7 @@ func AssignableDomainPermissionsSet() map[string]struct{} {
 var DefaultDomainRolePermissions = map[string][]string{
 	DomainRoleAdmin: {
 		PermDomainManage, PermDomainInvite, PermDomainInviteManage, PermDomainMemberReview,
-		PermDomainKick, PermDomainRoleManage,
+		PermDomainKick, PermDomainRoleManage, PermDomainRoomLayoutManage,
 		PermRoomCreate, PermRoomRead, PermRoomUpdate, PermRoomDelete,
 		PermMessageSend, PermMessageRead, PermMessageDeleteOthers,
 	},
