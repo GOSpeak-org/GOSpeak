@@ -22,7 +22,7 @@ export const SelectTrigger = forwardRef<
 		className={cn(
 			// inline-flex 而非 flex：默认 w-full 撑满，调用方传 w-auto 时可真正按内容收缩
 			// [&>span[data-placeholder]] 让未选择态的占位文字变灰，和已选值区分开
-			"border-input bg-card text-foreground focus-visible:ring-ring inline-flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-sm border px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate [&>span[data-placeholder]]:text-muted-foreground",
+			"border-input bg-card text-foreground focus-visible:ring-ring inline-flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-sm border px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate [&>span[data-placeholder]]:text-faint-foreground",
 			className,
 		)}
 		{...props}

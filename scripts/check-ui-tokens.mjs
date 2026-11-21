@@ -35,6 +35,9 @@ const PALETTE_COLOR =
 const LITERAL_COLOR =
 	/\[#[\da-fA-F]{3,8}\]|fill="#[\da-fA-F]{3,8}"|stroke="#[\da-fA-F]{3,8}"|\b(?:rgba?|hsla?|oklch)\(/;
 const Z_ARBITRARY = /\bz-\[\d+\]/;
+const BORDER_OPACITY = /\bborder-(?:border|input)\/(?:60|70|80)\b/;
+const HOVER_BORDER_SURFACE = /\bhover:bg-border(?:\/\d+)?\b/;
+const DISABLED_OPACITY_40 = /\bdisabled:opacity-40\b/;
 const BARE_ROUNDED = /(?<![\w-])rounded(?![\w-])/;
 const ICON_SIZE = /<[A-Z][A-Za-z0-9]*(?:\s+[^>]*?)?\s+size=\{(\d+)\}/g;
 const ICON_SIZES = new Set([12, 14, 16, 20, 24, 32]);
@@ -68,6 +71,19 @@ const RULES = [
 	{
 		pattern: Z_ARBITRARY,
 		hint: "层级必须用 z-base/raised/dropdown/dialog/popover/toast 语义 token",
+	},
+	{
+		pattern: BORDER_OPACITY,
+		hint: "结构边框用 border-border 原值（暗色下 /60 /70 /80 会让边框消失），tokenSourceExempt",
+		tokenSourceExempt: true,
+	},
+	{
+		pattern: HOVER_BORDER_SURFACE,
+		hint: "hover 面用 hover:bg-muted，border 是描边 token 不能当表面",
+	},
+	{
+		pattern: DISABLED_OPACITY_40,
+		hint: "禁用态统一 disabled:opacity-50",
 	},
 ];
 

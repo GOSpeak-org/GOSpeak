@@ -154,3 +154,25 @@ test("合法语义 token 不误报", () => {
 	});
 	assert.deepEqual(checkUiTokens(root), []);
 });
+
+test("边框透明度档位、hover 描边面、禁用透明度回潮命中门禁", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": [
+			'<div className="border-border/80" />',
+			'<button className="hover:bg-border/50" />',
+			'<button className="disabled:opacity-40" />',
+		].join("\n"),
+	});
+	assert.deepEqual(
+		checkUiTokens(root).map((v) => v.found),
+		["border-border/80", "hover:bg-border/50", "disabled:opacity-40"],
+	);
+});
+
+test("合法边框与 hover 面不误报", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx":
+			'<button className="border-border hover:bg-muted disabled:opacity-50" />\n',
+	});
+	assert.deepEqual(checkUiTokens(root), []);
+});

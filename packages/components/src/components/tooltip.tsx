@@ -7,6 +7,10 @@ export const TooltipProvider = TooltipPrimitive.Provider;
 export const Tooltip = TooltipPrimitive.Root;
 export const TooltipTrigger = TooltipPrimitive.Trigger;
 
+/** 纯文本 tooltip 的统一外观：与侧栏图标 tooltip 共用同一套类名。 */
+export const TOOLTIP_CONTENT_CLASS =
+	"bg-neutral text-neutral-foreground pointer-events-none rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap shadow-lg";
+
 export const TooltipContent = forwardRef<
 	React.ComponentRef<typeof TooltipPrimitive.Content>,
 	React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
@@ -16,10 +20,7 @@ export const TooltipContent = forwardRef<
 			ref={ref}
 			sideOffset={sideOffset}
 			collisionPadding={collisionPadding}
-			className={cn(
-				"bg-popover text-popover-foreground border-border z-popover max-w-64 rounded-lg border px-2 py-1 text-xs shadow-md",
-				className,
-			)}
+			className={cn(TOOLTIP_CONTENT_CLASS, "z-popover", className)}
 			{...props}
 		/>
 	</TooltipPrimitive.Portal>

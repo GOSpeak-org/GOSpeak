@@ -636,6 +636,26 @@
 	--color-faint-primary-foreground: var(--faint-primary-foreground);
 }
 
+/* z 层级语义工具类：@theme 里的 --z-* 只定义变量，不生成 z-popover 这类工具类 */
+@utility z-base {
+	z-index: var(--z-base);
+}
+@utility z-raised {
+	z-index: var(--z-raised);
+}
+@utility z-dropdown {
+	z-index: var(--z-dropdown);
+}
+@utility z-dialog {
+	z-index: var(--z-dialog);
+}
+@utility z-popover {
+	z-index: var(--z-popover);
+}
+@utility z-toast {
+	z-index: var(--z-toast);
+}
+
 /*
  * 高对比度偏好（系统「对比度：更高」）：只抬文字与描边的对比，
  * 不动色相与表面阶梯——文首四条派生规则仍然成立，
@@ -671,6 +691,11 @@
  *
  * blur 只挂在启用了半透明表面的外壳容器（surface-glass 工具类）上，
  * 内层嵌套面板继承半透明变量、不再单独加滤镜，避免滤镜数量爆炸。
+ *
+ * 多面板色差的解法：所有大面积面板必须共用同一层玻璃底——玻璃只挂在
+ * 最外层 Main 外壳（layout.tsx），内部左右面板透明继承同一份 backdrop；
+ * 不要给左右面板各自再挂 surface-glass，否则各自模糊到背景图不同位置
+ * 的像素，同一 token 也会显出左右色差。
  */
 html.bg-custom {
 	--card: color-mix(
@@ -689,12 +714,5 @@ html.bg-custom .surface-glass {
 	backdrop-filter: blur(var(--bg-blur, 14px)) saturate(var(--bg-saturate, 1));
 }
 
-/* 管理页外壳用 bg-background 铺底（不随玻璃 token 走），有背景时降为半透明并接滤镜 */
-html.bg-custom .manage-shell {
-	background-color: color-mix(
-		in oklab,
-		var(--background-base) 55%,
-		transparent
-	);
-	backdrop-filter: blur(var(--bg-blur, 14px)) saturate(var(--bg-saturate, 1));
-}
+/* 管理页外壳嵌在 Main 的 surface-glass 外壳内，透明继承那一层即可；
+   不再单独叠 bg-background + blur，避免与其它页面出现双重玻璃层。 */
