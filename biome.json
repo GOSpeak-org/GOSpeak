@@ -19,6 +19,7 @@
 			"scripts/**/*.{js,mjs}",
 			"test/**/*.ts",
 			"!app/web/src/routeTree.gen.ts",
+			"!app/desktop/mygo.ts",
 			"!app/web/public",
 			"!app/web/.vscode",
 			"!packages/components/.storybook",
