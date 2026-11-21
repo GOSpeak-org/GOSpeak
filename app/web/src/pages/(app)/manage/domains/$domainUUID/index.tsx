@@ -1,6 +1,7 @@
 import { Skeleton, toast } from "@gospeak/components";
 import { LoadingRegion } from "@/components/common/Skeletons";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CirclePlus, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -8,6 +9,7 @@ import {
 	type DomainRole,
 	createDomainRole,
 	deleteDomainRole,
+	getRoomLayout,
 	kickDomainMember,
 	listDomainRoles,
 	updateDomain,
@@ -47,6 +49,7 @@ import { apiErrorMessage } from "@/utils/apiError";
 import { toastActionError } from "@/utils/toast";
 import { DomainSettingsForm } from "./components/DomainSettingsForm";
 import DomainRolePanel from "@/components/manage/DomainRolePanel";
+import DomainRoomLayoutPanel from "@/components/manage/DomainRoomLayoutPanel";
 
 export const Route = createFileRoute("/(app)/manage/domains/$domainUUID/")({
 	component: RouteComponent,
@@ -269,6 +272,11 @@ function RouteComponent() {
 	const [deleteError, setDeleteError] = useState("");
 	const totalRoomPages = Math.max(1, Math.ceil(roomTotal / ROOM_PAGE_SIZE));
 	const [createRoomOpen, setCreateRoomOpen] = useState(false);
+	const roomLayoutQuery = useQuery({
+		queryKey: ["room-layout", uuid],
+		queryFn: () => getRoomLayout(uuid),
+		enabled: !!domain,
+	});
 
 	// ── 域设置表单 ──
 	const [name, setName] = useState("");
@@ -759,6 +767,24 @@ function RouteComponent() {
 								onEdit={setEditingRoom}
 								onDelete={setDeletingRoom}
 							/>
+						</ManageSection>
+						<ManageSection
+							title="分组与排序"
+							description="自定义房间在侧边栏的分组与显示顺序"
+							className="min-w-0"
+						>
+							{roomLayoutQuery.data ? (
+								<DomainRoomLayoutPanel
+									domainUUID={uuid}
+									layout={roomLayoutQuery.data}
+								/>
+							) : (
+								<div className="text-muted-foreground px-3 py-4 text-xs">
+									{roomLayoutQuery.isError
+										? apiErrorMessage(roomLayoutQuery.error)
+										: "正在加载分组布局..."}
+								</div>
+							)}
 						</ManageSection>
 					</>
 				)}

@@ -246,3 +246,53 @@ export async function myDomainPermissions(
 	if (!result) throw new Error("domain permission data is missing");
 	return result;
 }
+export interface RoomLayoutBrief {
+	uuid: string;
+	name: string;
+	type?: string;
+	count: number;
+	has_password: boolean;
+	sort_order: number;
+}
+
+export interface RoomLayoutGroup {
+	uuid: string;
+	name: string;
+	sort_order: number;
+	rooms: RoomLayoutBrief[];
+}
+
+export interface RoomLayoutView {
+	groups: RoomLayoutGroup[];
+	ungrouped: RoomLayoutBrief[];
+	ungrouped_position: number;
+	can_manage: boolean;
+}
+
+export interface RoomLayoutSaveReq {
+	domain_uuid: string;
+	groups: Array<{
+		uuid?: string;
+		name: string;
+		sort_order: number;
+		room_uuids: string[];
+	}>;
+	ungrouped_position: number;
+	ungrouped_room_uuids: string[];
+}
+
+export function getRoomLayout(domainUUID: string): Promise<RoomLayoutView> {
+	return apiClient.post<RoomLayoutView>({
+		url: "/api/v1/domain/room-layout/get",
+		data: { domain_uuid: domainUUID },
+	});
+}
+
+export function saveRoomLayout(
+	req: RoomLayoutSaveReq,
+): Promise<RoomLayoutView> {
+	return apiClient.post<RoomLayoutView>({
+		url: "/api/v1/domain/room-layout/save",
+		data: req,
+	});
+}
