@@ -16,7 +16,7 @@ export default function ConversationList() {
 	}, []);
 
 	return (
-		<div className="flex h-full w-full flex-col overflow-hidden select-none">
+		<div className="bg-muted surface-glass flex h-full w-full flex-col overflow-hidden select-none">
 			<div className="border-border flex h-10 items-center border-b px-3">
 				<h3 className="text-sm font-bold">聊天</h3>
 			</div>

@@ -32,7 +32,7 @@ const ScrollBar = forwardRef<
 		)}
 		{...props}
 	>
-		<ScrollAreaPrimitive.Thumb className="bg-muted-foreground/35 hover:bg-muted-foreground/60 relative flex-1 rounded-full transition-colors" />
+		<ScrollAreaPrimitive.Thumb className="bg-scrollbar-thumb hover:bg-scrollbar-thumb-hover relative flex-1 rounded-full transition-colors" />
 	</ScrollAreaPrimitive.Scrollbar>
 ));
 ScrollBar.displayName = "ScrollAreaScrollBar";

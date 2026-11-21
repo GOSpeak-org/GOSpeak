@@ -164,7 +164,7 @@ export default function DomainRolePanel(props: {
 
 	const permissionBody = !selected ? (
 		<div className="text-faint-foreground flex min-h-48 flex-col items-center justify-center gap-2 text-sm">
-			<MousePointerClick className="text-muted-foreground/60 size-5" />
+			<MousePointerClick className="text-faint-foreground size-5" />
 			从左侧选择角色进行权限配置
 		</div>
 	) : (

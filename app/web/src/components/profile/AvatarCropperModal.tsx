@@ -115,7 +115,7 @@ export default function AvatarCropperModal({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="relative h-[320px] w-full overflow-hidden rounded-sm bg-black">
+				<div className="relative h-[320px] w-full overflow-hidden rounded-sm bg-sunken">
 					{imageSrc && loadState !== "error" && (
 						<Cropper
 							image={imageSrc}
@@ -139,7 +139,7 @@ export default function AvatarCropperModal({
 							onMediaLoaded={handleMediaLoaded}
 							style={{
 								cropAreaStyle: {
-									border: "2px solid rgba(255, 255, 255, 0.9)",
+									border: "2px solid var(--foreground)",
 								},
 							}}
 							classes={{}}
@@ -149,7 +149,7 @@ export default function AvatarCropperModal({
 					)}
 
 					{loadState !== "ready" && (
-						<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-white/80">
+						<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-foreground">
 							{loadState === "loading" ? (
 								<>
 									<Loader2 className="size-5 animate-spin" />

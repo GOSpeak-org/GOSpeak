@@ -324,7 +324,7 @@ function SFUPage() {
 								<span className="border-border rounded-full border px-2 py-0.5">
 									soft 信令
 								</span>
-								<span className="border-border rounded-full border px-2 py-0.5 opacity-60">
+								<span className="border-border rounded-full border px-2 py-0.5 text-faint-foreground">
 									none
 								</span>
 							</div>

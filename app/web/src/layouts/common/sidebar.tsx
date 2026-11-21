@@ -86,7 +86,7 @@ function SortableTile({
 			{...listeners}
 			className={clsx(
 				"shrink-0 touch-manipulation",
-				isDragging && "opacity-50",
+				isDragging && "bg-selected",
 			)}
 		>
 			{children({ isDragging, isOver })}

@@ -100,10 +100,10 @@ function MessageItem({
 				)}
 			</div>
 
-			<div className={isPending ? "opacity-60" : undefined}>
+			<div>
 				<MarkdownText
 					text={msg.content}
-					className="ds-markdown"
+					className={`ds-markdown ${isPending ? "ds-markdown-pending" : ""}`}
 					selfName={user?.name}
 				/>
 			</div>

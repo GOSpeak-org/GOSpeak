@@ -269,7 +269,7 @@ export function RoomItem({
 					<>
 						{tip && (
 							<div
-								className="bg-foreground text-background pointer-events-none fixed z-[9999] rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
+								className="bg-foreground text-background pointer-events-none fixed z-toast rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
 								style={{ left: `${tip.left}px`, top: `${tip.top}px` }}
 							>
 								{tip.text}
@@ -277,7 +277,7 @@ export function RoomItem({
 						)}
 						{clickHint && (
 							<div
-								className="bg-foreground text-background pointer-events-none fixed z-[9999] -translate-x-1/2 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
+								className="bg-foreground text-background pointer-events-none fixed z-toast -translate-x-1/2 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
 								style={{ left: `${clickHint.x}px`, top: `${clickHint.y}px` }}
 							>
 								双击进入
@@ -287,7 +287,7 @@ export function RoomItem({
 							<div
 								ref={contextMenuRef}
 								role="menu"
-								className="border-border bg-card fixed z-[9999] min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
+								className="border-border bg-card fixed z-toast min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
 								style={{
 									left: `${contextMenu.x}px`,
 									top: `${contextMenu.y}px`,

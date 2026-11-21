@@ -58,8 +58,9 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 				aria-hidden="true"
 				style={{
 					backgroundImage:
-						"linear-gradient(to right, oklch(1 0 0 / 12%) 1px, transparent 1px), linear-gradient(to bottom, oklch(1 0 0 / 12%) 1px, transparent 1px)",
+						"linear-gradient(to right, color-mix(in oklab, var(--primary-foreground) 12%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--primary-foreground) 12%, transparent) 1px, transparent 1px)",
 					backgroundSize: "32px 32px",
+					// ui-token-ignore: mask 仅取 alpha 通道，black 表示完全不透明，不承载可见颜色
 					maskImage: "linear-gradient(to bottom, black, transparent 85%)",
 				}}
 			/>
@@ -75,7 +76,7 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 				<h1 className="text-primary-foreground text-xl font-bold">
 					找到你的下一个语音房
 				</h1>
-				<p className="text-primary-foreground/85 mt-0.5 text-sm">
+				<p className="text-muted-primary-foreground mt-0.5 text-sm">
 					搜索公开语音域，或粘贴好友的邀请码即刻加入
 				</p>
 				<form onSubmit={props.onSubmit} className="mt-3 flex max-w-xl gap-2">
@@ -85,7 +86,7 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 						onChange={(e) => props.onChange(e.currentTarget.value)}
 						placeholder="搜索域名称 / 描述，或粘贴邀请码…"
 						aria-label="搜索公开域或输入邀请码"
-						className="border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/70 h-9 min-w-0 flex-1 rounded-field border px-3 text-sm outline-none"
+						className="border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground placeholder:text-faint-primary-foreground h-9 min-w-0 flex-1 rounded-field border px-3 text-sm outline-none"
 					/>
 					<button
 						type="submit"

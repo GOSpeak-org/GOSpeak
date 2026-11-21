@@ -37,7 +37,7 @@ const TONE = {
 	success: { dot: "bg-success", text: "text-success" },
 	warning: { dot: "bg-warning", text: "text-warning" },
 	error: { dot: "bg-destructive", text: "text-destructive" },
-	muted: { dot: "bg-foreground/40", text: "text-faint-foreground" },
+	muted: { dot: "bg-muted-foreground", text: "text-faint-foreground" },
 };
 
 /**

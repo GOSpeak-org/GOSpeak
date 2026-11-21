@@ -21,7 +21,7 @@ function MemberListItem(props: MemberItemProps) {
 			type="button"
 			className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
 				props.isSelected ? "bg-border/50" : "hover:bg-border/50"
-			} ${member.online ? "" : "opacity-60"}`}
+			} ${member.online ? "" : "text-faint-foreground"}`}
 			onClick={(e) => {
 				const rect = e.currentTarget.getBoundingClientRect();
 				const x = e.detail === 0 ? rect.right : e.clientX;

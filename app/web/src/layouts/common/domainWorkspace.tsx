@@ -393,7 +393,7 @@ function ChannelPicker({
 							? "该频道需要密码，请在左侧列表双击进入"
 							: `进入 ${room.name}`
 					}
-					className="bg-muted border-border hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55"
+					className="bg-muted border-border hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:bg-muted disabled:text-faint-foreground"
 				>
 					{kind === "text" ? (
 						<Hash size={16} className="text-muted-foreground shrink-0" />

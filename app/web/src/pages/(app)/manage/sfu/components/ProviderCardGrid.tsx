@@ -41,7 +41,7 @@ export default function ProviderCardGrid({
 								? "border-foreground/25 bg-card shadow-sm ring-foreground/10 ring-1"
 								: !isSelected && !disabled
 									? "border-border/80 bg-card hover:border-foreground/15 hover:bg-muted/40 hover:shadow-sm"
-									: "border-border bg-muted/30 opacity-55 cursor-not-allowed"
+									: "border-border bg-muted text-faint-foreground cursor-not-allowed"
 						}`}
 						disabled={disabled}
 						onClick={() => onSelect(option.value)}

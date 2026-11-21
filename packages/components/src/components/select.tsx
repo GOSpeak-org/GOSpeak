@@ -61,7 +61,7 @@ export const SelectContent = forwardRef<
 				className={cn(
 					// 高度必须跟 Radix 的可用空间变量走：写死 max-h 会让靠近视口底部的下拉溢出被裁、且滚不到。
 					// 20rem 只是"菜单再长也别太高"的绝对上限。
-					"bg-popover text-popover-foreground border-border z-[100] max-h-[min(var(--radix-select-content-available-height),20rem)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-content-available-width)] overflow-hidden rounded-lg border shadow-md",
+					"bg-popover text-popover-foreground border-border z-popover max-h-[min(var(--radix-select-content-available-height),20rem)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-content-available-width)] overflow-hidden rounded-lg border shadow-md",
 					className,
 				)}
 				{...props}

@@ -194,11 +194,11 @@ export default function ProfileForm({
 								className={`ring-foreground/15 ring-offset-background ring-2 ring-offset-2 ${avatarSize}`}
 								textClass={avatarText}
 							/>
-							<div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+							<div className="absolute inset-0 flex items-center justify-center rounded-full bg-foreground/45 opacity-0 transition-opacity group-hover:opacity-100">
 								{uploading ? (
 									<span className="border-primary border-t-primary size-5 animate-spin rounded-full border-2" />
 								) : (
-									<span className="text-xs text-white sm:text-sm">
+									<span className="text-xs text-background sm:text-sm">
 										更换头像
 									</span>
 								)}

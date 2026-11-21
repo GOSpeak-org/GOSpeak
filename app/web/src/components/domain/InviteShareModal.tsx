@@ -104,7 +104,10 @@ export default function InviteShareModal({
 						<img
 							src={qrDataUrl}
 							alt="邀请二维码"
-							className="h-60 w-60 rounded-lg bg-white object-contain p-2"
+							className={
+								// ui-token-ignore: 二维码扫码需要白色 quiet zone，属功能性例外
+								"h-60 w-60 rounded-lg bg-white object-contain p-2"
+							}
 						/>
 					)}
 					{qrError && (

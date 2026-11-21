@@ -17,7 +17,7 @@ export const TooltipContent = forwardRef<
 			sideOffset={sideOffset}
 			collisionPadding={collisionPadding}
 			className={cn(
-				"bg-popover text-popover-foreground border-border z-[100] max-w-64 rounded-lg border px-2 py-1 text-xs shadow-md",
+				"bg-popover text-popover-foreground border-border z-popover max-w-64 rounded-lg border px-2 py-1 text-xs shadow-md",
 				className,
 			)}
 			{...props}

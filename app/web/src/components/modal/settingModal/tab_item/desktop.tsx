@@ -371,7 +371,7 @@ function DesktopForm() {
 						max={1}
 						step={0.05}
 						value={cfg?.opacity ?? 1}
-						className="bg-border h-1.5 w-full cursor-pointer accent-[var(--primary)]"
+						className="bg-border h-1.5 w-full cursor-pointer accent-primary"
 						onChange={(e) => {
 							const v = Number(e.target.value);
 							patch({ opacity: v });

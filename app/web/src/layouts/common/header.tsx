@@ -15,7 +15,7 @@ export default function Header() {
 	}, []);
 
 	return (
-		<div className="text-foreground flex select-none items-center justify-between overflow-hidden px-2 py-0.5 text-xs">
+		<div className="bg-card surface-glass text-foreground flex select-none items-center justify-between overflow-hidden px-2 py-0.5 text-xs">
 			<div className="flex flex-1 items-center gap-1.5">
 				<img
 					src="/favicon-256.png"

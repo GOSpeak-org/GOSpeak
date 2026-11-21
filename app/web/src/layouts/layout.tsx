@@ -317,7 +317,7 @@ function DesktopLayout(state: LayoutState) {
 			<div className="flex h-full flex-1">
 				{/* prev：Sidebar + 房间列表（可拖拽调宽，替代 cui-solid Split） */}
 				<div
-					className="flex h-full shrink-0 flex-col justify-between"
+					className="bg-card surface-glass flex h-full shrink-0 flex-col justify-between"
 					style={{ width: splitWidth }}
 				>
 					<div className="flex min-h-0 flex-1">
@@ -325,7 +325,7 @@ function DesktopLayout(state: LayoutState) {
 							onOpenSettings={onOpenSettings}
 							settingsOpen={settingsOpen}
 						/>
-						<div className="border-border box-border min-w-0 min-h-0 flex-1 border-t border-l border-solid">
+						<div className="border-border bg-muted surface-glass box-border min-w-0 min-h-0 flex-1 border-t border-l border-solid">
 							<DynamicRender />
 						</div>
 					</div>
@@ -353,7 +353,7 @@ function DesktopLayout(state: LayoutState) {
 						{children}
 					</div>
 					<div
-						className="surface-glass h-full w-full flex-1"
+						className="bg-card surface-glass h-full w-full flex-1"
 						style={{ display: isDomain ? undefined : "none" }}
 					>
 						<DomainWorkspace isDomain={isDomain} />

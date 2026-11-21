@@ -1,28 +1,40 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { checkRadiusTokens } from "./check-radius-tokens.mjs";
 
 // UI token 护栏。规范唯一来源是 packages/components/src/theme.css
 // （见其文件头的暗色派生规则与文字三档），这里防止它被新代码绕开。
 //
-// 拦住 5 类回退：
+// 拦住 9 类回退：
 //   1. 任意圆角        rounded-[6px]                 → 用 rounded-sm/md/lg/xl/2xl
 //   2. ds-* 语义双轨   ds-text / ds-panel / ds-border → 用 text-foreground / bg-card / border-border
 //   3. 任意字号        text-[13px/20px]               → 用 text-2xs/xs/sm/base/lg/xl
 //   4. 文字透明度档位  text-foreground/45             → 用 text-foreground / -muted-foreground / -faint-foreground
 //   5. 裸圆角与越界图标 rounded / size={15}           → 用 rounded-sm / size={12|14|16|20|24|32}
+//   6. 调色板硬编码色  text-white / bg-black/50       → 用语义 token 或新增并补齐全部主题
+//   7. 字面颜色        bg-[#fff] / rgba() / oklch()   → 用 color-mix(in oklab, var(--token) …)
+//   8. 任意层级        z-[100]                        → 用 z-dialog / z-popover / z-toast
+//   9. 品牌色例外需注释 ui-token-ignore-file（文件）/ ui-token-ignore（下一行）
 const SCAN_DIRS = ["app/web/src", "packages/components/src"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "_solid-legacy"]);
 const SCRIPT_EXTS = /\.(tsx?|jsx?)$/;
 const STYLE_EXTS = /\.css$/;
 const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
+const TOKEN_SOURCE = "theme.css";
+const IGNORE_FILE = /ui-token-ignore-file/;
+const IGNORE_LINE = /ui-token-ignore(?:\s*:|\s*$)/;
 
 const DS_DUPLICATE =
 	/\bds-(?:text|body|muted|faint|border|bg|panel|userbar|subtle|hover|active|deep|blurple|divider|input-bg|msg-row|danger)\b/;
 const ARBITRARY_FONT_SIZE =
 	/\btext-\[\d+(?:\.\d+)?(?:px|rem)(?:\/\d+(?:\.\d+)?(?:px|rem|%)?)?\]/;
-const FOREGROUND_OPACITY = /\btext-foreground\/\d+/;
+const FOREGROUND_OPACITY = /\btext-[a-z0-9-]*foreground\/\d+/;
+const PALETTE_COLOR =
+	/\b(?:text|bg|border|ring|fill|stroke|divide|from|to|via)-(?:white|black|(?:slate|gray|zinc|neutral|red|orange|amber|yellow|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})\b/;
+const LITERAL_COLOR =
+	/\[#[\da-fA-F]{3,8}\]|fill="#[\da-fA-F]{3,8}"|stroke="#[\da-fA-F]{3,8}"|\b(?:rgba?|hsla?|oklch)\(/;
+const Z_ARBITRARY = /\bz-\[\d+\]/;
 const BARE_ROUNDED = /(?<![\w-])rounded(?![\w-])/;
 const ICON_SIZE = /<[A-Z][A-Za-z0-9]*(?:\s+[^>]*?)?\s+size=\{(\d+)\}/g;
 const ICON_SIZES = new Set([12, 14, 16, 20, 24, 32]);
@@ -43,6 +55,19 @@ const RULES = [
 	{
 		pattern: BARE_ROUNDED,
 		hint: "圆角必须显式写档位（rounded-sm/lg/xl/2xl/full）",
+	},
+	{
+		pattern: PALETTE_COLOR,
+		hint: "颜色必须走 theme.css 语义 token，禁止调色板硬编码",
+	},
+	{
+		pattern: LITERAL_COLOR,
+		hint: "禁止字面颜色，改成 color-mix(in oklab, var(--token) …)",
+		tokenSourceExempt: true,
+	},
+	{
+		pattern: Z_ARBITRARY,
+		hint: "层级必须用 z-base/raised/dropdown/dialog/popover/toast 语义 token",
 	},
 ];
 
@@ -75,13 +100,24 @@ export function checkUiTokens(rootDir) {
 		for (const file of files) {
 			const isStyle = STYLE_EXTS.test(file);
 			const raw = readFileSync(file, "utf8");
+			const rawLines = raw.split("\n");
+			if (rawLines.slice(0, 5).some((line) => IGNORE_FILE.test(line))) continue;
+
+			const ignoredLines = new Set();
+			rawLines.forEach((line, index) => {
+				if (IGNORE_LINE.test(line)) ignoredLines.add(index + 2);
+			});
+
 			const source = isStyle
 				? raw.replace(CSS_COMMENT, (comment) => comment.replace(/[^\n]/g, " "))
 				: raw;
+			const isTokenSource = basename(file) === TOKEN_SOURCE;
 			const lines = source.split("\n");
 
 			lines.forEach((line, index) => {
+				if (ignoredLines.has(index + 1)) return;
 				for (const rule of RULES) {
+					if (rule.tokenSourceExempt && isTokenSource) continue;
 					const match = rule.pattern.exec(line);
 					if (match) {
 						violations.push({
@@ -104,6 +140,7 @@ export function checkUiTokens(rootDir) {
 				const line = source
 					.slice(0, match.index + sizeIndex)
 					.split("\n").length;
+				if (ignoredLines.has(line)) continue;
 				violations.push({
 					file: relative(rootDir, file),
 					line,
