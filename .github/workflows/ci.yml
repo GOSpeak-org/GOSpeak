@@ -327,8 +327,7 @@ jobs:
 
   desktop-go:
     name: Desktop Host (Go)
-    # app/desktop 是独立 Go module，go 指令要求 1.27.3，与 server 的 1.26 不同，
-    # 因此单独一个 job 用自己的 setup-go 版本，避免 toolchain 隐式下载。
+    # app/desktop 是独立 Go module，单独一个 job 用自己的 setup-go 版本，避免 toolchain 隐式下载。
     needs: changes
     if: >-
       ${{ !cancelled() &&

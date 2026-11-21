@@ -89,7 +89,7 @@ jobs:
 
   go-vulncheck:
     name: Go Vulnerability Check (Baseline)
-    # Existing Go 1.27.3 / dependency findings are reported without blocking until remediated.
+    # Existing Go 1.27.4 / dependency findings are reported without blocking until remediated.
     continue-on-error: true
     runs-on: ubuntu-latest
     steps:
