@@ -67,6 +67,24 @@ export default function DiscoverHero(props: DiscoverHeroProps) {
 	return (
 		<>
 			<section className="bg-primary relative overflow-hidden rounded-panel px-6 py-5 md:px-8">
+				<div
+					className="pointer-events-none absolute inset-0 opacity-30"
+					aria-hidden="true"
+					style={{
+						backgroundImage:
+							"linear-gradient(to right, oklch(1 0 0 / 12%) 1px, transparent 1px), linear-gradient(to bottom, oklch(1 0 0 / 12%) 1px, transparent 1px)",
+						backgroundSize: "32px 32px",
+						maskImage: "linear-gradient(to bottom, black, transparent 85%)",
+					}}
+				/>
+				<div
+					className="bg-primary-foreground/10 pointer-events-none absolute -top-20 -right-16 size-72 rounded-full blur-2xl"
+					aria-hidden="true"
+				/>
+				<div
+					className="bg-primary-foreground/5 pointer-events-none absolute -right-10 bottom-0 size-48 rounded-full blur-xl"
+					aria-hidden="true"
+				/>
 				<div className="relative">
 					<h1 className="text-primary-foreground text-xl font-bold">
 						找到你的下一个语音房
