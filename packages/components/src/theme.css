@@ -46,8 +46,10 @@
 		sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji";
 	--default-font-family: var(--font-sans);
 	--background: oklch(98% 0 0);
+	--background-base: oklch(98% 0 0);
 	--foreground: oklch(0% 0 0);
 	--card: oklch(98% 0 0);
+	--card-base: oklch(98% 0 0);
 	--card-foreground: oklch(0% 0 0);
 	--popover: oklch(98% 0 0);
 	--popover-foreground: oklch(0% 0 0);
@@ -56,6 +58,7 @@
 	--secondary: oklch(73.37% 0.224 48.25);
 	--secondary-foreground: oklch(14.674% 0.044 48.25);
 	--muted: oklch(95% 0 0);
+	--muted-base: oklch(95% 0 0);
 	--muted-foreground: oklch(0% 0 0 / 60%);
 	--faint-foreground: oklch(0% 0 0 / 42%);
 	--accent: oklch(92.78% 0.264 122.962);
@@ -85,9 +88,11 @@
 	color-scheme: dark;
 	/* 中性底色带 0.006~0.009 的品牌 indigo 色相，肉眼视为中性灰，但与 primary 同族 */
 	--background: oklch(21% 0.006 277);
+	--background-base: oklch(21% 0.006 277);
 	/* 不用纯白：深底上的 100% 白会溢光，94% 留出余地 */
 	--foreground: oklch(94% 0.006 277);
 	--card: oklch(24% 0.008 277);
+	--card-base: oklch(24% 0.008 277);
 	--card-foreground: oklch(94% 0.006 277);
 	--popover: oklch(27% 0.009 277);
 	--popover-foreground: oklch(94% 0.006 277);
@@ -96,6 +101,7 @@
 	--secondary: oklch(74% 0.163 48.25);
 	--secondary-foreground: oklch(22% 0.05 48.25);
 	--muted: oklch(19.5% 0.006 277);
+	--muted-base: oklch(19.5% 0.006 277);
 	--muted-foreground: oklch(94% 0.006 277 / 56%);
 	--faint-foreground: oklch(94% 0.006 277 / 38%);
 	--accent: oklch(82% 0.196 122.962);
@@ -132,8 +138,10 @@
 [data-theme="aurora"] {
 	color-scheme: light;
 	--background: oklch(98.5% 0.005 235);
+	--background-base: oklch(98.5% 0.005 235);
 	--foreground: oklch(8% 0.012 255);
 	--card: oklch(98.5% 0.005 235);
+	--card-base: oklch(98.5% 0.005 235);
 	--card-foreground: oklch(8% 0.012 255);
 	--popover: oklch(98.5% 0.005 235);
 	--popover-foreground: oklch(8% 0.012 255);
@@ -142,6 +150,7 @@
 	--secondary: oklch(70% 0.13 210);
 	--secondary-foreground: oklch(16% 0.03 210);
 	--muted: oklch(94.5% 0.007 235);
+	--muted-base: oklch(94.5% 0.007 235);
 	--muted-foreground: oklch(8% 0.012 255 / 60%);
 	--faint-foreground: oklch(8% 0.012 255 / 42%);
 	--accent: oklch(89% 0.11 310);
@@ -166,8 +175,10 @@
 [data-theme="midnight"] {
 	color-scheme: dark;
 	--background: oklch(20% 0.014 250);
+	--background-base: oklch(20% 0.014 250);
 	--foreground: oklch(94% 0.01 250);
 	--card: oklch(23% 0.016 250);
+	--card-base: oklch(23% 0.016 250);
 	--card-foreground: oklch(94% 0.01 250);
 	--popover: oklch(26% 0.018 250);
 	--popover-foreground: oklch(94% 0.01 250);
@@ -176,6 +187,7 @@
 	--secondary: oklch(73% 0.09 210);
 	--secondary-foreground: oklch(16% 0.03 210);
 	--muted: oklch(18.5% 0.012 250);
+	--muted-base: oklch(18.5% 0.012 250);
 	--muted-foreground: oklch(94% 0.01 250 / 56%);
 	--faint-foreground: oklch(94% 0.01 250 / 38%);
 	--accent: oklch(81% 0.1 310);
@@ -200,8 +212,10 @@
 [data-theme="ember"] {
 	color-scheme: light;
 	--background: oklch(98.5% 0.006 75);
+	--background-base: oklch(98.5% 0.006 75);
 	--foreground: oklch(8% 0.012 40);
 	--card: oklch(98.5% 0.006 75);
+	--card-base: oklch(98.5% 0.006 75);
 	--card-foreground: oklch(8% 0.012 40);
 	--popover: oklch(98.5% 0.006 75);
 	--popover-foreground: oklch(8% 0.012 40);
@@ -210,6 +224,7 @@
 	--secondary: oklch(66% 0.16 45);
 	--secondary-foreground: oklch(16% 0.03 45);
 	--muted: oklch(94.5% 0.009 70);
+	--muted-base: oklch(94.5% 0.009 70);
 	--muted-foreground: oklch(8% 0.012 40 / 60%);
 	--faint-foreground: oklch(8% 0.012 40 / 42%);
 	--accent: oklch(86% 0.14 85);
@@ -234,8 +249,10 @@
 [data-theme="cinder"] {
 	color-scheme: dark;
 	--background: oklch(20% 0.012 55);
+	--background-base: oklch(20% 0.012 55);
 	--foreground: oklch(94% 0.01 60);
 	--card: oklch(23% 0.014 55);
+	--card-base: oklch(23% 0.014 55);
 	--card-foreground: oklch(94% 0.01 60);
 	--popover: oklch(26% 0.016 55);
 	--popover-foreground: oklch(94% 0.01 60);
@@ -244,6 +261,7 @@
 	--secondary: oklch(72% 0.11 45);
 	--secondary-foreground: oklch(16% 0.03 45);
 	--muted: oklch(18.5% 0.011 55);
+	--muted-base: oklch(18.5% 0.011 55);
 	--muted-foreground: oklch(94% 0.01 60 / 56%);
 	--faint-foreground: oklch(94% 0.01 60 / 38%);
 	--accent: oklch(82% 0.1 85);
@@ -268,8 +286,10 @@
 [data-theme="forest"] {
 	color-scheme: light;
 	--background: oklch(98.3% 0.006 150);
+	--background-base: oklch(98.3% 0.006 150);
 	--foreground: oklch(8% 0.012 155);
 	--card: oklch(98.3% 0.006 150);
+	--card-base: oklch(98.3% 0.006 150);
 	--card-foreground: oklch(8% 0.012 155);
 	--popover: oklch(98.3% 0.006 150);
 	--popover-foreground: oklch(8% 0.012 155);
@@ -278,6 +298,7 @@
 	--secondary: oklch(64% 0.11 155);
 	--secondary-foreground: oklch(16% 0.03 155);
 	--muted: oklch(94% 0.009 150);
+	--muted-base: oklch(94% 0.009 150);
 	--muted-foreground: oklch(8% 0.012 155 / 60%);
 	--faint-foreground: oklch(8% 0.012 155 / 42%);
 	--accent: oklch(86% 0.1 170);
@@ -302,8 +323,10 @@
 [data-theme="grove"] {
 	color-scheme: dark;
 	--background: oklch(19.5% 0.012 155);
+	--background-base: oklch(19.5% 0.012 155);
 	--foreground: oklch(94% 0.01 155);
 	--card: oklch(22.5% 0.014 155);
+	--card-base: oklch(22.5% 0.014 155);
 	--card-foreground: oklch(94% 0.01 155);
 	--popover: oklch(25.5% 0.016 155);
 	--popover-foreground: oklch(94% 0.01 155);
@@ -312,6 +335,7 @@
 	--secondary: oklch(70% 0.08 155);
 	--secondary-foreground: oklch(16% 0.03 155);
 	--muted: oklch(18% 0.01 155);
+	--muted-base: oklch(18% 0.01 155);
 	--muted-foreground: oklch(94% 0.01 155 / 56%);
 	--faint-foreground: oklch(94% 0.01 155 / 38%);
 	--accent: oklch(80% 0.06 170);
@@ -466,4 +490,50 @@
 		--border: oklch(48% 0.008 277);
 		--input: oklch(48% 0.008 277);
 	}
+}
+
+/*
+ * 自定义背景玻璃层（个人背景图功能，规格见
+ * docs/superpowers/specs/2026-11-21-custom-background-image-design.md）
+ *
+ * html.bg-custom + data-bg-tier 由 web 端 backgroundStore 在启用个人背景图时
+ * 写入 <html>；背景图本身挂在 body 上。各主题块里的 --card-base / --muted-base /
+ * --background-base 是对应原值的副本，玻璃层用 color-mix 把「当前激活主题」的
+ * 表面色调成半透明，blur 与饱和度由档位统一给出——八套主题 × 深浅自动派生，
+ * 无需逐套调值。无背景时这些规则不命中，界面与现状完全一致。
+ *
+ * blur 只挂在启用了半透明表面的外壳容器（surface-glass 工具类）上，
+ * 内层嵌套面板继承半透明变量、不再单独加滤镜，避免滤镜数量爆炸。
+ */
+html.bg-custom[data-bg-tier="subtle"] {
+	--card: color-mix(in oklab, var(--card-base) 85%, transparent);
+	--muted: color-mix(in oklab, var(--muted-base) 72%, transparent);
+	--bg-blur: 6px;
+	--bg-saturate: 1;
+}
+html.bg-custom[data-bg-tier="balanced"] {
+	--card: color-mix(in oklab, var(--card-base) 68%, transparent);
+	--muted: color-mix(in oklab, var(--muted-base) 50%, transparent);
+	--bg-blur: 14px;
+	--bg-saturate: 1;
+}
+html.bg-custom[data-bg-tier="immersive"] {
+	--card: color-mix(in oklab, var(--card-base) 40%, transparent);
+	--muted: color-mix(in oklab, var(--muted-base) 26%, transparent);
+	--bg-blur: 20px;
+	--bg-saturate: 1.3;
+}
+
+html.bg-custom .surface-glass {
+	backdrop-filter: blur(var(--bg-blur, 14px)) saturate(var(--bg-saturate, 1));
+}
+
+/* 管理页外壳用 bg-background 铺底（不随玻璃 token 走），有背景时降为半透明并接滤镜 */
+html.bg-custom .manage-shell {
+	background-color: color-mix(
+		in oklab,
+		var(--background-base) 55%,
+		transparent
+	);
+	backdrop-filter: blur(var(--bg-blur, 14px)) saturate(var(--bg-saturate, 1));
 }

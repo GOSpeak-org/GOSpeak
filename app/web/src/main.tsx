@@ -5,6 +5,7 @@ import AppToaster from "@/components/common/appToaster";
 import { RouteErrorComponent } from "@/components/common/errorBoundary";
 import { AppLoadingSpinner } from "@/components/common/Skeletons";
 import { requestAudioPermission } from "@/hooks/media";
+import { initBackground } from "@/stores/backgroundStore";
 import { initTheme } from "@/stores/themeStore";
 import { applyPlatformAttributes } from "@/utils/platform";
 import { installClientLog } from "@/utils/clientLog";
@@ -68,6 +69,9 @@ applyPlatformAttributes();
 // 主题必须在应用根部应用一次：登录/注册/访客页没有 Header，
 // 只在 Header 里 initTheme 会让这些页面永远停在浅色。
 initTheme();
+
+// 个人背景图：启动读 IndexedDB 并应用到 body；环境不支持时降级为不可用态。
+void initBackground();
 
 // 启动即申请麦克风权限：授权后 enumerateDevices 才给真实 deviceId / label，
 // 设备变化检测与热切换都依赖它。失败不阻塞应用（拒绝授权时降级为系统默认）。

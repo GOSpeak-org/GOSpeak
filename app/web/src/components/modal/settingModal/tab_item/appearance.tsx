@@ -7,6 +7,7 @@ import {
 	switchLightTheme,
 	type ThemeOption,
 } from "@/stores/themeStore";
+import BackgroundSection from "./BackgroundSection";
 import { Page, Section, Toggle } from "./shared";
 import type { SettingTabConfig } from "./types";
 
@@ -89,6 +90,8 @@ function AppearanceForm() {
 					))}
 				</div>
 			</Section>
+
+			<BackgroundSection />
 		</Page>
 	);
 }

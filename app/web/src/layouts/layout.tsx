@@ -347,12 +347,17 @@ function DesktopLayout(state: LayoutState) {
 				{/* next：主内容 + 域工作区 */}
 				<Main>
 					<div
-						className="border-border bg-muted h-full w-full flex-1 border-t"
+						className="border-border bg-muted surface-glass h-full w-full flex-1 border-t"
 						style={{ display: isDomain ? "none" : undefined }}
 					>
 						{children}
 					</div>
-					<DomainWorkspace isDomain={isDomain} />
+					<div
+						className="surface-glass h-full w-full flex-1"
+						style={{ display: isDomain ? undefined : "none" }}
+					>
+						<DomainWorkspace isDomain={isDomain} />
+					</div>
 				</Main>
 			</div>
 		</div>
