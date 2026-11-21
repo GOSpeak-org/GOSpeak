@@ -150,7 +150,6 @@ export default function RoomLayoutEditList({
 	};
 
 	const addGroup = () => {
-		const ungroupedIndex = blocks.findIndex((b) => b.uuid === "__ungrouped__");
 		const block: EditBlock = {
 			uuid:
 				typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -159,9 +158,7 @@ export default function RoomLayoutEditList({
 			name: nextGroupName(),
 			rooms: [],
 		};
-		const next = [...blocks];
-		next.splice(ungroupedIndex < 0 ? next.length : ungroupedIndex, 0, block);
-		onChange(next);
+		onChange([block, ...blocks]);
 	};
 	const onDragEnd = (event: DragEndEvent) => {
 		if (!event.over || event.active.id === event.over.id) return;
@@ -215,11 +212,9 @@ export default function RoomLayoutEditList({
 					items={blocks.map((b) => `block:${b.uuid}`)}
 					strategy={verticalListSortingStrategy}
 				>
+					<AddGroupRow onAdd={addGroup} />
 					{blocks.map((block) => (
 						<Fragment key={block.uuid}>
-							{block.uuid === "__ungrouped__" && (
-								<AddGroupRow onAdd={addGroup} />
-							)}
 							<SortableBlock block={block}>
 								<SortableContext
 									items={block.rooms.map((r) => `room:${r.uuid}`)}
@@ -232,9 +227,6 @@ export default function RoomLayoutEditList({
 							</SortableBlock>
 						</Fragment>
 					))}
-					{!blocks.some((b) => b.uuid === "__ungrouped__") && (
-						<AddGroupRow onAdd={addGroup} />
-					)}
 				</SortableContext>
 			</DndContext>
 			<Button type="button" size="xs" disabled={saving} onClick={onSave}>

@@ -12,6 +12,7 @@ Object.defineProperty(globalThis, "ResizeObserver", {
 });
 
 const room = (uuid: string, name: string) => ({
+	id: 1,
 	uuid,
 	name,
 	type: "voice" as const,
@@ -58,10 +59,10 @@ describe("RoomLayoutEditList", () => {
 		fireEvent.click(screen.getByRole("button", { name: "新建分组" }));
 		const next = onChange.mock.calls[0][0] as EditBlock[];
 		expect(next).toHaveLength(3);
-		expect(next[0].uuid).toBe("g-1");
-		expect(next[1].name).toBe("新分组");
-		expect(next[1].rooms).toEqual([]);
-		expect(next[1].uuid).not.toBe("");
+		expect(next[0].name).toBe("新分组");
+		expect(next[0].rooms).toEqual([]);
+		expect(next[0].uuid).not.toBe("");
+		expect(next[1].uuid).toBe("g-1");
 		expect(next[2].uuid).toBe("__ungrouped__");
 	});
 
