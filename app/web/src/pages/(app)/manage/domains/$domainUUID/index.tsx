@@ -1,10 +1,11 @@
 import { Skeleton, toast } from "@gospeak/components";
 import { LoadingRegion } from "@/components/common/Skeletons";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CirclePlus, Settings2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+	type DomainDetail,
 	type DomainMember,
 	type DomainRole,
 	createDomainRole,
@@ -47,6 +48,7 @@ import { runOptimistic } from "@/utils/optimistic";
 import { domainNameSchema, fieldError } from "@/utils/formSchemas";
 import { apiErrorMessage } from "@/utils/apiError";
 import { toastActionError } from "@/utils/toast";
+import { useUpload } from "@/hooks/useUpload";
 import { DomainSettingsForm } from "./components/DomainSettingsForm";
 import DomainRolePanel from "@/components/manage/DomainRolePanel";
 import DomainRoomLayoutPanel from "@/components/manage/DomainRoomLayoutPanel";
@@ -76,6 +78,7 @@ const btnGhostXs =
 
 function RouteComponent() {
 	const { domainUUID: uuid } = Route.useParams();
+	const queryClient = useQueryClient();
 
 	const domainCache = useDomainStore((s) => s.domainCache);
 	const memberCache = useDomainStore((s) => s.memberCache);
@@ -287,6 +290,14 @@ function RouteComponent() {
 	const [saving, setSaving] = useState(false);
 	const [requireJoinApproval, setRequireJoinApproval] = useState(false);
 	const [_approvalSaving, setApprovalSaving] = useState(false);
+	const [iconURL, setIconURL] = useState("");
+	const [iconError, setIconError] = useState("");
+	const syncedIconRef = useRef("");
+	const {
+		upload: uploadIcon,
+		uploading: iconUploading,
+		progress: iconProgress,
+	} = useUpload("avatars");
 
 	// ── 加入申请 ──
 	const [joinRequests, setJoinRequests] = useState<JoinRequestListItem[]>([]);
@@ -391,6 +402,11 @@ function RouteComponent() {
 		setDescription((prev) => prev || domain.description || "");
 		setIsPublic(domain.is_public);
 		setRequireJoinApproval(!!domain.require_join_approval);
+		const serverIcon = domain.icon_url ?? "";
+		if (syncedIconRef.current !== serverIcon) {
+			syncedIconRef.current = serverIcon;
+			setIconURL(serverIcon);
+		}
 	}, [domain]);
 
 	async function fetchJoinRequests(
@@ -462,6 +478,30 @@ function RouteComponent() {
 		}
 	}
 
+	async function handleIconUpload(file: File) {
+		setIconError("");
+		if (file.size > 5 * 1024 * 1024) {
+			toast.warning("头像文件不能超过 5MB");
+			return;
+		}
+		if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+			toast.warning("仅支持 JPG / PNG / WebP 格式");
+			return;
+		}
+		try {
+			const result = await uploadIcon(file);
+			setIconURL(result.public_url);
+			toast.success("域头像已上传，保存后生效");
+		} catch (error) {
+			setIconError(toastActionError(error, "域头像上传失败"));
+		}
+	}
+
+	function handleIconRemove() {
+		setIconError("");
+		setIconURL("");
+	}
+
 	async function handleSave(e: React.FormEvent) {
 		e.preventDefault();
 		if (!canManage) {
@@ -482,13 +522,26 @@ function RouteComponent() {
 			const updated = await updateDomain({
 				domain_uuid: uuid,
 				name: name.trim(),
+				icon_url: iconURL,
 				description: description.trim(),
 				is_public: isPublic,
 			});
 			domainStore.updateCachedDomain(updated);
+			queryClient.setQueriesData<DomainDetail[]>(
+				{ queryKey: ["my-domains-detailed"] },
+				(rows) =>
+					rows
+						? rows.map((row) =>
+								row.uuid === updated.uuid ? { ...row, ...updated } : row,
+							)
+						: rows,
+			);
+			void queryClient.invalidateQueries({ queryKey: ["my-domains-detailed"] });
 			setName(updated.name);
 			setDescription(updated.description ?? "");
 			setIsPublic(updated.is_public);
+			syncedIconRef.current = updated.icon_url ?? "";
+			setIconURL(updated.icon_url ?? "");
 			toast.success("域设置已保存");
 		} catch (error) {
 			const message = toastActionError(error, "保存域设置失败");
@@ -594,6 +647,12 @@ function RouteComponent() {
 									setRequireJoinApproval={(next) =>
 										void handleToggleApproval(next)
 									}
+									iconUrl={iconURL}
+									iconUploading={iconUploading}
+									iconProgress={iconProgress}
+									iconError={iconError}
+									onUploadIcon={(file) => void handleIconUpload(file)}
+									onRemoveIcon={handleIconRemove}
 									saving={saving}
 									formError={formError}
 									onSave={handleSave}
@@ -710,6 +769,7 @@ function RouteComponent() {
 								}
 							>
 								<DomainRolePanel
+									layout="panel"
 									roles={domainRoles}
 									assignable={assignableCodes}
 									loading={rolesLoading}

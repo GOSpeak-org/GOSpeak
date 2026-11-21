@@ -108,6 +108,34 @@ describe("DomainGroupTile", () => {
 		expect(screen.getByRole("img", { name: "工作 · 2 个域" })).toBeTruthy();
 	});
 
+	it("shows uploaded images in the folder preview", () => {
+		const domain = (uuid: string, name: string, iconUrl: string) => ({
+			id: Number(uuid.slice(2)),
+			uuid,
+			name,
+			icon_url: iconUrl,
+			description: "",
+			owner_uuid: "u-1",
+			is_public: false,
+			created_at: "2026-01-01T00:00:00Z",
+			member_count: 1,
+			room_count: 0,
+		});
+		const { container } = renderTile({
+			domains: [
+				domain("d-1", "默", "https://cdn.example.com/d-1.png"),
+				domain("d-2", "UI审查域", "https://cdn.example.com/d-2.png"),
+			],
+		});
+		const sources = Array.from(container.querySelectorAll("img")).map((img) =>
+			img.getAttribute("src"),
+		);
+		expect(sources).toEqual([
+			"https://cdn.example.com/d-1.png",
+			"https://cdn.example.com/d-2.png",
+		]);
+	});
+
 	it("falls back to the folder glyph for an empty group", () => {
 		renderTile();
 		expect(screen.queryByText("默")).toBeNull();

@@ -15,4 +15,24 @@ describe("DomainIcon", () => {
 		const { container } = render(<DomainIcon name="测试域" />);
 		expect(container.querySelectorAll("button")).toHaveLength(1);
 	});
+
+	it("renders the uploaded domain image when icon_url is set", () => {
+		const { container } = render(
+			<DomainIcon
+				name="测试域"
+				iconUrl="https://cdn.example.com/domain-icons/d-1.png"
+				interactive={false}
+			/>,
+		);
+		expect(container.querySelector("img")?.getAttribute("src")).toBe(
+			"https://cdn.example.com/domain-icons/d-1.png",
+		);
+		expect(container.textContent).not.toContain("测");
+	});
+
+	it("falls back to the name initial when icon_url is empty", () => {
+		const { container } = render(<DomainIcon name="测试域" iconUrl="" />);
+		expect(container.querySelector("img")).toBeNull();
+		expect(container.textContent).toContain("测");
+	});
 });
