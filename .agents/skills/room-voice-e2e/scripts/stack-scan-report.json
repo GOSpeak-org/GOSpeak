@@ -1,0 +1,340 @@
+[
+  {
+    "path": "/",
+    "panels": []
+  },
+  {
+    "path": "/discover",
+    "panels": [
+      {
+        "x": 1196,
+        "y": -31,
+        "w": 288,
+        "h": 288,
+        "layers": [
+          {
+            "tag": "div",
+            "cls": "bg-primary-foreground/10",
+            "blur": "none",
+            "src": "/src/components/discover/DiscoverHero.tsx:67:4"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      },
+      {
+        "x": 357,
+        "y": 243,
+        "w": 1063,
+        "h": 347,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/manage/ManageShell.tsx:99:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/chat",
+    "panels": []
+  },
+  {
+    "path": "/profile",
+    "panels": [
+      {
+        "x": 377,
+        "y": 45,
+        "w": 605,
+        "h": 550,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/pages/(app)/profile.tsx:17:6"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      },
+      {
+        "x": 997,
+        "y": 45,
+        "w": 403,
+        "h": 550,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/profile/UserGroupPanel.tsx:108:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/settings",
+    "panels": [
+      {
+        "x": 350,
+        "y": 418,
+        "w": 1077,
+        "h": 1379,
+        "layers": [
+          {
+            "tag": "details",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/mobile/settingsPage.tsx:74:5"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      },
+      {
+        "x": 350,
+        "y": 476,
+        "w": 1077,
+        "h": 261,
+        "layers": [
+          {
+            "tag": "details",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/mobile/settingsPage.tsx:83:5"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      },
+      {
+        "x": 349,
+        "y": 489,
+        "w": 1079,
+        "h": 606,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/mobile/settingsPage.tsx:92:5"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/manage/announcements",
+    "panels": [
+      {
+        "x": 357,
+        "y": 110,
+        "w": 1063,
+        "h": 439,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/manage/ManageShell.tsx:99:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/manage/ban",
+    "panels": [
+      {
+        "x": 357,
+        "y": 110,
+        "w": 1063,
+        "h": 199,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/manage/ManageShell.tsx:99:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/manage/domains",
+    "panels": [
+      {
+        "x": 357,
+        "y": 110,
+        "w": 1063,
+        "h": 241,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/manage/ManageShell.tsx:99:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/manage/email",
+    "panels": []
+  },
+  {
+    "path": "/manage/monitor",
+    "panels": []
+  },
+  {
+    "path": "/manage/mute",
+    "panels": [
+      {
+        "x": 357,
+        "y": 110,
+        "w": 1063,
+        "h": 199,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/manage/ManageShell.tsx:99:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/manage/oauth",
+    "panels": []
+  },
+  {
+    "path": "/manage/roles",
+    "panels": [
+      {
+        "x": 357,
+        "y": 110,
+        "w": 1063,
+        "h": 1028,
+        "layers": [
+          {
+            "tag": "div",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/pages/(app)/manage/roles/index.tsx:50:4"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      },
+      {
+        "x": 630,
+        "y": 166,
+        "w": 773,
+        "h": 955,
+        "layers": [
+          {
+            "tag": "section",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/components/manage/ManageShell.tsx:99:3"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-card",
+            "blur": "none",
+            "src": "/src/pages/(app)/manage/roles/index.tsx:50:4"
+          },
+          {
+            "tag": "div",
+            "cls": "bg-muted surface-glass",
+            "blur": "blur",
+            "src": "/src/layouts/layout.tsx:349:6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "/manage/sfu",
+    "panels": []
+  },
+  {
+    "path": "/manage/storage",
+    "panels": []
+  },
+  {
+    "path": "/manage/users",
+    "panels": []
+  }
+]
