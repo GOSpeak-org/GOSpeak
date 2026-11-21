@@ -1,69 +1,121 @@
 import { create } from "zustand";
-import { useThemeStore } from "@/stores/themeStore";
 import {
 	deleteBackground,
 	getBackground,
 	putBackground,
-	type BackgroundMode,
 } from "@/utils/backgroundDb";
 import { compressImage } from "@/utils/backgroundImage";
 import { toastActionError } from "@/utils/toast";
 
-export type { BackgroundMode };
-
-const STORAGE_TIER_LIGHT = "background-tier-light";
-const STORAGE_TIER_DARK = "background-tier-dark";
+const STORAGE_GLASS = "background-glass";
+const LEGACY_GLASS_LIGHT = "background-glass-light";
+const LEGACY_GLASS_DARK = "background-glass-dark";
+const LEGACY_TIER_LIGHT = "background-tier-light";
+const LEGACY_TIER_DARK = "background-tier-dark";
 
 export type BackgroundTier = "subtle" | "balanced" | "immersive";
 
-export const backgroundTiers: {
+export interface GlassSettings {
+	strength: number;
+	opacity: number;
+}
+
+export const backgroundPresets: {
 	value: BackgroundTier;
 	label: string;
+	glass: GlassSettings;
 }[] = [
-	{ value: "subtle", label: "轻透" },
-	{ value: "balanced", label: "均衡" },
-	{ value: "immersive", label: "沉浸" },
+	{ value: "subtle", label: "轻透", glass: { strength: 25, opacity: 85 } },
+	{ value: "balanced", label: "均衡", glass: { strength: 58, opacity: 68 } },
+	{ value: "immersive", label: "沉浸", glass: { strength: 83, opacity: 40 } },
 ];
 
-export const DEFAULT_BACKGROUND_TIER: BackgroundTier = "balanced";
+const DEFAULT_GLASS: GlassSettings = { strength: 58, opacity: 68 };
 
-function storedTier(key: string): BackgroundTier {
-	const saved = localStorage.getItem(key);
-	if (saved === "subtle" || saved === "balanced" || saved === "immersive") {
-		return saved;
+function clamp(value: number): number {
+	if (!Number.isFinite(value)) return 0;
+	return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function parseGlass(value: string | null): GlassSettings | null {
+	if (!value) return null;
+	let parsed: Partial<GlassSettings> | null = null;
+	try {
+		parsed = JSON.parse(value) as Partial<GlassSettings>;
+	} catch {
+		parsed = null;
 	}
-	return DEFAULT_BACKGROUND_TIER;
+	if (
+		parsed &&
+		typeof parsed.strength === "number" &&
+		typeof parsed.opacity === "number"
+	) {
+		return {
+			strength: clamp(parsed.strength),
+			opacity: clamp(parsed.opacity),
+		};
+	}
+	return null;
+}
+
+function storedGlass(): GlassSettings {
+	const current = parseGlass(localStorage.getItem(STORAGE_GLASS));
+	if (current) return current;
+	for (const key of [LEGACY_GLASS_LIGHT, LEGACY_GLASS_DARK]) {
+		const legacy = parseGlass(localStorage.getItem(key));
+		if (legacy) return legacy;
+	}
+	for (const key of [LEGACY_TIER_LIGHT, LEGACY_TIER_DARK]) {
+		const preset = backgroundPresets.find(
+			(item) => item.value === localStorage.getItem(key),
+		);
+		if (preset) return { ...preset.glass };
+	}
+	return { ...DEFAULT_GLASS };
+}
+
+export function activePreset(glass: GlassSettings): BackgroundTier | "custom" {
+	const match = backgroundPresets.find(
+		(item) =>
+			item.glass.strength === glass.strength &&
+			item.glass.opacity === glass.opacity,
+	);
+	return match ? match.value : "custom";
+}
+
+export function glassBlurPx(strength: number): number {
+	return Math.round((clamp(strength) * 24) / 100 / 0.5) * 0.5;
+}
+
+export function glassSaturate(strength: number): number {
+	return Math.round((1 + (clamp(strength) / 100) * 0.36) * 100) / 100;
+}
+
+function mutedAlpha(opacity: number): number {
+	return Math.round(clamp(opacity) * 0.75);
 }
 
 interface BackgroundState {
-	lightTier: BackgroundTier;
-	darkTier: BackgroundTier;
-	hasLight: boolean;
-	hasDark: boolean;
+	glass: GlassSettings;
+	hasImage: boolean;
 	activeUrl: string | null;
 	available: boolean;
 }
 
 export const useBackgroundStore = create<BackgroundState>(() => ({
-	lightTier: storedTier(STORAGE_TIER_LIGHT),
-	darkTier: storedTier(STORAGE_TIER_DARK),
-	hasLight: false,
-	hasDark: false,
+	glass: storedGlass(),
+	hasImage: false,
 	activeUrl: null,
 	available: true,
 }));
 
-function currentMode(): BackgroundMode {
-	return useThemeStore.getState().isDark ? "dark" : "light";
-}
-
-function tierStorageKey(mode: BackgroundMode): string {
-	return mode === "light" ? STORAGE_TIER_LIGHT : STORAGE_TIER_DARK;
-}
-
 function clearBackgroundDom(): void {
-	document.documentElement.classList.remove("bg-custom");
-	document.documentElement.removeAttribute("data-bg-tier");
+	const html = document.documentElement;
+	html.classList.remove("bg-custom");
+	html.style.removeProperty("--bg-blur");
+	html.style.removeProperty("--bg-card-alpha");
+	html.style.removeProperty("--bg-muted-alpha");
+	html.style.removeProperty("--bg-saturate");
 	const body = document.body.style;
 	body.backgroundImage = "";
 	body.backgroundSize = "";
@@ -73,8 +125,7 @@ function clearBackgroundDom(): void {
 }
 
 function applyBackground(): void {
-	const { activeUrl, lightTier, darkTier } = useBackgroundStore.getState();
-	const isDark = useThemeStore.getState().isDark;
+	const { activeUrl, glass } = useBackgroundStore.getState();
 	const html = document.documentElement;
 	const body = document.body.style;
 	if (!activeUrl) {
@@ -82,7 +133,13 @@ function applyBackground(): void {
 		return;
 	}
 	html.classList.add("bg-custom");
-	html.setAttribute("data-bg-tier", isDark ? darkTier : lightTier);
+	html.style.setProperty("--bg-blur", `${glassBlurPx(glass.strength)}px`);
+	html.style.setProperty("--bg-card-alpha", `${glass.opacity}%`);
+	html.style.setProperty("--bg-muted-alpha", `${mutedAlpha(glass.opacity)}%`);
+	html.style.setProperty(
+		"--bg-saturate",
+		String(glassSaturate(glass.strength)),
+	);
 	body.backgroundImage = `url("${activeUrl}")`;
 	body.backgroundSize = "cover";
 	body.backgroundPosition = "center";
@@ -102,7 +159,7 @@ function setActiveBlob(blob: Blob | null): void {
 async function refreshActiveBlob(): Promise<void> {
 	if (!useBackgroundStore.getState().available) return;
 	try {
-		setActiveBlob(await getBackground(currentMode()));
+		setActiveBlob(await getBackground());
 	} catch {
 		useBackgroundStore.setState({ activeUrl: null, available: false });
 		clearBackgroundDom();
@@ -110,39 +167,25 @@ async function refreshActiveBlob(): Promise<void> {
 }
 
 let initialized = false;
-let prevIsDark: boolean | null = null;
 
 export const initBackground = async (): Promise<void> => {
 	if (initialized) return;
 	initialized = true;
-	prevIsDark = useThemeStore.getState().isDark;
 	if (typeof indexedDB === "undefined") {
 		useBackgroundStore.setState({ available: false });
 		return;
 	}
 	try {
-		const [light, dark] = await Promise.all([
-			getBackground("light"),
-			getBackground("dark"),
-		]);
-		useBackgroundStore.setState({
-			hasLight: light !== null,
-			hasDark: dark !== null,
-		});
+		const image = await getBackground();
+		useBackgroundStore.setState({ hasImage: image !== null });
 	} catch {
 		useBackgroundStore.setState({ available: false });
 		return;
 	}
 	await refreshActiveBlob();
-	useThemeStore.subscribe(() => {
-		const isDark = useThemeStore.getState().isDark;
-		if (isDark === prevIsDark) return;
-		prevIsDark = isDark;
-		void refreshActiveBlob();
-	});
 };
 
-const setImage = async (mode: BackgroundMode, file: File): Promise<void> => {
+const setImage = async (file: File): Promise<void> => {
 	if (!useBackgroundStore.getState().available) {
 		toastActionError(
 			new Error("INDEXEDDB_UNAVAILABLE"),
@@ -156,40 +199,40 @@ const setImage = async (mode: BackgroundMode, file: File): Promise<void> => {
 	}
 	try {
 		const blob = await compressImage(file);
-		await putBackground(mode, blob);
-		if (mode === "light") {
-			useBackgroundStore.setState({ hasLight: true });
-		} else {
-			useBackgroundStore.setState({ hasDark: true });
-		}
+		await putBackground(blob);
+		useBackgroundStore.setState({ hasImage: true });
 		await refreshActiveBlob();
 	} catch (error) {
 		toastActionError(error, "背景图保存失败，请重试");
 	}
 };
 
-const removeImage = async (mode: BackgroundMode): Promise<void> => {
+const removeImage = async (): Promise<void> => {
 	try {
-		await deleteBackground(mode);
-		if (mode === "light") {
-			useBackgroundStore.setState({ hasLight: false });
-		} else {
-			useBackgroundStore.setState({ hasDark: false });
-		}
+		await deleteBackground();
+		useBackgroundStore.setState({ hasImage: false });
 		await refreshActiveBlob();
 	} catch (error) {
 		toastActionError(error, "背景图删除失败，请重试");
 	}
 };
 
-const setTier = (mode: BackgroundMode, tier: BackgroundTier): void => {
-	localStorage.setItem(tierStorageKey(mode), tier);
-	if (mode === "light") {
-		useBackgroundStore.setState({ lightTier: tier });
-	} else {
-		useBackgroundStore.setState({ darkTier: tier });
-	}
+const setGlass = (patch: Partial<GlassSettings>): void => {
+	const current = useBackgroundStore.getState().glass;
+	const next: GlassSettings = {
+		strength:
+			patch.strength === undefined ? current.strength : clamp(patch.strength),
+		opacity:
+			patch.opacity === undefined ? current.opacity : clamp(patch.opacity),
+	};
+	localStorage.setItem(STORAGE_GLASS, JSON.stringify(next));
+	useBackgroundStore.setState({ glass: next });
 	applyBackground();
+};
+
+const applyPreset = (tier: BackgroundTier): void => {
+	const preset = backgroundPresets.find((item) => item.value === tier);
+	if (preset) setGlass(preset.glass);
 };
 
 export const backgroundStore = {
@@ -199,20 +242,18 @@ export const backgroundStore = {
 	init: initBackground,
 	setImage,
 	removeImage,
-	setTier,
+	setGlass,
+	applyPreset,
 };
 
 export function createBackgroundStore() {
 	initialized = false;
-	prevIsDark = null;
 	const { activeUrl } = useBackgroundStore.getState();
 	if (activeUrl) URL.revokeObjectURL(activeUrl);
 	clearBackgroundDom();
 	useBackgroundStore.setState({
-		lightTier: storedTier(STORAGE_TIER_LIGHT),
-		darkTier: storedTier(STORAGE_TIER_DARK),
-		hasLight: false,
-		hasDark: false,
+		glass: storedGlass(),
+		hasImage: false,
 		activeUrl: null,
 		available: true,
 	});

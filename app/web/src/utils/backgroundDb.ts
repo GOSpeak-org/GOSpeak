@@ -1,8 +1,8 @@
 const DB_NAME = "gospeak-web";
 const STORE_NAME = "backgrounds";
 const DB_VERSION = 1;
-
-export type BackgroundMode = "light" | "dark";
+const SHARED_KEY = "shared";
+const LEGACY_KEYS = ["light", "dark"] as const;
 
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
 	return new Promise((resolve, reject) => {
@@ -43,33 +43,37 @@ async function withDb<T>(run: (db: IDBDatabase) => Promise<T>): Promise<T> {
 	}
 }
 
-export async function getBackground(
-	mode: BackgroundMode,
-): Promise<Blob | null> {
+export async function getBackground(): Promise<Blob | null> {
 	return withDb(async (db) => {
-		const tx = db.transaction(STORE_NAME, "readonly");
-		const result = await requestToPromise(
-			tx.objectStore(STORE_NAME).get(mode) as IDBRequest<Blob | undefined>,
-		);
-		return result ?? null;
+		const store = db
+			.transaction(STORE_NAME, "readonly")
+			.objectStore(STORE_NAME);
+		for (const key of [SHARED_KEY, ...LEGACY_KEYS]) {
+			const result = await requestToPromise(
+				store.get(key) as IDBRequest<Blob | undefined>,
+			);
+			if (result) return result;
+		}
+		return null;
 	});
 }
 
-export async function putBackground(
-	mode: BackgroundMode,
-	blob: Blob,
-): Promise<void> {
+export async function putBackground(blob: Blob): Promise<void> {
 	await withDb(async (db) => {
 		const tx = db.transaction(STORE_NAME, "readwrite");
-		tx.objectStore(STORE_NAME).put(blob, mode);
+		const store = tx.objectStore(STORE_NAME);
+		store.put(blob, SHARED_KEY);
+		for (const key of LEGACY_KEYS) store.delete(key);
 		await transactionDone(tx);
 	});
 }
 
-export async function deleteBackground(mode: BackgroundMode): Promise<void> {
+export async function deleteBackground(): Promise<void> {
 	await withDb(async (db) => {
 		const tx = db.transaction(STORE_NAME, "readwrite");
-		tx.objectStore(STORE_NAME).delete(mode);
+		const store = tx.objectStore(STORE_NAME);
+		store.delete(SHARED_KEY);
+		for (const key of LEGACY_KEYS) store.delete(key);
 		await transactionDone(tx);
 	});
 }

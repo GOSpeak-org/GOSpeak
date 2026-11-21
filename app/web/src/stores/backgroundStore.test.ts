@@ -20,42 +20,37 @@ vi.mock("@/utils/toast", () => ({
 	toastActionError: mocks.toastActionError,
 }));
 
-import { useThemeStore } from "./themeStore";
 import {
+	activePreset,
 	backgroundStore,
 	createBackgroundStore,
 	useBackgroundStore,
 } from "./backgroundStore";
 
-const lightBlob = new Blob(["light"], { type: "image/webp" });
-const darkBlob = new Blob(["dark"], { type: "image/webp" });
+const imageBlob = new Blob(["image"], { type: "image/webp" });
 const compressedBlob = new Blob(["compressed"], { type: "image/webp" });
 
-const blobStore = new Map<string, Blob>();
+let storedBlob: Blob | null = null;
 let urlCounter = 0;
 
 beforeEach(() => {
 	urlCounter = 0;
 	localStorage.clear();
-	// jsdom 不带 indexedDB；db 模块已 mock，这里只要让存在性检查通过
 	vi.stubGlobal("indexedDB", { open: vi.fn() });
 	vi.clearAllMocks();
-	blobStore.clear();
-	mocks.getBackground.mockImplementation(
-		async (mode: string) => blobStore.get(mode) ?? null,
-	);
-	mocks.putBackground.mockImplementation(async (mode: string, blob: Blob) => {
-		blobStore.set(mode, blob);
+	storedBlob = null;
+	mocks.getBackground.mockImplementation(async () => storedBlob);
+	mocks.putBackground.mockImplementation(async (blob: Blob) => {
+		storedBlob = blob;
 	});
-	mocks.deleteBackground.mockImplementation(async (mode: string) => {
-		blobStore.delete(mode);
+	mocks.deleteBackground.mockImplementation(async () => {
+		storedBlob = null;
 	});
 	URL.createObjectURL = vi.fn(() => `blob:mock-${urlCounter++}`);
 	URL.revokeObjectURL = vi.fn();
 	document.documentElement.className = "";
-	document.documentElement.removeAttribute("data-bg-tier");
+	document.documentElement.style.cssText = "";
 	document.body.style.backgroundImage = "";
-	useThemeStore.setState({ isDark: false });
 	createBackgroundStore();
 });
 
@@ -64,18 +59,22 @@ afterEach(() => {
 });
 
 describe("backgroundStore", () => {
-	it("init loads both modes and applies the light background", async () => {
-		blobStore.set("light", lightBlob);
-		blobStore.set("dark", darkBlob);
+	it("init loads the shared image and applies glass variables", async () => {
+		storedBlob = imageBlob;
 		await backgroundStore.init();
 		const state = useBackgroundStore.getState();
-		expect(state.hasLight).toBe(true);
-		expect(state.hasDark).toBe(true);
+		expect(state.hasImage).toBe(true);
 		expect(state.activeUrl).toBe("blob:mock-0");
 		expect(document.documentElement.classList.contains("bg-custom")).toBe(true);
-		expect(document.documentElement.getAttribute("data-bg-tier")).toBe(
-			"balanced",
+		expect(document.documentElement.style.getPropertyValue("--bg-blur")).toBe(
+			"14px",
 		);
+		expect(
+			document.documentElement.style.getPropertyValue("--bg-card-alpha"),
+		).toBe("68%");
+		expect(
+			document.documentElement.style.getPropertyValue("--bg-muted-alpha"),
+		).toBe("51%");
 		expect(document.body.style.backgroundImage).toBe('url("blob:mock-0")');
 	});
 
@@ -88,68 +87,82 @@ describe("backgroundStore", () => {
 		);
 	});
 
-	it("switching dark mode refreshes the active image and revokes the old URL", async () => {
-		blobStore.set("light", lightBlob);
-		blobStore.set("dark", darkBlob);
-		await backgroundStore.init();
-		expect(useBackgroundStore.getState().activeUrl).toBe("blob:mock-0");
-		useThemeStore.setState({ isDark: true });
-		await vi.waitFor(() => {
-			expect(useBackgroundStore.getState().activeUrl).toBe("blob:mock-1");
-		});
-		expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-0");
-	});
-
 	it("setImage compresses, stores and refreshes", async () => {
 		mocks.compressImage.mockResolvedValue(compressedBlob);
 		const file = new File(["raw"], "bg.png", { type: "image/png" });
-		await backgroundStore.setImage("light", file);
+		await backgroundStore.setImage(file);
 		expect(mocks.compressImage).toHaveBeenCalledWith(file);
-		expect(blobStore.get("light")).toBe(compressedBlob);
-		expect(useBackgroundStore.getState().hasLight).toBe(true);
+		expect(storedBlob).toBe(compressedBlob);
+		expect(useBackgroundStore.getState().hasImage).toBe(true);
 		expect(useBackgroundStore.getState().activeUrl).toBe("blob:mock-0");
 	});
 
 	it("setImage rejects non-image files without storing", async () => {
 		const file = new File(["x"], "notes.txt", { type: "text/plain" });
-		await backgroundStore.setImage("light", file);
+		await backgroundStore.setImage(file);
 		expect(mocks.compressImage).not.toHaveBeenCalled();
 		expect(mocks.toastActionError).toHaveBeenCalled();
-		expect(blobStore.has("light")).toBe(false);
-	});
-
-	it("setImage surfaces compression failures via toast", async () => {
-		mocks.compressImage.mockRejectedValue(new Error("ENCODE_FAILED"));
-		const file = new File(["raw"], "bg.png", { type: "image/png" });
-		await backgroundStore.setImage("dark", file);
-		expect(mocks.putBackground).not.toHaveBeenCalled();
-		expect(mocks.toastActionError).toHaveBeenCalled();
+		expect(storedBlob).toBeNull();
 	});
 
 	it("removeImage clears storage and DOM state", async () => {
-		blobStore.set("dark", darkBlob);
-		useThemeStore.setState({ isDark: true });
+		storedBlob = imageBlob;
 		await backgroundStore.init();
 		expect(useBackgroundStore.getState().activeUrl).not.toBeNull();
-		await backgroundStore.removeImage("dark");
-		expect(useBackgroundStore.getState().hasDark).toBe(false);
+		await backgroundStore.removeImage();
+		expect(useBackgroundStore.getState().hasImage).toBe(false);
 		expect(useBackgroundStore.getState().activeUrl).toBeNull();
 		expect(document.documentElement.classList.contains("bg-custom")).toBe(
 			false,
 		);
+		expect(document.documentElement.style.getPropertyValue("--bg-blur")).toBe(
+			"",
+		);
 		expect(document.body.style.backgroundImage).toBe("");
 	});
 
-	it("setTier persists per mode and updates the DOM attribute", async () => {
-		blobStore.set("dark", darkBlob);
-		useThemeStore.setState({ isDark: true });
+	it("setGlass clamps, persists and updates the DOM variables", async () => {
+		storedBlob = imageBlob;
 		await backgroundStore.init();
-		backgroundStore.setTier("dark", "immersive");
-		expect(localStorage.getItem("background-tier-dark")).toBe("immersive");
-		expect(useBackgroundStore.getState().darkTier).toBe("immersive");
-		expect(document.documentElement.getAttribute("data-bg-tier")).toBe(
-			"immersive",
+		backgroundStore.setGlass({ strength: 150, opacity: -20 });
+		expect(useBackgroundStore.getState().glass).toEqual({
+			strength: 100,
+			opacity: 0,
+		});
+		expect(
+			JSON.parse(localStorage.getItem("background-glass") ?? "{}"),
+		).toEqual({ strength: 100, opacity: 0 });
+		expect(document.documentElement.style.getPropertyValue("--bg-blur")).toBe(
+			"24px",
 		);
-		expect(useBackgroundStore.getState().lightTier).toBe("balanced");
+		expect(
+			document.documentElement.style.getPropertyValue("--bg-card-alpha"),
+		).toBe("0%");
+		expect(activePreset(useBackgroundStore.getState().glass)).toBe("custom");
+	});
+
+	it("applyPreset persists and restores both sliders", async () => {
+		storedBlob = imageBlob;
+		await backgroundStore.init();
+		backgroundStore.applyPreset("immersive");
+		expect(useBackgroundStore.getState().glass).toEqual({
+			strength: 83,
+			opacity: 40,
+		});
+		expect(
+			JSON.parse(localStorage.getItem("background-glass") ?? "{}"),
+		).toEqual({ strength: 83, opacity: 40 });
+		expect(document.documentElement.style.getPropertyValue("--bg-blur")).toBe(
+			"20px",
+		);
+	});
+
+	it("migrates a legacy tier preference into slider values", () => {
+		localStorage.setItem("background-tier-light", "subtle");
+		createBackgroundStore();
+		expect(useBackgroundStore.getState().glass).toEqual({
+			strength: 25,
+			opacity: 85,
+		});
 	});
 });
