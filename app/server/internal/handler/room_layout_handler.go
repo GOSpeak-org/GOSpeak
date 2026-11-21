@@ -42,6 +42,14 @@ func (h *RoomLayoutHandler) canManage(c *gin.Context, domainUUID string) bool {
 	return h.domainSvc.HasDomainPermission(domainUUID, middleware.CurrentUserUUID(c), permcode.PermDomainRoomLayoutManage)
 }
 
+// Get 读取域内房间分组布局。
+// @Summary 读取域内房间分组布局
+// @Tags 域
+// @Accept json
+// @Produce json
+// @Param request body object true "域 UUID"
+// @Success 200 {object} service.LayoutView
+// @Router /domain/room-layout/get [post]
 func (h *RoomLayoutHandler) Get(c *gin.Context) {
 	var req roomLayoutGetReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -56,6 +64,14 @@ func (h *RoomLayoutHandler) Get(c *gin.Context) {
 	pkg.Success(c, view)
 }
 
+// Save 保存域内房间分组与排序。
+// @Summary 保存域内房间分组与排序
+// @Tags 域
+// @Accept json
+// @Produce json
+// @Param request body object true "完整布局"
+// @Success 200 {object} service.LayoutView
+// @Router /domain/room-layout/save [post]
 func (h *RoomLayoutHandler) Save(c *gin.Context) {
 	var req roomLayoutSaveReq
 	if err := c.ShouldBindJSON(&req); err != nil {

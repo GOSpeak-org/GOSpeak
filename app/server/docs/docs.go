@@ -838,6 +838,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/domain/room-layout/get": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "域"
+                ],
+                "summary": "读取域内房间分组布局",
+                "parameters": [
+                    {
+                        "description": "域 UUID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.LayoutView"
+                        }
+                    }
+                }
+            }
+        },
+        "/domain/room-layout/save": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "域"
+                ],
+                "summary": "保存域内房间分组与排序",
+                "parameters": [
+                    {
+                        "description": "完整布局",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.LayoutView"
+                        }
+                    }
+                }
+            }
+        },
         "/invite/cancel-request": {
             "post": {
                 "security": [
@@ -2619,6 +2685,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/user/push-token": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "持久化当前登录用户的移动端推送 token，按 token 幂等覆盖。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户"
+                ],
+                "summary": "上报推送 token",
+                "parameters": [
+                    {
+                        "description": "推送 token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "platform": {
+                                    "type": "string"
+                                },
+                                "token": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/pkg.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/user/update-profile": {
             "post": {
                 "security": [
@@ -3004,6 +3117,26 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GroupLayout": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "rooms": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.RoomBrief"
+                    }
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
         "service.InviteRegisterRequest": {
             "type": "object",
             "required": [
@@ -3029,6 +3162,29 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "service.LayoutView": {
+            "type": "object",
+            "properties": {
+                "can_manage": {
+                    "type": "boolean"
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.GroupLayout"
+                    }
+                },
+                "ungrouped": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.RoomBrief"
+                    }
+                },
+                "ungrouped_position": {
+                    "type": "integer"
                 }
             }
         },
@@ -3064,6 +3220,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.RoomBrief": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "has_password": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sort_order": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "uuid": {
                     "type": "string"
                 }
             }
