@@ -66,7 +66,7 @@
 - `api/domainLayout.ts`：types + `getDomainLayout()` / `saveDomainLayout(layout)`。
 - `stores/domainLayoutStore.ts`：zustand `xxxStore` 门面 + `useXxxStore` hook 双入口。state：groups、items、loaded、saving、error。actions：`load()`、`createGroup/renameGroup/recolorGroup/deleteGroup`、`moveDomain(domainUUID, groupUUID|null, index)`、`reorderGroup(from,to)`、`reorderDomain(groupUUID, from, to)`。每次变更先更新本地再 400ms 防抖 `save()`；失败 toast 并保留本地改动。
 - `utils/domainLayout.ts`：纯函数排序/移动辅助（便于单测）。
-- 侧栏改造：顶层序列 = 各文件夹（48px 文件夹图标 + 颜色 + 数量角标）+ 未分组的域图标（沿用 `DomainIcon`）。双击域沿用 `requiresDoubleClick` 进入域。
+- 侧栏改造：顶层序列 = 各文件夹 + 未分组的域图标（沿用 `DomainIcon`，有头像显示头像）。文件夹图标为手机文件夹式**四宫格**：固定 2×2 四格，前 4 个域的微缩头像/首字填格，空位留占位；右上角数量角标；空文件夹回退为文件夹图标。双击域沿用 `requiresDoubleClick` 进入域。
 - 交互分工：
   - **左键**文件夹 = 查看内容（Radix Popover，可排序域列表 + “拖到这里移出分组”投放区）。
   - **右键**文件夹 = 编辑面板（富面板而非文字菜单）：名称输入框、颜色圆点、拖放移出区、上移/下移、删除分组；面板锚定在鼠标右下角（`side="right" align="start"` + 偏移）。

@@ -245,6 +245,7 @@ export default function DomainGroupTile({
 					name={group.name}
 					color={group.color}
 					count={domains.length}
+					domains={domains}
 				/>
 			</button>
 			<PopoverAnchor asChild>

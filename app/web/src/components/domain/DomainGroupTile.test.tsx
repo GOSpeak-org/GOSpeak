@@ -86,4 +86,30 @@ describe("DomainGroupTile", () => {
 		fireEvent.contextMenu(screen.getByLabelText("打开分组 工作"));
 		expect(screen.queryByText("删除域")).toBeNull();
 	});
+
+	it("shows mini previews of the domains inside a folder", () => {
+		const domain = (uuid: string, name: string) => ({
+			id: Number(uuid.slice(2)),
+			uuid,
+			name,
+			icon_url: "",
+			description: "",
+			owner_uuid: "u-1",
+			is_public: false,
+			created_at: "2026-01-01T00:00:00Z",
+			member_count: 1,
+			room_count: 0,
+		});
+		renderTile({
+			domains: [domain("d-1", "默"), domain("d-2", "UI审查域")],
+		});
+		expect(screen.getByText("默")).toBeTruthy();
+		expect(screen.getByText("U")).toBeTruthy();
+		expect(screen.getByRole("img", { name: "工作 · 2 个域" })).toBeTruthy();
+	});
+
+	it("falls back to the folder glyph for an empty group", () => {
+		renderTile();
+		expect(screen.queryByText("默")).toBeNull();
+	});
 });
