@@ -234,6 +234,7 @@ export default function RoomList() {
 				ungrouped_room_uuids: ungrouped?.rooms.map((r) => r.uuid) ?? [],
 			});
 			toast.success("布局已保存");
+			socketStore.listRooms();
 			setEditingLayout(false);
 		} catch (error) {
 			toastActionError(error, "保存布局失败");

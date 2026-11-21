@@ -7,10 +7,10 @@ import (
 )
 
 type GroupInput struct {
-	UUID      string
-	Name      string
-	SortOrder int
-	RoomUUIDs []string
+	UUID      string   `json:"uuid"`
+	Name      string   `json:"name"`
+	SortOrder int      `json:"sort_order"`
+	RoomUUIDs []string `json:"room_uuids"`
 }
 
 type RoomLayoutRepository struct {

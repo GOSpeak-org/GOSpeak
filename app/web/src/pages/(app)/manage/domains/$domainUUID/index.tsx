@@ -837,6 +837,11 @@ function RouteComponent() {
 								<DomainRoomLayoutPanel
 									domainUUID={uuid}
 									layout={roomLayoutQuery.data}
+									onSaved={() =>
+										void queryClient.invalidateQueries({
+											queryKey: ["room-layout", uuid],
+										})
+									}
 								/>
 							) : (
 								<div className="text-muted-foreground px-3 py-4 text-xs">

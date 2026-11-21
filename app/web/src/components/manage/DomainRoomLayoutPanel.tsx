@@ -91,9 +91,11 @@ function findRoomBlock(blocks: Block[], roomUUID: string) {
 export default function DomainRoomLayoutPanel({
 	domainUUID,
 	layout,
+	onSaved,
 }: {
 	domainUUID: string;
 	layout: RoomLayoutView;
+	onSaved?: () => void;
 }) {
 	const editable = layout.can_manage;
 	const [blocks, setBlocks] = useState<Block[]>([]);
@@ -156,8 +158,19 @@ export default function DomainRoomLayoutPanel({
 		});
 	};
 
+	const nextGroupName = (list: Block[]) => {
+		const taken = new Set(list.map((b) => b.name));
+		if (!taken.has("新分组")) return "新分组";
+		let index = 2;
+		while (taken.has(`新分组 ${index}`)) index += 1;
+		return `新分组 ${index}`;
+	};
+
 	const addGroup = () => {
-		setBlocks((prev) => [...prev, { uuid: "", name: "新分组", rooms: [] }]);
+		setBlocks((prev) => [
+			{ uuid: "", name: nextGroupName(prev), rooms: [] },
+			...prev,
+		]);
 	};
 
 	const save = async () => {
@@ -180,6 +193,7 @@ export default function DomainRoomLayoutPanel({
 		try {
 			await saveRoomLayout(req);
 			toast.success("布局已保存");
+			onSaved?.();
 		} catch (error) {
 			toastActionError(error, "保存布局失败");
 			console.error(apiErrorMessage(error));
