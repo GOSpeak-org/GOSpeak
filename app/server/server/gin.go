@@ -100,6 +100,7 @@ func StartGin(env EnvEnum) error {
 	sfuConfigRepo := repository.NewSFUConfigRepository(db)
 	storageConfigRepo := repository.NewStorageConfigRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
+	userDomainLayoutRepo := repository.NewUserDomainLayoutRepository(db)
 	domainRoleRepo := repository.NewDomainRoleRepository(db)
 	roomLayoutRepo := repository.NewRoomLayoutRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
@@ -113,6 +114,7 @@ func StartGin(env EnvEnum) error {
 	if err != nil {
 		return fmt.Errorf("failed to init domain casbin: %w", err)
 	}
+	domainLayoutSvc := service.NewDomainLayoutService(userDomainLayoutRepo)
 	joinRequestSvc := service.NewJoinRequestService(
 		repository.NewDBTxRunner(db),
 		repository.NewDomainJoinRequestRepository(db),
@@ -349,6 +351,7 @@ func StartGin(env EnvEnum) error {
 	domainH := handler.NewDomainHandler(domainSvc, permSvc, auditSvc,
 		signalHub.KickUserFromDomain, signalHub.KickUserFromDomain,
 		func(serverUUID string) { signalHub.OnDomainDelete(serverUUID) })
+	domainLayoutH := handler.NewDomainLayoutHandler(domainLayoutSvc)
 	roomLayoutH := handler.NewRoomLayoutHandler(service.NewRoomLayoutService(roomLayoutRepo), permSvc, domainSvc)
 	auditH := handler.NewAuditHandler(auditSvc)
 	announcementSvc := service.NewAnnouncementService(announcementRepo, domainRepo)
@@ -418,6 +421,7 @@ func StartGin(env EnvEnum) error {
 		Monitor:      monitorH,
 		SystemUpdate: systemUpdateH,
 		Domain:       domainH,
+		DomainLayout: domainLayoutH,
 		RoomLayout:   roomLayoutH,
 		Conversation: conversationH,
 		Audit:        auditH,
