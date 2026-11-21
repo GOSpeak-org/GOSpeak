@@ -262,6 +262,32 @@ describe("runVoiceJoin", () => {
 		);
 	});
 
+	it("切房时旧会话拆除与新房 join 并行，不等待旧会话", async () => {
+		let releaseTeardown!: () => void;
+		const teardownGate = new Promise<void>((resolve) => {
+			releaseTeardown = resolve;
+		});
+		const teardownPrevious = vi.fn(() => teardownGate);
+		const { deps, order } = makeDeps({ teardownPrevious });
+
+		const pending = runVoiceJoin(makeToken({ room: "r2" }) as any, deps as any);
+
+		await waitFor(
+			() => order.includes("joinSignalSfu"),
+			2000,
+			"新房 join 被旧会话拆除阻塞",
+		);
+		expect(teardownPrevious).toHaveBeenCalledTimes(1);
+		expect(teardownPrevious.mock.invocationCallOrder[0]).toBeLessThan(
+			deps.loadClient.mock.invocationCallOrder[0],
+		);
+
+		releaseTeardown();
+		const result = await withTimeout(pending, 2000, "新房 join 未在超时前返回");
+		expect(result.provider).toBe("livekit");
+		expect(order).toContain("joinRoom");
+	});
+
 	it("aborts before side effects when signal already aborted", async () => {
 		const controller = new AbortController();
 		controller.abort();

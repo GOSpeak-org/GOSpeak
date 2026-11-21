@@ -79,6 +79,12 @@ export type VoiceJoinDeps = {
 		room: string,
 		domain_uuid: string | undefined,
 	) => Promise<unknown>;
+	/**
+	 * 切房时拆除旧语音会话：只在 join 开始时触发，**不等待**结果。
+	 * 调用方需保证旧房信令离开已先行发出，从而保持"先离开、后进入"的因果顺序，
+	 * 同时让旧媒体拆除与新房连接并行，避免旧连接把新房间拖住。
+	 */
+	teardownPrevious?: () => Promise<void> | void;
 	onPhase: (phase: VoicePhase) => void;
 	/**
 	 * media join 成功后立刻回调（所有 provider 通用）。
@@ -178,6 +184,13 @@ async function executeVoiceJoin(
 
 	throwIfAborted(signal);
 	const previousRoom = deps.getCurrentRoom?.() ?? null;
+
+	// 旧会话拆除只启动、不等待：弱网下 LiveKit 断连可能长时间不返回，
+	// 等它完成会把新房连接一起阻塞。旧房信令离开由调用方在进入本函数前发出。
+	const previousTeardown = deps.teardownPrevious?.();
+	if (previousTeardown) {
+		void Promise.resolve(previousTeardown).catch(() => {});
+	}
 
 	onPhase("loading_sfu");
 	let client: SFUClient | undefined;

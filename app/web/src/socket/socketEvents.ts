@@ -52,6 +52,8 @@ export interface SocketEventDeps {
 	) => void;
 	setSpeakingIdentities: (value: Updater<string[]>) => void;
 	currentRoom: () => string | null;
+	/** 用户选中的房间意图；切房期间可能已指向新房，而 currentRoom 仍是旧房 */
+	selectedRoomInfo: () => RoomInfo | null;
 	currentDomainUUID: () => string | null;
 	emitActivity: (event: ActivityEvent) => void;
 	emitPresence: (event: RoomPresenceEvent) => void;
@@ -155,8 +157,19 @@ export function bindServerEvents(
 		(data: { room: string; domain_uuid?: string }) => {
 			console.log("[Socket] room:left", data.room);
 			if (data.room !== deps.currentRoom()) return;
+			// 切房时旧房的 room:left 会早于新房 join ack 到达：此刻 currentRoom
+			// 仍指向旧房，但用户意图已经切到新房。此时只清服务端派生的
+			// currentRoom，必须保留 selectedRoomInfo，否则 useVoiceSession 会
+			// 把进行中的切房当作"取消选择"而 abort，新房永远进不去。
+			const selected = deps.selectedRoomInfo();
+			const stillSelected =
+				!!selected &&
+				selected.name === data.room &&
+				(selected.domain_uuid || "") === (data.domain_uuid || "");
 			deps.setCurrentRoom(null);
-			deps.setSelectedRoomInfo(null);
+			if (!selected || stillSelected) {
+				deps.setSelectedRoomInfo(null);
+			}
 			deps.emitActivity({
 				type: "room_left",
 				room: data.room,

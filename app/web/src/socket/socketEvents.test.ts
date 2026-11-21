@@ -34,6 +34,7 @@ function fakeDeps(): SocketEventDeps {
 		setSpeechRestrictionInfo: vi.fn(),
 		setSpeakingIdentities: vi.fn(),
 		currentRoom: () => null,
+		selectedRoomInfo: () => null,
 		currentDomainUUID: () => null,
 		emitActivity: vi.fn(),
 		emitPresence: vi.fn(),
@@ -135,6 +136,47 @@ describe("room socket events", () => {
 		expect(deps.setCurrentRoom).not.toHaveBeenCalled();
 		expect(deps.setSelectedRoomInfo).not.toHaveBeenCalled();
 		expect(deps.emitActivity).not.toHaveBeenCalled();
+	});
+
+	it("room:left for the old room during a switch keeps the new selection", async () => {
+		// 切房时旧房 room:left 先于新房 join ack 到达：currentRoom 仍是旧房，
+		// 但 selectedRoomInfo 已指向新房。此时不能清空选择，否则切房会被 abort。
+		const { bindServerEvents } = await import("@/socket/socketEvents");
+		const adapter = createFakeAdapter();
+		const deps = fakeDeps();
+		deps.currentRoom = () => "old-room";
+		deps.selectedRoomInfo = () =>
+			({ name: "new-room", domain_uuid: "domain-1" }) as any;
+		bindServerEvents(adapter as any, deps);
+
+		adapter.emit(EVENTS.ROOM_LEFT, {
+			room: "old-room",
+			domain_uuid: "domain-1",
+		});
+
+		expect(deps.setCurrentRoom).toHaveBeenCalledWith(null);
+		expect(deps.setSelectedRoomInfo).not.toHaveBeenCalled();
+		expect(deps.emitActivity).toHaveBeenCalledWith(
+			expect.objectContaining({ type: "room_left", room: "old-room" }),
+		);
+	});
+
+	it("room:left for the selected room still clears the selection", async () => {
+		const { bindServerEvents } = await import("@/socket/socketEvents");
+		const adapter = createFakeAdapter();
+		const deps = fakeDeps();
+		deps.currentRoom = () => "lobby";
+		deps.selectedRoomInfo = () =>
+			({ name: "lobby", domain_uuid: "domain-1" }) as any;
+		bindServerEvents(adapter as any, deps);
+
+		adapter.emit(EVENTS.ROOM_LEFT, {
+			room: "lobby",
+			domain_uuid: "domain-1",
+		});
+
+		expect(deps.setCurrentRoom).toHaveBeenCalledWith(null);
+		expect(deps.setSelectedRoomInfo).toHaveBeenCalledWith(null);
 	});
 });
 

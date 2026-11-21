@@ -386,6 +386,7 @@ async function connectWithLock(url: string): Promise<string> {
 				setSpeechRestrictionInfo,
 				setSpeakingIdentities,
 				currentRoom,
+				selectedRoomInfo: () => useSocketStore.getState().selectedRoomInfo,
 				currentDomainUUID,
 				emitActivity,
 				emitPresence,
