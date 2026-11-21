@@ -149,20 +149,7 @@ export default function DomainGroupTile({
 	const [draft, setDraft] = useState(group.name);
 	const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const pressOrigin = useRef<Point>({ x: 0, y: 0 });
-	const prevCount = useRef(domains.length);
-	const [pulse, setPulse] = useState(false);
 	useEffect(() => setDraft(group.name), [group.name]);
-
-	// 域被拖进分组时做一次轻微弹跳，给出「已放入」的即时反馈
-	useEffect(() => {
-		if (domains.length > prevCount.current) {
-			setPulse(true);
-			const timer = setTimeout(() => setPulse(false), 320);
-			prevCount.current = domains.length;
-			return () => clearTimeout(timer);
-		}
-		prevCount.current = domains.length;
-	}, [domains.length]);
 
 	const cancelPress = () => {
 		if (pressTimer.current) {
@@ -235,10 +222,9 @@ export default function DomainGroupTile({
 				onPointerCancel={cancelPress}
 				onPointerLeave={cancelPress}
 				className={clsx(
-					"rounded-xl transition-[transform,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+					"rounded-xl transition-[box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
 					highlighted &&
-						"scale-105 ring-2 ring-primary ring-offset-2 ring-offset-background",
-					pulse && "scale-110",
+						"ring-2 ring-primary ring-offset-2 ring-offset-background",
 				)}
 			>
 				<DomainGroupIcon

@@ -30,18 +30,28 @@ func (h *Hub) notifyRoomStateChanged(room string) {
 // identities present only in KV (other instances). Local socket wins on conflict.
 func (h *Hub) GetRoomMembersMerged(key string) []MemberInfo {
 	if h.membershipStore == nil {
-		return h.GetRoomMembers(key)
+		members := h.GetRoomMembers(key)
+		if members == nil {
+			members = []MemberInfo{}
+		}
+		return members
 	}
 	ctx, cancel := kvTimeoutCtx()
 	snap, err := h.membershipStore.GetRoomMembers(ctx, key)
 	cancel()
 	if err != nil {
-		return h.GetRoomMembers(key)
+		members := h.GetRoomMembers(key)
+		if members == nil {
+			members = []MemberInfo{}
+		}
+		return members
 	}
 	return h.mergeMemberSnapshot(key, snap)
 }
 
 // mergeMemberSnapshot 合并本地成员与一份 KV 成员快照（用于批量读取路径）。
+// 返回值必须非 nil：RoomInfo.Members 经 JSON 序列化进 wire，nil 会变成 null，
+// 违反前端 members: MemberInfo[] 的非空契约。
 func (h *Hub) mergeMemberSnapshot(key string, snap bus.RoomMembersSnapshot) []MemberInfo {
 	local := h.GetRoomMembers(key)
 	now := time.Now().UnixMilli()
@@ -49,7 +59,8 @@ func (h *Hub) mergeMemberSnapshot(key string, snap bus.RoomMembersSnapshot) []Me
 	for _, m := range local {
 		seen[m.Identity] = struct{}{}
 	}
-	out := append([]MemberInfo(nil), local...)
+	out := make([]MemberInfo, 0, len(local)+len(snap.Members))
+	out = append(out, local...)
 	for _, rec := range snap.Members {
 		if rec.Identity == "" {
 			continue

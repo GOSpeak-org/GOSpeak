@@ -2,11 +2,11 @@ package handler
 
 import (
 	"GOSpeak/internal/audit"
+	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
-	"GOSpeak/internal/middleware"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +31,6 @@ func NewDomainHandler(domainSvc *service.DomainService, permSvc *service.Permiss
 		onDomainDelete: onDomainDelete,
 	}
 }
-
 
 func (h *DomainHandler) hasPermission(c *gin.Context, code string) bool {
 	if h.permSvc == nil {

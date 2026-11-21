@@ -153,6 +153,45 @@ describe("RoomItem / 移动端单击进入", () => {
 	});
 });
 
+describe("RoomItem / tooltip 定位", () => {
+	function renderInsideTransformedRow(overrides: Partial<RoomInfo> = {}) {
+		return render(
+			<div data-testid="virtual-row" style={{ transform: "translateY(40px)" }}>
+				<RoomItem
+					room={{ ...baseRoom, ...overrides }}
+					isActive={false}
+					selectedMember={null}
+					onSelectMember={() => {}}
+					onCloseMember={() => {}}
+					onEditRoom={() => {}}
+					onDeleteRoom={() => {}}
+				/>
+			</div>,
+		);
+	}
+
+	it("双击提示不落在带 transform 的虚拟行内（否则 fixed 定位漂移）", () => {
+		const { container } = renderInsideTransformedRow();
+
+		fireEvent.click(roomButton(), { detail: 1 });
+
+		const hint = screen.getByText("双击进入");
+		const virtualRow = container.querySelector('[data-testid="virtual-row"]');
+		expect(virtualRow?.contains(hint)).toBe(false);
+	});
+
+	it("右键菜单不落在带 transform 的虚拟行内（否则 fixed 定位漂移）", () => {
+		mocks.canManage = true;
+		const { container } = renderInsideTransformedRow();
+
+		fireEvent.contextMenu(roomButton(), { clientX: 50, clientY: 60 });
+
+		const menu = screen.getByRole("menu");
+		const virtualRow = container.querySelector('[data-testid="virtual-row"]');
+		expect(virtualRow?.contains(menu)).toBe(false);
+	});
+});
+
 describe("RoomItem / 移动端触控适配", () => {
 	it("保留原有 count/limit 人数展示（不改动信息语义）", () => {
 		renderRoom({ count: 0, limit: 0 });

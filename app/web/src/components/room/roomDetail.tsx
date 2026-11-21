@@ -126,7 +126,7 @@ export default function RoomDetail() {
 			{!selectedRoom ? (
 				<div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-sm">
 					<Volume2 size={32} strokeWidth={1.5} />
-					<span>请从左侧选择一个语音频道</span>
+					<span>请从左侧选择一个房间</span>
 				</div>
 			) : !isJoined ? (
 				/* 未加入时状态直接作为面板内容，而不是盖在成员网格上的浮层卡片：

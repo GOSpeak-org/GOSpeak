@@ -24,17 +24,16 @@ type cacheBus interface {
 }
 
 type RoomHandler struct {
-	roomSvc    *service.RoomService
-	permSvc    *service.PermissionService
-	domainSvc  *service.DomainService
-	eventBus   cacheBus
-	auditor    *audit.Service
+	roomSvc   *service.RoomService
+	permSvc   *service.PermissionService
+	domainSvc *service.DomainService
+	eventBus  cacheBus
+	auditor   *audit.Service
 }
 
 func NewRoomHandler(roomSvc *service.RoomService, permSvc *service.PermissionService, domainSvc *service.DomainService, eventBus cacheBus, auditor *audit.Service) *RoomHandler {
 	return &RoomHandler{roomSvc: roomSvc, permSvc: permSvc, domainSvc: domainSvc, eventBus: eventBus, auditor: auditor}
 }
-
 
 // notifyRoomListChanged 房间元数据变更后发内部事件，由 signal Hub 单点重新广播
 // 房间列表（REST/WS 双通道写同一视图的旧模式已移除）。

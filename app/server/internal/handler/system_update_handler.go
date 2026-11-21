@@ -4,10 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"GOSpeak/internal/buildinfo"
-	"GOSpeak/internal/pkg"
-	"GOSpeak/internal/service"
 	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/model"
+	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/service"
 )
 
 // SystemUpdateHandler 服务端更新检查（仅 admin）。

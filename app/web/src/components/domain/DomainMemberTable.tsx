@@ -145,11 +145,11 @@ export default function DomainMemberTable(props: DomainMemberTableProps) {
 			<div className="overflow-x-auto">
 				<table className="w-full text-sm" aria-busy={busy}>
 					<thead>
-						<tr className="border-border border-b">
-							<th className="px-3 py-2 text-left">用户</th>
-							<th className="px-3 py-2 text-left">角色</th>
-							<th className="px-3 py-2 text-left">加入时间</th>
-							<th className="px-3 py-2 text-right">操作</th>
+						<tr className="border-border bg-muted/50 text-muted-foreground border-b text-xs font-semibold tracking-wide">
+							<th className="px-3 py-2 text-left font-semibold">用户</th>
+							<th className="px-3 py-2 text-left font-semibold">角色</th>
+							<th className="px-3 py-2 text-left font-semibold">加入时间</th>
+							<th className="px-3 py-2 text-right font-semibold">操作</th>
 						</tr>
 					</thead>
 					<tbody>

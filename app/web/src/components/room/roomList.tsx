@@ -412,16 +412,8 @@ export default function RoomList() {
 							) : roomsLoading ? (
 								<RoomListLoading label="正在加载房间..." />
 							) : (
-								<div className="text-faint-foreground flex flex-col items-center justify-center gap-3 py-10 text-xs">
-									<span>暂无房间，创建第一个语音频道吧</span>
-									<button
-										type="button"
-										onClick={openCreateRoomModal}
-										className="bg-primary text-primary-foreground inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-medium transition-opacity hover:opacity-90"
-									>
-										<CirclePlus size={16} />
-										创建房间
-									</button>
+								<div className="text-faint-foreground flex items-center justify-center py-10 text-xs">
+									<span>暂无房间</span>
 								</div>
 							)
 						) : (

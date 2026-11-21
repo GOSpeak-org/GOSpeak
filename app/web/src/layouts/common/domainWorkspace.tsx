@@ -1,18 +1,15 @@
-import { toast } from "@gospeak/components";
 import {
 	Hash,
 	Headphones,
 	Lock,
 	MessageSquareText,
 	Mic,
-	Plus,
 	// Search, 搜索入口暂停用
 	Users,
 	X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ErrorBoundary } from "@/components/common/errorBoundary";
-import CreateRoomModal from "@/components/modal/createRoomModal";
 import MemberSidebar from "@/components/room/components/memberSidebar";
 import { visibleRoomsForDomain } from "@/components/room/roomListUtils";
 import RoomDetail from "@/components/room/roomDetail";
@@ -166,10 +163,10 @@ export default function DomainWorkspace({
 			? ("text" as const)
 			: ("empty" as const);
 	const headerName = voiceActive
-		? (selectedRoom?.name ?? currentRoom ?? "语音频道")
+		? (selectedRoom?.name ?? currentRoom ?? "房间")
 		: textRoom
 			? (textRoomName ?? "文字频道")
-			: "选择一个频道";
+			: "选择一个房间";
 
 	return (
 		<div
@@ -422,50 +419,24 @@ function ChannelPicker({
 
 function VoiceEmptyState() {
 	const list = useChannelList("voice").slice(0, 6);
-	const [createRoomOpen, setCreateRoomOpen] = useState(false);
-	const domainUUID = socketStore.currentDomainUUID();
 	const noRooms = list.length === 0;
 
-	const openCreate = () => {
-		if (!domainUUID) {
-			toast.warning("请先选择域");
-			return;
-		}
-		setCreateRoomOpen(true);
-	};
-
 	return (
-		<>
-			<div className="bg-card flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
-				<div className="bg-muted border-border flex size-16 items-center justify-center rounded-full border">
-					<Headphones size={32} strokeWidth={1.5} className="text-foreground" />
-				</div>
-				<h2 className="text-foreground text-lg font-bold">
-					{noRooms ? "创建第一个语音频道" : "选择一个语音频道"}
-				</h2>
-				<p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
-					{noRooms
-						? "当前域还没有语音频道，创建后即可邀请成员一起通话。"
-						: "点下面的频道直接进入，切换频道不会中断通话。"}
-				</p>
-				{noRooms ? (
-					<button
-						type="button"
-						className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
-						onClick={openCreate}
-					>
-						<Plus size={16} />
-						创建第一个语音频道
-					</button>
-				) : (
-					<ChannelPicker kind="voice" list={list} />
-				)}
+		<div className="bg-card flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
+			<div className="bg-muted border-border flex size-16 items-center justify-center rounded-full border">
+				<Headphones size={32} strokeWidth={1.5} className="text-foreground" />
 			</div>
-			<CreateRoomModal
-				open={createRoomOpen}
-				domainUUID={domainUUID ?? ""}
-				onClose={() => setCreateRoomOpen(false)}
-			/>
-		</>
+			<h2 className="text-foreground text-lg font-bold">
+				{noRooms ? "创建第一个房间" : "选择一个房间"}
+			</h2>
+			{noRooms ? null : (
+				<>
+					<p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
+						点下面的房间直接进入，切换房间不会中断通话。
+					</p>
+					<ChannelPicker kind="voice" list={list} />
+				</>
+			)}
+		</div>
 	);
 }

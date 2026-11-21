@@ -19,7 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { Home, MessageSquare, Plus, Settings, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import OptionSquare from "@/components/common/optionSquare";
 import { LoadingRegion, SkeletonIconRail } from "@/components/common/Skeletons";
 import DomainIcon from "@/components/domain/DomainIcon";
@@ -55,9 +55,11 @@ interface SortableState {
 function SortableTile({
 	id,
 	children,
+	disableShift = false,
 }: {
 	id: string;
 	children: (state: SortableState) => ReactNode;
+	disableShift?: boolean;
 }) {
 	const {
 		attributes,
@@ -68,11 +70,13 @@ function SortableTile({
 		isDragging,
 		isOver,
 	} = useSortable({ id });
+	const noShift = disableShift && !isDragging;
 	const style = {
-		transform: transform
-			? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-			: undefined,
-		transition,
+		transform:
+			!noShift && transform
+				? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+				: undefined,
+		transition: noShift ? undefined : transition,
 	};
 	return (
 		<div
@@ -101,6 +105,11 @@ export default function Sidebar({
 	const groups = useDomainLayoutStore((s) => s.groups);
 	const items = useDomainLayoutStore((s) => s.items);
 	const joinedKey = myDomainUUIDs.join(",");
+	const [draggingId, setDraggingId] = useState<string | null>(null);
+	const draggingDomain =
+		!!draggingId &&
+		(draggingId.startsWith(DOMAIN_PREFIX) ||
+			draggingId.startsWith(INNER_PREFIX));
 
 	useEffect(() => {
 		void domainStore.loadMyDomains().catch(() => {});
@@ -280,7 +289,12 @@ export default function Sidebar({
 				<DndContext
 					sensors={sensors}
 					collisionDetection={closestCenter}
-					onDragEnd={handleDragEnd}
+					onDragStart={({ active }) => setDraggingId(String(active.id))}
+					onDragCancel={() => setDraggingId(null)}
+					onDragEnd={(event) => {
+						setDraggingId(null);
+						handleDragEnd(event);
+					}}
 				>
 					<div className="flex flex-col items-center gap-2">
 						<OptionSquare
@@ -335,6 +349,7 @@ export default function Sidebar({
 										<SortableTile
 											key={group.uuid}
 											id={GROUP_PREFIX + group.uuid}
+											disableShift={draggingDomain}
 										>
 											{({ isOver }) => (
 												<DomainGroupTile
@@ -385,6 +400,7 @@ export default function Sidebar({
 											<SortableTile
 												key={domain.uuid}
 												id={DOMAIN_PREFIX + domain.uuid}
+												disableShift={draggingDomain}
 											>
 												{() => (
 													<DomainLayoutContextMenu

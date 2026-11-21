@@ -187,7 +187,10 @@ export function bindServerEvents(
 			layout?: RoomListLayoutPayload;
 		}) => {
 			console.log("[Socket] room:list:result", data.rooms.length, "rooms");
-			deps.setRooms(data.rooms);
+			// wire 契约 members: MemberInfo[]，但旧后端对空房可能发 null，入口统一归一
+			deps.setRooms(
+				data.rooms.map((room) => ({ ...room, members: room.members ?? [] })),
+			);
 			if (data.layout) deps.setRoomLayout(data.layout);
 		},
 	);

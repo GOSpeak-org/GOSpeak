@@ -15,9 +15,9 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 
 	"GOSpeak/internal/config"
-	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/model"
+	"GOSpeak/internal/pkg"
 	gpsignal "GOSpeak/internal/signal"
 )
 

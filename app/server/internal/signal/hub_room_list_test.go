@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -46,5 +47,28 @@ func TestRoomList_BatchLocalKV(t *testing.T) {
 	}
 	if calls := testHubKVCallCount(t, h); calls.GetRoomMembers != 0 {
 		t.Fatalf("expected batched KV gets (0 individual calls), got %d", calls.GetRoomMembers)
+	}
+}
+
+func TestRoomList_EmptyRoomMembersNotNull(t *testing.T) {
+	h := newTestHubWithKV(t)
+	h.createLocalRoom("dom1", "vacated")
+
+	got := h.getMergedRooms("dom1")
+	if len(got) != 1 {
+		t.Fatalf("expected 1 room, got %d", len(got))
+	}
+	b, err := json.Marshal(got[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var probe struct {
+		Members []MemberInfo `json:"members"`
+	}
+	if err := json.Unmarshal(b, &probe); err != nil {
+		t.Fatal(err)
+	}
+	if probe.Members == nil {
+		t.Fatalf("empty room serialized members as null, want []; wire: %s", b)
 	}
 }

@@ -1,11 +1,11 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { CornerDownLeft, MessageSquareText } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PrivateMessageDTO } from "@/api/conversation";
 import ChatEmptyState from "@/components/chat/chatEmptyState";
 import Avatar from "@/components/common/avatar";
 import AsyncState from "@/components/common/AsyncState";
-import { SkeletonListRows } from "@/components/common/Skeletons";
+import { SkeletonChatMessages } from "@/components/common/Skeletons";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { dayKey, formatDateLabel, formatMessageTime } from "@/utils/chatTime";
 
@@ -67,20 +67,17 @@ export default function ChatWindow() {
 	const virtualizerRef = useRef(virtualizer);
 	virtualizerRef.current = virtualizer;
 
-	// 切换会话后一律回到最新消息
+	// 切换会话后一律回到最新消息。用 layout effect 在 paint 前同步滚到底，
+	// 避免 rAF 延后一帧导致「消息先出现在顶部再跳到底部」的弹闪。
 	// biome-ignore lint/correctness/useExhaustiveDependencies: active 为有意触发器（切会话即重置贴底标记），effect 体内无需引用
-	useEffect(() => {
+	useLayoutEffect(() => {
 		atBottomRef.current = true;
 	}, [active]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 仅按行数/会话触发贴底滚动，virtualizer 实例稳定
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (rows.length === 0 || !atBottomRef.current) return;
-		requestAnimationFrame(() => {
-			virtualizerRef.current.scrollToIndex(rows.length - 1, {
-				align: "end",
-			});
-		});
+		virtualizerRef.current.scrollToIndex(rows.length - 1, { align: "end" });
 	}, [rows.length, active]);
 
 	function handleScroll() {
@@ -159,9 +156,7 @@ export default function ChatWindow() {
 				<AsyncState
 					loading={isLoading && messages.length === 0}
 					loadingText="正在加载消息…"
-					skeleton={
-						<SkeletonListRows rows={6} className="h-full justify-between" />
-					}
+					skeleton={<SkeletonChatMessages rows={6} />}
 					empty={messages.length === 0 && !isLoading}
 					emptyText="发送一条消息开始对话"
 				>

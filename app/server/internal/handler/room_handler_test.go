@@ -24,7 +24,7 @@ func TestRoomHandler_List_FiltersDomainUUID(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	domain := &model.Domain{UUID: "domain-a", Name: "Chat", OwnerUUID: "owner-1"}
@@ -95,7 +95,7 @@ func TestRoomHandler_List_InvalidJSONRejected(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}); err != nil {
+		&model.User{}, &model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	middleware.SetDomainChecker(func(domainUUID, userUUID string) bool { return true })
@@ -132,7 +132,7 @@ func TestRoomHandler_Create_PersistsDomainUUID(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	domain := &model.Domain{UUID: "domain-a", Name: "Chat", OwnerUUID: "owner-1"}
@@ -198,7 +198,7 @@ func TestRoomHandler_List_NoDomainUUID_OnlyPlatformRooms(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Permission{}, &model.RolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Permission{}, &model.RolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	rooms := []model.Room{
@@ -272,7 +272,7 @@ func TestRoomHandler_Create_RejectsNonDomainMember(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}); err != nil {
+		&model.User{}, &model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	middleware.SetDomainChecker(func(domainUUID, userUUID string) bool { return false })
@@ -309,7 +309,7 @@ func TestRoomHandler_List_RejectsNonDomainMember(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}); err != nil {
+		&model.User{}, &model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	middleware.SetDomainChecker(func(domainUUID, userUUID string) bool { return false })
@@ -346,7 +346,7 @@ func TestRoomHandler_CRUD_RejectsNonDomainMember(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}); err != nil {
+		&model.User{}, &model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	room := model.Room{Name: "lobby", DomainUUID: "domain-a", CreatedBy: "other"}
@@ -407,7 +407,7 @@ func TestRoomHandler_Delete_RequiresManagePermission(t *testing.T) {
 			t.Fatalf("open sqlite: %v", err)
 		}
 		if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+			&model.User{}, &model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 			t.Fatalf("migrate: %v", err)
 		}
 		g := &model.Domain{Name: "Test", OwnerUUID: "owner-1"}
@@ -504,7 +504,7 @@ func TestRoomHandler_Delete_AllowsDomainRolePermission(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	g := &model.Domain{Name: "Test", OwnerUUID: "owner-1"}
