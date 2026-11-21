@@ -16,7 +16,7 @@ export function visibleRoomsForDomain(
 
 export type SidebarRow =
 	| { kind: "group"; uuid: string; name: string }
-	| { kind: "room"; room: RoomInfo };
+	| { kind: "room"; room: RoomInfo; blockUUID: string };
 
 export function groupRoomsForSidebar(
 	rooms: RoomInfo[],
@@ -49,7 +49,7 @@ export function groupRoomsForSidebar(
 	}));
 	blocks.splice(Math.min(layout.ungrouped_position, blocks.length), 0, {
 		kind: "unGrouped" as const,
-		uuid: "",
+		uuid: "__ungrouped__",
 		name: "",
 		rooms: sortRooms(ungrouped),
 	});
@@ -58,7 +58,8 @@ export function groupRoomsForSidebar(
 		if (block.kind === "group") {
 			rows.push({ kind: "group", uuid: block.uuid, name: block.name });
 		}
-		for (const room of block.rooms) rows.push({ kind: "room", room });
+		for (const room of block.rooms)
+			rows.push({ kind: "room", room, blockUUID: block.uuid });
 	}
 	return rows;
 }

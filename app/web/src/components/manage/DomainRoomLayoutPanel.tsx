@@ -1,19 +1,22 @@
 import { Button, Input, toast } from "@gospeak/components";
 import {
 	DndContext,
+	DragOverlay,
 	PointerSensor,
 	closestCenter,
 	useSensor,
 	useSensors,
 	type DragEndEvent,
+	type DragStartEvent,
 } from "@dnd-kit/core";
 import {
 	SortableContext,
 	useSortable,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import clsx from "clsx";
 import { GripVertical, Plus, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
 	type RoomLayoutBrief,
 	type RoomLayoutSaveReq,
@@ -31,9 +34,19 @@ type Block = {
 	rooms: RoomLayoutBrief[];
 };
 
+type ActiveDrag =
+	| { type: "room"; room: RoomLayoutBrief }
+	| { type: "block"; block: Block };
+
 function SortableHandle({ id }: { id: string }) {
-	const { attributes, listeners, setNodeRef, transform, transition } =
-		useSortable({ id });
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id });
 	return (
 		<button
 			ref={setNodeRef}
@@ -45,7 +58,10 @@ function SortableHandle({ id }: { id: string }) {
 					: undefined,
 				transition,
 			}}
-			className="text-muted-foreground hover:text-foreground cursor-grab px-1"
+			className={clsx(
+				"text-muted-foreground hover:text-foreground cursor-grab px-1",
+				isDragging && "opacity-30",
+			)}
 			{...attributes}
 			{...listeners}
 		>
@@ -61,7 +77,7 @@ function SortableRoom({
 	room: RoomLayoutBrief;
 	editable: boolean;
 }) {
-	const { setNodeRef, transform, transition } = useSortable({
+	const { setNodeRef, transform, transition, isDragging } = useSortable({
 		id: `room:${room.uuid}`,
 	});
 	return (
@@ -73,7 +89,10 @@ function SortableRoom({
 					: undefined,
 				transition,
 			}}
-			className="border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs"
+			className={clsx(
+				"border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs",
+				isDragging && "opacity-30",
+			)}
 		>
 			{editable && <SortableHandle id={`room:${room.uuid}`} />}
 			<span className="min-w-0 flex-1 truncate">{room.name}</span>
@@ -100,6 +119,7 @@ export default function DomainRoomLayoutPanel({
 	const editable = layout.can_manage;
 	const [blocks, setBlocks] = useState<Block[]>([]);
 	const [saving, setSaving] = useState(false);
+	const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
 	useEffect(() => {
 		const next: Block[] = layout.groups.map((g) => ({
 			uuid: g.uuid,
@@ -116,7 +136,29 @@ export default function DomainRoomLayoutPanel({
 
 	const sensors = useSensors(useSensor(PointerSensor));
 
+	const handleDragStart = ({ active }: DragStartEvent) => {
+		const id = String(active.id);
+		if (id.startsWith("room:")) {
+			const uuid = id.slice(5);
+			for (const block of blocks) {
+				const room = block.rooms.find((r) => r.uuid === uuid);
+				if (room) {
+					setActiveDrag({ type: "room", room });
+					return;
+				}
+			}
+		}
+		if (id.startsWith("block:")) {
+			const uuid = id.slice(6);
+			const block = blocks.find(
+				(b) => (b.uuid || `new-${b.name}`) === uuid || b.uuid === uuid,
+			);
+			if (block) setActiveDrag({ type: "block", block });
+		}
+	};
+
 	const onDragEnd = (event: DragEndEvent) => {
+		setActiveDrag(null);
 		if (!editable || !event.over || event.active.id === event.over.id) return;
 		const activeId = String(event.active.id);
 		const overId = String(event.over.id);
@@ -207,6 +249,8 @@ export default function DomainRoomLayoutPanel({
 			<DndContext
 				sensors={sensors}
 				collisionDetection={closestCenter}
+				onDragStart={handleDragStart}
+				onDragCancel={() => setActiveDrag(null)}
 				onDragEnd={onDragEnd}
 			>
 				<SortableContext
@@ -214,61 +258,89 @@ export default function DomainRoomLayoutPanel({
 					strategy={verticalListSortingStrategy}
 				>
 					{blocks.map((block, index) => (
-						<div
-							key={block.uuid || `new-${index}`}
-							className="border-border/70 rounded-lg border p-2"
-						>
-							<div className="mb-2 flex items-center gap-2">
-								{editable && (
-									<SortableHandle
-										id={`block:${block.uuid || `new-${index}`}`}
-									/>
-								)}
-								{editable && block.uuid !== UNGROUPED ? (
-									<Input
-										className="h-7 flex-1 px-2 text-xs"
-										value={block.name}
-										onChange={(e) =>
-											setBlocks((prev) =>
-												prev.map((b, i) =>
-													i === index
-														? { ...b, name: e.currentTarget.value }
-														: b,
-												),
-											)
-										}
-									/>
-								) : (
-									<span className="flex-1 text-sm font-medium">
-										{block.name}
-									</span>
-								)}
-								<span className="text-faint-foreground text-2xs">
-									{block.rooms.length} 个房间
-								</span>
-							</div>
-							<SortableContext
-								items={block.rooms.map((r) => `room:${r.uuid}`)}
-								strategy={verticalListSortingStrategy}
-							>
-								<div className="flex flex-col gap-1">
-									{block.rooms.map((room) => (
-										<SortableRoom
-											key={room.uuid}
-											room={room}
-											editable={editable}
+						<Fragment key={block.uuid || `new-${index}`}>
+							{block.uuid === UNGROUPED && index > 0 && (
+								<div className="bg-border my-1 h-px w-full shrink-0" />
+							)}
+							<div className="border-border/70 rounded-lg border p-2">
+								<div className="mb-2 flex items-center gap-2">
+									{editable && (
+										<SortableHandle
+											id={`block:${block.uuid || `new-${index}`}`}
 										/>
-									))}
-									{block.rooms.length === 0 && (
-										<div className="text-faint-foreground px-2 py-1 text-xs">
-											暂无房间
-										</div>
 									)}
+									{editable && block.uuid !== UNGROUPED ? (
+										<Input
+											className="h-7 flex-1 px-2 text-xs"
+											value={block.name}
+											onChange={(e) =>
+												setBlocks((prev) =>
+													prev.map((b, i) =>
+														i === index
+															? { ...b, name: e.currentTarget.value }
+															: b,
+													),
+												)
+											}
+										/>
+									) : (
+										<span className="flex-1 text-sm font-medium">
+											{block.name}
+										</span>
+									)}
+									<span className="text-faint-foreground text-2xs">
+										{block.rooms.length} 个房间
+									</span>
 								</div>
-							</SortableContext>
-						</div>
+								<SortableContext
+									items={block.rooms.map((r) => `room:${r.uuid}`)}
+									strategy={verticalListSortingStrategy}
+								>
+									<div className="flex flex-col gap-1">
+										{block.rooms.map((room) => (
+											<SortableRoom
+												key={room.uuid}
+												room={room}
+												editable={editable}
+											/>
+										))}
+										{block.rooms.length === 0 && (
+											<div className="text-faint-foreground px-2 py-1 text-xs">
+												暂无房间
+											</div>
+										)}
+									</div>
+								</SortableContext>
+							</div>
+							{block.uuid === UNGROUPED && index < blocks.length - 1 && (
+								<div className="bg-border my-1 h-px w-full shrink-0" />
+							)}
+						</Fragment>
 					))}
 				</SortableContext>
+				<DragOverlay dropAnimation={null}>
+					{activeDrag?.type === "room" ? (
+						<div className="bg-popover text-popover-foreground border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs shadow-xl">
+							<GripVertical size={14} className="text-muted-foreground" />
+							<span className="min-w-0 flex-1 truncate">
+								{activeDrag.room.name}
+							</span>
+							<span className="text-faint-foreground font-mono text-2xs">
+								{activeDrag.room.uuid}
+							</span>
+						</div>
+					) : activeDrag?.type === "block" ? (
+						<div className="bg-popover text-muted-foreground border-border/70 flex items-center gap-2 rounded-sm border px-2 py-1 text-xs shadow-xl">
+							<GripVertical size={14} />
+							<span className="min-w-0 flex-1 truncate font-semibold">
+								{activeDrag.block.name}
+							</span>
+							<span className="text-faint-foreground text-2xs">
+								{activeDrag.block.rooms.length} 个房间
+							</span>
+						</div>
+					) : null}
+				</DragOverlay>
 			</DndContext>
 			{editable && (
 				<div className="flex items-center gap-2">

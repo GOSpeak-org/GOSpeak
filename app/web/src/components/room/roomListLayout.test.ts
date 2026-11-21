@@ -62,4 +62,19 @@ describe("groupRoomsForSidebar", () => {
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({ kind: "room", room: { uuid: "r1" } });
 	});
+
+	it("未分组房间携带独立 blockUUID，收起分组不影响其可见性", () => {
+		const rows = groupRoomsForSidebar(
+			[room("r1", "a", "g1"), room("r3", "c")],
+			{ ...layout, ungrouped_position: 1 },
+		);
+		const groupedRoom = rows.find(
+			(r) => r.kind === "room" && r.room.uuid === "r1",
+		);
+		const ungroupedRoom = rows.find(
+			(r) => r.kind === "room" && r.room.uuid === "r3",
+		);
+		expect(groupedRoom).toMatchObject({ blockUUID: "g1" });
+		expect(ungroupedRoom).toMatchObject({ blockUUID: "__ungrouped__" });
+	});
 });

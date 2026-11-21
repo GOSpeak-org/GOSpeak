@@ -345,11 +345,10 @@ export default function RoomList() {
 								/>
 							) : rows.length > 0 ? (
 								(() => {
-									let groupCollapsed = false;
 									return virtualizer.getVirtualItems().map((virtualRow) => {
 										const row = rows[virtualRow.index];
 										if (row.kind === "group") {
-											groupCollapsed = !!collapsedGroups[row.uuid];
+											const collapsed = !!collapsedGroups[row.uuid];
 											return (
 												<div
 													key={`group:${row.uuid}`}
@@ -367,7 +366,7 @@ export default function RoomList() {
 																(r) => r.group_uuid === row.uuid,
 															).length
 														}
-														collapsed={groupCollapsed}
+														collapsed={collapsed}
 														onToggle={() =>
 															setCollapsedGroups((prev) => ({
 																...prev,
@@ -378,7 +377,7 @@ export default function RoomList() {
 												</div>
 											);
 										}
-										if (groupCollapsed) return null;
+										if (collapsedGroups[row.blockUUID]) return null;
 										const room = row.room;
 										return (
 											<div

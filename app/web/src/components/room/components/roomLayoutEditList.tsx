@@ -1,11 +1,13 @@
 import { Button } from "@gospeak/components";
 import {
 	DndContext,
+	DragOverlay,
 	PointerSensor,
 	closestCenter,
 	useSensor,
 	useSensors,
 	type DragEndEvent,
+	type DragStartEvent,
 } from "@dnd-kit/core";
 import {
 	SortableContext,
@@ -13,7 +15,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import clsx from "clsx";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { GripVertical, Hash, Lock, Mic, Plus } from "lucide-react";
 import type { RoomInfo } from "@/socket/types";
 
@@ -22,6 +24,12 @@ export type EditBlock = {
 	name: string;
 	rooms: RoomInfo[];
 };
+
+const UNGROUPED = "__ungrouped__";
+
+type ActiveDrag =
+	| { type: "room"; room: RoomInfo }
+	| { type: "block"; block: EditBlock };
 
 function AddGroupRow({ onAdd }: { onAdd: () => void }) {
 	return (
@@ -37,6 +45,43 @@ function AddGroupRow({ onAdd }: { onAdd: () => void }) {
 	);
 }
 
+function RoomRowContent({ room }: { room: RoomInfo }) {
+	return (
+		<>
+			<span className="flex min-w-0 flex-1 items-center gap-1">
+				{room.type === "text" ? <Hash size={16} /> : <Mic size={16} />}
+				<span className="min-w-0 flex-1 truncate text-left leading-none">
+					{room.name}
+				</span>
+				{room.has_password && (
+					<span className="text-faint-foreground shrink-0">
+						<Lock size={14} />
+					</span>
+				)}
+			</span>
+			{room.type !== "text" && (
+				<span className="shrink-0 text-xs">
+					{room.count}/{room.limit}
+				</span>
+			)}
+		</>
+	);
+}
+
+function BlockRowContent({ block }: { block: EditBlock }) {
+	return (
+		<>
+			<GripVertical size={12} />
+			<span className="min-w-0 flex-1 truncate text-xs font-semibold">
+				{block.name}
+			</span>
+			<span className="text-faint-foreground text-2xs">
+				{block.rooms.length}
+			</span>
+		</>
+	);
+}
+
 function SortableBlock({
 	block,
 	children,
@@ -44,8 +89,14 @@ function SortableBlock({
 	block: EditBlock;
 	children: React.ReactNode;
 }) {
-	const { attributes, listeners, setNodeRef, transform, transition } =
-		useSortable({ id: `block:${block.uuid}` });
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({ id: `block:${block.uuid}` });
 	return (
 		<div
 			ref={setNodeRef}
@@ -55,7 +106,7 @@ function SortableBlock({
 					: undefined,
 				transition,
 			}}
-			className="flex flex-col"
+			className={clsx("flex flex-col", isDragging && "bg-selected")}
 		>
 			<div className="flex items-center gap-1 px-1 py-1">
 				<button
@@ -99,7 +150,7 @@ function SortableRoom({ room }: { room: RoomInfo }) {
 			}}
 			className={clsx(
 				"flex w-full min-w-0 items-center",
-				isDragging && "opacity-60",
+				isDragging && "bg-selected",
 			)}
 		>
 			<div
@@ -107,22 +158,7 @@ function SortableRoom({ room }: { room: RoomInfo }) {
 				{...listeners}
 				className="hover:bg-muted flex w-full min-w-0 cursor-grab touch-manipulation items-center justify-between gap-1 rounded-sm px-1.5 py-2 text-sm transition-colors active:cursor-grabbing"
 			>
-				<span className="flex min-w-0 flex-1 items-center gap-1">
-					{room.type === "text" ? <Hash size={16} /> : <Mic size={16} />}
-					<span className="min-w-0 flex-1 truncate text-left leading-none">
-						{room.name}
-					</span>
-					{room.has_password && (
-						<span className="text-faint-foreground shrink-0">
-							<Lock size={14} />
-						</span>
-					)}
-				</span>
-				{room.type !== "text" && (
-					<span className="shrink-0 text-xs">
-						{room.count}/{room.limit}
-					</span>
-				)}
+				<RoomRowContent room={room} />
 			</div>
 		</div>
 	);
@@ -140,6 +176,7 @@ export default function RoomLayoutEditList({
 	saving: boolean;
 }) {
 	const sensors = useSensors(useSensor(PointerSensor));
+	const [activeDrag, setActiveDrag] = useState<ActiveDrag | null>(null);
 
 	const nextGroupName = () => {
 		const taken = new Set(blocks.map((b) => b.name));
@@ -160,7 +197,28 @@ export default function RoomLayoutEditList({
 		};
 		onChange([block, ...blocks]);
 	};
+
+	const handleDragStart = ({ active }: DragStartEvent) => {
+		const id = String(active.id);
+		if (id.startsWith("room:")) {
+			const uuid = id.slice(5);
+			for (const block of blocks) {
+				const room = block.rooms.find((r) => r.uuid === uuid);
+				if (room) {
+					setActiveDrag({ type: "room", room });
+					return;
+				}
+			}
+		}
+		if (id.startsWith("block:")) {
+			const uuid = id.slice(6);
+			const block = blocks.find((b) => b.uuid === uuid);
+			if (block) setActiveDrag({ type: "block", block });
+		}
+	};
+
 	const onDragEnd = (event: DragEndEvent) => {
+		setActiveDrag(null);
 		if (!event.over || event.active.id === event.over.id) return;
 		const activeId = String(event.active.id);
 		const overId = String(event.over.id);
@@ -206,6 +264,8 @@ export default function RoomLayoutEditList({
 			<DndContext
 				sensors={sensors}
 				collisionDetection={closestCenter}
+				onDragStart={handleDragStart}
+				onDragCancel={() => setActiveDrag(null)}
 				onDragEnd={onDragEnd}
 			>
 				<SortableContext
@@ -213,8 +273,11 @@ export default function RoomLayoutEditList({
 					strategy={verticalListSortingStrategy}
 				>
 					<AddGroupRow onAdd={addGroup} />
-					{blocks.map((block) => (
+					{blocks.map((block, index) => (
 						<Fragment key={block.uuid}>
+							{block.uuid === UNGROUPED && index > 0 && (
+								<div className="bg-border my-1 h-px w-full shrink-0" />
+							)}
 							<SortableBlock block={block}>
 								<SortableContext
 									items={block.rooms.map((r) => `room:${r.uuid}`)}
@@ -225,9 +288,23 @@ export default function RoomLayoutEditList({
 									))}
 								</SortableContext>
 							</SortableBlock>
+							{block.uuid === UNGROUPED && index < blocks.length - 1 && (
+								<div className="bg-border my-1 h-px w-full shrink-0" />
+							)}
 						</Fragment>
 					))}
 				</SortableContext>
+				<DragOverlay dropAnimation={null}>
+					{activeDrag?.type === "room" ? (
+						<div className="bg-popover text-popover-foreground border-border flex w-60 items-center justify-between gap-1 rounded-sm border px-1.5 py-2 text-sm shadow-xl">
+							<RoomRowContent room={activeDrag.room} />
+						</div>
+					) : activeDrag?.type === "block" ? (
+						<div className="bg-popover text-muted-foreground border-border flex w-60 items-center gap-1 rounded-sm border px-1 py-1 shadow-xl">
+							<BlockRowContent block={activeDrag.block} />
+						</div>
+					) : null}
+				</DragOverlay>
 			</DndContext>
 			<Button type="button" size="xs" disabled={saving} onClick={onSave}>
 				保存布局
