@@ -1,16 +1,19 @@
+import { useQuery } from "@tanstack/react-query";
 import { Activity, Headphones, Radio, Users } from "lucide-react";
-import { useDomainStore } from "@/stores/domainStore";
-import { socketStore, useSocketStore } from "@/stores/socketStore";
+import { getMyDomainsDetailed } from "@/api/domain";
+import { useSocketStore } from "@/stores/socketStore";
 
 export default function StatusOverview() {
 	const connected = useSocketStore((s) => s.connected);
-	const myDomainUUIDs = useDomainStore((s) => s.myDomainUUIDs);
-	const currentDomainUUID = useDomainStore((s) => s.currentDomainUUID);
-	const rooms = useSocketStore((s) => s.rooms);
-	const members = socketStore.members();
-	const currentRooms = rooms.filter(
-		(room) => (room.domain_uuid ?? "") === (currentDomainUUID ?? ""),
-	);
+
+	const { data: domains } = useQuery({
+		queryKey: ["my-domains-detailed"],
+		queryFn: getMyDomainsDetailed,
+	});
+
+	const myDomains = domains ?? [];
+	const totalMembers = myDomains.reduce((sum, d) => sum + d.member_count, 0);
+	const totalRooms = myDomains.reduce((sum, d) => sum + d.room_count, 0);
 
 	const stats = [
 		{
@@ -21,20 +24,20 @@ export default function StatusOverview() {
 		},
 		{
 			label: "我的域",
-			value: String(myDomainUUIDs.length),
+			value: String(myDomains.length),
 			hint: "已加入的语音空间",
 			icon: Headphones,
 		},
 		{
-			label: "在线成员",
-			value: String(members.length),
-			hint: "当前域的成员",
+			label: "域内成员",
+			value: String(totalMembers),
+			hint: "全部我的域累计",
 			icon: Users,
 		},
 		{
 			label: "语音频道",
-			value: String(currentRooms.length),
-			hint: "当前域的频道",
+			value: String(totalRooms),
+			hint: "全部我的域累计",
 			icon: Radio,
 		},
 	];
