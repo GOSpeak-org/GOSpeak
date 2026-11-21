@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle } from "@gospeak/components";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CirclePlus, Compass, Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { type Domain, listPublicDomains } from "@/api/domain";
 import {
@@ -15,13 +15,9 @@ import CreateDomainModal from "@/components/domain/CreateDomainModal";
 import DomainInvitePreview from "@/components/domain/DomainInvitePreview";
 import InviteCodeManager from "@/components/domain/InviteCodeManager";
 import DiscoverDomainGrid from "@/components/discover/DiscoverDomainGrid";
-import DiscoverJoinPanel from "@/components/discover/DiscoverJoinPanel";
+import DiscoverHero from "@/components/discover/DiscoverHero";
 import DiscoverMyDomains from "@/components/discover/DiscoverMyDomains";
-import {
-	ManageHeader,
-	ManagePage,
-	ManageSection,
-} from "@/components/manage/ManageShell";
+import { ManagePage, ManageSection } from "@/components/manage/ManageShell";
 import { domainStore, useDomainStore } from "@/stores/domainStore";
 import {
 	extractDomainInviteCode,
@@ -44,9 +40,8 @@ export function DiscoverPage() {
 	const navigate = useNavigate();
 	const _queryClient = useQueryClient();
 	const [keyword, setKeyword] = useState("");
-	const [searchInput, setSearchInput] = useState("");
+	const [heroInput, setHeroInput] = useState("");
 	const [page, setPage] = useState(1);
-	const [inviteInput, setInviteInput] = useState("");
 
 	const [previewOpen, setPreviewOpen] = useState(false);
 	const [previewLoading, setPreviewLoading] = useState(false);
@@ -144,21 +139,15 @@ export function DiscoverPage() {
 		void openPreview(previewCode);
 	}
 
-	function handleInviteSubmit(e: React.FormEvent) {
+	function handleHeroSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		const code = extractDomainInviteCode(inviteInput);
-		if (!code) {
-			setPreviewOpen(true);
-			setPreviewError("未识别到邀请码或邀请链接");
+		const code = extractDomainInviteCode(heroInput);
+		if (code) {
+			void openPreview(code);
 			return;
 		}
-		void openPreview(code);
-	}
-
-	function handleSearch(e: React.FormEvent) {
-		e.preventDefault();
 		setPage(1);
-		setKeyword(searchInput.trim());
+		setKeyword(heroInput.trim());
 	}
 
 	async function joinPreview() {
@@ -238,7 +227,7 @@ export function DiscoverPage() {
 				const text = await navigator.clipboard.readText();
 				const code = extractDomainInviteCode(text);
 				if (!code) return;
-				setInviteInput(code);
+				setHeroInput(code);
 				await openPreview(code, { skipIfJoined: true });
 			} catch {
 				// 浏览器未授权读取剪贴板、或域列表加载失败时静默处理，用户可手动输入。
@@ -248,81 +237,55 @@ export function DiscoverPage() {
 
 	return (
 		<div className="min-h-full w-full flex-1 overflow-y-auto">
-			<ManagePage className="mx-auto min-h-full w-full max-w-[1440px]">
-				<ManageHeader
-					icon={<Compass size={20} />}
-					title="发现域"
-					description="搜索公开语音域"
+			<ManagePage className="mx-auto min-h-full w-full max-w-[1440px] !gap-3 p-3 md:p-4">
+				<DiscoverHero
+					value={heroInput}
+					onChange={setHeroInput}
+					onSubmit={handleHeroSubmit}
+				/>
+
+				<ManageSection
+					title="公开域"
+					description={`${publicDomains?.total ?? 0} 个公开域`}
+					className="min-w-0"
+					bodyClass="!p-3"
 					actions={
 						<button
 							type="button"
-							className="bg-primary text-primary-foreground hover:opacity-90 inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-sm font-medium transition-opacity"
-							onClick={() => setCreateOpen(true)}
+							className="text-muted-foreground hover:bg-muted inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors"
+							disabled={isLoading}
+							onClick={() => void refetch()}
 						>
-							<CirclePlus size={16} />
-							新建域
+							{isLoading ? (
+								<Loader2 className="size-3.5 animate-spin" />
+							) : (
+								<RefreshCw size={14} />
+							)}
+							刷新
 						</button>
 					}
-				/>
-
-				<div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)]">
-					<ManageSection
-						title="查找并加入"
-						description="搜索公开域或粘贴邀请码"
-						className="min-w-0"
-					>
-						<DiscoverJoinPanel
-							searchInput={searchInput}
-							inviteInput={inviteInput}
-							onSearchInputChange={setSearchInput}
-							onInviteInputChange={setInviteInput}
-							onSearch={handleSearch}
-							onInvite={handleInviteSubmit}
-						/>
-					</ManageSection>
-
-					<ManageSection
-						title="公开域"
-						description={`${publicDomains?.total ?? 0} 个公开域`}
-						className="min-w-0"
-						actions={
-							<button
-								type="button"
-								className="text-muted-foreground hover:bg-muted inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors"
-								disabled={isLoading}
-								onClick={() => void refetch()}
-							>
-								{isLoading ? (
-									<Loader2 className="size-3.5 animate-spin" />
-								) : (
-									<RefreshCw size={14} />
-								)}
-								刷新
-							</button>
+				>
+					<DiscoverDomainGrid
+						domains={publicDomains?.domains ?? []}
+						loading={isLoading}
+						hasError={isError}
+						page={page}
+						totalPages={totalPages}
+						joinedUUIDs={useDomainStore.getState().myDomainUUIDs}
+						pendingUUIDs={pendingDomainUUIDs}
+						onOpen={openPublicPreview}
+						onEnter={(domain) =>
+							navigate({
+								to: "/domain/$domainUUID",
+								params: { domainUUID: domain.uuid },
+							})
 						}
-					>
-						<DiscoverDomainGrid
-							domains={publicDomains?.domains ?? []}
-							loading={isLoading}
-							hasError={isError}
-							page={page}
-							totalPages={totalPages}
-							joinedUUIDs={useDomainStore.getState().myDomainUUIDs}
-							pendingUUIDs={pendingDomainUUIDs}
-							onOpen={openPublicPreview}
-							onEnter={(domain) =>
-								navigate({
-									to: "/domain/$domainUUID",
-									params: { domainUUID: domain.uuid },
-								})
-							}
-							onPageChange={setPage}
-							onRetry={() => void refetch()}
-						/>
-					</ManageSection>
-				</div>
+						onPageChange={setPage}
+						onRetry={() => void refetch()}
+					/>
+				</ManageSection>
 
-				<div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(400px,3fr)]">
+				<div className="grid min-w-0 items-start gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(400px,3fr)]">
 					<ManageSection
 						title="我的域"
 						description="快捷进入已加入的语音域"
