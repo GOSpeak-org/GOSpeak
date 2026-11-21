@@ -66,9 +66,13 @@
 - `api/domainLayout.ts`：types + `getDomainLayout()` / `saveDomainLayout(layout)`。
 - `stores/domainLayoutStore.ts`：zustand `xxxStore` 门面 + `useXxxStore` hook 双入口。state：groups、items、loaded、saving、error。actions：`load()`、`createGroup/renameGroup/recolorGroup/deleteGroup`、`moveDomain(domainUUID, groupUUID|null, index)`、`reorderGroup(from,to)`、`reorderDomain(groupUUID, from, to)`。每次变更先更新本地再 400ms 防抖 `save()`；失败 toast 并保留本地改动。
 - `utils/domainLayout.ts`：纯函数排序/移动辅助（便于单测）。
-- 侧栏改造：顶层序列 = 各文件夹（48px 文件夹图标 + 颜色 + 数量角标）+ 未分组的域图标（沿用 `DomainIcon`）。点文件夹弹 Radix Popover 浮层，内部为可排序域列表，头部提供重命名/改色/删除，底部“移出到未分组”投放区。双击域沿用 `requiresDoubleClick` 进入域。
-- DnD：新增 `@dnd-kit/core` + `@dnd-kit/sortable`。支持侧栏内拖文件夹/未分组域排序、浮层内拖域排序与拖到底部移出。不做侧栏↔浮层跨容器拖拽（浮层为瞬时 UI）。
-- 菜单兜底：右键/长按 ContextMenu——“移动到…/移出分组/上移/下移”；文件夹上“重命名/改色/删除/上移/下移”。
+- 侧栏改造：顶层序列 = 各文件夹（48px 文件夹图标 + 颜色 + 数量角标）+ 未分组的域图标（沿用 `DomainIcon`）。双击域沿用 `requiresDoubleClick` 进入域。
+- 交互分工：
+  - **左键**文件夹 = 查看内容（Radix Popover，可排序域列表 + “拖到这里移出分组”投放区）。
+  - **右键**文件夹 = 编辑面板（富面板而非文字菜单）：名称输入框、颜色圆点、拖放移出区、上移/下移、删除分组；面板锚定在鼠标右下角（`side="right" align="start"` + 偏移）。
+  - **移动端**文件夹长按 300ms 打开同一编辑面板；域图标长按拖拽即可排序/入组/移出。
+  - 域（频道）**不提供删除**，仅“移到未分组 / 移到某分组 / 上移 / 下移”，同样右键在鼠标位置弹出。
+- DnD：新增 `@dnd-kit/core` + `@dnd-kit/sortable`。侧栏顶层可拖文件夹与未分组域排序，把域拖到文件夹图标即入组；面板内可拖域排序、拖到移出区即出组。不做侧栏↔面板跨容器拖拽（面板为瞬时 UI）。
 - 视觉：沿用现有 token 类名与 lucide 图标；文件夹颜色仅用枚举 token；组件下沉 `components/domain/`，不在页面堆逻辑。
 - 错误：布局加载失败回退为全部未分组且不阻塞侧栏；保存失败 toast 提示可重试；`domainStore.myDomainUUIDs` 变化时重新 load 以补齐新加入/退出的域。
 
