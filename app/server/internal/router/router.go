@@ -64,6 +64,7 @@ type Handlers struct {
 	Monitor      *handler.MonitorHandler
 	SystemUpdate *handler.SystemUpdateHandler
 	Domain       *handler.DomainHandler
+	RoomLayout   *handler.RoomLayoutHandler
 	Conversation *handler.ConversationHandler
 	Audit        *handler.AuditHandler
 	Announcement *handler.AnnouncementHandler
@@ -133,7 +134,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 		conversationRoutes.RegisterProtected(protected.Group("/conversation"), h.Conversation)
 	}
 	if h.Domain != nil {
-		domainRoutes.Register(protected.Group("/domain"), h.Domain)
+		domainRoutes.Register(protected.Group("/domain"), h.Domain, h.RoomLayout)
 	}
 	auditRoutes.RegisterProtected(protected.Group("/audit"), h.Audit)
 	if h.Announcement != nil {

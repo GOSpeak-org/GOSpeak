@@ -101,6 +101,7 @@ func StartGin(env EnvEnum) error {
 	storageConfigRepo := repository.NewStorageConfigRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
 	domainRoleRepo := repository.NewDomainRoleRepository(db)
+	roomLayoutRepo := repository.NewRoomLayoutRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
 	pushTokenRepo := repository.NewPushTokenRepository(db)
 	sfuConfigSvc := service.NewSFUConfigService(sfuConfigRepo, cfg)
@@ -348,6 +349,7 @@ func StartGin(env EnvEnum) error {
 	domainH := handler.NewDomainHandler(domainSvc, permSvc, auditSvc,
 		signalHub.KickUserFromDomain, signalHub.KickUserFromDomain,
 		func(serverUUID string) { signalHub.OnDomainDelete(serverUUID) })
+	roomLayoutH := handler.NewRoomLayoutHandler(service.NewRoomLayoutService(roomLayoutRepo), permSvc, domainSvc)
 	auditH := handler.NewAuditHandler(auditSvc)
 	announcementSvc := service.NewAnnouncementService(announcementRepo, domainRepo)
 	announcementSvc.SetEventBus(eventBus)
@@ -416,6 +418,7 @@ func StartGin(env EnvEnum) error {
 		Monitor:      monitorH,
 		SystemUpdate: systemUpdateH,
 		Domain:       domainH,
+		RoomLayout:   roomLayoutH,
 		Conversation: conversationH,
 		Audit:        auditH,
 		Announcement: announcementH,
