@@ -120,6 +120,10 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 			info.AudioOnly = existing.AudioOnly
 			info.AllowAudience = existing.AllowAudience
 			info.CreatedAt = existing.CreatedAt
+			// 分组与排序只存在于 DB 记录：活跃房间必须沿用，否则一旦有人进房，
+			// 房间会从分组里掉到未分组（进出房来回切才恢复）。
+			info.GroupUUID = existing.GroupUUID
+			info.SortOrder = existing.SortOrder
 		}
 		// 有 KV 时补齐其他实例成员，修正 Count；统一补全用户资料/禁言
 		if h.membershipStore != nil {

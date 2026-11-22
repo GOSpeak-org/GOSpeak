@@ -107,6 +107,8 @@ func (h *Hub) roomInfoMerged(key string) RoomInfo {
 			info.Limit = dbRoom.Limit
 			info.AudioOnly = dbRoom.AudioOnly
 			info.AllowAudience = dbRoom.AllowAudience
+			info.GroupUUID = dbRoom.GroupUUID
+			info.SortOrder = dbRoom.SortOrder
 			if info.CreatedAt == 0 {
 				info.CreatedAt = dbRoom.CreatedAt.UnixMilli()
 			}

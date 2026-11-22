@@ -93,9 +93,11 @@ func (h *Hub) OnRoomList(c ws.ClientMessenger, data string) {
 	} else {
 		rooms = h.getMergedRooms(req.DomainUUID)
 	}
+	summary, _, _ := h.layoutSummary(req.DomainUUID)
 	c.Send(map[string]interface{}{"event": EventRoomListResult, "data": map[string]interface{}{
-		"rooms": rooms,
-		"count": len(rooms),
+		"rooms":  rooms,
+		"count":  len(rooms),
+		"layout": summary,
 	}})
 }
 
