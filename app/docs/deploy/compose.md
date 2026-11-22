@@ -1,24 +1,33 @@
 # Docker Compose 详解
 
-`deploy/docker-compose.standard.yml` 将整套服务编排在一起；`deploy/docker-compose.yml` 是只含 app + LiveKit 的精简入口。本文逐一说明每个组件、每个档位与常用操作。
+部署有两个编排文件，按档位二选一：`deploy/docker-compose.yml` 是精简入口（只含 app + LiveKit，无 profiles、无 Caddy），`deploy/docker-compose.standard.yml` 是全档位版（含 edge / postgres / rustfs / observability profiles）。启动一律显式带 `-f`，不要用裸 `docker compose up -d`。本文逐一说明每个组件、每个档位与常用操作。
 
-## 单文件与档位机制
+## 两个编排文件与档位机制
 
-传统做法是维护多份 compose 文件（基础版、完整版、生产版），一处修改需要在多处同步。
+精简版 `docker-compose.yml` 只有 `gospeak` + `livekit`，**没有 profiles、没有 Caddy，也不读 `COMPOSE_PROFILES`**；`up` 即起，适合起步与已有反代的场景。
 
-全档位版使用单文件 `docker-compose.standard.yml`，由 `COMPOSE_PROFILES` 决定启用的服务：
+全档位版 `docker-compose.standard.yml` 由 `COMPOSE_PROFILES` 决定启用哪些服务：
 
 ```ini
+# deploy/.env
 COMPOSE_PROFILES=app,livekit
 ```
 
-该值写在 `deploy/.env` 中，因此后续命令无需再携带 profile 参数：
+这个值**只对全档位版生效**。因为写在 `deploy/.env` 里，命令无需再加 `--profile`，但必须显式 `-f` 指向所用文件：
 
 ```bash
-docker compose up -d        # 不用加 --profile
-docker compose logs -f
-docker compose down
+# 精简起步
+docker compose -f deploy/docker-compose.yml up -d
+
+# 全档位（COMPOSE_PROFILES 在这里才生效）
+docker compose -f deploy/docker-compose.standard.yml up -d
+
+# 后续操作同样带 -f
+docker compose -f deploy/docker-compose.standard.yml logs -f
+docker compose -f deploy/docker-compose.standard.yml down
 ```
+
+> 不要裸跑 `docker compose up -d`（不带 `-f`）：Compose 默认选中 `deploy/docker-compose.yml` 精简版，即使 `.env` 里写了 `COMPOSE_PROFILES=...,edge`，也不会启动 Caddy，更没有自动 HTTPS。
 
 ## 六个档位
 
@@ -59,14 +68,11 @@ COMPOSE_PROFILES=app,livekit,edge,postgres,rustfs,observability
 - 已有 Nginx / Traefik / Dokploy / 宝塔在前方终结 TLS（会占用 80/443 端口）
 - 纯局域网环境、没有域名
 
-不启用 `edge` 时，`app,livekit` 两个档位已经足够，反向代理或浏览器直接访问 `8998` 端口。对应做法是在 `./init.sh` 时**不传 `--domain`**。
-
-## 首次启动流程
+不启用 `edge` 时，`app,livekit` 两个档位已经足够，反向代理或浏览器直接访问 `8998` 端口。起步直接用精简版 `docker-compose.yml`（无 profiles、不读 `COMPOSE_PROFILES`）更省事；对应做法是在 `./init.sh` 时**不传 `--domain`**。
 
 ```bash
-cd deploy
-./init.sh
-docker compose up -d --build
+cd deploy && ./init.sh && cd ..
+docker compose -f deploy/docker-compose.yml up -d
 ```
 
 `init.sh` 完成以下工作：
@@ -84,7 +90,7 @@ docker compose up -d --build
 ./init.sh --domain voice.example.com
 ```
 
-`./init.sh --domain voice.example.com` 会写入域名并自动将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。执行完成后直接运行 `docker compose up -d --build`，无需手动修改档位。
+`./init.sh --domain voice.example.com` 会写入域名并自动将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。执行完成后用全档位版启动：`docker compose -f deploy/docker-compose.standard.yml up -d`，无需手动修改档位。
 
 **不启用 `edge` 的场景**：已有反向代理（Nginx / Traefik / Dokploy / 宝塔），或纯局域网无域名时，**不传 `--domain`**（或手动将 `edge` 从 `COMPOSE_PROFILES` 中移除），反向代理指向宿主机 `8998` 端口。
 
@@ -125,7 +131,7 @@ docker compose up -d --build
 开发时经常采用这种方式：LiveKit 和数据库运行在 Docker 中，应用通过 `pnpm dev` 运行，便于修改代码：
 
 ```bash
-COMPOSE_PROFILES=livekit,rustfs docker compose up -d
+COMPOSE_PROFILES=livekit,rustfs docker compose -f deploy/docker-compose.standard.yml up -d
 ```
 
 然后回到仓库根目录：
@@ -160,7 +166,7 @@ POSTGRES_PASSWORD=<同一个密码>
 修改完成后：
 
 ```bash
-docker compose up -d
+docker compose -f deploy/docker-compose.standard.yml up -d
 ```
 
 **已有的 SQLite 数据不会自动迁移**，需要手动导入。
@@ -184,29 +190,29 @@ RustFS 控制台运行在 9001 端口，可用于确认桶是否已创建。
 ## 常用操作
 
 ```bash
-# 起
-docker compose up -d
+# 起（以下以全档位版为例，精简版把 -f 换成 deploy/docker-compose.yml）
+docker compose -f deploy/docker-compose.standard.yml up -d
 
 # 改了代码或配置后重建
-docker compose up -d --build
+docker compose -f deploy/docker-compose.standard.yml up -d --build
 
 # 看日志（只跟应用）
-docker compose logs -f gospeak
+docker compose -f deploy/docker-compose.standard.yml logs -f gospeak
 
 # 看所有服务状态
-docker compose ps
+docker compose -f deploy/docker-compose.standard.yml ps
 
 # 进应用容器看文件
-docker compose exec gospeak sh
+docker compose -f deploy/docker-compose.standard.yml exec gospeak sh
 
 # 停（数据留着）
-docker compose down
+docker compose -f deploy/docker-compose.standard.yml down
 
 # 停并删数据（慎用）
-docker compose down -v
+docker compose -f deploy/docker-compose.standard.yml down -v
 
 # 只重启应用，不动数据库
-docker compose restart gospeak
+docker compose -f deploy/docker-compose.standard.yml restart gospeak
 ```
 
 **注意**：修改 `.env` 之后必须使用 `up -d`，不能使用 `restart`。`restart` 只重启进程，不会重新读取环境变量。
@@ -231,9 +237,8 @@ GOSPEAK_PULL_POLICY=always
 ```bash
 cd GOSpeak
 git pull
-cd deploy
-docker compose pull
-docker compose up -d
+docker compose -f deploy/docker-compose.standard.yml pull
+docker compose -f deploy/docker-compose.standard.yml up -d
 ```
 
 数据库表结构在启动时自动迁移。升级前进行备份是良好的操作习惯。
@@ -260,13 +265,13 @@ docker compose up -d
 
 **容器已启动但访问返回 502**
 
-Caddy 或反向代理先启动，应用尚未就绪。等待片刻，或通过 `docker compose logs gospeak` 查看应用是否在报错。
+Caddy 或反向代理先启动，应用尚未就绪。等待片刻，或通过 `docker compose -f deploy/docker-compose.standard.yml logs gospeak` 查看应用是否在报错。
 
 **修改 .env 后未生效**
 
 使用了 `restart` 而不是 `up -d`。
 
-**`docker compose down -v` 之后数据丢失**
+**`docker compose -f deploy/docker-compose.standard.yml down -v` 之后数据丢失**
 
 `-v` 参数会删除数据卷。该操作不可逆，仅在确实需要清空数据时使用。
 
@@ -276,7 +281,7 @@ Caddy 或反向代理先启动，应用尚未就绪。等待片刻，或通过 `
 
 **LiveKit 已启动但无法连接**
 
-先查看 `docker compose logs livekit`。常见原因是 `use_external_ip` 探测到的 IP 不正确——云服务器有多块网卡时容易探测错误，需手动修改 `livekit/livekit.yaml` 中的 `node_ip`。
+先查看 `docker compose -f deploy/docker-compose.standard.yml logs livekit`。常见原因是 `use_external_ip` 探测到的 IP 不正确——云服务器有多块网卡时容易探测错误，需手动修改 `livekit/livekit.yaml` 中的 `node_ip`。
 
 ## 下一步
 

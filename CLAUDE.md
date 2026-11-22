@@ -87,8 +87,10 @@ Request → Router → Middleware(JWT+RBAC+Ban) → Handler → Service → Repo
 # 安装
 pnpm install
 
-# 启依赖服务（档位由 deploy/.env 的 COMPOSE_PROFILES 决定，默认 app,livekit）
+# 本地开发起精简版（app + livekit，不读 COMPOSE_PROFILES）
 docker compose -f deploy/docker-compose.yml up -d
+# 需要 edge/HTTPS/postgres 等档位时用全档位版（COMPOSE_PROFILES 只对其生效）
+# docker compose -f deploy/docker-compose.standard.yml up -d
 
 # 开发 (turbo 并行起后端+前端)
 pnpm dev          # = turbo run dev --filter=@gospeak/server --filter=@gospeak/web

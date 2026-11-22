@@ -1,13 +1,16 @@
 # GOSpeak 部署指南
 
 > 唯一权威部署入口。  
-> 入口文件：`deploy/docker-compose.yml`  
+> 编排文件（按档位二选一，命令一律显式带 `-f`，不要裸跑 `docker compose up -d`）：  
+> - 精简起步：`deploy/docker-compose.yml`（仅 `gospeak` + `livekit`，无 profiles、无 Caddy；SQLite + 本地存储）  
+> - 全档位：`deploy/docker-compose.standard.yml`（含 `edge` / `postgres` / `rustfs` / `observability` profiles）  
+> `COMPOSE_PROFILES` 只对 `docker-compose.standard.yml` 生效；精简版不读它。  
 > 配置文件：`deploy/.env`（唯一配置文件，compose 插值与应用环境变量共用）  
 > 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/noelorin/gospeak:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/noelorin/gospeak:1`，要固定版本用 `ghcr.io/noelorin/gospeak:1.1.0` 这类精确标签。compose 默认 `pull_policy: always`（每次 `up -d` 都会拉取最新镜像，避免停留在旧版本；如需关闭在 `.env` 设 `GOSPEAK_PULL_POLICY=missing`）。要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
 
 核心结论先放在前面：
 
-- **只需要一个域名。** 填 `GOSPEAK_DOMAIN`，内置 Caddy 自动申请证书、自动 HTTPS。
+- **只需要一个域名。** 用全档位版 `docker-compose.standard.yml` 并启用 `edge` profile 时，填 `GOSPEAK_DOMAIN`，内置 Caddy 自动申请证书、自动 HTTPS。精简版不含 Caddy，也不会读 `COMPOSE_PROFILES`。
 - **只需要一个上游。** 反代或证书层只面对 `gospeak:8998`，`/api`、`/ws`、`/uploads`、`/livekit` 全在这一个上游里。
 - **LiveKit 不需要第二个域名、不需要单独证书、不需要单独反代规则。** 信令经应用内置的同源反代 `/livekit` 转发到内部 LiveKit 的 7880，WebSocket 升级自动处理；浏览器拿到的 `serverUrl` 由应用按请求 Host 自动推导为 `wss://<你的域名>/livekit`。
 
@@ -15,17 +18,28 @@
 
 ## 1. 快速开始
 
+先生成配置（在 `deploy/` 下）：
+
 ```bash
 cd deploy
 ./init.sh --domain voice.example.com        # 生成 deploy/.env，写入域名并自动启用 edge
-docker compose up -d                # 启动，档位由 .env 的 COMPOSE_PROFILES 决定
 ```
 
-`./init.sh --domain voice.example.com` 会写入域名并自动把 `edge` 加进 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。跑完直接 `docker compose up -d` 即可，无需手改档位。
+然后回到仓库根目录，按档位二选一启动（**命令显式带 `-f`，不要用裸 `docker compose up -d`**）：
 
-`edge` 就是内置 Caddy。填了 `GOSPEAK_DOMAIN` 后它自动申请 Let's Encrypt 证书，把 80 重定向到 443，浏览器打开 `https://voice.example.com` 即可。
+```bash
+# 精简起步：只有 app + LiveKit，无 profiles、无 Caddy，SQLite + 本地存储
+docker compose -f deploy/docker-compose.yml up -d
 
-**不开 `edge` 的场景**：已有反代（Nginx / Traefik / Dokploy / 宝塔），或纯局域网无域名时，**不要传 `--domain`**（或手动把 `edge` 从 `COMPOSE_PROFILES` 里去掉），反代指向宿主机 `8998` 即可。
+# 全档位：由 .env 的 COMPOSE_PROFILES 选档，含 edge 自动 HTTPS / postgres / rustfs / observability
+docker compose -f deploy/docker-compose.standard.yml up -d
+```
+
+**`COMPOSE_PROFILES` 只对 `docker-compose.standard.yml` 生效。** 精简版 `docker-compose.yml` 没有 profiles；裸跑 `docker compose up -d`（不带 `-f`）会选中精简版，即使 `.env` 里写了 `COMPOSE_PROFILES=...,edge` 也不会启动 Caddy，更没有自动 HTTPS。要用 `edge` 自动 HTTPS，必须用 `-f deploy/docker-compose.standard.yml`。
+
+`./init.sh --domain voice.example.com` 会写入 `GOSPEAK_DOMAIN` 并自动把 `edge` 加进 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。`edge` 是全档位版里的内置 Caddy：填了域名后它自动申请 Let's Encrypt 证书、把 80 重定向到 443，浏览器打开 `https://voice.example.com` 即可。
+
+**不开 `edge` 的场景**：已有反代（Nginx / Traefik / Dokploy / 宝塔），或纯局域网无域名时，**不要传 `--domain`**（或手动把 `edge` 从 `COMPOSE_PROFILES` 里去掉），反代指向宿主机 `8998` 即可。此时用精简版 `docker-compose.yml` 起步最省事。
 
 `init.sh` 做三件事，保证 `.env` 与 `livekit.yaml` 不会脱节：
 
@@ -38,7 +52,7 @@ docker compose up -d                # 启动，档位由 .env 的 COMPOSE_PROFIL
 | 命令 | 作用 |
 |------|------|
 | `./init.sh` | 生成配置（`.env` 已存在则拒绝） |
-| `./init.sh --domain voice.example.com` | 生成配置，写入 `GOSPEAK_DOMAIN` 并自动把 `edge` 追加进 `COMPOSE_PROFILES` |
+| `./init.sh --domain voice.example.com` | 生成配置，写入 `GOSPEAK_DOMAIN` 并自动把 `edge` 追加进 `COMPOSE_PROFILES`（供全档位版使用） |
 | `./init.sh --force` | 重新生成（保留已填的 `GOSPEAK_DOMAIN`，`edge` 不重复追加） |
 | `./init.sh --check` | 只校验不写文件，CI 也用它；没有 `.env` 也能通过 |
 
@@ -53,7 +67,7 @@ docker compose up -d                # 启动，档位由 .env 的 COMPOSE_PROFIL
 
 ```bash
 cd deploy
-./init.sh --domain voice.example.com
+./init.sh                                   # 起步不需要域名，不传 --domain
 
 # 在仓库根目录执行（注意 -f 路径）
 cd ..
@@ -61,18 +75,17 @@ docker compose -f deploy/docker-compose.yml up -d
 docker compose -f deploy/docker-compose.yml logs -f gospeak
 ```
 
-与完整版的区别：
+与全档位版的区别：
 
-| | 简化版 | 完整版 |
-|---|---|---|
-| 服务 | app + livekit | app + livekit + 可选 postgres/rustfs/observability |
-| profiles | 无，`up` 即起 | 靠 `COMPOSE_PROFILES` 选档 |
+| | 简化版 `docker-compose.yml` | 全档位版 `docker-compose.standard.yml` |
+|---|------|------|
+| 服务 | app + livekit | app + livekit + 可选 edge/postgres/rustfs/observability |
+| profiles | 无，`up` 即起，**不读 `COMPOSE_PROFILES`** | 靠 `COMPOSE_PROFILES` 选档（唯一生效的文件） |
 | 数据库 | SQLite（内嵌） | 可选 PostgreSQL |
 | 对象存储 | 本地磁盘 | 可选 RustFS/S3 |
 | 监控 | 无 | Prometheus/Grafana/Loki/Alertmanager |
 
-两个文件共用同一份 `deploy/.env` 和同名 volume，**可在两者间切换而不丢数据**。
-需要 PostgreSQL、对象存储或监控时改用全档位版 `docker-compose.standard.yml`。
+两个编排文件共用同一份 `deploy/.env` 和同名数据卷（`gospeak-db` / `gospeak-logs` / `gospeak-uploads`），切换 `-f` 指向不会丢数据。需要 edge 自动 HTTPS、PostgreSQL、对象存储或监控时，改用全档位版：`docker compose -f deploy/docker-compose.standard.yml up -d`。
 
 ---
 
@@ -105,10 +118,13 @@ curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/ins
 
 ### 场景一：有域名，用内置 Caddy（推荐）
 
+Caddy 属于全档位版的 `edge` profile，精简版不含它，必须用 `docker-compose.standard.yml`：
+
 ```bash
 cd deploy
 ./init.sh --domain voice.example.com   # 自动写入域名并把 edge 追加进 COMPOSE_PROFILES
-docker compose up -d
+cd ..
+docker compose -f deploy/docker-compose.standard.yml up -d
 ```
 
 跑完 `deploy/.env` 里就是：
@@ -129,10 +145,11 @@ GOSPEAK_DOMAIN=voice.example.com
 ```bash
 cd deploy
 ./init.sh                      # 不传 --domain，edge 不会被加进来
-docker compose up -d
+cd ..
+docker compose -f deploy/docker-compose.yml up -d   # 无 edge 需求，精简版起步即可
 ```
 
-此时 `deploy/.env` 里保持：
+此时 `deploy/.env` 里保持（精简版不读 `COMPOSE_PROFILES`，保留它只是为切到全档位版时备用）：
 
 ```ini
 COMPOSE_PROFILES=app,livekit
@@ -148,7 +165,7 @@ GOSPEAK_PORT=8998
 
 Nginx 最小片段见 [反代与 HTTPS](/deploy/reverse-proxy)。
 
-> 如果之前误传了 `--domain`，把 `edge` 从 `COMPOSE_PROFILES` 里去掉即可（否则 Caddy 会和你的反代抢 80/443）。
+> 如果之前误传了 `--domain`，把 `edge` 从 `COMPOSE_PROFILES` 里去掉即可（否则切到全档位版时 Caddy 会和你的反代抢 80/443）。
 
 ### 场景三：局域网 / 无域名测试
 
@@ -164,12 +181,16 @@ GOSPEAK_DOMAIN=
 
 浏览器打开 `http://<服务器IP>:8998`。
 
-**B. 用内置 Caddy 统一到 80 端口**（需要手工加 `edge`，因为没传 `--domain` 不会被自动追加）
+**B. 用内置 Caddy 统一到 80 端口**（需要全档位版；没传 `--domain` 时 `edge` 不会被自动追加，得手工加）
 
 ```ini
 # deploy/.env
 COMPOSE_PROFILES=app,livekit,edge
 GOSPEAK_DOMAIN=
+```
+
+```bash
+docker compose -f deploy/docker-compose.standard.yml up -d   # 只有全档位版才有 Caddy
 ```
 
 `GOSPEAK_DOMAIN` 留空时，Caddy 的站点地址退化为 `:80`，只提供纯 HTTP，不申请证书也不跳转 HTTPS。浏览器打开 `http://<服务器IP>` 即可。
@@ -216,7 +237,7 @@ ufw allow 3478/udp
 
 | 变量 | 默认 | 作用 |
 |------|------|------|
-| `COMPOSE_PROFILES` | `app,livekit` | 档位选择，改一次永久生效；加 `edge` 才起内置 Caddy |
+| `COMPOSE_PROFILES` | `app,livekit` | 档位选择，**仅对 `docker-compose.standard.yml` 生效**；加 `edge` 才起内置 Caddy。精简版 `docker-compose.yml` 忽略此变量 |
 | `GOSPEAK_DOMAIN` | 空 | 唯一需要填的域名项。填了 Caddy 自动 HTTPS；留空 Caddy 只听 80 |
 | `GOSPEAK_PORT` | `8998` | 宿主机映射端口（自有反代 / Dokploy 指向这里；Caddy 档位可忽略） |
 | `LIVEKIT_HOST` | `ws://livekit:7880` | 后端访问 LiveKit 的内网地址，容器部署不要改 |
@@ -253,13 +274,14 @@ LiveKit 1.13 起 `webhook.api_key` 必须显式指定且必须存在于 keys 中
 ## 5. 验证
 
 ```bash
-# 容器状态：gospeak-app 应为 healthy
-docker compose ps
+# 容器状态：gospeak-app 应为 healthy（-f 指向你实际使用的编排文件）
+docker compose -f deploy/docker-compose.yml ps
+# 全档位版：docker compose -f deploy/docker-compose.standard.yml ps
 
 # 应用健康检查（直接打容器映射端口）
 curl -s http://localhost:8998/ping
 
-# 走 Caddy 验证入口（有域名时）
+# 走 Caddy 验证入口（有域名、全档位版启用 edge 时）
 curl -s https://voice.example.com/ping
 
 # 证书是否已签发（有域名时）
@@ -282,20 +304,21 @@ curl -sI https://voice.example.com | head -1
 
 ```bash
 git pull
-cd deploy
-docker compose pull
-docker compose up -d
+# -f 指向你实际使用的编排文件
+docker compose -f deploy/docker-compose.yml pull
+docker compose -f deploy/docker-compose.yml up -d
 ```
 
 `docker compose pull` 显式拉取最新镜像；compose 默认 `pull_policy: always`，即使省略这一步 `up -d` 也会拉取，但显式写出便于发现拉取失败。数据库表结构启动时自动迁移。升级前先备份。
 
-LiveKit 镜像在 compose 里固定 tag（当前 `v1.13.11`），不跟随 `latest`：换 SFU 版本需要显式改那一行再 `docker compose pull livekit && docker compose up -d`，避免某次 pull 顺手换掉音视频后端。
+LiveKit 镜像在 compose 里固定 tag（当前 `v1.13.11`），不跟随 `latest`：换 SFU 版本需要显式改那一行再 `docker compose -f deploy/docker-compose.yml pull livekit && docker compose -f deploy/docker-compose.yml up -d`，避免某次 pull 顺手换掉音视频后端。
 
 ### 停止
 
 ```bash
-docker compose down          # 停服务，数据卷保留
-docker compose down -v       # 连数据卷一起删（不可逆）
+docker compose -f deploy/docker-compose.yml down          # 停服务，数据卷保留
+docker compose -f deploy/docker-compose.yml down -v       # 连数据卷一起删（不可逆）
+# 全档位版把 -f 换成 deploy/docker-compose.standard.yml
 ```
 
 ### 备份
@@ -305,15 +328,15 @@ docker compose down -v       # 连数据卷一起删（不可逆）
 docker run --rm -v gospeak_gospeak-db:/data -v "$PWD":/backup alpine \
   cp /data/app.db /backup/app-backup-$(date +%F).db
 
-# PostgreSQL
-docker compose exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(date +%F).sql.gz
+# PostgreSQL（全档位版）
+docker compose -f deploy/docker-compose.standard.yml exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(date +%F).sql.gz
 
 # 内嵌 NATS JetStream（JWT 签名密钥 / 黑名单 / refresh-family）
 # 务必在**应用停止**时整体拷贝，避免运行中拷贝产生不一致快照
-docker compose stop gospeak
+docker compose -f deploy/docker-compose.standard.yml stop gospeak
 docker run --rm -v gospeak_gospeak-nats:/data -v "$PWD":/backup alpine \
   tar czf /backup/nats-$(date +%F).tar.gz -C /data .
-docker compose start gospeak
+docker compose -f deploy/docker-compose.standard.yml start gospeak
 ```
 
 > **为什么必须备份这个卷**：`gospeak-nats` 保存 JWT 签名密钥、登出黑名单和 refresh-token 重放保护。
@@ -324,9 +347,9 @@ docker compose start gospeak
 
 ---
 
-## 7. 可选档位
+## 7. 可选档位（仅全档位版）
 
-档位写在 `deploy/.env` 的 `COMPOSE_PROFILES`，改一次之后所有命令都是裸 `docker compose ...`，不用每次加 `--profile`。
+以下档位只对 `docker-compose.standard.yml` 生效：在 `deploy/.env` 的 `COMPOSE_PROFILES` 里写好，之后用 `docker compose -f deploy/docker-compose.standard.yml up -d` 启动即可，不用每次加 `--profile`。精简版 `docker-compose.yml` 没有 profiles，不读 `COMPOSE_PROFILES`。
 
 | 档位 | 追加到 COMPOSE_PROFILES | 说明 |
 |------|------------------------|------|
@@ -335,7 +358,7 @@ docker compose start gospeak
 | `rustfs` | 要对象存储 / 多实例 | S3 兼容，控制台在 9001 |
 | `observability` | 想看监控 | Prometheus + Grafana + Alertmanager + Loki |
 
-常用组合：
+常用组合（写入 `deploy/.env` 后用 `-f deploy/docker-compose.standard.yml` 启动）：
 
 ```ini
 # 最小可用（默认）
@@ -403,7 +426,7 @@ COMPOSE_PROFILES=app,livekit,edge,observability
 - [ ] `./init.sh --check` 通过（确认 `.env` 与 `livekit.yaml` 一致、`Caddyfile` 存在）
 - [ ] `JWT_KEY` / `LIVEKIT_KEY` / `LIVEKIT_SECRET` / `STORAGE_ENCRYPT_KEY` 已是随机值（`init.sh` 自动生成）
 - [ ] `LIVEKIT_PUBLIC_URL` 保持留空（除非确实用独立域名或 LiveKit Cloud）
-- [ ] 有域名时 `GOSPEAK_DOMAIN` 已填、`COMPOSE_PROFILES` 含 `edge`
+- [ ] 有域名时 `GOSPEAK_DOMAIN` 已填、`COMPOSE_PROFILES` 含 `edge`，且用 `-f deploy/docker-compose.standard.yml` 启动
 - [ ] 已有反代时 `COMPOSE_PROFILES` **不含** `edge`，反代已指向 `gospeak:8998`
 - [ ] 防火墙放行 80/443、7882/tcp、7882/udp、3478/udp（云安全组同步）
 - [ ] 默认管理员密码已改（默认 `admin123`）
