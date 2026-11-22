@@ -99,7 +99,6 @@ LIVEKIT_SECRET=你的secret
 | POST | `/api/v1/signal/webhook` | LiveKit 调用 | 接收房间/成员事件 |
 | POST | `/api/v1/sfu/config` | `sfu:manage` | 读取当前配置 |
 | POST | `/api/v1/sfu/update-config` | `sfu:manage` | 修改配置并激活 |
-| POST | `/api/v1/sfu/switch-provider` | `sfu:manage` | 仅切换 provider，不修改配置 |
 | POST | `/api/v1/sfu/providers` | `sfu:manage` | 列出已配置的 provider |
 
 ## 下一步

@@ -212,7 +212,6 @@ Authorization: Bearer <access_token>
 | POST | `/sfu/config` | `sfu:manage` | 当前配置 |
 | POST | `/sfu/config/:provider` | `sfu:manage` | 指定 provider 的配置 |
 | POST | `/sfu/update-config` | `sfu:manage` | 修改配置并激活 |
-| POST | `/sfu/switch-provider` | `sfu:manage` | 仅切换 provider，不修改配置 |
 | POST | `/sfu/providers` | `sfu:manage` | 列出已配置的 provider |
 
 ## 存储

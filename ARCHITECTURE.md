@@ -391,8 +391,7 @@ Tech Stack:
 │   ├── POST /config                   # 获取 SFU 配置 (sfu:manage)
 │   ├── POST /config/:provider         # 指定 provider 配置 (sfu:manage)
 │   ├── POST /update-config            # 更新 SFU 配置 (sfu:manage)
-│   ├── POST /switch-provider          # 切换激活 provider (sfu:manage)
-│   └── POST /providers                # 列出全部 provider 配置 (sfu:manage)
+│ │   └── POST /providers                # 列出全部 provider 配置 (sfu:manage)
 │
 ├── /user
 │   ├── POST /profile                  # 获取个人资料 (需认证)

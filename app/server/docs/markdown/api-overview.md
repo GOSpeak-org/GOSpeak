@@ -151,7 +151,6 @@ Authorization: Bearer <your-jwt-token>
 | SFU | `/sfu/config` | POST | ✅ |
 | SFU | `/sfu/config/:provider` | POST | ✅ |
 | SFU | `/sfu/update-config` | POST | ✅ |
-| SFU | `/sfu/switch-provider` | POST | ✅ |
 | SFU | `/sfu/providers` | POST | ✅ |
 | Storage | `/storage/presign` | POST | ✅ |
 | Storage | `/storage/confirm` | POST | ✅ |

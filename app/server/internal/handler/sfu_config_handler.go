@@ -62,26 +62,6 @@ func (h *SFUConfigHandler) Update(c *gin.Context) {
 	pkg.Success(c, service.ToPublicSFUConfig(cfg))
 }
 
-// SwitchProvider 切换当前激活的 provider，不修改配置。
-func (h *SFUConfigHandler) SwitchProvider(c *gin.Context) {
-	var req struct {
-		Provider string `json:"provider" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
-		return
-	}
-	cfg, err := h.svc.SwitchProvider(req.Provider)
-	if err != nil {
-		pkg.HandleError(c, err)
-		return
-	}
-	if h.notifier != nil {
-		h.notifier.ForceSFUProviderSwitch(req.Provider)
-	}
-	pkg.Success(c, service.ToPublicSFUConfig(cfg))
-}
-
 // ListProviders 返回所有已配置 provider 的列表 + 当前激活的 provider。
 func (h *SFUConfigHandler) ListProviders(c *gin.Context) {
 	cfgs, active, err := h.svc.ListProviders()

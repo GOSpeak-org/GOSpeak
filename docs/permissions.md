@@ -182,7 +182,6 @@ middleware.RequireOwnerOrPermission("room_owner", permcode.PermRoomUpdate)
 | POST | `/api/v1/sfu/config` | `sfu:manage` | 获取配置 |
 | POST | `/api/v1/sfu/config/:provider` | `sfu:manage` | 获取 Provider 配置 |
 | POST | `/api/v1/sfu/update-config` | `sfu:manage` | 更新配置 |
-| POST | `/api/v1/sfu/switch-provider` | `sfu:manage` | 切换 Provider |
 | POST | `/api/v1/sfu/providers` | `sfu:manage` | Provider 列表 |
 | **信令** | | | |
 | POST | `/api/v1/signal/token` | JWT | 获取加入 Token |

@@ -102,21 +102,6 @@ export async function updateSFUConfig(
 	return data;
 }
 
-/** 切换激活的 provider，不修改配置（新） */
-
-/** 切换激活的 provider，不修改配置（新） */
-export async function switchSFUProvider(
-	provider: SFUProvider,
-): Promise<SFUConfig> {
-	const data = await apiClient.post<SFUConfig>({
-		url: "/api/v1/sfu/switch-provider",
-		data: { provider },
-	});
-
-	if (!data) throw new Error("sfu config is missing");
-	return data;
-}
-
 /** 获取所有已配置 provider 列表 + 当前激活的 provider（新） */
 
 /** 获取所有已配置 provider 列表 + 当前激活的 provider（新） */

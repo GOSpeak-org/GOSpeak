@@ -28,15 +28,6 @@ describe("sfu module", () => {
 		);
 	});
 
-	it("rejects invalid provider switching", async () => {
-		const admin = await getAdminToken();
-		const result = await api("/api/v1/sfu/switch-provider", {
-			token: admin,
-			body: { provider: "not-a-provider" },
-		});
-		expect(result.code).toBe(2001);
-	});
-
 	it("keeps sfu config management admin-only", async () => {
 		const user = await registerUser("sfu");
 		const result = await api("/api/v1/sfu/config", {
