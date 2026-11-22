@@ -156,11 +156,6 @@ func (h *Hub) OnRoomJoin(c ws.ClientMessenger, data string) (string, error) {
 
 	// 密码校验（DB 为准）
 	if ok, pwdErr := h.CheckRoomPassword(req.DomainUUID, req.Room, req.Password); !ok {
-		if errors.Is(pwdErr, ErrRoomNotFound) {
-			return marshalAck(map[string]interface{}{
-				"error": "room not found",
-			})
-		}
 		if pwdErr != nil {
 			return marshalAck(map[string]interface{}{
 				"error": "room requires password",
@@ -392,6 +387,29 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 		})
 	}
 
+	// 房间在 DB / 共享 KV / 本地均不存在时，首次加入会把房间物化到 h.rooms。
+	// 这条「凭空建临时房」路径必须持有建房权限，与 OnRoomCreate 同口径；
+	// 加入已存在房间仍只需成员身份 + 密码，不在此追加建房权限判定。
+	creatingRoom := !h.roomExists(req.DomainUUID, req.Room)
+	if creatingRoom && !h.canCreateRoom(c, req.DomainUUID) {
+		if h.fanout != nil {
+			h.fanout.Leave(roomKey(req.DomainUUID, req.Room), c.ID())
+		}
+		return marshalAck(map[string]interface{}{"error": "insufficient room permission"})
+	}
+	// 密码在锁外先算好，避免持 h.mu 期间执行 bcrypt。
+	var tempRoomPassword string
+	if creatingRoom {
+		hashedPassword, hashErr := pkg.HashPassword(req.Password)
+		if hashErr != nil {
+			if h.fanout != nil {
+				h.fanout.Leave(roomKey(req.DomainUUID, req.Room), c.ID())
+			}
+			return marshalAck(map[string]interface{}{"error": "invalid password"})
+		}
+		tempRoomPassword = hashedPassword
+	}
+
 	// Text room guard: text rooms have no media, reject SFU join.
 	roomType := ""
 	if h.roomStore != nil {
@@ -411,9 +429,6 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 	// phase2 复检 mute / limit / password，避免 phase1 通过后状态变化
 	if ok, pwdErr := h.CheckRoomPassword(req.DomainUUID, req.Room, req.Password); !ok {
 		h.fanout.Leave(roomKey(req.DomainUUID, req.Room), c.ID())
-		if errors.Is(pwdErr, ErrRoomNotFound) {
-			return marshalAck(map[string]interface{}{"error": "room not found"})
-		}
 		if pwdErr != nil {
 			return marshalAck(map[string]interface{}{"error": "room requires password"})
 		}
@@ -543,6 +558,7 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 	if !exists {
 		room = &Room{
 			Name:       req.Room,
+			Password:   tempRoomPassword,
 			Members:    make(map[string]*MemberInfo),
 			ByIdentity: make(map[string]*MemberInfo),
 			MicMuted:   make(map[string]bool),

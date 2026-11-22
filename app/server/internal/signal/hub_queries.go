@@ -9,9 +9,6 @@ import (
 	"strings"
 )
 
-// ErrRoomNotFound indicates the room does not exist in DB or shared metadata.
-var ErrRoomNotFound = errors.New("room not found")
-
 // ─── 公共方法 ───
 
 // HubStats 信令面实时统计，用于监控面板。
@@ -105,8 +102,8 @@ func (h *Hub) CheckRoomLimit(domainUUID, roomName string) (bool, uint, int, erro
 	return currentCount >= int(limit), limit, currentCount, nil
 }
 
-// CheckRoomPassword 检查房间密码。ErrRoomNotFound 表示房间不存在；其他 error 表示需要密码；nil error 且 ok=false 表示密码错误。
-// 密码以 DB 为准；内存房间仅作兜底。ok=true 表示通过；ok=false+err!=nil 表示需密码未提供；ok=false+err==nil 表示密码错误。
+// CheckRoomPassword 检查房间密码。房间在 DB/内存/KV 均无记录时视为临时房首次加入，直接通过；
+// 密码以 DB 为准，内存房间与共享元数据仅作兜底。ok=true 表示通过；ok=false+err!=nil 表示需密码未提供；ok=false+err==nil 表示密码错误。
 func (h *Hub) CheckRoomPassword(domainUUID, roomName, password string) (ok bool, err error) {
 	expected := ""
 	found := false
@@ -150,6 +147,25 @@ func (h *Hub) CheckRoomPassword(domainUUID, roomName, password string) (ok bool,
 		return true, nil
 	}
 	return false, nil
+}
+
+// roomExists 判断房间是否已有权威状态（DB 持久化 / 共享 KV 元数据 / 本地内存）。
+// 三者均无记录才意味着首次加入会把房间物化到 h.rooms，这条路径需要建房权限。
+func (h *Hub) roomExists(domainUUID, roomName string) bool {
+	key := roomKey(domainUUID, roomName)
+	if h.roomStore != nil {
+		if dbRoom, err := h.roomStore.GetByDomainAndName(domainUUID, roomName); err == nil && dbRoom != nil {
+			return true
+		}
+	}
+	h.mu.RLock()
+	_, local := h.rooms[key]
+	h.mu.RUnlock()
+	if local {
+		return true
+	}
+	_, metaErr := h.getRoomMeta(key)
+	return metaErr == nil
 }
 
 func (h *Hub) GetRoomMembers(roomName string) []MemberInfo {
