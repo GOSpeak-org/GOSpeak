@@ -364,8 +364,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: app/server/go.mod
-          cache-dependency-path: app/server/go.sum
-          cache: true
+          cache: false
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: release-server
 
       - name: Embed frontend into server
         run: |
@@ -503,8 +506,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: app/desktop/go.mod
-          cache: true
-          cache-dependency-path: app/desktop/go.sum
+          cache: false
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/desktop/go.sum
+          cache-prefix: release-desktop
 
       # mygo 来自 app/desktop 的 devDependencies，必须装依赖才能调用
       - uses: ./.github/actions/pnpm-install
@@ -633,8 +639,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: app/desktop/go.mod
-          cache: true
-          cache-dependency-path: app/desktop/go.sum
+          cache: false
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/desktop/go.sum
+          cache-prefix: release-desktop
 
       # mygo 来自 app/desktop 的 devDependencies，必须装依赖才能调用
       - uses: ./.github/actions/pnpm-install

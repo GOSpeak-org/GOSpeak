@@ -97,8 +97,11 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: app/server/go.mod
-          cache-dependency-path: app/server/go.sum
-          cache: true
+          cache: false
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/server/go.sum
+          cache-prefix: security
       - name: Run govulncheck
         working-directory: app/server
         env:

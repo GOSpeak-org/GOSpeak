@@ -58,10 +58,9 @@ jobs:
         with:
           # macos-latest 镜像不自带 Go；绑定工具链需要 >= 1.26（模块 go 指令为 1.26.0）。
           go-version-file: app/shared/proxyrules/go.mod
-          cache-dependency-path: app/shared/proxyrules/go.sum
-          cache: true
-      # setup-go 只缓存模块，不缓存编译产物；绑定步骤的 gomobile/gobind 编译很慢，
-      # 补上 GOCACHE 才能在手动重跑时命中。macOS 路径由 action 按 runner.os 自动选。
+          cache: false
+      # 模块缓存与编译缓存统一由 go-build-cache 接管并做完整性自愈；
+      # gomobile/gobind 编译很慢，手动重跑需同时命中 GOMODCACHE 与 GOCACHE。
       - uses: ./.github/actions/go-build-cache
         with:
           go-sum-path: app/shared/proxyrules/go.sum
