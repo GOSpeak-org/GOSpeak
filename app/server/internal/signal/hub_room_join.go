@@ -5,6 +5,7 @@ import (
 	"GOSpeak/internal/logger"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/sfu"
 	"GOSpeak/internal/ws"
@@ -13,6 +14,35 @@ import (
 	"strings"
 	"time"
 )
+
+// canCreateRoom 按 permcode.PermRoomCreate 判定建房权限，与 HTTP 通道一致。
+// 生产由 gin.go 注入两个 checker；未注入时（嵌入式/测试）回退到成员关系，
+// 并留一条 warn，避免漏装配静默变回无权限校验。
+func (h *Hub) canCreateRoom(c ws.ClientMessenger, domainUUID string) bool {
+	claims := c.Claims()
+	userUUID := ""
+	role := ""
+	if claims != nil {
+		userUUID = claims.UserUUID
+		if userUUID == "" {
+			userUUID = claims.Username
+		}
+		role = claims.Role
+	}
+	if domainUUID != "" {
+		if h.domainPermChecker == nil {
+			logger.WithComponent("Signal").Warn("[Signal] domain permission checker not injected; room:create falls back to membership only")
+			return h.domainMemberAllowed(c, domainUUID)
+		}
+		return userUUID != "" && h.domainPermChecker(domainUUID, userUUID, permcode.PermRoomCreate)
+	}
+	if h.permChecker == nil {
+		// 生产由 gin.go 注入 permSvc；未注入仅见于嵌入式/测试路径，放行以兼容旧装配。
+		logger.WithComponent("Signal").Warn("[Signal] global permission checker not injected; platform room:create allows unguarded")
+		return true
+	}
+	return permissionGranted(claims, role, permcode.PermRoomCreate, h.permChecker)
+}
 
 func (h *Hub) OnRoomCreate(c ws.ClientMessenger, data string) {
 	var req RoomRequest
@@ -26,6 +56,14 @@ func (h *Hub) OnRoomCreate(c ws.ClientMessenger, data string) {
 	if !h.domainMemberAllowed(c, req.DomainUUID) {
 		c.Send(map[string]interface{}{"event": EventRoomCreated, "data": map[string]interface{}{
 			"error": "not a member of this domain",
+		}})
+		return
+	}
+	// 与 HTTP POST /room/create 同口径：域房间按域角色权限判定，平台房间按
+	// 全局角色权限判定。仅校验域成员不足以建房，否则任意成员可经 WS 绕过 PermRoomCreate。
+	if !h.canCreateRoom(c, req.DomainUUID) {
+		c.Send(map[string]interface{}{"event": EventRoomCreated, "data": map[string]interface{}{
+			"error": "insufficient room permission",
 		}})
 		return
 	}
@@ -119,11 +157,6 @@ func (h *Hub) OnRoomJoin(c ws.ClientMessenger, data string) (string, error) {
 
 	// 密码校验（DB 为准）
 	if ok, pwdErr := h.CheckRoomPassword(req.DomainUUID, req.Room, req.Password); !ok {
-		if errors.Is(pwdErr, ErrRoomNotFound) {
-			return marshalAck(map[string]interface{}{
-				"error": "room not found",
-			})
-		}
 		if pwdErr != nil {
 			return marshalAck(map[string]interface{}{
 				"error": "room requires password",
@@ -355,6 +388,33 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 		})
 	}
 
+	// 房间在 DB / 共享 KV / 本地均不存在时，首次加入会把房间物化到 h.rooms。
+	// 这条「凭空建临时房」路径必须持有建房权限，与 OnRoomCreate 同口径；
+	// 加入已存在房间仍只需成员身份 + 密码，不在此追加建房权限判定。
+	creatingRoom := !h.roomExists(req.DomainUUID, req.Room)
+	if creatingRoom && !h.canCreateRoom(c, req.DomainUUID) {
+		if h.fanout != nil {
+			h.fanout.Leave(roomKey(req.DomainUUID, req.Room), c.ID())
+		}
+		return marshalAck(map[string]interface{}{"error": "insufficient room permission"})
+	}
+	// 密码在锁外先算好，避免持 h.mu 期间执行 bcrypt。
+	var tempRoomPassword string
+	if creatingRoom {
+		hashedPassword, hashErr := pkg.HashPassword(req.Password)
+		if hashErr != nil {
+			if h.fanout != nil {
+				h.fanout.Leave(roomKey(req.DomainUUID, req.Room), c.ID())
+			}
+			return marshalAck(map[string]interface{}{"error": "invalid password"})
+		}
+		tempRoomPassword = hashedPassword
+	} else if meta, metaErr := h.getRoomMeta(roomKey(req.DomainUUID, req.Room)); metaErr == nil {
+		// 房间仅存在于共享 KV（跨实例/重启）时，用 meta 中的密码物化本地房间，
+		// 否则本地 Room.Password 为空会让 CheckRoomPassword 误判为无密码房而放行。
+		tempRoomPassword = meta.Password
+	}
+
 	// Text room guard: text rooms have no media, reject SFU join.
 	roomType := ""
 	if h.roomStore != nil {
@@ -374,9 +434,6 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 	// phase2 复检 mute / limit / password，避免 phase1 通过后状态变化
 	if ok, pwdErr := h.CheckRoomPassword(req.DomainUUID, req.Room, req.Password); !ok {
 		h.fanout.Leave(roomKey(req.DomainUUID, req.Room), c.ID())
-		if errors.Is(pwdErr, ErrRoomNotFound) {
-			return marshalAck(map[string]interface{}{"error": "room not found"})
-		}
 		if pwdErr != nil {
 			return marshalAck(map[string]interface{}{"error": "room requires password"})
 		}
@@ -506,6 +563,7 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 	if !exists {
 		room = &Room{
 			Name:       req.Room,
+			Password:   tempRoomPassword,
 			Members:    make(map[string]*MemberInfo),
 			ByIdentity: make(map[string]*MemberInfo),
 			MicMuted:   make(map[string]bool),

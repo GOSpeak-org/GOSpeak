@@ -36,6 +36,7 @@ const (
 	EventMemberUnmuted = protocol.EventMemberUnmuted
 
 	EventSFUProviderChanged = protocol.EventSFUProviderChanged
+	EventStateRoomChanged   = protocol.EventStateRoomChanged
 
 	EventMessageSend    = protocol.EventMessageSend
 	EventMessageEdit    = protocol.EventMessageEdit

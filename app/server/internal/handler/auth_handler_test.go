@@ -29,7 +29,7 @@ func newTestAuthHandler(t *testing.T) *AuthHandler {
 	if err := db.AutoMigrate(&model.User{}); err != nil {
 		t.Fatalf("migrate user: %v", err)
 	}
-	return NewAuthHandler(service.NewAuthService(repository.NewUserRepository(db), nil, nil), defaultAuthCookieConfig())
+	return NewAuthHandler(service.NewAuthService(repository.NewUserRepository(db), nil, nil), defaultAuthCookieConfig(), nil)
 }
 
 func TestAuthHandler_Register_RejectsBotPrefixCaseInsensitive(t *testing.T) {
@@ -80,7 +80,7 @@ func TestAuthHandler_Login_SetsHttpOnlyCookies(t *testing.T) {
 		t.Fatalf("seed user: %v", err)
 	}
 
-	h := NewAuthHandler(service.NewAuthService(userRepo, nil, nil), defaultAuthCookieConfig())
+	h := NewAuthHandler(service.NewAuthService(userRepo, nil, nil), defaultAuthCookieConfig(), nil)
 	router := gin.New()
 	router.POST("/login", h.Login)
 
@@ -150,7 +150,7 @@ func TestAuthHandler_GetRefreshToken_ReadsRefreshCookie(t *testing.T) {
 		t.Fatalf("seed user: %v", err)
 	}
 
-	h := NewAuthHandler(service.NewAuthService(userRepo, nil, nil), defaultAuthCookieConfig())
+	h := NewAuthHandler(service.NewAuthService(userRepo, nil, nil), defaultAuthCookieConfig(), nil)
 	router := gin.New()
 	router.POST("/refresh_token", h.GetRefreshToken)
 
@@ -261,5 +261,46 @@ func TestAuthHandler_Logout_RevokesRefreshTokenFromCookie(t *testing.T) {
 	}
 	if revoked, _ := authstate.IsBlacklistedErr(refreshClaims.ID); !revoked {
 		t.Fatal("refresh token from cookie must be blacklisted")
+	}
+}
+
+func TestAuthHandler_WithPermissionsUsesServerSource(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Permission{}, &model.RolePermission{}); err != nil {
+		t.Fatalf("migrate permissions: %v", err)
+	}
+	permRepo := repository.NewPermissionRepository(db)
+	for _, perm := range model.DefaultPermissions {
+		if err := permRepo.CreateIfNotExists(&perm); err != nil {
+			t.Fatalf("seed permission %s: %v", perm.Code, err)
+		}
+	}
+	if err := permRepo.SeedRolePermissionsIfEmpty("admin", model.DefaultRolePermissions["admin"]); err != nil {
+		t.Fatalf("seed role permissions: %v", err)
+	}
+	permSvc, err := service.NewPermissionService(permRepo, repository.NewCasbinAdapter(db))
+	if err != nil {
+		t.Fatalf("new permission service: %v", err)
+	}
+	if err := permSvc.LoadCache(); err != nil {
+		t.Fatalf("load cache: %v", err)
+	}
+
+	h := NewAuthHandler(nil, defaultAuthCookieConfig(), permSvc)
+	resp := &service.AuthResponse{User: model.User{Role: "admin"}}
+	h.withPermissions(resp)
+
+	found := false
+	for _, code := range resp.User.Permissions {
+		if code == "domain:room-layout:manage" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected admin response to carry domain:room-layout:manage, got %v", resp.User.Permissions)
 	}
 }

@@ -155,7 +155,7 @@ function EmailPage() {
 							: "邮箱验证未就绪。配置完整 SMTP 并开启启用开关后，注册将要求邮箱验证码，重置密码将切换为邮箱验证码流程。"}
 					</ManageNotice>
 
-					<section className="border-border/80 bg-card flex items-center justify-between gap-4 rounded-xl border px-4 py-3 shadow-sm md:px-5">
+					<section className="border-border bg-card flex items-center justify-between gap-4 rounded-xl border px-4 py-3 shadow-sm md:px-5">
 						<div className="min-w-0">
 							<div className="text-foreground text-sm font-semibold">
 								启用邮箱验证

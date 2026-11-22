@@ -23,7 +23,7 @@ export default function PresetAvatars({
 				预设头像
 			</div>
 			{isLoading ? (
-				<span className="text-faint-foreground text-sm">加载中...</span>
+				<span className="text-muted-foreground text-sm">加载中...</span>
 			) : data && data.length > 0 ? (
 				<div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
 					{data.map((url) => (
@@ -32,7 +32,7 @@ export default function PresetAvatars({
 							type="button"
 							className={`size-11 cursor-pointer rounded-full ring-2 ring-offset-1 ring-offset-background transition hover:scale-105 sm:size-12 ${
 								selected === url
-									? "ring-foreground/50"
+									? "ring-2 ring-primary"
 									: "ring-transparent hover:ring-foreground/20"
 							}`}
 							onClick={() => onSelect(url)}

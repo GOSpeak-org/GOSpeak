@@ -1,3 +1,4 @@
+// ui-token-ignore-file: OAuth 品牌 Logo 固定色（Google/QQ/GitLab/Discord/Microsoft）跨主题刻意保持一致
 import { LogIn } from "lucide-react";
 import { useState } from "react";
 
@@ -163,7 +164,7 @@ function BuiltinProviderIcon({
 					style={{ width: `${s}px`, height: `${s}px` }}
 					aria-hidden="true"
 				>
-					<LogIn size={Math.floor(s * 0.5)} />
+					<LogIn size={s >= 24 ? 16 : 12} />
 				</div>
 			);
 	}

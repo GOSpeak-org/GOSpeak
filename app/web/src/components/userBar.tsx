@@ -51,7 +51,7 @@ export default function UserBar({
 				className,
 			)}
 		>
-			<div className="border-border relative flex w-full items-center justify-between rounded-lg border p-2">
+			<div className="border-border bg-card relative flex w-full items-center justify-between rounded-lg border p-2">
 				{/* 用户信息按钮 + 弹出卡片 */}
 				<div className="relative">
 					<button

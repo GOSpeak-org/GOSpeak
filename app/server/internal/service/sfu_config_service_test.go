@@ -152,52 +152,6 @@ func TestUpdateFromDTO_RejectsUnsupportedProvider(t *testing.T) {
 	}
 }
 
-func TestSwitchProvider_NoConfigChange(t *testing.T) {
-	repo := newSFUConfigTestRepo(t)
-	baseCfg := &config.Config{
-		SFUProvider: "livekit",
-		LiveKitHost: "lk-host",
-	}
-	svc := NewSFUConfigService(repo, baseCfg)
-
-	if err := svc.SyncFromEnv(); err != nil {
-		t.Fatalf("sync: %v", err)
-	}
-
-	lkCfg, err := svc.SwitchProvider("livekit")
-	if err != nil {
-		t.Fatalf("switch to livekit: %v", err)
-	}
-	if lkCfg.LiveKitHost != "lk-host" {
-		t.Errorf("livekit_host = %q, want lk-host", lkCfg.LiveKitHost)
-	}
-
-	active, err := repo.GetActiveProvider()
-	if err != nil {
-		t.Fatalf("get active: %v", err)
-	}
-	if active != "livekit" {
-		t.Errorf("active = %q, want livekit", active)
-	}
-}
-
-func TestSwitchProvider_RejectsUnknownProvider(t *testing.T) {
-	repo := newSFUConfigTestRepo(t)
-	baseCfg := &config.Config{SFUProvider: "livekit"}
-	svc := NewSFUConfigService(repo, baseCfg)
-	if err := svc.SyncFromEnv(); err != nil {
-		t.Fatalf("sync: %v", err)
-	}
-	_, err := svc.SwitchProvider("removed")
-	if err == nil {
-		t.Fatal("switch to removed provider must fail")
-	}
-	var appErr *pkg.AppError
-	if !errors.As(err, &appErr) || appErr.Code != pkg.INVALID_PARAMS {
-		t.Fatalf("expected INVALID_PARAMS AppError, got %v", err)
-	}
-}
-
 func TestSyncFromEnv_UnknownEnvProvider_DoesNotFail(t *testing.T) {
 	repo := newSFUConfigTestRepo(t)
 	if err := NewSFUConfigService(repo, &config.Config{SFUProvider: "livekit"}).SyncFromEnv(); err != nil {

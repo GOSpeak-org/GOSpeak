@@ -72,6 +72,11 @@
 	font-size: 1rem;
 	line-height: 1.375rem;
 }
+/* 发送中消息的弱化正文：沿用文字三档，不用 opacity 压暗整块 */
+.ds-markdown-pending {
+	color: var(--muted-foreground);
+}
+
 .ds-markdown a {
 	color: var(--primary);
 	text-decoration: underline;

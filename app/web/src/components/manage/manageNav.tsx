@@ -134,7 +134,9 @@ export default function ManageNav() {
 
 	return (
 		<div className="flex flex-col gap-1 p-2 select-none">
-			<div className="hidden px-2 py-2 text-base font-bold md:block">管理</div>
+			<div className="text-foreground hidden px-3 py-1.5 text-sm font-semibold md:block">
+				管理
+			</div>
 			<div className="flex flex-col gap-1 overflow-x-auto pb-1 md:overflow-visible md:pb-0">
 				{visibleTabs.map((tab) => {
 					const Icon = tab.icon;
@@ -144,7 +146,7 @@ export default function ManageNav() {
 							key={tab.path}
 							to={tab.to}
 							preload="intent"
-							className={`hover:bg-muted flex h-11 min-h-11 shrink-0 items-center justify-start gap-2 rounded-sm px-3 no-underline transition-colors ${active ? "bg-muted" : ""}`}
+							className={`hover:bg-muted flex min-h-9 max-md:min-h-11 shrink-0 items-center justify-start gap-2 rounded-md px-3 py-2 no-underline transition-colors ${active ? "bg-selected text-foreground" : "text-muted-foreground"}`}
 							aria-current={active ? "page" : undefined}
 						>
 							<Icon size={16} />

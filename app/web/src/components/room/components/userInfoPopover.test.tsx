@@ -42,6 +42,21 @@ describe("UserInfoPopover 首帧", () => {
 	});
 
 	it("首帧位置即为最终位置，含偏移且不做二次跳变", () => {
+		render(
+			<UserInfoPopover
+				identity="alice"
+				pos={{ x: 100, y: 100 }}
+				onClose={() => {}}
+				initialMember={{ display_name: "爱丽丝", name: "alice" }}
+			/>,
+		);
+
+		const card = screen.getByText("爱丽丝").closest(".z-dialog") as HTMLElement;
+		expect(card.style.left).toBe("108px");
+		expect(card.style.top).toBe("108px");
+	});
+
+	it("通过 portal 挂到 body，避免被侧栏 overflow-hidden / backdrop-filter 裁切", () => {
 		const { container } = render(
 			<UserInfoPopover
 				identity="alice"
@@ -51,9 +66,10 @@ describe("UserInfoPopover 首帧", () => {
 			/>,
 		);
 
-		const card = container.querySelector(".z-50") as HTMLElement | null;
-		expect(card?.style.left).toBe("108px");
-		expect(card?.style.top).toBe("108px");
+		const card = screen.getByText("爱丽丝").closest(".z-dialog") as HTMLElement;
+		expect(card).toBeTruthy();
+		expect(container.contains(card)).toBe(false);
+		expect(card.parentElement).toBe(document.body);
 	});
 
 	it("接口数据返回后以权威资料覆盖首帧内容", () => {

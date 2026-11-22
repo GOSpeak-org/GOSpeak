@@ -40,7 +40,7 @@ export default function OAuthProviderTable({
 					<SkeletonTableRows rows={4} cols={5} />
 				</LoadingRegion>
 			) : providers.length === 0 ? (
-				<div className="border-border/60 bg-muted/20 text-muted-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
+				<div className="border-border bg-muted/40 text-faint-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
 					暂无 OAuth 提供商配置，点击「添加」开始配置
 				</div>
 			) : (

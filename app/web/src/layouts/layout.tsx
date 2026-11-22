@@ -236,7 +236,7 @@ function MobileLayout(
 									</div>
 								)}
 								{stageTab === "members" && (
-									<div className="bg-card h-full">
+									<div className="bg-muted h-full">
 										<ErrorBoundary
 											name="mobile-member-sidebar"
 											resetKeys={[stageTab]}
@@ -252,7 +252,7 @@ function MobileLayout(
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
 							<div className="border-border min-h-0 flex-1 overflow-hidden border-t">
 								{isDomain && (
-									<div className="bg-card flex h-full flex-col">
+									<div className="bg-muted flex h-full flex-col">
 										<div className="min-h-0 flex-1 overflow-hidden">
 											<DynamicRender />
 										</div>
@@ -283,7 +283,7 @@ function MobileLayout(
 			<div
 				className={
 					isDomain && mobileStage
-						? "bg-card pb-[env(safe-area-inset-bottom)]"
+						? "pb-[env(safe-area-inset-bottom)]"
 						: undefined
 				}
 			>
@@ -317,7 +317,7 @@ function DesktopLayout(state: LayoutState) {
 			<div className="flex h-full flex-1">
 				{/* prev：Sidebar + 房间列表（可拖拽调宽，替代 cui-solid Split） */}
 				<div
-					className="flex h-full shrink-0 flex-col justify-between"
+					className="bg-muted surface-glass flex h-full shrink-0 flex-col justify-between"
 					style={{ width: splitWidth }}
 				>
 					<div className="flex min-h-0 flex-1">
@@ -347,12 +347,17 @@ function DesktopLayout(state: LayoutState) {
 				{/* next：主内容 + 域工作区 */}
 				<Main>
 					<div
-						className="border-border bg-muted h-full w-full flex-1 border-t"
+						className="border-border bg-muted surface-glass h-full w-full flex-1 border-t"
 						style={{ display: isDomain ? "none" : undefined }}
 					>
 						{children}
 					</div>
-					<DomainWorkspace isDomain={isDomain} />
+					<div
+						className="bg-muted surface-glass h-full w-full flex-1"
+						style={{ display: isDomain ? undefined : "none" }}
+					>
+						<DomainWorkspace isDomain={isDomain} />
+					</div>
 				</Main>
 			</div>
 		</div>

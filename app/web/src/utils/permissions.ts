@@ -1,64 +1,20 @@
 import { useUserStore } from "@/stores/userStore";
 
-/** 解码 JWT base64url payload；兼容 UTF-8 与 URL-safe 字符集。 */
-export function decodeBase64Url(input: string): string {
-	const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
-	const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-	const raw = atob(padded);
-	const bytes = Uint8Array.from(raw, (ch) => ch.charCodeAt(0));
-	return new TextDecoder().decode(bytes);
+/**
+ * 权限的唯一来源是服务端下发的 user.permissions（认证响应 / profile）。
+ * 前端不再维护 role → 权限码的兜底表：那份手抄表会随后端
+ * model.DefaultRolePermissions 的演进漂移（曾漏掉 domain:room-layout:manage），
+ * 属于历史上的猴子补丁。服务端权限变更对前端零改动。
+ */
+export function hasPermission(code: string): boolean {
+	// 封禁判决优先：即使缓存/响应里残留 permissions，也不放行。
+	if (isBannedUser()) return false;
+	return useUserStore.getState().user?.permissions?.includes(code) ?? false;
 }
 
-/** 与后端 model.DefaultRolePermissions 保持同步（前端兜底；DB 动态权限以服务端为准）。 */
-const rolePermissions: Record<string, string[]> = {
-	admin: [
-		"room:create",
-		"room:read",
-		"room:update",
-		"room:delete",
-		"user:read",
-		"user:update",
-		"user:delete",
-		"role:read",
-		"role:manage",
-		"signal:kick",
-		"mute:manage",
-		"sfu:manage",
-		"domain:create",
-		"domain:read",
-		"domain:manage",
-		"domain:delete",
-		"domain:invite",
-		"domain:invite:manage",
-		"domain:member:review",
-		"domain:kick",
-		"domain:role:manage",
-		"email_config:read",
-		"email_config:manage",
-		"storage:read",
-		"storage:manage",
-		"storage:delete",
-		"oauth:read",
-		"oauth:manage",
-		"message:send",
-		"message:read",
-		"message:delete_others",
-		"announcement:read",
-		"announcement:manage",
-	],
-	user: [
-		"room:create",
-		"room:read",
-		"domain:create",
-		// 普通用户不应看到「管理」入口：user:read / role:read 是后台只读页的
-		// 权限码，放进默认 user 角色会让所有人在侧栏看到用户管理/角色权限。
-		// 与后端 model.DefaultRolePermissions["user"] 保持一致。
-		"message:send",
-		"message:read",
-		"announcement:read",
-	],
-	ban: [],
-};
+function isBannedUser(): boolean {
+	return useUserStore.getState().user?.role === "ban";
+}
 
 /** 可进入 /manage 壳层的任一权限（页面内再做细粒度守卫）。 */
 export const MANAGE_ENTRY_PERMISSIONS = [
@@ -80,26 +36,6 @@ export const MANAGE_ENTRY_PERMISSIONS = [
 	"announcement:manage",
 ] as const;
 
-export function hasPermission(code: string): boolean {
-	// 被封禁用户一律无权限，即使旧 token 仍携带 permissions claims。
-	if (isBannedUser()) return false;
-
-	// access token 已移入 HttpOnly Cookie，前端无法解码 claims；
-	// 服务端 profile 下发的权限是权威来源，未加载时退回本地兜底表。
-	const profilePerms = useUserStore.getState().user?.permissions;
-	if (profilePerms && profilePerms.length > 0) {
-		return profilePerms.includes(code);
-	}
-
-	const role = useUserStore.getState().user?.role;
-	if (!role) return false;
-	return rolePermissions[role]?.includes(code) ?? false;
-}
-
-function isBannedUser(): boolean {
-	return useUserStore.getState().user?.role === "ban";
-}
-
 export function hasAnyPermission(...codes: string[]): boolean {
 	return codes.some((code) => hasPermission(code));
 }
@@ -107,5 +43,3 @@ export function hasAnyPermission(...codes: string[]): boolean {
 export function hasManageAccess(): boolean {
 	return hasAnyPermission(...MANAGE_ENTRY_PERMISSIONS);
 }
-
-export { rolePermissions };

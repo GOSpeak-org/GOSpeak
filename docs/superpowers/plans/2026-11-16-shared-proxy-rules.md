@@ -73,7 +73,7 @@
 
 - [x] 更新 `app/mobile/AGENTS.md`、`packages/mobile-capabilities/AGENTS.md`、`scripts/AGENTS.md`、`app/desktop/AGENTS.md` 与根 `AGENTS.md` 的规则层说明。
 - [x] 跑 `scripts/check-mobile-bridge.mjs`、`scripts/check-desktop-commands.mjs`、`scripts/mobile-bind-proxyrules.mjs` 与各包测试。
-- [x] 更新本计划 Status 与 `docs/superpowers/plans/README.md`；**保留在索引中**，因 Task 4/5 仍未完成。
+- [x] 更新本计划 Status；全部任务已交付，已从 `docs/superpowers/plans/README.md` 索引中移除（历史见 git log）。
 
 ## Verification
 

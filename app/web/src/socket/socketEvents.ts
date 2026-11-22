@@ -3,6 +3,7 @@ import { toast } from "@gospeak/components";
 import { setServerMutedByIdentity } from "@/handler_audio";
 import type { AnnouncementDTO } from "@/protocol/announcement";
 import type { PrivateMessageDTO } from "@/protocol/conversation";
+import type { RoomListLayoutPayload } from "@/protocol/generated/payloads";
 import { EVENTS } from "@/socket/events";
 import type { MessageDTO } from "@/types/message";
 import {
@@ -39,6 +40,7 @@ type Updater<T> = T | ((prev: T) => T);
 
 export interface SocketEventDeps {
 	setRooms: (value: Updater<RoomInfo[]>) => void;
+	setRoomLayout: (value: RoomListLayoutPayload) => void;
 	setCurrentRoom: (value: Updater<string | null>) => void;
 	setSelectedRoomInfo: (value: Updater<RoomInfo | null>) => void;
 	setActiveSFUProvider: (value: Updater<SFUProvider | undefined>) => void;
@@ -50,6 +52,8 @@ export interface SocketEventDeps {
 	) => void;
 	setSpeakingIdentities: (value: Updater<string[]>) => void;
 	currentRoom: () => string | null;
+	/** 用户选中的房间意图；切房期间可能已指向新房，而 currentRoom 仍是旧房 */
+	selectedRoomInfo: () => RoomInfo | null;
 	currentDomainUUID: () => string | null;
 	emitActivity: (event: ActivityEvent) => void;
 	emitPresence: (event: RoomPresenceEvent) => void;
@@ -153,8 +157,19 @@ export function bindServerEvents(
 		(data: { room: string; domain_uuid?: string }) => {
 			console.log("[Socket] room:left", data.room);
 			if (data.room !== deps.currentRoom()) return;
+			// 切房时旧房的 room:left 会早于新房 join ack 到达：此刻 currentRoom
+			// 仍指向旧房，但用户意图已经切到新房。此时只清服务端派生的
+			// currentRoom，必须保留 selectedRoomInfo，否则 useVoiceSession 会
+			// 把进行中的切房当作"取消选择"而 abort，新房永远进不去。
+			const selected = deps.selectedRoomInfo();
+			const stillSelected =
+				!!selected &&
+				selected.name === data.room &&
+				(selected.domain_uuid || "") === (data.domain_uuid || "");
 			deps.setCurrentRoom(null);
-			deps.setSelectedRoomInfo(null);
+			if (!selected || stillSelected) {
+				deps.setSelectedRoomInfo(null);
+			}
 			deps.emitActivity({
 				type: "room_left",
 				room: data.room,
@@ -179,9 +194,17 @@ export function bindServerEvents(
 
 	adapter.onServerEvent(
 		EVENTS.ROOM_LIST_RESULT as string,
-		(data: { rooms: RoomInfo[]; count: number }) => {
+		(data: {
+			rooms: RoomInfo[];
+			count: number;
+			layout?: RoomListLayoutPayload;
+		}) => {
 			console.log("[Socket] room:list:result", data.rooms.length, "rooms");
-			deps.setRooms(data.rooms);
+			// wire 契约 members: MemberInfo[]，但旧后端对空房可能发 null，入口统一归一
+			deps.setRooms(
+				data.rooms.map((room) => ({ ...room, members: room.members ?? [] })),
+			);
+			if (data.layout) deps.setRoomLayout(data.layout);
 		},
 	);
 

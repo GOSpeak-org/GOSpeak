@@ -1,4 +1,12 @@
-import { toast } from "@gospeak/components";
+import {
+	Button,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+	toast,
+} from "@gospeak/components";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import { useState } from "react";
@@ -26,9 +34,6 @@ import { apiErrorMessage } from "@/utils/apiError";
 import { hasDomainPermission } from "@/utils/domainPermissions";
 import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
-
-const btnGhostXs =
-	"hover:bg-muted inline-flex h-7 cursor-pointer items-center gap-1 rounded-sm px-2 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50";
 
 export default function DomainPermissionPanel() {
 	const queryClient = useQueryClient();
@@ -124,30 +129,45 @@ export default function DomainPermissionPanel() {
 		);
 	}
 
+	const refreshing = rolesQuery.isFetching || membersQuery.isFetching;
+
 	return (
 		<div className="flex min-w-0 flex-col gap-4">
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="text-muted-foreground text-xs">当前域</span>
-				<select
-					className="border-input bg-card text-foreground focus-visible:ring-ring h-8 rounded-sm border px-2 text-sm focus-visible:outline-none focus-visible:ring-2"
-					value={domainUUID}
-					onChange={(e) => setSelectedUUID(e.currentTarget.value)}
-				>
-					{domains.map((d) => (
-						<option key={d.uuid} value={d.uuid}>
-							{d.name}
-						</option>
-					))}
-				</select>
-				<button
-					type="button"
-					className={btnGhostXs}
-					disabled={saving || rolesQuery.isFetching || membersQuery.isFetching}
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<div className="flex items-center gap-2">
+					<span className="text-muted-foreground text-xs">当前域</span>
+					<Select
+						value={domainUUID}
+						onValueChange={(next) => setSelectedUUID(next)}
+					>
+						<SelectTrigger
+							className="h-8 w-auto min-w-40 gap-2 px-3 text-sm"
+							aria-label="选择域"
+						>
+							<SelectValue placeholder="选择域" />
+						</SelectTrigger>
+						<SelectContent>
+							{domains.map((d) => (
+								<SelectItem key={d.uuid} value={d.uuid}>
+									{d.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+				<Button
+					variant="outline"
+					size="sm"
+					className="text-muted-foreground"
+					disabled={saving || refreshing}
 					onClick={() => void refresh()}
 				>
-					<RefreshCw size={14} />
-					刷新
-				</button>
+					<RefreshCw
+						size={14}
+						className={refreshing ? "animate-spin" : undefined}
+					/>
+					{refreshing ? "刷新中" : "刷新"}
+				</Button>
 			</div>
 
 			{error && (
@@ -159,25 +179,20 @@ export default function DomainPermissionPanel() {
 				</div>
 			)}
 
-			<ManageSection
-				title="域内角色与权限"
-				description={`为「${domain?.name ?? ""}」配置角色权限；仅对该域生效`}
-				padded={false}
-			>
-				<DomainRolePanel
-					roles={rolesQuery.data?.roles ?? []}
-					assignable={rolesQuery.data?.assignable ?? []}
-					loading={rolesQuery.isLoading}
-					saving={saving}
-					error={rolesQuery.isError ? apiErrorMessage(rolesQuery.error) : ""}
-					onCreate={onCreateRole}
-					onUpdate={onUpdateRole}
-					onDelete={(roleName) => {
-						setPendingDeleteRole(roleName);
-						return Promise.resolve();
-					}}
-				/>
-			</ManageSection>
+			<DomainRolePanel
+				layout="sections"
+				roles={rolesQuery.data?.roles ?? []}
+				assignable={rolesQuery.data?.assignable ?? []}
+				loading={rolesQuery.isLoading}
+				saving={saving}
+				error={rolesQuery.isError ? apiErrorMessage(rolesQuery.error) : ""}
+				onCreate={onCreateRole}
+				onUpdate={onUpdateRole}
+				onDelete={(roleName) => {
+					setPendingDeleteRole(roleName);
+					return Promise.resolve();
+				}}
+			/>
 
 			<ManageSection
 				title="成员角色分配"

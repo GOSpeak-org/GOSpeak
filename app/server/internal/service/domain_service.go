@@ -1,6 +1,7 @@
 package service
 
 import (
+	"GOSpeak/internal/bus"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/repository"
@@ -93,16 +94,12 @@ func (s *DomainService) OnRemotePolicyChanged(_ interface{}) {
 }
 
 func parseInvalidationPayload(payload interface{}) (string, string) {
-	switch p := payload.(type) {
-	case map[string]string:
-		return p["domain_uuid"], p["user_uuid"]
-	case map[string]interface{}:
-		domainUUID, _ := p["domain_uuid"].(string)
-		userUUID, _ := p["user_uuid"].(string)
-		return domainUUID, userUUID
+	p, err := bus.DecodePayload[DomainMembershipChangedPayload](payload)
+	if err != nil || p.DomainUUID == "" || p.UserUUID == "" {
+		log.Printf("[Domain] invalid membership invalidation payload: %T (%v)", payload, err)
+		return "", ""
 	}
-	log.Printf("[Domain] invalid membership invalidation payload type: %T", payload)
-	return "", ""
+	return p.DomainUUID, p.UserUUID
 }
 
 func domainCacheKey(domainUUID, userUUID string) string {

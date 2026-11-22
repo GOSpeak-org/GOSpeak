@@ -262,7 +262,7 @@ function LoginPage() {
 									alt="GOSpeak"
 									className="border-foreground/10 size-12 rounded-lg border"
 								/>
-								<h1 className="text-2xl font-extrabold uppercase">
+								<h1 className="text-xl font-extrabold uppercase">
 									GO<span className="text-primary">Speak</span>
 								</h1>
 							</div>

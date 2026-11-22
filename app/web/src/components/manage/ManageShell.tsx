@@ -97,11 +97,11 @@ export function ManageSection({
 }) {
 	return (
 		<section
-			className={`border-border/80 bg-card flex min-h-0 flex-col overflow-hidden rounded-xl border shadow-sm ${className ?? ""}`}
+			className={`border-border bg-card flex min-h-0 flex-col overflow-hidden rounded-xl border shadow-sm ${className ?? ""}`}
 		>
 			{(title || actions) && (
 				<div
-					className={`border-border/70 flex shrink-0 flex-wrap items-start justify-between gap-3 border-b px-4 py-3 md:px-5 ${!children ? "border-b-0" : ""}`}
+					className={`border-border flex shrink-0 flex-wrap items-start justify-between gap-3 border-b px-4 py-3 md:px-5 ${!children ? "border-b-0" : ""}`}
 				>
 					<div className="min-w-0">
 						{title && (
@@ -143,8 +143,8 @@ export function ManageNotice({
 		tone === "warning"
 			? "border-warning/20 bg-warning/10"
 			: tone === "info"
-				? "border-border/80 bg-muted/40"
-				: "border-border/80 bg-card shadow-sm";
+				? "border-border bg-muted/40"
+				: "border-border bg-card shadow-sm";
 	return (
 		<div
 			className={`text-muted-foreground flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm ${toneClass}`}
@@ -167,7 +167,7 @@ export function ManageTag({
 }) {
 	return (
 		<span
-			className={`border-border bg-card text-foreground inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className ?? ""}`}
+			className={`border-border bg-card text-muted-foreground inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className ?? ""}`}
 		>
 			{children}
 		</span>

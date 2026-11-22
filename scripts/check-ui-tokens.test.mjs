@@ -96,3 +96,83 @@ test("合法 token 写法与 CSS 注释不误报", () => {
 	assert.deepEqual(checkRadiusTokens(root), []);
 	assert.deepEqual(checkUiTokens(root), []);
 });
+
+test("调色板硬编码色命中门禁", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx":
+			'<div className="bg-black/50" />\n<div className="text-white" />\n',
+	});
+	assert.deepEqual(
+		checkUiTokens(root).map((v) => v.found),
+		["bg-black", "text-white"],
+	);
+});
+
+test("字面颜色命中门禁，但 theme.css token 定义豁免", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": '<div className="bg-[#fff]" />\n',
+		"packages/components/src/theme.css": ":root { --x: oklch(98% 0 0); }\n",
+	});
+	const violations = checkUiTokens(root);
+	assert.equal(violations.length, 1);
+	assert.equal(violations[0].found, "[#fff]");
+});
+
+test("非三档文字透明度与任意层级命中门禁", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx":
+			'<div className="text-primary-foreground/85 z-[100]" />\n',
+	});
+	assert.deepEqual(
+		checkUiTokens(root).map((v) => v.found),
+		["text-primary-foreground/85", "z-[100]"],
+	);
+});
+
+test("ui-token-ignore 豁免下一行，ui-token-ignore-file 豁免整文件", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": [
+			"// ui-token-ignore: 品牌色例外",
+			'<div className="bg-white" />',
+			'<div className="bg-black" />',
+		].join("\n"),
+		"app/web/src/skip.tsx": [
+			"// ui-token-ignore-file: 品牌 Logo 固定色",
+			'<div className="bg-white" />',
+		].join("\n"),
+	});
+	assert.deepEqual(
+		checkUiTokens(root).map((v) => `${v.file}:${v.line}:${v.found}`),
+		["app/web/src/probe.tsx:3:bg-black"],
+	);
+});
+
+test("合法语义 token 不误报", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx":
+			'<div className="bg-card text-foreground z-dialog accent-primary" />\n',
+	});
+	assert.deepEqual(checkUiTokens(root), []);
+});
+
+test("边框透明度档位、hover 描边面、禁用透明度回潮命中门禁", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx": [
+			'<div className="border-border/80" />',
+			'<button className="hover:bg-border/50" />',
+			'<button className="disabled:opacity-40" />',
+		].join("\n"),
+	});
+	assert.deepEqual(
+		checkUiTokens(root).map((v) => v.found),
+		["border-border/80", "hover:bg-border/50", "disabled:opacity-40"],
+	);
+});
+
+test("合法边框与 hover 面不误报", () => {
+	const root = fixture({
+		"app/web/src/probe.tsx":
+			'<button className="border-border hover:bg-muted disabled:opacity-50" />\n',
+	});
+	assert.deepEqual(checkUiTokens(root), []);
+});

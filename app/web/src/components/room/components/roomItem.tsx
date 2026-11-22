@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { Hash, Lock, LogOut, Mic, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Badge } from "@gospeak/components";
 import { inMobile } from "@gospeak/mobile-capabilities";
 import { chatStore, useChatStore } from "@/stores/chatStore";
@@ -190,8 +191,8 @@ export function RoomItem({
 					<button
 						className={clsx(
 							"hover:bg-muted active:bg-selected flex min-w-0 flex-1 cursor-pointer items-center justify-between rounded-sm border-0 px-1.5 py-2 text-sm transition-colors active:duration-75 max-md:min-h-11 max-md:py-1.5",
-							isActive ? "bg-muted" : "",
-							isSelected && !isActive ? "bg-muted" : "",
+							isActive ? "bg-selected" : "",
+							isSelected && !isActive ? "bg-selected" : "",
 						)}
 						onContextMenu={openContextMenu}
 						onMouseEnter={showTip}
@@ -241,7 +242,7 @@ export function RoomItem({
 								<Badge count={unread} title={`${unread} 条未读消息`} />
 							)}
 							{room.type !== "text" && (
-								<div>{`${room.count}/${room.limit}`}</div>
+								<div className="text-muted-foreground text-xs">{`${room.count}/${room.limit}`}</div>
 							)}
 						</div>
 					</button>
@@ -263,79 +264,88 @@ export function RoomItem({
 					/>
 				)}
 			</div>
-			{tip && (
-				<div
-					className="bg-foreground text-background pointer-events-none fixed z-[9999] rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
-					style={{ left: `${tip.left}px`, top: `${tip.top}px` }}
-				>
-					{tip.text}
-				</div>
-			)}
-			{clickHint && (
-				<div
-					className="bg-foreground text-background pointer-events-none fixed z-[9999] -translate-x-1/2 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
-					style={{ left: `${clickHint.x}px`, top: `${clickHint.y}px` }}
-				>
-					双击进入
-				</div>
-			)}
-			{contextMenu && (
-				<div
-					ref={contextMenuRef}
-					role="menu"
-					className="border-border bg-card fixed z-[9999] min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
-					style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
-				>
-					<button
-						type="button"
-						role="menuitem"
-						className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
-						onClick={handleJoin}
-					>
-						<Mic size={14} />
-						<span>进入房间</span>
-					</button>
-					{canEdit && (
-						<button
-							type="button"
-							role="menuitem"
-							className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
-							onClick={() => {
-								closeContextMenu();
-								onEditRoom(room);
-							}}
-						>
-							<Pencil size={14} />
-							<span>编辑房间</span>
-						</button>
-					)}
-					{isInRoom() && (
-						<button
-							type="button"
-							role="menuitem"
-							className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
-							onClick={handleLeave}
-						>
-							<LogOut size={14} />
-							<span>退出房间</span>
-						</button>
-					)}
-					{canDelete && (
-						<button
-							type="button"
-							role="menuitem"
-							className="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
-							onClick={() => {
-								closeContextMenu();
-								onDeleteRoom(room);
-							}}
-						>
-							<Trash2 size={14} />
-							<span>删除房间</span>
-						</button>
-					)}
-				</div>
-			)}
+			{(tip || clickHint || contextMenu) &&
+				createPortal(
+					<>
+						{tip && (
+							<div
+								className="bg-foreground text-background pointer-events-none fixed z-toast rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
+								style={{ left: `${tip.left}px`, top: `${tip.top}px` }}
+							>
+								{tip.text}
+							</div>
+						)}
+						{clickHint && (
+							<div
+								className="bg-foreground text-background pointer-events-none fixed z-toast -translate-x-1/2 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg"
+								style={{ left: `${clickHint.x}px`, top: `${clickHint.y}px` }}
+							>
+								双击进入
+							</div>
+						)}
+						{contextMenu && (
+							<div
+								ref={contextMenuRef}
+								role="menu"
+								className="border-border bg-popover fixed z-toast min-w-44 overflow-hidden rounded-lg border p-1 shadow-xl"
+								style={{
+									left: `${contextMenu.x}px`,
+									top: `${contextMenu.y}px`,
+								}}
+							>
+								<button
+									type="button"
+									role="menuitem"
+									className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
+									onClick={handleJoin}
+								>
+									<Mic size={14} />
+									<span>进入房间</span>
+								</button>
+								{canEdit && (
+									<button
+										type="button"
+										role="menuitem"
+										className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
+										onClick={() => {
+											closeContextMenu();
+											onEditRoom(room);
+										}}
+									>
+										<Pencil size={14} />
+										<span>编辑房间</span>
+									</button>
+								)}
+								{isInRoom() && (
+									<button
+										type="button"
+										role="menuitem"
+										className="hover:bg-muted focus-visible:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
+										onClick={handleLeave}
+									>
+										<LogOut size={14} />
+										<span>退出房间</span>
+									</button>
+								)}
+								{canDelete && (
+									<button
+										type="button"
+										role="menuitem"
+										className="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none"
+										onClick={() => {
+											closeContextMenu();
+											onDeleteRoom(room);
+										}}
+									>
+										<Trash2 size={14} />
+										<span>删除房间</span>
+									</button>
+								)}
+							</div>
+						)}
+					</>,
+					document.body,
+				)}
 		</>
 	);
 }

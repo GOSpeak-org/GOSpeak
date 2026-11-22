@@ -25,6 +25,9 @@ import { domainInviteUrl } from "@/utils/domainInvite";
 import { usePublicBaseUrl } from "@/utils/publicBaseUrl";
 import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
+import { createClipboard } from "@gospeak/desktop";
+
+const clipboard = createClipboard();
 
 /**
  * 域级操作菜单（邀请 / 管理 / 离开 / 删除）。
@@ -80,7 +83,7 @@ export default function DomainMenu({ domainUUID }: { domainUUID: string }) {
 	async function copyInvite() {
 		if (!inviteCode) return;
 		try {
-			await navigator.clipboard.writeText(inviteCode);
+			await clipboard.writeText(inviteCode);
 			toast.success("邀请码已复制");
 		} catch {
 			toast.error("复制失败，请手动复制邀请码");

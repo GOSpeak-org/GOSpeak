@@ -1,6 +1,7 @@
 package server
 
 import (
+	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/policy"
 	"GOSpeak/internal/signal"
@@ -18,6 +19,17 @@ import (
 // HTTP 侧由 middleware.BanCheck 调用同一个 Engine，两个通道不再有策略分叉。
 func installWSPolicy(engine *policy.Engine, registry *ws.HandlerRegistry, upgraderCfg *ws.UpgraderConfig, hub *signal.Hub) {
 	upgraderCfg.ConnectPolicy = func(claims *pkg.Claims) (pkg.ErrCode, string) {
+		// 默认口令管理员在改密前不得建立 WS 连接，否则可绕过 HTTP 门禁建房/踢人。
+		if claims != nil && claims.Role == "admin" && claims.UserUUID != "" {
+			needs, err := middleware.DefaultPasswordNeedsChange(claims.UserUUID)
+			if err != nil {
+				// 与 HTTP 侧 RequirePasswordChanged 同口径：查询失败 fail-closed。
+				return pkg.INTERNAL_ERROR, "password status check failed"
+			}
+			if needs {
+				return pkg.FORBIDDEN, "must change default password first"
+			}
+		}
 		d := engine.Evaluate(policy.SubjectFromClaims(claims), policy.ActionWSConnect, "")
 		return d.Code, d.Message
 	}

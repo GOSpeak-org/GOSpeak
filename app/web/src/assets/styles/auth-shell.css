@@ -17,9 +17,18 @@
 	position: fixed;
 	inset: -60px;
 	background-image:
-		linear-gradient(to right, rgb(127 127 127 / 0.07) 1px, transparent 1px),
-		linear-gradient(to bottom, rgb(127 127 127 / 0.07) 1px, transparent 1px);
+		linear-gradient(
+			to right,
+			color-mix(in oklab, var(--foreground) 7%, transparent) 1px,
+			transparent 1px
+		),
+		linear-gradient(
+			to bottom,
+			color-mix(in oklab, var(--foreground) 7%, transparent) 1px,
+			transparent 1px
+		);
 	background-size: 44px 44px;
+	/* ui-token-ignore: mask 仅取 alpha 通道，black 表示完全不透明，不承载可见颜色 */
 	mask-image: radial-gradient(
 		ellipse 90% 80% at 50% 45%,
 		black 20%,

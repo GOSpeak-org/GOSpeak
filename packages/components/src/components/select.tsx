@@ -22,7 +22,7 @@ export const SelectTrigger = forwardRef<
 		className={cn(
 			// inline-flex 而非 flex：默认 w-full 撑满，调用方传 w-auto 时可真正按内容收缩
 			// [&>span[data-placeholder]] 让未选择态的占位文字变灰，和已选值区分开
-			"border-input bg-card text-foreground focus-visible:ring-ring inline-flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-sm border px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate [&>span[data-placeholder]]:text-muted-foreground",
+			"border-input bg-card text-foreground focus-visible:ring-ring inline-flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-sm border px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate [&>span[data-placeholder]]:text-faint-foreground",
 			className,
 		)}
 		{...props}
@@ -61,7 +61,7 @@ export const SelectContent = forwardRef<
 				className={cn(
 					// 高度必须跟 Radix 的可用空间变量走：写死 max-h 会让靠近视口底部的下拉溢出被裁、且滚不到。
 					// 20rem 只是"菜单再长也别太高"的绝对上限。
-					"bg-popover text-popover-foreground border-border z-[100] max-h-[min(var(--radix-select-content-available-height),20rem)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-content-available-width)] overflow-hidden rounded-lg border shadow-md",
+					"bg-popover text-popover-foreground border-border z-popover max-h-[min(var(--radix-select-content-available-height),20rem)] min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-content-available-width)] overflow-hidden rounded-lg border shadow-md",
 					className,
 				)}
 				{...props}

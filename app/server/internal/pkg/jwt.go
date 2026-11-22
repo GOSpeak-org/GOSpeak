@@ -15,6 +15,10 @@ import (
 const (
 	AccessTokenType  = "access"
 	RefreshTokenType = "refresh"
+
+	// TokenIssuer / TokenAudience 绑定 token 归属，防止同一签名密钥下跨系统重放。
+	TokenIssuer   = "gospeak-server"
+	TokenAudience = "gospeak-client"
 )
 
 type Claims struct {
@@ -50,6 +54,8 @@ func GenerateToken(username, displayName, userUUID, role string, tokenVersion ui
 		TokenVersion: tokenVersion,
 		TokenType:    AccessTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    TokenIssuer,
+			Audience:  jwt.ClaimStrings{TokenAudience},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -71,7 +77,8 @@ func ParseToken(tokenStr string) (*Claims, error) {
 	for _, key := range keys {
 		token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 			return key, nil
-		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+			jwt.WithIssuer(TokenIssuer), jwt.WithAudience(TokenAudience))
 		if err == nil {
 			if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 				return claims, nil
@@ -113,6 +120,8 @@ func GenerateRefreshTokenWithFamily(username, displayName, userUUID, role string
 		RefreshFamily: family,
 		TokenType:     RefreshTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    TokenIssuer,
+			Audience:  jwt.ClaimStrings{TokenAudience},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),

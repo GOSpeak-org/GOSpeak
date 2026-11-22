@@ -11,7 +11,7 @@ export default function CapabilityBadge({
 		<span
 			className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
 				active
-					? "border-border bg-card text-foreground"
+					? "border-border bg-card text-muted-foreground"
 					: "border-border bg-card text-faint-foreground"
 			}`}
 		>

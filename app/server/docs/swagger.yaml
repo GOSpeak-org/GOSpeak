@@ -220,6 +220,19 @@ definitions:
       msg:
         type: string
     type: object
+  service.GroupLayout:
+    properties:
+      name:
+        type: string
+      rooms:
+        items:
+          $ref: '#/definitions/service.RoomBrief'
+        type: array
+      sort_order:
+        type: integer
+      uuid:
+        type: string
+    type: object
   service.InviteRegisterRequest:
     properties:
       code:
@@ -238,6 +251,21 @@ definitions:
     - code
     - password
     - username
+    type: object
+  service.LayoutView:
+    properties:
+      can_manage:
+        type: boolean
+      groups:
+        items:
+          $ref: '#/definitions/service.GroupLayout'
+        type: array
+      ungrouped:
+        items:
+          $ref: '#/definitions/service.RoomBrief'
+        type: array
+      ungrouped_position:
+        type: integer
     type: object
   service.LoginRequest:
     properties:
@@ -262,6 +290,21 @@ definitions:
     required:
     - password
     - username
+    type: object
+  service.RoomBrief:
+    properties:
+      count:
+        type: integer
+      has_password:
+        type: boolean
+      name:
+        type: string
+      sort_order:
+        type: integer
+      type:
+        type: string
+      uuid:
+        type: string
     type: object
   service.UpdateStorageConfigRequest:
     properties:
@@ -806,6 +849,48 @@ paths:
       summary: 审核加入申请
       tags:
       - 域加入审核
+  /domain/room-layout/get:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 域 UUID
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LayoutView'
+      summary: 读取域内房间分组布局
+      tags:
+      - 域
+  /domain/room-layout/save:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 完整布局
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.LayoutView'
+      summary: 保存域内房间分组与排序
+      tags:
+      - 域
   /invite/cancel-request:
     post:
       consumes:
@@ -1901,6 +1986,35 @@ paths:
       security:
       - BearerAuth: []
       summary: 获取用户资料
+      tags:
+      - 用户
+  /user/push-token:
+    post:
+      consumes:
+      - application/json
+      description: 持久化当前登录用户的移动端推送 token，按 token 幂等覆盖。
+      parameters:
+      - description: 推送 token
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            platform:
+              type: string
+            token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/pkg.Response'
+      security:
+      - BearerAuth: []
+      summary: 上报推送 token
       tags:
       - 用户
   /user/update-profile:

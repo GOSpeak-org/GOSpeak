@@ -18,7 +18,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 type recordedEvent struct {
 	event   string
 	payload interface{}
@@ -40,7 +39,7 @@ func TestRoomHandler_Create_BroadcastsRoomList(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	domain := &model.Domain{UUID: "domain-a", Name: "Chat", OwnerUUID: "owner-1"}

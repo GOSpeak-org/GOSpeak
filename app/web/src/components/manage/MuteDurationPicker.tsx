@@ -1,3 +1,10 @@
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@gospeak/components";
 import { Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatDurationSeconds, formatMuteEndsAt } from "@/utils/format";
@@ -115,6 +122,15 @@ export default function MuteDurationPicker({
 		emitTimed(seconds);
 	};
 
+	const handleSelectValue = (value: string) => {
+		if (value === "custom") {
+			enableCustom();
+			return;
+		}
+		const preset = PRESETS.find((p) => p.id === value);
+		if (preset) selectPreset(preset);
+	};
+
 	const enableCustom = () => {
 		const base = permanent
 			? 30 * 60
@@ -154,44 +170,31 @@ export default function MuteDurationPicker({
 		return max === undefined ? v : Math.min(max, v);
 	};
 
-	const presetBtn = (active: boolean) =>
-		`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-sm border px-3 text-sm shadow-none transition-colors ${
-			active
-				? "border-foreground/20 bg-muted text-foreground"
-				: "border-border bg-card text-foreground hover:bg-muted/50"
-		}`;
-
 	const inputClass =
 		"border-input bg-card text-foreground focus-visible:ring-ring flex h-9 w-full rounded-sm border px-3 text-sm focus-visible:outline-none focus-visible:ring-2";
 
 	return (
 		<div className="space-y-3">
-			<div className="flex flex-wrap gap-2">
-				{PRESETS.map((preset) => {
-					const active = activePresetId === preset.id;
-					return (
-						<button
-							key={preset.id}
-							type="button"
-							className={presetBtn(active)}
-							onClick={() => selectPreset(preset)}
-						>
-							{preset.permanent && <InfinityIcon size={14} />}
-							{preset.label}
-						</button>
-					);
-				})}
-				<button
-					type="button"
-					className={presetBtn(activePresetId === "custom")}
-					onClick={enableCustom}
+			<Select value={activePresetId} onValueChange={handleSelectValue}>
+				<SelectTrigger
+					id="mute-duration"
+					aria-label="禁言时长"
+					className="w-full max-w-64"
 				>
-					自定义
-				</button>
-			</div>
+					<SelectValue placeholder="选择禁言时长" />
+				</SelectTrigger>
+				<SelectContent>
+					{PRESETS.map((preset) => (
+						<SelectItem key={preset.id} value={preset.id}>
+							{preset.label}
+						</SelectItem>
+					))}
+					<SelectItem value="custom">自定义</SelectItem>
+				</SelectContent>
+			</Select>
 
 			{!permanent && (customMode || activePresetId === "custom") && (
-				<div className="border-border bg-muted/30 rounded-lg border p-3">
+				<div className="border-border bg-muted/40 rounded-lg border p-3">
 					<div className="text-foreground mb-2 flex items-center gap-2 text-xs font-medium">
 						<Clock size={14} />
 						<span>自定义时长</span>
@@ -199,7 +202,9 @@ export default function MuteDurationPicker({
 					</div>
 					<div className="grid grid-cols-3 gap-2">
 						<label className="block">
-							<span className="text-foreground mb-1 block text-xs">天</span>
+							<span className="text-muted-foreground mb-1 block text-xs">
+								天
+							</span>
 							<input
 								type="number"
 								min={0}
@@ -211,7 +216,9 @@ export default function MuteDurationPicker({
 							/>
 						</label>
 						<label className="block">
-							<span className="text-foreground mb-1 block text-xs">小时</span>
+							<span className="text-muted-foreground mb-1 block text-xs">
+								小时
+							</span>
 							<input
 								type="number"
 								min={0}
@@ -226,7 +233,9 @@ export default function MuteDurationPicker({
 							/>
 						</label>
 						<label className="block">
-							<span className="text-foreground mb-1 block text-xs">分钟</span>
+							<span className="text-muted-foreground mb-1 block text-xs">
+								分钟
+							</span>
 							<input
 								type="number"
 								min={0}
@@ -246,12 +255,12 @@ export default function MuteDurationPicker({
 
 			<div className="flex flex-wrap items-center gap-2">
 				{!permanent ? (
-					<div className="border-border bg-card text-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium">
+					<div className="border-border bg-card text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium">
 						<Clock size={12} />
 						{formatDurationSeconds(duration)} · {formatMuteEndsAt(duration)}
 					</div>
 				) : (
-					<span className="border-border bg-card text-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium">
+					<span className="border-border bg-card text-muted-foreground inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium">
 						<InfinityIcon size={12} />
 						永久禁言，需手动解除
 					</span>

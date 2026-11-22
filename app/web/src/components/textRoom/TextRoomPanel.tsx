@@ -24,7 +24,7 @@ export default function TextRoomPanel() {
 
 	if (!textRoom) {
 		return (
-			<div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-sm select-none">
+			<div className="text-faint-foreground flex h-full flex-col items-center justify-center gap-2 text-sm select-none">
 				<Hash size={32} strokeWidth={1.5} />
 				<span>从左侧选择一个文字频道开始聊天</span>
 			</div>
@@ -35,7 +35,7 @@ export default function TextRoomPanel() {
 		!hasMore && !searchActive && !threadParent && messageCount === 0;
 
 	return (
-		<div className="bg-card flex h-full min-h-0 flex-col">
+		<div className="flex h-full min-h-0 flex-col">
 			{searchActive && (
 				<div className="border-border text-muted-foreground border-b px-4 py-1.5 text-xs">
 					找到 {searchResults.length} 条匹配消息

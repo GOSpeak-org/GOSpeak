@@ -83,6 +83,28 @@ export function SkeletonListRows({
 	);
 }
 
+/**
+ * 消息区骨架：几何对齐真实消息行（头像 36px + 昵称行 + 正文行），
+ * 行高与 ChatWindow virtualizer 的 estimateSize（日期 40 / 消息 72）保持一致，
+ * 避免骨架切到真实内容时总高度跳变。
+ */
+export function SkeletonChatMessages({ rows = 6 }: { rows?: number }) {
+	return (
+		<div data-skeleton="chat-messages" className="flex flex-col">
+			<Skeleton className="mt-4 mb-1 h-4 w-28" />
+			{Array.from({ length: rows }).map((_, i) => (
+				<div key={i} className="flex h-[72px] gap-3 px-4 py-1">
+					<Skeleton className="mt-0.5 size-9 shrink-0 rounded-full" />
+					<div className="flex min-w-0 flex-1 flex-col gap-2">
+						<Skeleton className="h-3.5 w-24" />
+						<Skeleton className="h-4 w-3/4" />
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
 /** 通知列表骨架：几何对齐通知条目（未读圆点 + 标题行 + 范围/时间行）。 */
 export function SkeletonNotificationList({ rows = 6 }: { rows?: number }) {
 	return (
@@ -159,7 +181,7 @@ export function SkeletonCardGrid({
 			className={`grid gap-3 ${gridCols} ${className ?? ""}`}
 		>
 			{Array.from({ length: cards }).map((_, i) => (
-				<div key={i} className="border-border/60 rounded-lg border p-4">
+				<div key={i} className="border-border rounded-lg border p-4">
 					<div className="flex items-center gap-3">
 						<Skeleton className="size-10 shrink-0 rounded-lg" />
 						<div className="flex flex-1 flex-col gap-2">

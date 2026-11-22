@@ -24,7 +24,7 @@ func TestRoomHandler_Create_RejectsMissingOrBlankDomainUUID(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}); err != nil {
+		&model.User{}, &model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestRoomHandler_Create_UsesRequestBodyDomainUUID(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Domain{}, &model.DomainMember{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	domain := &model.Domain{UUID: "domain-a", Name: "Chat", OwnerUUID: "user-1"}
@@ -134,7 +134,7 @@ func TestRoomHandler_Create_RejectsDomainUUIDMismatch(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}); err != nil {
+		&model.User{}, &model.Room{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 

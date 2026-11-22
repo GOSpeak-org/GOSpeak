@@ -1,6 +1,8 @@
 package signal
 
 import (
+	"strings"
+
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/permcode"
@@ -76,7 +78,14 @@ func (h *Hub) OnRoomLeave(c ws.ClientMessenger, data string) (string, error) {
 
 func (h *Hub) OnRoomList(c ws.ClientMessenger, data string) {
 	var req protocol.RoomListRequest
-	_ = parseJSON(data, &req)
+	// 空串等价于空请求（取平台房间），是客户端的合法用法；非空但畸形不能
+	// 静默当空请求，否则会按无域过滤返回空列表，用户误以为房间全没了。
+	if strings.TrimSpace(data) != "" {
+		if err := parseJSON(data, &req); err != nil {
+			logger.WithComponent("Signal").Infof("[Signal] invalid room:list payload from %s: %v", c.ID(), err)
+			return
+		}
+	}
 
 	if !h.domainMemberAllowed(c, req.DomainUUID) {
 		c.Send(map[string]interface{}{"event": EventRoomListResult, "data": map[string]interface{}{
@@ -93,9 +102,11 @@ func (h *Hub) OnRoomList(c ws.ClientMessenger, data string) {
 	} else {
 		rooms = h.getMergedRooms(req.DomainUUID)
 	}
+	summary, _, _ := h.layoutSummary(req.DomainUUID)
 	c.Send(map[string]interface{}{"event": EventRoomListResult, "data": map[string]interface{}{
-		"rooms": rooms,
-		"count": len(rooms),
+		"rooms":  rooms,
+		"count":  len(rooms),
+		"layout": summary,
 	}})
 }
 

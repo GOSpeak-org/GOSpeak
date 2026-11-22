@@ -89,7 +89,7 @@ jobs:
 
   go-vulncheck:
     name: Go Vulnerability Check (Baseline)
-    # Existing Go 1.26.2 / dependency findings are reported without blocking until remediated.
+    # Existing Go 1.27.4 / dependency findings are reported without blocking until remediated.
     continue-on-error: true
     runs-on: ubuntu-latest
     steps:
@@ -103,5 +103,6 @@ jobs:
         working-directory: app/server
         env:
           # 固定版本：@latest 会让门禁结果随上游发版无声变化，无法复现历史结论。
-          GOVULNCHECK_VERSION: v1.1.4
+          # 固定到最新稳定版：旧版（<= v1.3.0）依赖的 x/tools 不兼容 Go 1.27 的 go/types，会 panic。
+          GOVULNCHECK_VERSION: v1.10.0
         run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...

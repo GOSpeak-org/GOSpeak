@@ -226,7 +226,8 @@ export function useVoiceSession() {
 		const prevClient = activeJoinClientRef.current;
 
 		// 切房：立即退旧业务房（信令面马上发，不阻塞新 join）。
-		// SFU client 拆除仍需串行 await，避免与新房 createOffer 竞态。
+		// 旧媒体拆除：切房时与新 join 并行（runVoiceJoin.teardownPrevious），
+		// 同房重触发仍串行，避免同一 identity 在旧会话未退干净时重连同一房间。
 		const newDomain =
 			useSocketStore.getState().selectedRoomInfo?.domain_uuid ??
 			socketStore.currentDomainUUID() ??
@@ -255,9 +256,9 @@ export function useVoiceSession() {
 		void (async () => {
 			let createdClient: SFUClient | null = null;
 			try {
-				// 串行拆旧 SFU client（保证 createOffer 不竞态）。
-				// 同房重触发时必须先退旧 client，避免媒体会话竞态。
-				if (prevClient) {
+				// 同房重触发（token 刷新 / 媒体掉线重进）先退旧 client，
+				// 避免同一身份在两个连接上重复进场。
+				if (prevClient && !roomChanged) {
 					await teardownClient(prevClient);
 					cleanupAudioHandler();
 					activeJoinClientRef.current = null;
@@ -291,6 +292,18 @@ export function useVoiceSession() {
 						socketStore
 							.joinRoom(room, undefined, domain_uuid)
 							.then(() => undefined),
+					// 切房：旧 client 拆除与新房 join 并行，只启动不等待。
+					// 旧房信令离开已在上方先行发出，因果顺序仍是"先离开旧房、再进入新房"；
+					// LiveKit 断连在弱网下可能长时间不返回，不能让它阻塞新房间。
+					teardownPrevious:
+						prevClient && roomChanged
+							? () => {
+									const tearingDown = teardownClient(prevClient);
+									cleanupAudioHandler();
+									activeJoinClientRef.current = null;
+									return tearingDown;
+								}
+							: undefined,
 					joinSignalSfu: (room, stream, domain_uuid) =>
 						socketStore.joinRoomSFU(room, stream, domain_uuid),
 					onPhase: (nextPhase) => {

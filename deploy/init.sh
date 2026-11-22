@@ -292,20 +292,22 @@ if ! check_consistency; then
 fi
 
 echo ""
-echo "完成。后续命令（在 deploy/ 目录下执行，或任意目录加 -f deploy/docker-compose.yml）:"
+echo "完成。后续命令一律显式带 -f（裸 up -d 只会选中精简版，不启用 edge/HTTPS）:"
 cat <<'EOF'
 
   # 有域名：填 GOSPEAK_DOMAIN，并启用内置 Caddy（自动 HTTPS）
   #   .env 中: COMPOSE_PROFILES=app,livekit,edge
   #            GOSPEAK_DOMAIN=voice.example.com
-  #   然后:    docker compose up -d --build
+  #   然后:    cd .. && docker compose -f deploy/docker-compose.standard.yml up -d --build
 
   # 已有反代（Nginx / Traefik / Dokploy）：不要开 edge
   #   .env 中: COMPOSE_PROFILES=app,livekit
   #   把反代指向宿主机 8998 即可
 
-  docker compose up -d --build     # 首次启动
-  docker compose logs -f gospeak   # 看日志
+  cd ..
+  docker compose -f deploy/docker-compose.yml up -d --build     # 精简起步
+  # docker compose -f deploy/docker-compose.standard.yml up -d --build  # 全档位（含 edge 自动 HTTPS）
+  docker compose -f deploy/docker-compose.yml logs -f gospeak   # 看日志
   curl http://localhost:8998/ping  # 健康检查
 
 提示:

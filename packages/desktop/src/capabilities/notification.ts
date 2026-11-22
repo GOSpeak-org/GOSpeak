@@ -1,4 +1,5 @@
 import { bridge, command } from "../bridge";
+import { desktopEvents } from "../events";
 import { isDesktop } from "../runtime";
 
 export interface NotificationOptions {
@@ -24,12 +25,14 @@ export function showNotification(
 			.then((eventId) => {
 				// Host broadcasts "notification.click" with the ID as payload;
 				// match it here so every notification shares one event channel.
-				bridge.listen("notification.click", (id) => {
+				bridge.listen(desktopEvents.notificationClick, (id) => {
 					if (id !== eventId) return;
 					for (const handler of handlers) handler();
 				});
 			})
-			.catch(() => {});
+			.catch((error) => {
+				console.warn("[gospeak-desktop] Notification.Show failed:", error);
+			});
 		return {
 			onClick(handler) {
 				handlers.add(handler);
@@ -86,7 +89,12 @@ export function showNotification(
 						);
 					}
 				})
-				.catch(() => {});
+				.catch((error) => {
+					console.warn(
+						"[gospeak-desktop] Notification.requestPermission failed:",
+						error,
+					);
+				});
 		} else {
 			console.warn(
 				"[gospeak-desktop] Notification permission denied; dropped.",

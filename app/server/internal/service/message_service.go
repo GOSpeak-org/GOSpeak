@@ -172,20 +172,6 @@ func (s *MessageService) requireDomainMembership(room *model.Room, actor Message
 	return nil
 }
 
-// broadcastRoomKey constructs the domain-scoped composite room key used by the
-// signal layer's fanout.  This mirrors signal.roomKey so that broadcasts
-// actually reach clients joined via Hub.OnRoomJoin.
-
-// broadcastRoomKey constructs the domain-scoped composite room key used by the
-// signal layer's fanout.  This mirrors signal.roomKey so that broadcasts
-// actually reach clients joined via Hub.OnRoomJoin.
-func broadcastRoomKey(domainUUID, roomName string) string {
-	if domainUUID == "" {
-		return roomName
-	}
-	return domainUUID + ":" + roomName
-}
-
 // Send creates and broadcasts a new text message, then enqueues async persist.
 // Returns the MessageDTO on success.
 
@@ -238,7 +224,7 @@ func (s *MessageService) Send(roomUUID string, actor MessageActor, content, repl
 	// 1) broadcast first；广播失败时立即同步落库，避免消息仅存在于易失广播面。
 	s.enrichAuthorDTO(dto)
 	if s.bus != nil {
-		if err := s.bus.PublishRoom(context.Background(), broadcastRoomKey(room.DomainUUID, room.Name), protocol.EventMessageCreated, dto); err != nil {
+		if err := s.bus.PublishRoom(context.Background(), pkg.RoomKey(room.DomainUUID, room.Name), protocol.EventMessageCreated, dto); err != nil {
 			if !s.syncWriteAllowed {
 				return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, "message persistence unavailable on data-plane instance")
 			}

@@ -12,9 +12,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// EventStateRoomChanged is an internal (non-WebSocket) event: peers should
-// recompute room:updated / room:list:result from shared membership KV.
-const EventStateRoomChanged = "state:room-changed"
+// EventStateRoomChanged 定义在 protocol/internal_events.go（单一事实源）。
 
 const (
 	// membershipLeaseDuration 是成员记录 lease 时长；实例心跳每 30s 续期，

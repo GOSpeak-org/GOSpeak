@@ -134,7 +134,9 @@ func (s *JoinRequestService) Review(domainUUID string, requestID uint, approve b
 	if approve {
 		if _, err := s.userRepo.GetByUUID(req.UserUUID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				_, _ = s.requestRepo.Review(requestID, false, reviewerUUID)
+				if _, reviewErr := s.requestRepo.Review(requestID, false, reviewerUUID); reviewErr != nil {
+					log.Printf("[JoinRequest] reject deleted applicant request %d failed: %v", requestID, reviewErr)
+				}
 				return nil, pkg.NewAppError(pkg.NOT_FOUND, "applicant no longer exists")
 			}
 			return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())

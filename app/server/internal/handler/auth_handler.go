@@ -3,9 +3,10 @@ package handler
 import (
 	"strings"
 
+	"GOSpeak/internal/middleware"
+	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
-	"GOSpeak/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,13 +14,26 @@ import (
 type AuthHandler struct {
 	authService *service.AuthService
 	cookie      *AuthCookieConfig
+	permSvc     *service.PermissionService
 }
 
-func NewAuthHandler(authService *service.AuthService, cookie *AuthCookieConfig) *AuthHandler {
+func NewAuthHandler(authService *service.AuthService, cookie *AuthCookieConfig, permSvc *service.PermissionService) *AuthHandler {
 	if cookie == nil {
 		cookie = defaultAuthCookieConfig()
 	}
-	return &AuthHandler{authService: authService, cookie: cookie}
+	return &AuthHandler{authService: authService, cookie: cookie, permSvc: permSvc}
+}
+
+// withPermissions 把服务端权限写进认证响应，前端据此判权，不再本地推导。
+func (h *AuthHandler) withPermissions(resp *service.AuthResponse) {
+	if resp == nil || h.permSvc == nil {
+		return
+	}
+	if perms := h.permSvc.GetRolePermissions(resp.User.Role); len(perms) > 0 {
+		resp.User.Permissions = perms
+		return
+	}
+	resp.User.Permissions = model.DefaultRolePermissions[resp.User.Role]
 }
 
 // Login
@@ -44,6 +58,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	h.withPermissions(resp)
 	h.cookie.Set(c, resp.Token, resp.RefreshToken)
 	pkg.Success(c, resp)
 }
@@ -75,6 +90,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	h.withPermissions(resp)
 	h.cookie.Set(c, resp.Token, resp.RefreshToken)
 	pkg.Success(c, resp)
 }
@@ -237,7 +253,10 @@ func (h *AuthHandler) FirstChangePassword(c *gin.Context) {
 		pkg.HandleError(c, err)
 		return
 	}
+	// 改密成功后立即失效门禁缓存，避免缓存窗口内仍被当作默认口令会话。
+	middleware.ClearDefaultPasswordCache(resp.User.UUID)
 
+	h.withPermissions(resp)
 	h.cookie.Set(c, resp.Token, resp.RefreshToken)
 	pkg.Success(c, resp)
 }

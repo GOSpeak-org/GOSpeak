@@ -1,3 +1,9 @@
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@gospeak/components";
 import { Moon, Sun } from "lucide-react";
 import { useEffect } from "react";
 import NotificationButton from "@/components/common/notificationButton";
@@ -15,7 +21,7 @@ export default function Header() {
 	}, []);
 
 	return (
-		<div className="text-foreground flex select-none items-center justify-between overflow-hidden px-2 py-0.5 text-xs">
+		<div className="bg-muted surface-glass text-foreground flex select-none items-center justify-between overflow-hidden px-2 py-0.5 text-xs">
 			<div className="flex flex-1 items-center gap-1.5">
 				<img
 					src="/favicon-256.png"
@@ -30,18 +36,30 @@ export default function Header() {
 			<div className="flex flex-1 items-center justify-end gap-1">
 				<ConnectionIndicator />
 				<NotificationButton />
-				<button
-					type="button"
-					className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"
-					onClick={() => toggleDark()}
-					title={isDark ? "切换到浅色" : "切换到深色"}
-					aria-label={isDark ? "切换到浅色" : "切换到深色"}
-				>
-					<span className="text-muted-foreground text-xs">
-						{isDark ? "深色" : "浅色"}
-					</span>
-					{isDark ? <Moon className="size-4" /> : <Sun className="size-4" />}
-				</button>
+				<TooltipProvider delayDuration={150}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<button
+								type="button"
+								className="hover:bg-muted flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors"
+								onClick={() => toggleDark()}
+								aria-label={isDark ? "切换到浅色" : "切换到深色"}
+							>
+								<span className="text-muted-foreground text-xs">
+									{isDark ? "深色" : "浅色"}
+								</span>
+								{isDark ? (
+									<Moon className="size-4" />
+								) : (
+									<Sun className="size-4" />
+								)}
+							</button>
+						</TooltipTrigger>
+						<TooltipContent side="bottom">
+							{isDark ? "切换到浅色" : "切换到深色"}
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			</div>
 		</div>
 	);

@@ -36,8 +36,8 @@ export default function ConversationList() {
 							className={clsx(
 								"flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left transition-colors",
 								activeID === conv.conversation_id
-									? "bg-primary/10"
-									: "hover:bg-border/50",
+									? "bg-selected"
+									: "hover:bg-muted",
 							)}
 							onClick={() => chatStore.selectConversation(conv.conversation_id)}
 						>
@@ -53,7 +53,7 @@ export default function ConversationList() {
 										{conv.other_display_name || conv.other_identity}
 									</span>
 									{conv.last_message_at > 0 && (
-										<span className="text-faint-foreground ml-1 shrink-0 text-2xs">
+										<span className="text-muted-foreground ml-1 shrink-0 text-2xs">
 											{new Date(conv.last_message_at).toLocaleTimeString([], {
 												hour: "2-digit",
 												minute: "2-digit",
@@ -62,7 +62,7 @@ export default function ConversationList() {
 									)}
 								</div>
 								<div className="flex items-center justify-between">
-									<span className="text-faint-foreground truncate text-xs">
+									<span className="text-muted-foreground truncate text-xs">
 										{conv.last_content || "\u200B"}
 									</span>
 									{conv.unread_count > 0 && (

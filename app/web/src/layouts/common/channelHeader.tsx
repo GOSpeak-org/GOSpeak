@@ -35,7 +35,7 @@ export default function ChannelHeader({
 	const Icon = kind === "voice" ? Volume2 : kind === "text" ? Hash : Headphones;
 
 	return (
-		<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+		<header className="border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 			<Icon size={20} className="text-muted-foreground shrink-0" />
 			<span className="text-foreground truncate text-sm font-semibold">
 				{name}

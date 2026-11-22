@@ -156,7 +156,7 @@ export default function InviteCodeManager() {
 							onClick={() => setActiveDomain(d.uuid)}
 							className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
 								d.uuid === activeDomain
-									? "border-primary bg-primary/10"
+									? "border-primary bg-selected"
 									: "border-border hover:bg-muted"
 							}`}
 						>

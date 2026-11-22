@@ -16,7 +16,7 @@ export default function ProviderPresetPicker({
 	onCustom,
 }: ProviderPresetPickerProps) {
 	return (
-		<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+		<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 			<div className="flex flex-col gap-4">
 				<div className="flex items-center gap-2">
 					<button
@@ -39,7 +39,7 @@ export default function ProviderPresetPicker({
 							<button
 								key={preset.name}
 								type="button"
-								className={`border-border hover:border-foreground/20 hover:bg-muted/40 flex flex-col items-center gap-2 rounded-lg border p-4 transition ${alreadyExists ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+								className={`border-border hover:border-foreground/20 hover:bg-muted/40 flex flex-col items-center gap-2 rounded-lg border p-4 transition ${alreadyExists ? "pointer-events-none text-faint-foreground" : "cursor-pointer"}`}
 								disabled={alreadyExists}
 								onClick={() => onSelect(preset)}
 							>

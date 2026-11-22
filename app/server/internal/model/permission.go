@@ -24,15 +24,16 @@ const (
 	PermRoomUpdate = permcode.PermRoomUpdate
 	PermRoomDelete = permcode.PermRoomDelete
 
-	PermDomainCreate       = permcode.PermDomainCreate
-	PermDomainRead         = permcode.PermDomainRead
-	PermDomainManage       = permcode.PermDomainManage
-	PermDomainDelete       = permcode.PermDomainDelete
-	PermDomainInvite       = permcode.PermDomainInvite
-	PermDomainInviteManage = permcode.PermDomainInviteManage
-	PermDomainMemberReview = permcode.PermDomainMemberReview
-	PermDomainKick         = permcode.PermDomainKick
-	PermDomainRoleManage   = permcode.PermDomainRoleManage
+	PermDomainCreate           = permcode.PermDomainCreate
+	PermDomainRead             = permcode.PermDomainRead
+	PermDomainManage           = permcode.PermDomainManage
+	PermDomainDelete           = permcode.PermDomainDelete
+	PermDomainInvite           = permcode.PermDomainInvite
+	PermDomainInviteManage     = permcode.PermDomainInviteManage
+	PermDomainMemberReview     = permcode.PermDomainMemberReview
+	PermDomainKick             = permcode.PermDomainKick
+	PermDomainRoleManage       = permcode.PermDomainRoleManage
+	PermDomainRoomLayoutManage = permcode.PermDomainRoomLayoutManage
 
 	PermUserRead   = permcode.PermUserRead
 	PermUserUpdate = permcode.PermUserUpdate
@@ -81,6 +82,7 @@ var DefaultPermissions = []Permission{
 	{Code: PermDomainMemberReview, Name: "审核加入申请", Description: "审批或拒绝域加入申请"},
 	{Code: PermDomainKick, Name: "踢出域成员", Description: "将成员移出语音域"},
 	{Code: PermDomainRoleManage, Name: "管理域角色", Description: "管理语音域内角色和权限"},
+	{Code: PermDomainRoomLayoutManage, Name: "管理房间分组与排序", Description: "配置域内房间的分组与排序"},
 
 	{Code: PermUserRead, Name: "查看用户", Description: "查看用户列表和详情"},
 	{Code: PermUserUpdate, Name: "编辑用户", Description: "修改用户信息"},
@@ -135,6 +137,7 @@ var DefaultRolePermissions = map[string][]string{
 		PermMuteManage, PermSFUManage,
 		PermDomainCreate, PermDomainRead, PermDomainManage, PermDomainDelete,
 		PermDomainInvite, PermDomainInviteManage, PermDomainMemberReview, PermDomainKick, PermDomainRoleManage,
+		PermDomainRoomLayoutManage,
 		PermEmailConfigRead, PermEmailConfigManage,
 		PermStorageRead, PermStorageManage, PermStorageDelete,
 		PermOAuthRead, PermOAuthManage,

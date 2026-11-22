@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 import { ErrorBoundary } from "@/components/common/errorBoundary";
 import ConversationList from "@/components/chat/conversationList";
 import HomePage from "@/components/home/homePage";
+import StatusOverview from "@/components/dashboard/statusOverview";
 import ManageNav from "@/components/manage/manageNav";
 import RoomList from "@/components/room/roomList";
 
@@ -11,7 +12,7 @@ const PREFIX_MAP: [string, ComponentType][] = [
 	["/manage", ManageNav],
 	["/domain", RoomList],
 	["/chat", ConversationList],
-	["/discover", HomePage],
+	["/discover", StatusOverview],
 ];
 
 export default function DynamicRender() {

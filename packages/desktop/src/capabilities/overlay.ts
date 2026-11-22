@@ -1,4 +1,5 @@
 import { bridge, command } from "../bridge";
+import { desktopEvents } from "../events";
 import { isDesktop } from "../runtime";
 
 /** A single member as shown in the overlay HUD. */
@@ -141,11 +142,17 @@ const native: Overlay = {
 		bridge.invoke<OverlayConfig>(command("Overlay", "GetConfig")),
 	isVisible: () => bridge.invoke<boolean>(command("Overlay", "IsVisible")),
 	onVisibilityChange: (handler) =>
-		bridge.listen("overlay.visibility", (visible) => handler(Boolean(visible))),
+		bridge.listen(desktopEvents.overlayVisibility, (visible) =>
+			handler(Boolean(visible)),
+		),
 	onEnabledChange: (handler) =>
-		bridge.listen("overlay.enabled", (enabled) => handler(Boolean(enabled))),
+		bridge.listen(desktopEvents.overlayEnabled, (enabled) =>
+			handler(Boolean(enabled)),
+		),
 	onLockChange: (handler) =>
-		bridge.listen("overlay.lock", (locked) => handler(Boolean(locked))),
+		bridge.listen(desktopEvents.overlayLock, (locked) =>
+			handler(Boolean(locked)),
+		),
 	pushState: (snapshot) =>
 		bridge.invoke(command("Overlay", "PushState"), snapshot),
 };

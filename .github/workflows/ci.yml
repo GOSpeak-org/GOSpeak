@@ -214,6 +214,27 @@ jobs:
           CGO_ENABLED: 0
         run: go build -ldflags="-s -w" -o gospeak .
 
+  protocol-check:
+    name: Protocol gen-diff
+    needs: changes
+    # 无条件对所有 PR/push 运行：gate 硬性要求本 job 为 success，
+    # 若按路径跳过会变成 skipped 并把前端/文档 PR 全部卡死。
+    # 独立于 run_tests：手动关闭 Go 测试也不能关掉协议漂移检查。
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: app/server/go.mod
+          cache-dependency-path: app/server/go.sum
+          cache: true
+      - name: Verify generated protocol is up to date
+        working-directory: app/server
+        run: |
+          go run ./cmd/gen-protocol
+          git diff --exit-code -- ../web/src/protocol/generated
+
   test-server:
     name: Test Server (Go)
     needs: changes
@@ -234,11 +255,6 @@ jobs:
         with:
           go-sum-path: app/server/go.sum
           cache-prefix: server-test
-      - name: Protocol gen-diff
-        working-directory: app/server
-        run: |
-          go run ./cmd/gen-protocol
-          git diff --exit-code -- ../web/src/protocol/generated
       - name: Test
         working-directory: app/server
         env:
@@ -327,8 +343,7 @@ jobs:
 
   desktop-go:
     name: Desktop Host (Go)
-    # app/desktop 是独立 Go module，go 指令要求 1.27.3，与 server 的 1.26 不同，
-    # 因此单独一个 job 用自己的 setup-go 版本，避免 toolchain 隐式下载。
+    # app/desktop 是独立 Go module，单独一个 job 用自己的 setup-go 版本，避免 toolchain 隐式下载。
     needs: changes
     if: >-
       ${{ !cancelled() &&
@@ -411,7 +426,7 @@ jobs:
     if: always()
     # 移动端原生构建已拆到独立手动 workflow（.github/workflows/build-mobile.yml），
     # 不参与本 CI，也不在 gate 的 needs 内——macOS 排队与 APK 构建都不会拖慢合并。
-    needs: [lint, typecheck, build-js, build-server, test-server, test-web, test-packages, test-scripts, desktop-go, workflow-lint]
+    needs: [lint, typecheck, build-js, build-server, protocol-check, test-server, test-web, test-packages, test-scripts, desktop-go, workflow-lint]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required checks
@@ -420,6 +435,7 @@ jobs:
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           BUILD_JS_RESULT: ${{ needs.build-js.result }}
           BUILD_SERVER_RESULT: ${{ needs.build-server.result }}
+          PROTOCOL_CHECK_RESULT: ${{ needs.protocol-check.result }}
           TEST_SERVER_RESULT: ${{ needs.test-server.result }}
           TEST_WEB_RESULT: ${{ needs.test-web.result }}
           TEST_PACKAGES_RESULT: ${{ needs.test-packages.result }}
@@ -428,6 +444,11 @@ jobs:
           WORKFLOW_LINT_RESULT: ${{ needs.workflow-lint.result }}
         run: |
           set -euo pipefail
+          # 协议漂移检查是必过项：不接受 skipped。
+          if [ "$PROTOCOL_CHECK_RESULT" != "success" ]; then
+            echo "required protocol gen-diff check did not pass: $PROTOCOL_CHECK_RESULT" >&2
+            exit 1
+          fi
           for result in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_JS_RESULT" "$BUILD_SERVER_RESULT" "$TEST_SERVER_RESULT" "$TEST_WEB_RESULT" "$TEST_PACKAGES_RESULT" "$TEST_SCRIPTS_RESULT" "$DESKTOP_GO_RESULT" "$WORKFLOW_LINT_RESULT"; do
             case "$result" in
               success|skipped) ;;

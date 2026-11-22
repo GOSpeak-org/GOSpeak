@@ -191,7 +191,7 @@ export default function MutePage() {
 						<SkeletonTableRows rows={4} cols={6} />
 					</LoadingRegion>
 				) : (mutes?.length || 0) === 0 ? (
-					<div className="border-border/60 bg-muted/20 text-muted-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
+					<div className="border-border bg-muted/40 text-faint-foreground m-4 rounded-lg border border-dashed py-10 text-center text-sm">
 						暂无禁言记录
 					</div>
 				) : (
@@ -264,7 +264,7 @@ export default function MutePage() {
 					</span>
 				}
 			>
-				<div className="grid grid-cols-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_240px]">
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(280px,340px)_minmax(220px,280px)_minmax(200px,260px)]">
 					<UserSearchSelect
 						id="mute-user"
 						value={userId}

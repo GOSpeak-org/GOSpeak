@@ -57,7 +57,7 @@ export default function SettingModal({
 			    视口 sm:/md: 在桌面端最小窗口（880）下永远成立，等于没有适配。 */}
 			<DialogContent
 				showClose={false}
-				className="flex h-[100dvh] w-full max-w-full flex-col gap-0 overflow-hidden rounded-none p-0 @container sm:h-[min(90dvh,820px)] sm:w-[calc(100vw-8rem)] sm:max-w-7xl sm:rounded-2xl pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+				className="surface-glass flex h-[100dvh] w-full max-w-full flex-col gap-0 overflow-hidden rounded-none p-0 @container sm:h-[min(90dvh,820px)] sm:w-[calc(100vw-8rem)] sm:max-w-7xl sm:rounded-2xl pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
 			>
 				<div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
 					<DialogTitle className="text-base font-semibold">设置</DialogTitle>
@@ -71,7 +71,7 @@ export default function SettingModal({
 					</Button>
 				</div>
 				<div className="flex min-h-0 flex-1 flex-col overflow-hidden select-none @3xl:flex-row">
-					<aside className="border-border bg-muted/70 flex shrink-0 gap-1 overflow-x-auto border-b p-2 @3xl:min-h-0 @3xl:w-44 @3xl:flex-col @3xl:overflow-x-hidden @3xl:overflow-y-auto @3xl:border-r @3xl:border-b-0 @5xl:w-48">
+					<aside className="border-border bg-muted flex shrink-0 gap-1 overflow-x-auto border-b p-2 @3xl:min-h-0 @3xl:w-44 @3xl:flex-col @3xl:overflow-x-hidden @3xl:overflow-y-auto @3xl:border-r @3xl:border-b-0 @5xl:w-48">
 						{TABS.map((tab, index) => {
 							const Icon = ICON_MAP[tab.icon];
 							return (

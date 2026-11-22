@@ -121,6 +121,52 @@ func TestRoomService_Create_PersistsFields(t *testing.T) {
 	}
 }
 
+func TestRoomService_CreateRoom_VoiceRoomLimitClampedToMin(t *testing.T) {
+	for _, requested := range []uint{0, 1, 2} {
+		svc, _ := setupRoomServiceTestDB(t)
+		room, err := svc.CreateRoom("lobby", "", "voice channel", requested, true, true, "user-1", model.RoomTypeVoice, "domain-a")
+		if err != nil {
+			t.Fatalf("CreateRoom with limit=%d: %v", requested, err)
+		}
+		want := uint(model.MinVoiceRoomLimit)
+		if requested > want {
+			want = requested
+		}
+		if room.Limit != want {
+			t.Fatalf("limit=%d: voice room limit = %d, want %d", requested, room.Limit, want)
+		}
+		saved, err := svc.GetByID(room.ID)
+		if err != nil {
+			t.Fatalf("GetByID: %v", err)
+		}
+		if saved.Limit != want {
+			t.Fatalf("limit=%d: persisted limit = %d, want %d", requested, saved.Limit, want)
+		}
+	}
+}
+
+func TestRoomService_Update_VoiceRoomLimitClampedToMin(t *testing.T) {
+	svc, db := setupRoomServiceTestDB(t)
+	room, err := svc.CreateRoom("lobby", "", "", 10, true, true, "user-1", model.RoomTypeVoice, "domain-a")
+	if err != nil {
+		t.Fatalf("CreateRoom: %v", err)
+	}
+	room.Limit = 0
+	if err := svc.Update(room); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if room.Limit != model.MinVoiceRoomLimit {
+		t.Fatalf("voice room limit = %d, want %d", room.Limit, model.MinVoiceRoomLimit)
+	}
+	var saved model.Room
+	if err := db.First(&saved, room.ID).Error; err != nil {
+		t.Fatalf("load saved room: %v", err)
+	}
+	if saved.Limit != model.MinVoiceRoomLimit {
+		t.Fatalf("persisted limit = %d, want %d", saved.Limit, model.MinVoiceRoomLimit)
+	}
+}
+
 func TestRoomService_CreateRoom_TextRoomHasNoLimit(t *testing.T) {
 	svc, _ := setupRoomServiceTestDB(t)
 	room, err := svc.CreateRoom("general", "", "text channel", 50, false, false, "user-1", model.RoomTypeText, "domain-a")

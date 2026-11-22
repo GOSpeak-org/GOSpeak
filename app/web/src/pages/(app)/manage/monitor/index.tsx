@@ -91,7 +91,7 @@ function MetricCard({
 	badge?: ReactNode;
 }) {
 	return (
-		<div className="border-border/80 bg-card rounded-lg border shadow-sm">
+		<div className="border-border bg-card rounded-lg border shadow-sm">
 			<div className="p-3">
 				<div className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs">
 					{icon}
@@ -178,7 +178,7 @@ function ServerUpdateCard() {
 	return (
 		<>
 			<SectionTitle>软件更新</SectionTitle>
-			<div className="border-border/80 bg-card rounded-lg border shadow-sm">
+			<div className="border-border bg-card rounded-lg border shadow-sm">
 				<div className="flex items-center justify-between gap-4 p-3">
 					<div className="min-w-0">
 						<div className="text-sm font-medium">
@@ -188,7 +188,7 @@ function ServerUpdateCard() {
 							</span>
 						</div>
 						{status === "checking" && (
-							<div className="text-faint-foreground text-xs">
+							<div className="text-muted-foreground text-xs">
 								正在检查 GitHub Releases…
 							</div>
 						)}
@@ -458,7 +458,7 @@ function MonitorPage() {
 				/>
 			</div>
 
-			<div className="text-faint-foreground text-right text-xs">
+			<div className="text-muted-foreground text-right text-xs">
 				{snap?.timestamp ? `最近更新: ${snap.timestamp}` : "无数据"}
 			</div>
 		</ManagePage>

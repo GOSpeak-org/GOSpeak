@@ -18,6 +18,8 @@ const (
 	EventRoomListChanged = "room:list-changed"
 	// EventDomainPolicyChanged 域策略（成员/角色/权限）变更，订阅方重载 Casbin 策略。
 	EventDomainPolicyChanged = "cache:domain-policy-changed"
+	// EventStateRoomChanged 房间成员状态经 KV 变更，订阅方重算房间列表/详情。
+	EventStateRoomChanged = "state:room-changed"
 )
 
 type PermissionsInvalidatedPayload struct {
@@ -49,5 +51,10 @@ type RoomListChangedPayload struct {
 
 type DomainPolicyChangedPayload struct {
 	DomainUUID string `json:"domain_uuid"`
+}
+
+type StateRoomChangedPayload struct {
+	Room string `json:"room"`
+	TS   int64  `json:"ts"`
 }
 

@@ -379,7 +379,10 @@ EOF
 	if [ "$WITH_LIVEKIT" -eq 1 ]; then
 		write_livekit_config
 	fi
-	chown -R "$RUN_USER" "$INSTALL_DIR" 2>/dev/null || true
+	if ! chown -R "$RUN_USER" "$INSTALL_DIR"; then
+		echo "警告: 无法把 $INSTALL_DIR 的属主改为 $RUN_USER，服务可能因权限不足启动失败。" >&2
+		echo "       可稍后手动执行: sudo chown -R $RUN_USER $INSTALL_DIR" >&2
+	fi
 	if [ "$WITH_SYSTEMD" -eq 1 ]; then
 		write_systemd
 	fi

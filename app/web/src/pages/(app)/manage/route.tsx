@@ -18,7 +18,7 @@ export const Route = createFileRoute("/(app)/manage")({
 
 function ManageLayout() {
 	return (
-		<div className="manage-shell bg-muted flex h-full w-full min-h-0 min-w-0 flex-col">
+		<div className="manage-shell flex h-full w-full min-h-0 min-w-0 flex-col">
 			{/* 管理导航由外层布局统一渲染（桌面 DynamicRender / 移动端 ManageNavMobile），
 			    此处不要再放一份，否则左侧会出现两列重复菜单。 */}
 			{/* 静态子页常驻（筛选/页码/滚动位置保留），动态域详情仍由 Outlet 兜底；

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"GOSpeak/internal/bus"
+	"GOSpeak/internal/protocol"
 
 	"github.com/nats-io/nats.go"
 )
@@ -390,10 +391,8 @@ func (c *captureNotifier) PublishInternal(ctx context.Context, event string, pay
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.events = append(c.events, event)
-	if m, ok := payload.(map[string]interface{}); ok {
-		if r, ok := m["room"].(string); ok {
-			c.rooms = append(c.rooms, r)
-		}
+	if p, err := bus.DecodePayload[protocol.StateRoomChangedPayload](payload); err == nil {
+		c.rooms = append(c.rooms, p.Room)
 	}
 	return nil
 }

@@ -21,7 +21,7 @@ type TrayItem struct {
 
 // trayMenuClickEvent carries the clicked item's ID to the pages; the web side
 // listens on "tray.menuClick" (packages/desktop tray.onMenuClick).
-var trayMenuClickEvent = mygo.NewEvent[string]("tray.menuClick")
+var trayMenuClickEvent = mygo.NewEvent[string](eventTrayMenuClick)
 
 // trayHandle is the system tray icon, created once in WhenReady with the app
 // favicon embedded in the frontend dist.

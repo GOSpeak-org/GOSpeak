@@ -245,7 +245,7 @@ export default function AnnouncementsPage() {
 
 					{form.content.trim() && (
 						<div className="border-border bg-muted/40 rounded-sm border p-3">
-							<div className="text-faint-foreground mb-2 text-2xs">预览</div>
+							<div className="text-muted-foreground mb-2 text-2xs">预览</div>
 							<MarkdownText text={form.content} />
 						</div>
 					)}

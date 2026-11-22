@@ -47,7 +47,7 @@ export interface FormProps {
 }
 
 const inputClass =
-	"border-input focus-visible:ring-ring flex h-10 w-full rounded-sm border bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
+	"border-input focus-visible:ring-ring flex h-10 w-full rounded-sm border bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-faint-foreground focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 // Radix Select 不允许空字符串作为 value，用哨兵值映射业务层的空值
 const EMPTY_VALUE = "__empty__";

@@ -19,6 +19,8 @@ type Room struct {
 	CreatedBy     string `gorm:"index;size:64" json:"created_by"`
 	// DomainUUID 归属的语音域 CUID2，不允许为空。
 	DomainUUID string    `gorm:"size:32;uniqueIndex:idx_room_domain_name,priority:2;not null" json:"domain_uuid"`
+	GroupUUID  string    `gorm:"size:36;index" json:"group_uuid"`
+	SortOrder  int       `gorm:"not null;default:0" json:"sort_order"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
@@ -37,6 +39,9 @@ func (r *Room) TableName() string {
 const (
 	RoomTypeText  = "text"
 	RoomTypeVoice = "voice"
+
+	// MinVoiceRoomLimit 语音房人数下限。0 仅表示文字房不限人数，语音房必须至少容纳两人。
+	MinVoiceRoomLimit = 2
 )
 
 func NormalizeRoomType(t string) string {

@@ -20,9 +20,9 @@ function MemberRow({
 	return (
 		<button
 			type="button"
-			className={`hover:bg-border/50 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
-				member.online ? "" : "opacity-60"
-			} ${selected ? "bg-muted" : ""}`}
+			className={`hover:bg-muted flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+				member.online ? "" : "text-faint-foreground"
+			} ${selected ? "bg-selected" : ""}`}
 			data-active={selected || undefined}
 			aria-current={selected ? "true" : undefined}
 			onClick={onClick}
@@ -108,7 +108,7 @@ export default function MemberSidebar({ onStartChat }: MemberSidebarProps) {
 	};
 
 	return (
-		<div className="border-border bg-card ml-auto flex h-full w-52 shrink-0 flex-col overflow-hidden border-l">
+		<div className="border-border ml-auto flex h-full w-52 shrink-0 flex-col overflow-hidden border-l">
 			<div className="border-border text-muted-foreground flex h-10 items-center border-b px-3 text-xs font-bold">
 				成员 ({roster.total})
 			</div>

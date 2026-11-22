@@ -1,5 +1,6 @@
-import { Switch } from "@gospeak/components";
-import { Globe, Lock, Save, ShieldCheck } from "lucide-react";
+import { Button, Switch } from "@gospeak/components";
+import { Globe, Lock, Save, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { useRef } from "react";
 import type { Domain } from "@/api/domain";
 
 export interface DomainSettingsFormProps {
@@ -15,6 +16,12 @@ export interface DomainSettingsFormProps {
 	setIsPublic: (value: boolean) => void;
 	requireJoinApproval: boolean;
 	setRequireJoinApproval: (value: boolean) => void;
+	iconUrl: string;
+	iconUploading: boolean;
+	iconProgress: number;
+	iconError: string;
+	onUploadIcon: (file: File) => void;
+	onRemoveIcon: () => void;
 	saving: boolean;
 	formError: string;
 	onSave: (event: React.FormEvent) => void;
@@ -23,26 +30,63 @@ export interface DomainSettingsFormProps {
 const inputClass =
 	"border-input bg-card text-foreground focus-visible:ring-ring flex h-9 w-full rounded-sm border px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2";
 
+const avatarTileClass =
+	"bg-accent text-accent-foreground flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl";
+
+function DomainAvatarPreview({
+	name,
+	iconUrl,
+}: {
+	name: string;
+	iconUrl: string;
+}) {
+	const initial = (Array.from(name.trim())[0] ?? "?").toUpperCase();
+	return (
+		<span className={avatarTileClass}>
+			{iconUrl ? (
+				<img
+					src={iconUrl}
+					alt={name}
+					className="size-16 rounded-xl object-cover"
+				/>
+			) : (
+				<span className="text-xl font-bold">{initial}</span>
+			)}
+		</span>
+	);
+}
+
 export function DomainSettingsForm(props: DomainSettingsFormProps) {
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const displayName = props.name || props.domain?.name || "";
+	const uploadDisabled = props.iconUploading || props.saving;
+
 	if (!props.canManage) {
 		return (
 			<div className="grid gap-3 text-sm">
 				<div className="text-muted-foreground">当前账号无编辑权限</div>
+				<div className="flex items-center gap-3">
+					<DomainAvatarPreview
+						name={props.domain?.name ?? ""}
+						iconUrl={props.domain?.icon_url ?? ""}
+					/>
+					<span className="text-muted-foreground text-xs">域头像</span>
+				</div>
 				<dl className="grid gap-2">
 					<div>
-						<dt className="text-faint-foreground text-xs">域名称</dt>
+						<dt className="text-muted-foreground text-xs">域名称</dt>
 						<dd>{props.domain?.name}</dd>
 					</div>
 					<div>
-						<dt className="text-faint-foreground text-xs">描述</dt>
+						<dt className="text-muted-foreground text-xs">描述</dt>
 						<dd>{props.domain?.description || "-"}</dd>
 					</div>
 					<div>
-						<dt className="text-faint-foreground text-xs">公开状态</dt>
+						<dt className="text-muted-foreground text-xs">公开状态</dt>
 						<dd>{props.domain?.is_public ? "公开" : "私有"}</dd>
 					</div>
 					<div>
-						<dt className="text-faint-foreground text-xs">加入审核</dt>
+						<dt className="text-muted-foreground text-xs">加入审核</dt>
 						<dd>
 							{props.domain?.require_join_approval ? "需审核" : "无需审核"}
 						</dd>
@@ -54,6 +98,56 @@ export function DomainSettingsForm(props: DomainSettingsFormProps) {
 
 	return (
 		<form onSubmit={props.onSave} className="flex flex-col gap-4" noValidate>
+			<div className="flex items-center gap-3">
+				<DomainAvatarPreview name={displayName} iconUrl={props.iconUrl} />
+				<div className="flex min-w-0 flex-col gap-1.5">
+					<div className="flex flex-wrap gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={uploadDisabled}
+							onClick={() => fileInputRef.current?.click()}
+						>
+							<Upload size={14} />
+							{props.iconUploading ? "上传中" : "上传头像"}
+						</Button>
+						{props.iconUrl && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								disabled={uploadDisabled}
+								onClick={props.onRemoveIcon}
+							>
+								<Trash2 size={14} />
+								移除头像
+							</Button>
+						)}
+					</div>
+					<span className="text-muted-foreground text-xs">
+						{props.iconUploading
+							? `正在上传 ${props.iconProgress}%`
+							: "支持 PNG / JPG / WebP，按 1:1 展示"}
+					</span>
+					{props.iconError && (
+						<span role="alert" className="text-destructive text-xs">
+							{props.iconError}
+						</span>
+					)}
+				</div>
+				<input
+					ref={fileInputRef}
+					type="file"
+					accept="image/png,image/jpeg,image/webp"
+					className="hidden"
+					onChange={(e) => {
+						const file = e.currentTarget.files?.[0];
+						e.currentTarget.value = "";
+						if (file) props.onUploadIcon(file);
+					}}
+				/>
+			</div>
 			<label className="block">
 				<span className="text-muted-foreground mb-1 block text-xs font-medium">
 					域名称
@@ -126,7 +220,7 @@ export function DomainSettingsForm(props: DomainSettingsFormProps) {
 			<button
 				type="submit"
 				className="bg-primary text-primary-foreground hover:opacity-90 inline-flex h-9 cursor-pointer items-center gap-1.5 self-start rounded-sm px-3 text-sm transition-opacity disabled:pointer-events-none disabled:opacity-50"
-				disabled={props.saving}
+				disabled={props.saving || props.iconUploading}
 			>
 				<Save size={16} />
 				保存设置

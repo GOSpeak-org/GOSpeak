@@ -270,7 +270,7 @@ export function AudioPanel() {
 					<div className="mb-2 flex items-center justify-between gap-3">
 						<div>
 							<div className="text-sm font-medium">麦克风测试</div>
-							<div className="text-faint-foreground text-xs">
+							<div className="text-muted-foreground text-xs">
 								本地电平检测，不会推流
 							</div>
 						</div>

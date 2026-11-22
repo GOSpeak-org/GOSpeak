@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { fetchUserInfo } from "@/api/user";
 import Avatar from "@/components/common/avatar";
 import { LoadingRegion } from "@/components/common/Skeletons";
@@ -84,12 +85,12 @@ export default function UserInfoPopover({
 	const handle = userData?.name || initialMember?.name || identity;
 	const avatar = userData?.avatar ?? initialMember?.avatar ?? "";
 
-	return (
+	return createPortal(
 		<>
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click to close */}
-			<div className="fixed inset-0 z-40" onClick={onClose} />
+			<div className="fixed inset-0 z-dropdown" onClick={onClose} />
 			<div
-				className="border-border bg-card fixed z-50 w-56 overflow-hidden rounded-lg border shadow-xl"
+				className="border-border bg-popover fixed z-dialog w-56 overflow-hidden rounded-lg border shadow-xl"
 				style={{ left: `${cardPos.left}px`, top: `${cardPos.top}px` }}
 			>
 				{showSkeleton ? (
@@ -115,15 +116,16 @@ export default function UserInfoPopover({
 						/>
 						<div className="text-center">
 							<div className="text-sm font-bold">{displayName}</div>
-							<div className="text-faint-foreground text-xs">@{handle}</div>
+							<div className="text-muted-foreground text-xs">@{handle}</div>
 							{/* 固定占位，接口返回前不塌陷、返回后不跳动 */}
-							<div className="bg-muted text-foreground mt-1 inline-block min-w-8 rounded-full px-2 py-0.5 text-2xs">
+							<div className="bg-muted text-muted-foreground mt-1 inline-block min-w-8 rounded-full px-2 py-0.5 text-2xs">
 								{userData?.role || "\u00A0"}
 							</div>
 						</div>
 					</div>
 				)}
 			</div>
-		</>
+		</>,
+		document.body,
 	);
 }

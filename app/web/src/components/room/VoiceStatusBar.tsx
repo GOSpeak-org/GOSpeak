@@ -37,7 +37,7 @@ const TONE = {
 	success: { dot: "bg-success", text: "text-success" },
 	warning: { dot: "bg-warning", text: "text-warning" },
 	error: { dot: "bg-destructive", text: "text-destructive" },
-	muted: { dot: "bg-foreground/40", text: "text-faint-foreground" },
+	muted: { dot: "bg-muted-foreground", text: "text-faint-foreground" },
 };
 
 /**
@@ -123,14 +123,14 @@ export default function VoiceStatusBar({ className }: { className?: string }) {
 	return (
 		<div
 			className={clsx(
-				"bg-muted/60 border-border flex shrink-0 items-center gap-1 border-t px-2 py-1.5 select-none",
+				"border-border flex shrink-0 items-center gap-1 border-t px-2 py-1.5 select-none",
 				className,
 			)}
 		>
 			<Signal size={16} className={clsx("ml-1 shrink-0", tone.text)} />
 			<button
 				type="button"
-				className="hover:bg-card/70 flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm px-1 py-0.5 text-left transition-colors"
+				className="hover:bg-muted flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-sm px-1 py-0.5 text-left transition-colors"
 				onClick={openVoiceRoom}
 				title="返回语音房间"
 			>
@@ -175,8 +175,8 @@ export default function VoiceStatusBar({ className }: { className?: string }) {
 						className={clsx(
 							"flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors",
 							localSharing
-								? "bg-card text-primary"
-								: "text-muted-foreground hover:bg-card hover:text-foreground",
+								? "bg-selected text-primary"
+								: "text-muted-foreground hover:bg-muted hover:text-foreground",
 						)}
 						onClick={() => {
 							const setScreenShareEnabled = sfuClient?.setScreenShareEnabled;
@@ -213,7 +213,7 @@ export default function VoiceStatusBar({ className }: { className?: string }) {
 			)}
 			<button
 				type="button"
-				className="text-muted-foreground hover:bg-card hover:text-destructive flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors"
+				className="text-muted-foreground hover:bg-muted hover:text-destructive flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors"
 				onClick={() => void handleManualLeave()}
 				title="断开连接"
 				aria-label="断开连接"

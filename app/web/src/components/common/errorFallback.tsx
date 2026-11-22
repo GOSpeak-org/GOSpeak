@@ -1,8 +1,10 @@
 import { Button } from "@gospeak/components";
 import { Copy, House, RefreshCw, RotateCcw, TriangleAlert } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { createClipboard } from "@gospeak/desktop";
 
 const IS_DEV = import.meta.env.DEV;
+const clipboard = createClipboard();
 
 /** component = 局部模块兜底；page = 整页兜底（含路由级错误）。 */
 export type ErrorLevel = "component" | "page";
@@ -53,7 +55,7 @@ export function ErrorFallback({
 
 	const copyDetails = async () => {
 		try {
-			await navigator.clipboard.writeText(detailsText);
+			await clipboard.writeText(detailsText);
 			setCopied(true);
 			window.setTimeout(() => setCopied(false), 2000);
 		} catch {

@@ -79,7 +79,7 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 					<tbody>
 						{status === "loading" &&
 							Array.from({ length: 5 }).map((_, i) => (
-								<tr key={`sk-${i}`} className="border-border/60 border-b">
+								<tr key={`sk-${i}`} className="border-border border-b">
 									{Array.from({ length: 6 }).map((__, c) => (
 										<td key={c} className="px-3 py-2.5">
 											<Skeleton
@@ -94,7 +94,7 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 							const canDelete = canManageRoomAction(room, "room:delete");
 							const showActions = canEdit || canDelete;
 							return (
-								<tr key={room.id} className="border-border/60 border-b">
+								<tr key={room.id} className="border-border border-b">
 									<td className="min-w-0 max-w-[260px] px-3 py-2">
 										<div className="truncate font-medium">
 											{room.type === "text" ? "# " : ""}
@@ -102,7 +102,7 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 										</div>
 									</td>
 									<td className="px-3 py-2">
-										<span className="bg-muted text-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs">
+										<span className="bg-muted text-muted-foreground inline-flex items-center rounded-full px-2 py-0.5 text-xs">
 											{roomTypeLabel(room.type)}
 										</span>
 									</td>
@@ -161,7 +161,7 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 			{status === "error" && (
 				<div
 					role="alert"
-					className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
+					className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
 				>
 					<span className="text-destructive">房间加载失败：{error}</span>
 					{props.onRefresh && (
@@ -179,7 +179,7 @@ export default function DomainRoomTable(props: DomainRoomTableProps) {
 			{status === "ready-with-error" && (
 				<div
 					role="alert"
-					className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
+					className="border-border bg-card flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm"
 				>
 					<span className="text-destructive">房间刷新失败，已保留现有数据</span>
 					{props.onRefresh && (

@@ -8,6 +8,7 @@ import {
 	refreshSession,
 } from "@/api/authTransport";
 import { USER_STORAGE_KEY } from "@/api/sessionCache";
+import { reportError } from "@/utils/errorReport";
 
 export interface UserInfo {
 	id: number;
@@ -108,7 +109,13 @@ async function probeSession(): Promise<boolean> {
 					.then(() => {
 						sessionExpiresAt = readSessionExpiry();
 					})
-					.catch(() => {});
+					.catch((error) => {
+						reportError({
+							error,
+							scope: "global",
+							source: "session.expiry-probe",
+						});
+					});
 			}
 			return true;
 		}

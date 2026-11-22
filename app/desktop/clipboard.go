@@ -7,18 +7,18 @@ import (
 	"github.com/egoist/mygo"
 )
 
-//go:embed preload_clipboard.js
-var clipboardPreloadScript string
-
 //go:embed preload_clientlog.js
 var clientLogPreloadScript string
 
-// pagePreloadScript is injected into every page: clipboard routing plus the
-// client-log bridge (the host's copy of the page's log, readable after a
-// WebView crash).
-var pagePreloadScript = clipboardPreloadScript + "\n" + clientLogPreloadScript
+// pagePreloadScript is injected into every page. Only the client-log bridge is
+// injected: clipboard access goes through the Clipboard binding called by
+// @gospeak/desktop's createClipboard(), so the page never patches
+// navigator.clipboard and WebView2 shows no clipboard permission prompt.
+var pagePreloadScript = clientLogPreloadScript
 
-// Clipboard backs the page's navigator.clipboard with the OS clipboard.
+// Clipboard backs the page's clipboard capability with the OS clipboard. The
+// page calls these through @gospeak/desktop, never via navigator.clipboard in
+// the desktop host.
 type Clipboard struct{}
 
 func (Clipboard) ReadText(context.Context) string {

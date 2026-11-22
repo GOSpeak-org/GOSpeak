@@ -70,7 +70,7 @@ export const InTableCompact: StoryObj = {
 					</tr>
 				</thead>
 				<tbody>
-					<tr className="border-t border-border/60">
+					<tr className="border-t border-border">
 						<td className="px-3 py-2">张三</td>
 						<td className="px-3 py-2">
 							<Select value={role} onValueChange={setRole}>

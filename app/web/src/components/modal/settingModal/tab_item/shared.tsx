@@ -18,7 +18,7 @@ export const Toggle = ({
 		<div className="min-w-0">
 			<div className="text-sm font-medium">{label}</div>
 			{desc ? (
-				<div className="text-faint-foreground text-xs">{desc}</div>
+				<div className="text-muted-foreground text-xs">{desc}</div>
 			) : null}
 		</div>
 		<Switch
@@ -43,14 +43,14 @@ export const Section = ({
 }) => (
 	<section className="flex flex-col gap-2">
 		<div className="flex items-center justify-between gap-2">
-			<div className="text-faint-foreground flex flex-1 items-center gap-2 text-xs">
+			<div className="text-muted-foreground flex flex-1 items-center gap-2 text-xs">
 				<span className="bg-border h-px flex-1" />
 				{title}
 				<span className="bg-border h-px flex-1" />
 			</div>
 			{action}
 		</div>
-		{desc ? <p className="text-faint-foreground text-xs">{desc}</p> : null}
+		{desc ? <p className="text-muted-foreground text-xs">{desc}</p> : null}
 		{children}
 	</section>
 );
@@ -69,10 +69,10 @@ export const Field = ({
 	<label className="block">
 		<span className="mb-1 block text-sm">{label}</span>
 		{desc ? (
-			<span className="text-faint-foreground mb-1 block text-xs">{desc}</span>
+			<span className="text-muted-foreground mb-1 block text-xs">{desc}</span>
 		) : null}
 		{children}
-		{hint ? <p className="text-faint-foreground mt-1 text-xs">{hint}</p> : null}
+		{hint ? <p className="text-muted-foreground mt-1 text-xs">{hint}</p> : null}
 	</label>
 );
 

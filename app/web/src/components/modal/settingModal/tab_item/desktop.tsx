@@ -62,7 +62,7 @@ function HotkeyField({
 			type="text"
 			value={draft}
 			placeholder={placeholder}
-			className="border-border bg-background h-9 w-full rounded-sm border px-2 text-sm"
+			className="border-border bg-card h-9 w-full rounded-sm border px-2 text-sm"
 			onChange={(e) => setDraft(e.target.value)}
 			// 快捷键在失焦 / 回车时才注册：避免每敲一个字符就抢占一次全局热键
 			onBlur={() => {
@@ -179,21 +179,21 @@ function UpdateSection() {
 					<div className="min-w-0">
 						<div className="text-sm font-medium">
 							当前版本
-							<span className="text-faint-foreground ml-2 font-normal">
+							<span className="text-muted-foreground ml-2 font-normal">
 								{current || "…"}
 							</span>
 						</div>
 						{status === "checking" && (
-							<div className="text-faint-foreground text-xs">正在检查更新…</div>
+							<div className="text-muted-foreground text-xs">正在检查更新…</div>
 						)}
 						{status === "latest" && <div className="text-xs">已是最新版本</div>}
 						{status === "unsupported" && (
-							<div className="text-faint-foreground text-xs">
+							<div className="text-muted-foreground text-xs">
 								当前构建不支持自动更新，请前往发布页手动下载。
 							</div>
 						)}
 						{status === "downloading" && (
-							<div className="text-faint-foreground text-xs">
+							<div className="text-muted-foreground text-xs">
 								正在下载更新… {Math.round(progress * 100)}%
 							</div>
 						)}
@@ -251,7 +251,7 @@ function UpdateSection() {
 							<span className="ml-2 font-medium">{update.version}</span>
 						</div>
 						{update.notes ? (
-							<div className="text-faint-foreground mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs">
+							<div className="text-muted-foreground mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap text-xs">
 								{update.notes}
 							</div>
 						) : null}
@@ -323,7 +323,7 @@ function DesktopForm() {
 					</Select>
 				</Field>
 				{cfg?.policy === "auto" && (
-					<p className="text-faint-foreground text-xs">
+					<p className="text-muted-foreground text-xs">
 						自动模式：进入语音房间后，切到其他应用时显示，切回 GOSpeak
 						自动隐藏；显隐快捷键的最后一次操作优先生效，直到条件再次变化。
 					</p>
@@ -371,7 +371,7 @@ function DesktopForm() {
 						max={1}
 						step={0.05}
 						value={cfg?.opacity ?? 1}
-						className="bg-border h-1.5 w-full cursor-pointer accent-[var(--primary)]"
+						className="bg-border h-1.5 w-full cursor-pointer accent-primary"
 						onChange={(e) => {
 							const v = Number(e.target.value);
 							patch({ opacity: v });
@@ -408,7 +408,7 @@ function DesktopForm() {
 					/>
 				</Field>
 
-				<p className="text-faint-foreground text-xs">
+				<p className="text-muted-foreground text-xs">
 					若覆盖层未显示，请把游戏的显示模式改为「无边框窗口」—— Windows
 					的独占全屏无法被任何置顶窗口覆盖。
 				</p>

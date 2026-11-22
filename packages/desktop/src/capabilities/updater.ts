@@ -1,4 +1,5 @@
 import { bridge, command } from "../bridge";
+import { desktopEvents } from "../events";
 import { isDesktop } from "../runtime";
 
 export interface UpdateInfo {
@@ -85,7 +86,7 @@ const native: Updater = {
 	check: () => bridge.invoke<UpdateInfo>(command("Updater", "Check")),
 	install: () => bridge.invoke(command("Updater", "Install")),
 	onProgress: (handler) =>
-		bridge.listen("updater.progress", (p) => handler(p as number)),
+		bridge.listen(desktopEvents.updaterProgress, (p) => handler(p as number)),
 	currentVersion: () =>
 		bridge.invoke<string>(command("Updater", "CurrentVersion")),
 	openReleasePage: () => bridge.invoke(command("Updater", "OpenReleasePage")),

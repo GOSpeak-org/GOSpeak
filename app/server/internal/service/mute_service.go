@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"GOSpeak/internal/bus"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/repository"
@@ -66,22 +67,12 @@ func (s *MuteService) SetEventBus(b cacheBus) {
 
 // OnRemoteInvalidate 收到其他实例的禁言变更事件后清空本地缓存。
 func (s *MuteService) OnRemoteInvalidate(payload interface{}) {
-	var userID uint
-	var identity string
-	switch p := payload.(type) {
-	case map[string]string:
-		userID = parseUserID(p["user_id"])
-		identity = p["identity"]
-	case map[string]interface{}:
-		switch v := p["user_id"].(type) {
-		case string:
-			userID = parseUserID(v)
-		case float64:
-			userID = uint(v)
-		}
-		identity, _ = p["identity"].(string)
+	p, err := bus.DecodePayload[MuteChangedPayload](payload)
+	if err != nil {
+		log.Printf("[Mute] invalid mute-changed payload: %T (%v)", payload, err)
+		return
 	}
-	s.invalidateMute(userID, identity, false)
+	s.invalidateMute(parseUserID(p.UserID), p.Identity, false)
 }
 
 func parseUserID(raw string) uint {

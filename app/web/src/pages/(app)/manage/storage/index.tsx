@@ -38,7 +38,7 @@ export const Route = createFileRoute("/(app)/manage/storage/")({
 });
 
 const inputClass =
-	"border-input bg-card text-foreground focus-visible:ring-ring placeholder:text-faint-foreground flex h-9 w-full rounded-sm border px-3 text-sm focus-visible:outline-none focus-visible:ring-2";
+	"border-input bg-card text-foreground focus-visible:ring-ring placeholder:text-faint-foreground flex h-9 w-full rounded-sm border px-3 text-sm focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50";
 const labelClass = "mb-1 block text-sm";
 const btn = buttonVariants({ variant: "outline" });
 
@@ -281,6 +281,7 @@ function StoragePage() {
 									aria-label="路径前缀"
 									value={pathPrefix}
 									onChange={(e) => setPathPrefix(e.target.value)}
+									disabled={providerType === "local"}
 								/>
 							</label>
 							<label className="block">

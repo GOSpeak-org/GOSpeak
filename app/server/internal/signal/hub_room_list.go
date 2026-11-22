@@ -5,6 +5,7 @@ import (
 
 	"GOSpeak/internal/bus"
 	"GOSpeak/internal/logger"
+	"GOSpeak/internal/model"
 	"GOSpeak/internal/protocol"
 
 	"golang.org/x/sync/errgroup"
@@ -55,6 +56,8 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 						Count:         0,
 						CreatedAt:     r.CreatedAt.UnixMilli(),
 						CreatedBy:     r.CreatedBy,
+						GroupUUID:     r.GroupUUID,
+						SortOrder:     r.SortOrder,
 					}
 				}
 				if len(rooms) < roomListPageSize || page*roomListPageSize >= int(total) {
@@ -117,6 +120,10 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 			info.AudioOnly = existing.AudioOnly
 			info.AllowAudience = existing.AllowAudience
 			info.CreatedAt = existing.CreatedAt
+			// 分组与排序只存在于 DB 记录：活跃房间必须沿用，否则一旦有人进房，
+			// 房间会从分组里掉到未分组（进出房来回切才恢复）。
+			info.GroupUUID = existing.GroupUUID
+			info.SortOrder = existing.SortOrder
 		}
 		// 有 KV 时补齐其他实例成员，修正 Count；统一补全用户资料/禁言
 		if h.membershipStore != nil {
@@ -157,7 +164,11 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 
 			snaps := make(map[string]bus.RoomMembersSnapshot, len(remoteNames))
 			if bulk, ok := h.membershipStore.(bulkRoomMembersReader); ok {
-				snaps, _ = bulk.GetRoomMembersBatch(ctx, remoteNames)
+				var batchErr error
+				snaps, batchErr = bulk.GetRoomMembersBatch(ctx, remoteNames)
+				if batchErr != nil {
+					logger.WithComponent("Signal").Infof("[Signal] batch room members failed: %v", batchErr)
+				}
 			} else {
 				for _, name := range remoteNames {
 					if snap, getErr := h.membershipStore.GetRoomMembers(ctx, name); getErr == nil {
@@ -213,13 +224,62 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 		}
 		result = append(result, r)
 	}
-	sort.Slice(result, func(i, j int) bool {
+	_, groupOrder, ungroupedPos := h.layoutSummary(domainUUID)
+	blockOf := func(r RoomInfo) int {
+		if r.GroupUUID == "" {
+			return ungroupedPos
+		}
+		if i, ok := groupOrder[r.GroupUUID]; ok {
+			if i < ungroupedPos {
+				return i
+			}
+			return i + 1
+		}
+		return len(groupOrder) + 1
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		bi, bj := blockOf(result[i]), blockOf(result[j])
+		if bi != bj {
+			return bi < bj
+		}
+		if result[i].SortOrder != result[j].SortOrder {
+			return result[i].SortOrder < result[j].SortOrder
+		}
 		if result[i].CreatedAt != result[j].CreatedAt {
 			return result[i].CreatedAt < result[j].CreatedAt
 		}
 		return result[i].ID < result[j].ID
 	})
 	return result
+}
+
+// layoutSummary 读取域级分组布局摘要，供房间排序与前端渲染分组标题。
+func (h *Hub) layoutSummary(domainUUID string) (protocol.RoomListLayoutPayload, map[string]int, int) {
+	var groups []model.DomainRoomGroup
+	var layout model.DomainRoomLayout
+	if h.layoutStore != nil && domainUUID != "" {
+		var err error
+		groups, err = h.layoutStore.Groups(domainUUID)
+		if err != nil {
+			logger.WithComponent("Signal").Infof("[Signal] room layout groups for %s: %v", domainUUID, err)
+		}
+		layout, err = h.layoutStore.Layout(domainUUID)
+		if err != nil {
+			logger.WithComponent("Signal").Infof("[Signal] room layout for %s: %v", domainUUID, err)
+		}
+	}
+	summary := protocol.RoomListLayoutPayload{
+		Groups:            make([]protocol.RoomListGroupPayload, 0, len(groups)),
+		UngroupedPosition: layout.UngroupedPosition,
+	}
+	groupOrder := make(map[string]int, len(groups))
+	for i, g := range groups {
+		groupOrder[g.UUID] = i
+		summary.Groups = append(summary.Groups, protocol.RoomListGroupPayload{
+			UUID: g.UUID, Name: g.Name, SortOrder: g.SortOrder,
+		})
+	}
+	return summary, groupOrder, layout.UngroupedPosition
 }
 
 // localRoomSnapshots 批量读取本地活跃房间的成员快照；后端支持批量时一次读取，
@@ -258,9 +318,11 @@ func (h *Hub) broadcastRoomList(domainUUID string) {
 	} else {
 		rooms = h.getMergedRooms(domainUUID)
 	}
+	summary, _, _ := h.layoutSummary(domainUUID)
 	h.fanout.BroadcastToRoom(domainRoomKey(domainUUID), EventRoomListResult, protocol.RoomListResultPayload{
-		Rooms: rooms,
-		Count: len(rooms),
+		Rooms:  rooms,
+		Count:  len(rooms),
+		Layout: summary,
 	})
 }
 

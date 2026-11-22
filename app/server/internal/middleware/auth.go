@@ -21,16 +21,20 @@ type tokenVersionChecker interface {
 	GetTokenVersionByUUID(userUUID string) (uint, error)
 }
 
+// defaultPasswordChecker 判断用户是否仍在使用默认口令（管理员首次改密门禁）。
+type defaultPasswordChecker func(userUUID string) (bool, error)
+
 // BlacklistChecker 校验 token 是否已吊销，nil 时按未黑名单放行（fail-open 语义）。
 type BlacklistChecker func(key string) (bool, error)
 
 // Dependencies 聚合 HTTP/WS 鉴权所需的业务实现，由组合根一次注入。
 type Dependencies struct {
-	PermissionChecker   permissionChecker
-	TokenVersionChecker tokenVersionChecker
-	DomainChecker       func(domainUUID, userUUID string) bool
-	BlacklistChecker    BlacklistChecker
-	AuthCookieName      string
+	PermissionChecker       permissionChecker
+	TokenVersionChecker     tokenVersionChecker
+	DefaultPasswordChecker  defaultPasswordChecker
+	DomainChecker           func(domainUUID, userUUID string) bool
+	BlacklistChecker        BlacklistChecker
+	AuthCookieName          string
 }
 
 // Auth 持有不可变依赖快照，生产路径由 Configure 一次注入。
@@ -53,6 +57,9 @@ func Configure(deps Dependencies) {
 	}
 	if deps.TokenVersionChecker != nil {
 		defaultAuth.deps.TokenVersionChecker = deps.TokenVersionChecker
+	}
+	if deps.DefaultPasswordChecker != nil {
+		defaultAuth.deps.DefaultPasswordChecker = deps.DefaultPasswordChecker
 	}
 	if deps.DomainChecker != nil {
 		defaultAuth.deps.DomainChecker = deps.DomainChecker
@@ -83,6 +90,14 @@ var tokenVersionCache = struct {
 	sync.Mutex
 	m map[string]tokenVersionCacheEntry
 }{m: make(map[string]tokenVersionCacheEntry)}
+
+// InvalidateTokenVersion 在改密/改角色后清除 token 版本缓存，
+// 让下一次鉴权立即从 DB 读取最新版本，消除缓存旧值窗口。
+func InvalidateTokenVersion(userUUID string) {
+	tokenVersionCache.Lock()
+	delete(tokenVersionCache.m, userUUID)
+	tokenVersionCache.Unlock()
+}
 
 // SetPermissionChecker 注入权限查询实现（测试缝；生产路径走 Configure）。
 func SetPermissionChecker(c permissionChecker) {

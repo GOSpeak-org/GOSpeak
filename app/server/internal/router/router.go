@@ -64,6 +64,8 @@ type Handlers struct {
 	Monitor      *handler.MonitorHandler
 	SystemUpdate *handler.SystemUpdateHandler
 	Domain       *handler.DomainHandler
+	DomainLayout *handler.DomainLayoutHandler
+	RoomLayout   *handler.RoomLayoutHandler
 	Conversation *handler.ConversationHandler
 	Audit        *handler.AuditHandler
 	Announcement *handler.AnnouncementHandler
@@ -115,9 +117,14 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 	protected := api.Group("")
 	protected.Use(middleware.JWTAuth())
 	protected.Use(middleware.BanCheck())
+	// 默认口令管理员只能先改密/登出：auth 子组豁免，其余 protected 路由强制。
+	protectedNoPwdGate := api.Group("")
+	protectedNoPwdGate.Use(middleware.JWTAuth())
+	protectedNoPwdGate.Use(middleware.BanCheck())
+	authRoutes.RegisterProtected(protectedNoPwdGate.Group("/auth"), h.Auth)
+	protected.Use(middleware.RequirePasswordChanged())
 	userRoutes.Register(protected.Group("/user"), h.User)
 	userGroupRoutes.RegisterProtected(protected.Group("/user-group"), h.UserGroup)
-	authRoutes.RegisterProtected(protected.Group("/auth"), h.Auth)
 	signalRoutes.RegisterProtected(protected.Group("/signal"), h.Signal)
 	oauthRoutes.RegisterProtected(protected.Group("/oauth"), h.OAuth)
 	oauthRoutes.RegisterAdmin(protected.Group("/oauth/admin"), h.OAuth)
@@ -133,7 +140,7 @@ func SetupRoutes(r *gin.Engine, h *Handlers) *gin.Engine {
 		conversationRoutes.RegisterProtected(protected.Group("/conversation"), h.Conversation)
 	}
 	if h.Domain != nil {
-		domainRoutes.Register(protected.Group("/domain"), h.Domain)
+		domainRoutes.Register(protected.Group("/domain"), h.Domain, h.DomainLayout, h.RoomLayout)
 	}
 	auditRoutes.RegisterProtected(protected.Group("/audit"), h.Audit)
 	if h.Announcement != nil {

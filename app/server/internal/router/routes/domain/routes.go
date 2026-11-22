@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Register(r *gin.RouterGroup, h *handler.DomainHandler) {
+func Register(r *gin.RouterGroup, h *handler.DomainHandler, layoutH *handler.DomainLayoutHandler, roomLayoutH *handler.RoomLayoutHandler) {
 	r.POST("/create", middleware.RateLimit(10, time.Minute), middleware.RequirePermission(permcode.PermDomainCreate), h.Create)
 	r.POST("/get", middleware.RequireDomainMember(), h.Get)
 	r.POST("/list", middleware.RequirePermission(permcode.PermDomainRead), h.List)
@@ -27,4 +27,12 @@ func Register(r *gin.RouterGroup, h *handler.DomainHandler) {
 	r.POST("/roles/delete", middleware.RequireDomainMember(), h.DeleteRole)
 	r.POST("/members/update-role", middleware.RequireDomainMember(), h.UpdateMemberRole)
 	r.POST("/my-permissions", middleware.RequireDomainMember(), h.MyPermissions)
+	if layoutH != nil {
+		r.POST("/layout/get", layoutH.Get)
+		r.POST("/layout/save", layoutH.Save)
+	}
+	if roomLayoutH != nil {
+		r.POST("/room-layout/get", middleware.RequireDomainMember(), roomLayoutH.Get)
+		r.POST("/room-layout/save", middleware.RequireDomainMember(), roomLayoutH.Save)
+	}
 }

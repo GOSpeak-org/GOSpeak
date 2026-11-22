@@ -2,7 +2,7 @@
 
 > 版本: 1.1 · 更新: 2026-07-11
 >
-> **统一部署入口已迁到 [`deploy/DEPLOY.md`](../deploy/DEPLOY.md) + [`deploy/docker-compose.yml`](../deploy/docker-compose.yml)。**
+> **统一部署入口已迁到 [`deploy/DEPLOY.md`](../deploy/DEPLOY.md)。** 编排文件二选一：精简起步 `deploy/docker-compose.yml`、全档位 `deploy/docker-compose.standard.yml`；启动必须显式带 `-f`，不要用裸 `docker compose up -d`（会选中精简版，`COMPOSE_PROFILES` 不生效）。
 > 本文保留概念说明；一键命令与公网清单以 `deploy/DEPLOY.md` 为准。
 
 GOSpeak 实时音视频平台的部署文档。覆盖本地开发、Docker 部署、生产上线全流程。
@@ -13,7 +13,7 @@ GOSpeak 实时音视频平台的部署文档。覆盖本地开发、Docker 部�
 
 | 组件 | 版本 | 用途 |
 |------|------|------|
-| Go | 1.27.3+ | 后端编译 (需要 CGO, 因 SQLite) |
+| Go | 1.27.4+ | 后端编译 (需要 CGO, 因 SQLite) |
 | Node.js | 22+ | 前端构建 (Vite) |
 | pnpm | 10+ | monorepo 包管理 |
 | Docker | 24+ | 容器化部署 |
@@ -36,11 +36,17 @@ pnpm install
 
 ### 2.2 启动依赖服务
 
+本地开发用精简版起步（只有应用 + LiveKit，无 profiles）：
+
 ```bash
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
-默认启动：应用 + LiveKit（`COMPOSE_PROFILES=app,livekit`，见 `deploy/.env`，由 `deploy/init.sh` 生成）；PostgreSQL / RustFS / 可观测栈按 profile 追加启用；需要自动 HTTPS 时追加 `edge`（内置 Caddy）。
+需要 PostgreSQL / RustFS / 可观测栈 / `edge` 自动 HTTPS 时，改用全档位版并显式指定它——`COMPOSE_PROFILES` 只对 `docker-compose.standard.yml` 生效：
+
+```bash
+docker compose -f deploy/docker-compose.standard.yml up -d   # 档位见 deploy/.env 的 COMPOSE_PROFILES
+```
 
 ### 2.3 启动后端
 
@@ -141,7 +147,7 @@ NATS 总线固定为进程内嵌运行（含 JetStream），承担内部事件�
 
 ### 4.1 依赖服务 — 渐进式数据库三档
 
-首次部署推荐 `cd deploy && ./init.sh` 自动生成配置。`deploy/docker-compose.yml` 用 Compose `profiles` 提供档位组合，档位写在 `deploy/.env` 的 `COMPOSE_PROFILES`，之后命令都是裸 `docker compose up -d`：
+首次部署推荐 `cd deploy && ./init.sh` 自动生成配置。`deploy/docker-compose.standard.yml` 用 Compose `profiles` 提供档位组合，档位写在 `deploy/.env` 的 `COMPOSE_PROFILES`，启动命令必须显式指向该文件：`docker compose -f deploy/docker-compose.standard.yml up -d`（裸 `docker compose up -d` 会选中精简版，档位不生效）：
 
 | 档 | `deploy/.env` 关键项 |
 |----|----------------------|
@@ -157,7 +163,7 @@ NATS 为进程内嵌运行，无需外部部署，也不支持多副本共享外
 
 ### 4.1.1 SFU 配置
 
-与 DB 档正交。`./init.sh` 一步完成档位与密钥配置，或直接改 `deploy/.env`：`COMPOSE_PROFILES` 含 `app,livekit`，`SFU_PROVIDER=livekit`。
+与 DB 档正交。`./init.sh` 一步完成档位与密钥配置，或直接改 `deploy/.env`（`COMPOSE_PROFILES` 只对 `docker-compose.standard.yml` 生效）：含 `app,livekit`，`SFU_PROVIDER=livekit`。
 
 LiveKit 不需要独立域名或证书：应用内置同源反代 `/livekit/*` → 内部 LiveKit `7880`（WebSocket 升级自动处理），浏览器侧 `serverUrl` 由请求 Host 推导为 `wss://<域名>/livekit`。因此 compose 不向公网发布 7880 / 7881：7880 只绑宿主机回环（`127.0.0.1:7880`）供本机调试，公网只保留 `7882` tcp/udp（媒体）与 `3478/udp`（TURN）。
 
@@ -212,11 +218,11 @@ curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/ins
 - [ ] `deploy/.env` 已配置真实密钥（LiveKit、DB、Storage）
 - [ ] `STORAGE_ENCRYPT_KEY` 已设（64 位 hex）
 - [ ] `LIVEKIT_PUBLIC_URL` 保持留空（仅独立域名 / LiveKit Cloud 时显式填写）
-- [ ] 有域名时 `GOSPEAK_DOMAIN` 已填、`COMPOSE_PROFILES` 含 `edge`；已有反代时不含 `edge`
+- [ ] 有域名时 `GOSPEAK_DOMAIN` 已填、`COMPOSE_PROFILES` 含 `edge`，且用 `-f deploy/docker-compose.standard.yml` 启动；已有反代时不含 `edge`
 - [ ] `DB_TYPE` 生产环境用 PostgreSQL/MySQL，非 SQLite
 - [ ] `JWT_KEY` 已修改为强随机值（默认 `default-secret` 不可上生产）
 - [ ] 端口防火墙开放: 80/443（Caddy 或自有反代）+ 7882/tcp + 7882/udp + 3478/udp（媒体）；不需要 7880/7881
-- [ ] HTTPS 终结已配置（有域名用 `edge` 档位内置 Caddy；已有反代则指向 `8998`）
+- [ ] HTTPS 终结已配置（有域名用 `edge` 档位内置 Caddy，且必须使用全档位版；已有反代则指向 `8998`）
 - [ ] 数据库备份策略已就位
 - [ ] 日志收集已配置
 
@@ -228,7 +234,7 @@ git clone <repo> && cd GOSpeak
 cp deploy/.env.example deploy/.env
 # 编辑 deploy/.env 填入生产密钥（或用 deploy/init.sh 自动生成）
 
-# 2. 拉取依赖镜像
+# 2. 启动依赖服务（精简起步：应用 + LiveKit；要 edge/postgres 等档位请改用 -f deploy/docker-compose.standard.yml）
 docker compose -f deploy/docker-compose.yml up -d
 
 # 3. 构建应用
@@ -250,7 +256,7 @@ curl http://localhost:8998/ping      # 存活探针（另有 /readyz 就绪探�
 
 只有一个上游 `gospeak:8998`：`/api`、`/ws`、`/uploads`、`/livekit` 全部同源走它。
 
-- **有域名**：`COMPOSE_PROFILES=app,livekit,edge` + `GOSPEAK_DOMAIN=voice.example.com`，内置 Caddy（`deploy/Caddyfile`）自动申请证书并把 HTTP 重定向到 HTTPS。
+- **有域名**：用全档位版并设 `COMPOSE_PROFILES=app,livekit,edge` + `GOSPEAK_DOMAIN=voice.example.com`（即 `-f deploy/docker-compose.standard.yml`），内置 Caddy（`deploy/Caddyfile`）自动申请证书并把 HTTP 重定向到 HTTPS。
 - **已有反代**（Nginx / Traefik / Dokploy / 宝塔）：不要开 `edge`，把反代指向 `gospeak:8998` 即可；保留 `Host` 与 `X-Forwarded-Proto` 头、放行 WebSocket 升级。**不需要为 LiveKit 写任何 location。**
 - **局域网 / 无域名**：`GOSPEAK_DOMAIN` 留空，Caddy 只听 `:80`（浏览器麦克风需要 localhost 或 HTTPS）。
 
@@ -294,7 +300,7 @@ docker stop gospeak && docker rm gospeak
 docker run -d ... gospeak:latest  # 同 5.2 step 4
 ```
 
-> Compose 部署的升级更简单：`cd deploy && docker compose up -d --build`（见 `deploy/DEPLOY.md`）。
+> Compose 部署的升级更简单：`docker compose -f deploy/docker-compose.standard.yml up -d`（档位版）或 `-f deploy/docker-compose.yml`（精简版），见 `deploy/DEPLOY.md`。
 
 ---
 
@@ -314,7 +320,7 @@ docker run -d ... gospeak:latest  # 同 5.2 step 4
 
 - 架构总览: `ARCHITECTURE.md`
 - Agent 指南: `AGENTS.md`
-- 一键编排方案: `deploy/docker-compose.yml`
+- 一键编排方案: `deploy/docker-compose.standard.yml`
 - 权威部署入口: `deploy/DEPLOY.md`
 - 反代与 HTTPS: `deploy/Caddyfile` + `app/docs/deploy/reverse-proxy.md`
 - 服务成熟度: `docs/sfu-provider-maturity.md`

@@ -122,11 +122,11 @@ export default function RoomDetail() {
 	});
 
 	return (
-		<div className="bg-card relative flex h-full w-full min-w-0 flex-col select-none">
+		<div className="flex h-full w-full min-w-0 flex-col select-none">
 			{!selectedRoom ? (
-				<div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-sm">
+				<div className="text-faint-foreground flex h-full flex-col items-center justify-center gap-2 text-xs">
 					<Volume2 size={32} strokeWidth={1.5} />
-					<span>请从左侧选择一个语音频道</span>
+					<span>请从左侧选择一个房间</span>
 				</div>
 			) : !isJoined ? (
 				/* 未加入时状态直接作为面板内容，而不是盖在成员网格上的浮层卡片：
@@ -166,7 +166,7 @@ export default function RoomDetail() {
 										aria-pressed={active}
 										className={clsx(
 											"bg-card border-border text-foreground flex shrink-0 cursor-pointer items-center gap-2 rounded-sm border px-2 py-1.5 text-sm transition-colors",
-											active ? "ring-primary ring-2" : "hover:bg-muted",
+											active ? "bg-selected" : "hover:bg-muted",
 										)}
 										onClick={() => setActiveKey(entry.key)}
 									>
@@ -208,7 +208,7 @@ export default function RoomDetail() {
 								/>
 							))
 						) : (
-							<div className="text-muted-foreground col-span-full flex h-32 items-center justify-center text-sm">
+							<div className="text-faint-foreground col-span-full flex h-32 items-center justify-center text-xs">
 								已连接，等待成员加入
 							</div>
 						)}

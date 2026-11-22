@@ -3,14 +3,13 @@ import { DEFAULT_SFU_PROVIDER, PROVIDER_LABELS } from "@gospeak/sfu-client";
 import type { SFUProvider } from "@gospeak/sfu-client/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowRight, Info, RefreshCcw, Save, ServerCog } from "lucide-react";
+import { Info, RefreshCcw, Save, ServerCog } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
 	getSFUConfigByProvider,
 	getSFUEnforcementProfile,
 	getSFUProviderCapabilities,
 	listSFUProviders,
-	switchSFUProvider,
 	type UpdateSFUConfigParams,
 	updateSFUConfig,
 } from "@/api/sfu";
@@ -19,7 +18,6 @@ import {
 	ManageLoading,
 	ManagePage,
 } from "@/components/manage/ManageShell";
-import ConfirmModal from "@/components/common/ConfirmModal";
 import { localizedApiMessage } from "@/utils/errorMessages";
 import { denyAccess } from "@/utils/accessDenied";
 import { hasPermission } from "@/utils/permissions";
@@ -80,7 +78,6 @@ function SFUPage() {
 	>({});
 	const [errors, setErrors] = useState<FieldErrors>({});
 	const [saving, setSaving] = useState(false);
-	const [pendingSwitch, setPendingSwitch] = useState<SFUProvider | null>(null);
 
 	const activeProvider = providersResponse?.active ?? DEFAULT_SFU_PROVIDER;
 	const selected = selectedProvider ?? activeProvider;
@@ -209,30 +206,6 @@ function SFUPage() {
 		}
 	};
 
-	const handleSwitch = async (provider: SFUProvider) => {
-		if (saving) return;
-		setSaving(true);
-		try {
-			const cfg = await switchSFUProvider(provider);
-			// 切换激活态不覆盖未保存草稿，只刷新密钥已配置标记。
-			populateProvider(provider, cfg, { preserveDraft: true });
-			setSecretFlagsByProvider((current) => ({
-				...current,
-				[provider]: secretFlagsFromConfig(cfg),
-			}));
-			setSelectedProvider(provider);
-			void refetchList();
-			setPendingSwitch(null);
-			toast.success(`已切换到 ${PROVIDER_LABELS[provider] ?? provider}`);
-		} catch (error) {
-			toastActionError(error, "切换 SFU 提供商失败");
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const showSwitch = selectedProvider && selectedProvider !== activeProvider;
-
 	const _invalidate = () =>
 		void queryClient.invalidateQueries({ queryKey: ["sfu-providers-manage"] });
 
@@ -267,7 +240,7 @@ function SFUPage() {
 
 			{!isLoading && !error && (
 				<>
-					<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-4 flex flex-wrap items-end justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">提供商选择</div>
@@ -304,7 +277,7 @@ function SFUPage() {
 						/>
 					</section>
 
-					<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-3 flex flex-wrap items-start justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">
@@ -324,7 +297,7 @@ function SFUPage() {
 								<span className="border-border rounded-full border px-2 py-0.5">
 									soft 信令
 								</span>
-								<span className="border-border rounded-full border px-2 py-0.5 opacity-60">
+								<span className="border-border rounded-full border px-2 py-0.5 text-faint-foreground">
 									none
 								</span>
 							</div>
@@ -334,7 +307,7 @@ function SFUPage() {
 							{enforcementProfile().details.map((item) => (
 								<div
 									key={item.label}
-									className="border-border/70 bg-muted/20 rounded-lg border px-3 py-2.5"
+									className="border-border bg-muted/40 rounded-lg border px-3 py-2.5"
 								>
 									<div className="mb-1 flex items-center justify-between gap-2">
 										<span className="text-foreground text-xs font-medium">
@@ -356,7 +329,7 @@ function SFUPage() {
 							))}
 						</div>
 
-						<div className="border-border/70 bg-muted/20 text-muted-foreground mt-3 rounded-lg border px-3 py-2 text-2xs">
+						<div className="border-border bg-muted/40 text-muted-foreground mt-3 rounded-lg border px-3 py-2 text-2xs">
 							统一策略：业务/信令 soft 始终执行；媒体强制成功时事件标
 							<code className="mx-1">enforcement=hard|degraded</code>
 							，否则为
@@ -366,7 +339,7 @@ function SFUPage() {
 					</section>
 
 					<section className="space-y-3">
-						<div className="border-border/80 bg-card text-muted-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm shadow-sm">
+						<div className="border-border bg-card text-muted-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm shadow-sm">
 							<Info
 								size={16}
 								className="text-faint-foreground mt-0.5 shrink-0"
@@ -379,25 +352,9 @@ function SFUPage() {
 								。成员静音仍为前端本地远端轨道静音，不依赖服务端能力。
 							</div>
 						</div>
-
-						{showSwitch && (
-							<div className="border-border/80 bg-muted/30 text-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm">
-								<Info
-									size={16}
-									className="text-faint-foreground mt-0.5 shrink-0"
-								/>
-								<div>
-									当前查看{" "}
-									<span className="text-foreground font-medium">
-										{PROVIDER_LABELS[selectedProvider ?? activeProvider]}
-									</span>
-									的配置，尚未激活。保存配置将自动激活，或直接切换。
-								</div>
-							</div>
-						)}
 					</section>
 
-					<section className="border-border/80 bg-card rounded-lg border p-4 shadow-sm md:p-5">
+					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">
@@ -408,21 +365,6 @@ function SFUPage() {
 								</p>
 							</div>
 							<div className="flex items-center gap-2">
-								{showSwitch && (
-									<button
-										type="button"
-										className={btn}
-										onClick={() => {
-											const provider = selectedProvider;
-											// 切换提供商会影响全站语音后端，必须确认
-											if (provider) setPendingSwitch(provider);
-										}}
-										disabled={saving}
-									>
-										<ArrowRight size={16} />
-										{saving ? "切换中..." : "切换到此提供商"}
-									</button>
-								)}
 								<button
 									type="button"
 									className={btn}
@@ -436,7 +378,7 @@ function SFUPage() {
 						</div>
 
 						{selectedProvider && (
-							<div className="border-border/70 bg-muted/20 rounded-lg border p-3 md:p-4">
+							<div className="border-border bg-muted/40 rounded-lg border p-3 md:p-4">
 								<ProviderConfigForm
 									provider={selectedProvider}
 									form={form()}
@@ -450,27 +392,6 @@ function SFUPage() {
 					</section>
 				</>
 			)}
-
-			<ConfirmModal
-				open={!!pendingSwitch}
-				title="切换语音服务提供商"
-				message={
-					<span>
-						切换后全站语音将改用「
-						{pendingSwitch
-							? (PROVIDER_LABELS[pendingSwitch] ?? pendingSwitch)
-							: ""}
-						」。正在进行中的语音房间会断开，需要重新进入。确认切换？
-					</span>
-				}
-				confirmText="切换"
-				confirmVariant="default"
-				loading={saving}
-				onClose={() => setPendingSwitch(null)}
-				onConfirm={() => {
-					if (pendingSwitch) void handleSwitch(pendingSwitch);
-				}}
-			/>
 		</ManagePage>
 	);
 }

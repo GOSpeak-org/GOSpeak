@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"GOSpeak/internal/ws"
 	"GOSpeak/internal/logger"
+	"GOSpeak/internal/ws"
 )
 
 // roomStore abstracts DB room listing for Hub.
@@ -19,6 +19,12 @@ type roomStore interface {
 	List(page, pageSize int, roomType, domainUUID string) ([]model.Room, int64, error)
 	GetByName(name string) (*model.Room, error)
 	GetByDomainAndName(domainUUID, name string) (*model.Room, error)
+}
+
+// roomLayoutStore 提供域级房间分组布局的只读访问，供房间列表排序与标题渲染。
+type roomLayoutStore interface {
+	Groups(domainUUID string) ([]model.DomainRoomGroup, error)
+	Layout(domainUUID string) (model.DomainRoomLayout, error)
 }
 
 // muteStore abstracts mute checking for Hub.
@@ -57,16 +63,17 @@ type Hub struct {
 	rooms           map[string]*Room // roomName -> Room
 	mu              sync.RWMutex
 	roomStore       roomStore
+	layoutStore     roomLayoutStore
 	muteStore       muteStore
 	userStore       userStore
 	permChecker     permChecker
 	membershipStore membershipStore
-	instanceID         string
-	cleanupPub         cleanupPublisher
-	stateNotifier      stateNotifier
-	connSlots          map[string]*connRoomSlots // socketID -> slots
-	msgSvc             messageSender
-	convSvc            conversationSender
+	instanceID      string
+	cleanupPub      cleanupPublisher
+	stateNotifier   stateNotifier
+	connSlots       map[string]*connRoomSlots // socketID -> slots
+	msgSvc          messageSender
+	convSvc         conversationSender
 	// accessPolicy 是传输无关策略引擎在 signal 层的适配入口，
 	// 用于 message/typing/private 等事件按服务端权威域做二次判决。
 	accessPolicy            func(policy.Subject, policy.Action, string) policy.Decision
@@ -110,6 +117,7 @@ type HubOptions struct {
 	DomainChecker           func(domainUUID, userUUID string) bool
 	DomainPermissionChecker func(domainUUID, userUUID, permCode string) bool
 	MembershipStore         membershipStore
+	LayoutStore             roomLayoutStore
 	InstanceID              string
 	StateNotifier           stateNotifier
 	// DisconnectGrace 是 WS 断连到 SFU 清理的宽限期；0 = 立即清理。
@@ -125,19 +133,19 @@ func NewHub(store roomStore, mStore muteStore, uStore userStore, pChecker permCh
 // NewHubWithOptions 在构造时注入协作依赖，避免启动期 Set* 后置装配。
 func NewHubWithOptions(store roomStore, mStore muteStore, uStore userStore, pChecker permChecker, opts HubOptions) *Hub {
 	h := &Hub{
-		rooms:            make(map[string]*Room),
-		roomStore:        store,
-		muteStore:        mStore,
-		userStore:        uStore,
-		permChecker:      pChecker,
-		connSlots:        make(map[string]*connRoomSlots),
-		clientDomains:    make(map[string]string),
-		kickBans:         make(map[string]time.Time),
-		muteCache:        make(map[string]muteCacheEntry),
-		typing:           make(map[string]*typingEntry),
-		emptyRoomSeen:    make(map[string]int64),
-		pendingCleanups:  make(map[string]*pendingCleanup),
-		disconnectGrace:  opts.DisconnectGrace,
+		rooms:           make(map[string]*Room),
+		roomStore:       store,
+		muteStore:       mStore,
+		userStore:       uStore,
+		permChecker:     pChecker,
+		connSlots:       make(map[string]*connRoomSlots),
+		clientDomains:   make(map[string]string),
+		kickBans:        make(map[string]time.Time),
+		muteCache:       make(map[string]muteCacheEntry),
+		typing:          make(map[string]*typingEntry),
+		emptyRoomSeen:   make(map[string]int64),
+		pendingCleanups: make(map[string]*pendingCleanup),
+		disconnectGrace: opts.DisconnectGrace,
 	}
 	h.fanout = opts.Fanout
 	h.eventBus = opts.EventBus
@@ -148,6 +156,7 @@ func NewHubWithOptions(store roomStore, mStore muteStore, uStore userStore, pChe
 	h.domainChecker = opts.DomainChecker
 	h.domainPermChecker = opts.DomainPermissionChecker
 	h.membershipStore = opts.MembershipStore
+	h.layoutStore = opts.LayoutStore
 	h.instanceID = opts.InstanceID
 	h.stateNotifier = opts.StateNotifier
 	return h

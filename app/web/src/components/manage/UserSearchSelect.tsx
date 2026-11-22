@@ -51,7 +51,7 @@ export default function UserSearchSelect({
 						onSearch();
 					}}
 				>
-					<label className="border-input bg-card flex h-9 flex-1 items-center gap-2 rounded-sm border px-3">
+					<label className="border-input bg-card flex h-9 min-w-0 flex-1 items-center gap-2 rounded-sm border px-3">
 						<Search size={14} className="text-faint-foreground shrink-0" />
 						<input
 							type="search"
@@ -85,7 +85,7 @@ export default function UserSearchSelect({
 					</SelectContent>
 				</Select>
 				{loading && (
-					<span className="text-faint-foreground text-xs">搜索中...</span>
+					<span className="text-muted-foreground text-xs">搜索中...</span>
 				)}
 			</div>
 		</div>

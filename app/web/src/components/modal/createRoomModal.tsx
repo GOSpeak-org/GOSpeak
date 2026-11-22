@@ -209,31 +209,31 @@ export default function CreateRoomModal({
 						/>
 					</div>
 
-					<aside className="bg-muted/70 rounded-lg p-4">
+					<aside className="bg-muted rounded-lg p-4">
 						<div className="text-sm font-medium">配置预览</div>
 						<div className="mt-4 space-y-3 text-sm">
 							<div>
-								<div className="text-faint-foreground">房间名称</div>
+								<div className="text-muted-foreground">房间名称</div>
 								<div className="mt-1 font-medium break-words">
 									{summary.name}
 								</div>
 							</div>
 							<div>
-								<div className="text-faint-foreground">接入规模</div>
+								<div className="text-muted-foreground">接入规模</div>
 								<div className="mt-1 font-medium">
 									{isText ? "不限制人数" : `最多 ${summary.limit || "-"} 人`}
 								</div>
 							</div>
 							<div>
-								<div className="text-faint-foreground">媒体模式</div>
+								<div className="text-muted-foreground">媒体模式</div>
 								<div className="mt-1 font-medium">{summary.mode}</div>
 							</div>
 							<div>
-								<div className="text-faint-foreground">房间类型</div>
+								<div className="text-muted-foreground">房间类型</div>
 								<div className="mt-1 font-medium">{summary.kind}</div>
 							</div>
 							<div>
-								<div className="text-faint-foreground">加入策略</div>
+								<div className="text-muted-foreground">加入策略</div>
 								<div className="mt-1 font-medium">{summary.audience}</div>
 							</div>
 						</div>

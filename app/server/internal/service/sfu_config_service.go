@@ -122,18 +122,6 @@ func (s *SFUConfigService) UpdateFromDTO(req *UpdateSFUConfigRequest) (*model.SF
 	return cfg, nil
 }
 
-// SwitchProvider 切换当前激活的 provider，不修改配置。返回新激活 provider 的配置。
-func (s *SFUConfigService) SwitchProvider(provider string) (*model.SFUConfig, error) {
-	if !isValidProvider(provider) {
-		return nil, pkg.NewAppError(pkg.INVALID_PARAMS, "provider must be livekit")
-	}
-	if err := s.repo.SetActiveProvider(provider); err != nil {
-		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
-	}
-	// 返回该 provider 的配置（若没有则用 env 默认值创建）
-	return s.GetProviderConfig(provider)
-}
-
 // ListProviders 返回已配置 provider 的列表 + 当前激活的 provider 名称。
 // 历史遗留的非 LiveKit 行会被过滤掉，避免管理后台出现已下线的 provider。
 func (s *SFUConfigService) ListProviders() ([]model.SFUConfig, string, error) {

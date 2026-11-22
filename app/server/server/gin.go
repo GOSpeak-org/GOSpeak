@@ -100,7 +100,9 @@ func StartGin(env EnvEnum) error {
 	sfuConfigRepo := repository.NewSFUConfigRepository(db)
 	storageConfigRepo := repository.NewStorageConfigRepository(db)
 	domainRepo := repository.NewDomainRepository(db)
+	userDomainLayoutRepo := repository.NewUserDomainLayoutRepository(db)
 	domainRoleRepo := repository.NewDomainRoleRepository(db)
+	roomLayoutRepo := repository.NewRoomLayoutRepository(db)
 	announcementRepo := repository.NewAnnouncementRepository(db)
 	pushTokenRepo := repository.NewPushTokenRepository(db)
 	sfuConfigSvc := service.NewSFUConfigService(sfuConfigRepo, cfg)
@@ -112,6 +114,7 @@ func StartGin(env EnvEnum) error {
 	if err != nil {
 		return fmt.Errorf("failed to init domain casbin: %w", err)
 	}
+	domainLayoutSvc := service.NewDomainLayoutService(userDomainLayoutRepo)
 	joinRequestSvc := service.NewJoinRequestService(
 		repository.NewDBTxRunner(db),
 		repository.NewDomainJoinRequestRepository(db),
@@ -160,7 +163,7 @@ func StartGin(env EnvEnum) error {
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
 		logger.WithComponent("HTTP").Warnf("set trusted proxies failed: %v", err)
 	}
-	r.Use(middleware.RequestID(), logger.GinRecovery(), logger.GinLogger(), middleware.CORS(strings.Split(cfg.CORSOrigin, ",")))
+	r.Use(middleware.RequestID(), logger.GinRecovery(), logger.GinLogger(), middleware.CORS(strings.Split(cfg.CORSOrigin, ",")), middleware.SecurityHeaders())
 
 	wsFanout := ws.NewFanout()
 	wsHandler := ws.NewHandlerRegistry()
@@ -212,6 +215,7 @@ func StartGin(env EnvEnum) error {
 		DomainChecker:           domainSvc.IsMember,
 		DomainPermissionChecker: domainSvc.HasDomainPermission,
 		MembershipStore:         store,
+		LayoutStore:             roomLayoutRepo,
 		InstanceID:              instanceID,
 		StateNotifier:           eventBus,
 		DisconnectGrace:         signal.DefaultDisconnectGracePeriod,
@@ -300,7 +304,7 @@ func StartGin(env EnvEnum) error {
 	signalH := handler.NewSignalHandler(sfuSvc, jobQueue, resolveLiveKitSecret, resolveLiveKitKey)
 
 	authCookieCfg := handler.NewAuthCookieConfig(cfg)
-	authH := handler.NewAuthHandler(authSvc, authCookieCfg)
+	authH := handler.NewAuthHandler(authSvc, authCookieCfg, permSvc)
 	joinRequestSvc.SetEventBus(eventBus)
 	inviteJoinSvc := service.NewInviteJoinService(
 		repository.NewDBTxRunner(db), inviteSvc, joinRequestSvc,
@@ -336,18 +340,29 @@ func StartGin(env EnvEnum) error {
 	sfuConfigH := handler.NewSFUConfigHandler(sfuConfigSvc, signalHub)
 	storageH := handler.NewStorageHandler(storageSvc)
 	middleware.Configure(middleware.Dependencies{
-		PermissionChecker:   permSvc,
-		TokenVersionChecker: authSvc,
-		DomainChecker:       domainSvc.IsMember,
-		BlacklistChecker:    authstate.IsBlacklistedErr,
-		AuthCookieName:      cfg.AccessCookieName,
+		PermissionChecker:      permSvc,
+		TokenVersionChecker:    authSvc,
+		DefaultPasswordChecker: authSvc.NeedsPasswordChange,
+		DomainChecker:          domainSvc.IsMember,
+		BlacklistChecker:       authstate.IsBlacklistedErr,
+		AuthCookieName:         cfg.AccessCookieName,
 	})
+	// 改密/改角色成功后主动失效 token 版本缓存，消除 ≤1 TTL 的旧值窗口；
+	// 同时清默认口令门禁缓存，避免改密后新会话被旧 needsChange 结果误拦。
+	onIdentityChanged := func(userUUID string) {
+		middleware.InvalidateTokenVersion(userUUID)
+		middleware.ClearDefaultPasswordCache(userUUID)
+	}
+	authSvc.SetTokenVersionInvalidator(onIdentityChanged)
+	userSvc.SetTokenVersionInvalidator(onIdentityChanged)
 
 	startJobConsumers(jobQueue, eventBus.InstanceID(), signalHub, messageSvc, conversationSvc)
 
 	domainH := handler.NewDomainHandler(domainSvc, permSvc, auditSvc,
 		signalHub.KickUserFromDomain, signalHub.KickUserFromDomain,
 		func(serverUUID string) { signalHub.OnDomainDelete(serverUUID) })
+	domainLayoutH := handler.NewDomainLayoutHandler(domainLayoutSvc)
+	roomLayoutH := handler.NewRoomLayoutHandler(service.NewRoomLayoutService(roomLayoutRepo), permSvc, domainSvc, signalHub.BroadcastRoomList)
 	auditH := handler.NewAuditHandler(auditSvc)
 	announcementSvc := service.NewAnnouncementService(announcementRepo, domainRepo)
 	announcementSvc.SetEventBus(eventBus)
@@ -416,6 +431,8 @@ func StartGin(env EnvEnum) error {
 		Monitor:      monitorH,
 		SystemUpdate: systemUpdateH,
 		Domain:       domainH,
+		DomainLayout: domainLayoutH,
+		RoomLayout:   roomLayoutH,
 		Conversation: conversationH,
 		Audit:        auditH,
 		Announcement: announcementH,

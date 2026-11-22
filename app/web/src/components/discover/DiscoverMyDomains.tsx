@@ -78,7 +78,7 @@ function DiscoverMyDomains() {
 						{domains.map((domain) => (
 							<div
 								key={domain.uuid}
-								className="border-border/80 hover:border-primary/30 hover:bg-card flex min-w-0 items-center gap-3 rounded-lg border bg-muted/40 px-3 py-3 transition-colors"
+								className="border-border hover:border-primary/30 hover:bg-muted/70 flex min-w-0 items-center gap-3 rounded-lg border bg-card px-3 py-3 transition-colors"
 							>
 								<DomainIcon
 									name={domain.name}

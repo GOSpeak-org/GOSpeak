@@ -30,7 +30,7 @@ type UpdateInfo struct {
 
 // updaterProgressEvent pushes install download progress (fraction 0..1) to
 // the pages; packages/desktop createUpdater() listens on "updater.progress".
-var updaterProgressEvent = mygo.NewEvent[float64]("updater.progress")
+var updaterProgressEvent = mygo.NewEvent[float64](eventUpdaterProgress)
 
 // releasePageURL is where users download releases when the running build
 // cannot self-update (dev builds, package-manager installs).

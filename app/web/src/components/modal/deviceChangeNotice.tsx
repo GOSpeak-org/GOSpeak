@@ -81,7 +81,7 @@ export default function DeviceChangeNotice() {
 	return (
 		<Dialog open onOpenChange={(v) => !v && close(false)}>
 			<DialogContent
-				className="z-[60] max-w-md gap-0 overflow-hidden p-0"
+				className="z-dialog max-w-md gap-0 overflow-hidden p-0"
 				showClose={false}
 			>
 				<div className="border-border border-b px-6 py-5">

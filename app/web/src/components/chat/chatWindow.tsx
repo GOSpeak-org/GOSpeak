@@ -1,11 +1,11 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { CornerDownLeft, MessageSquareText } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PrivateMessageDTO } from "@/api/conversation";
 import ChatEmptyState from "@/components/chat/chatEmptyState";
 import Avatar from "@/components/common/avatar";
 import AsyncState from "@/components/common/AsyncState";
-import { SkeletonListRows } from "@/components/common/Skeletons";
+import { SkeletonChatMessages } from "@/components/common/Skeletons";
 import { chatStore, useChatStore } from "@/stores/chatStore";
 import { dayKey, formatDateLabel, formatMessageTime } from "@/utils/chatTime";
 
@@ -67,20 +67,17 @@ export default function ChatWindow() {
 	const virtualizerRef = useRef(virtualizer);
 	virtualizerRef.current = virtualizer;
 
-	// 切换会话后一律回到最新消息
+	// 切换会话后一律回到最新消息。用 layout effect 在 paint 前同步滚到底，
+	// 避免 rAF 延后一帧导致「消息先出现在顶部再跳到底部」的弹闪。
 	// biome-ignore lint/correctness/useExhaustiveDependencies: active 为有意触发器（切会话即重置贴底标记），effect 体内无需引用
-	useEffect(() => {
+	useLayoutEffect(() => {
 		atBottomRef.current = true;
 	}, [active]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 仅按行数/会话触发贴底滚动，virtualizer 实例稳定
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (rows.length === 0 || !atBottomRef.current) return;
-		requestAnimationFrame(() => {
-			virtualizerRef.current.scrollToIndex(rows.length - 1, {
-				align: "end",
-			});
-		});
+		virtualizerRef.current.scrollToIndex(rows.length - 1, { align: "end" });
 	}, [rows.length, active]);
 
 	function handleScroll() {
@@ -119,9 +116,9 @@ export default function ChatWindow() {
 	// 未选中会话时展示与语音域一致的完整空态，而不是一行漂浮的文字。
 	if (!active) {
 		return (
-			<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
+			<div className="flex h-full min-w-0 flex-1 flex-col">
 				{/* 与域页 ChannelHeader 同构：h-10 + 裸图标，非图标方块 */}
-				<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+				<header className="border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 					<MessageSquareText
 						size={20}
 						className="text-muted-foreground shrink-0"
@@ -136,12 +133,12 @@ export default function ChatWindow() {
 	}
 
 	const iconBtn =
-		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-40";
+		"ds-icon-btn size-8 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 	return (
-		<div className="bg-card flex h-full min-w-0 flex-1 flex-col">
+		<div className="flex h-full min-w-0 flex-1 flex-col">
 			{/* 面板标题栏：图标 + 对方名称 */}
-			<header className="bg-card border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+			<header className="border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 				<MessageSquareText
 					size={20}
 					className="text-muted-foreground shrink-0"
@@ -159,9 +156,7 @@ export default function ChatWindow() {
 				<AsyncState
 					loading={isLoading && messages.length === 0}
 					loadingText="正在加载消息…"
-					skeleton={
-						<SkeletonListRows rows={6} className="h-full justify-between" />
-					}
+					skeleton={<SkeletonChatMessages rows={6} />}
 					empty={messages.length === 0 && !isLoading}
 					emptyText="发送一条消息开始对话"
 				>
@@ -210,7 +205,7 @@ export default function ChatWindow() {
 																	row.msg.author_id ||
 																	"?"}
 															</span>
-															<span className="text-faint-foreground shrink-0 text-2xs">
+															<span className="text-muted-foreground shrink-0 text-2xs">
 																{formatMessageTime(row.msg.created_at)}
 															</span>
 														</div>

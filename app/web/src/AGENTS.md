@@ -28,4 +28,5 @@
 - **远端 track join 竞态**：`joinRoom` 可能在回调注册前就订阅了远端 track，必须同时用 `getExistingRemoteAudioTracks()` 补齐，否则全局静音/音量对它失效。
 - 单标签页 socket 所有权由 `socket/tabLock.ts` 维护，不要绕过它直接 new 连接。
 - 桌面能力判定用 `inDesktop()`；`isDesktop()` 仅限 SDK 内部。
+- **权限判定只读服务端下发的 `user.permissions`**：`utils/permissions.ts` 禁止内置 role → 权限码映射表。历史上手抄 `model.DefaultRolePermissions` 曾漏掉 `domain:room-layout:manage`，属猴子补丁，已移除。新增权限码只改后端 `permcode` + 默认角色授权即可，前端零改动；登录 / 注册 / 首改密 / profile 响应都带 `permissions`。
 - 更多细节：`docs/design/AGENTS-{pages,components,stores,hooks}.md`。

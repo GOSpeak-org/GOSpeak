@@ -15,7 +15,14 @@ func newDomainTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Domain{}, &model.DomainMember{}, &model.Room{}, &model.User{}, &model.DomainRole{}, &model.DomainRolePermission{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.Domain{}, &model.DomainMember{}, &model.Room{}, &model.User{},
+		&model.DomainRole{}, &model.DomainRolePermission{},
+		&model.DomainInvite{}, &model.DomainInviteRedemption{}, &model.DomainJoinRequest{},
+		&model.DomainRoomGroup{}, &model.DomainRoomLayout{}, &model.UserDomainLayoutItem{},
+		&model.Message{}, &model.MessageReaction{}, &model.MessageMention{},
+		&model.Announcement{}, &model.AnnouncementRead{},
+	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	return db
@@ -374,5 +381,185 @@ func TestCreateWithOwner_SeedsDefaultDomainRoles(t *testing.T) {
 	}
 	if len(roles) != 3 {
 		t.Fatalf("expected 3 seeded roles, got %d", len(roles))
+	}
+}
+
+func newDomainCascadeTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(
+		&model.Domain{}, &model.DomainMember{}, &model.Room{},
+		&model.DomainRole{}, &model.DomainRolePermission{},
+		&model.DomainInvite{}, &model.DomainInviteRedemption{}, &model.DomainJoinRequest{},
+		&model.DomainRoomGroup{}, &model.DomainRoomLayout{}, &model.UserDomainLayoutItem{},
+		&model.Message{}, &model.MessageReaction{}, &model.MessageMention{},
+		&model.ConversationParticipant{},
+		&model.Announcement{}, &model.AnnouncementRead{},
+	); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	return db
+}
+
+func TestDomainRepo_Delete_CascadesAllRelatedRows(t *testing.T) {
+	db := newDomainCascadeTestDB(t)
+	repo := NewDomainRepository(db)
+
+	target := &model.Domain{Name: "target", OwnerUUID: "owner-t"}
+	if err := repo.Create(target); err != nil {
+		t.Fatalf("create target domain: %v", err)
+	}
+	other := &model.Domain{Name: "other", OwnerUUID: "owner-o"}
+	if err := repo.Create(other); err != nil {
+		t.Fatalf("create other domain: %v", err)
+	}
+
+	seedDomainRows := func(domainUUID, suffix string) uint {
+		if err := repo.AddMember(&model.DomainMember{DomainUUID: domainUUID, UserUUID: "user-" + suffix}); err != nil {
+			t.Fatalf("add member %s: %v", suffix, err)
+		}
+		if err := db.Create(&model.DomainRole{DomainUUID: domainUUID, Name: model.DomainRoleAdmin}).Error; err != nil {
+			t.Fatalf("create role %s: %v", suffix, err)
+		}
+		if err := db.Create(&model.DomainRolePermission{DomainUUID: domainUUID, RoleName: model.DomainRoleAdmin, PermissionCode: model.PermDomainManage}).Error; err != nil {
+			t.Fatalf("create role permission %s: %v", suffix, err)
+		}
+		invite := &model.DomainInvite{DomainUUID: domainUUID, Code: "code-" + suffix}
+		if err := db.Create(invite).Error; err != nil {
+			t.Fatalf("create invite %s: %v", suffix, err)
+		}
+		redemption := &model.DomainInviteRedemption{
+			InviteID: invite.ID, DomainUUID: domainUUID, UserUUID: "user-" + suffix,
+			Code: invite.Code, Success: true,
+		}
+		if err := db.Create(redemption).Error; err != nil {
+			t.Fatalf("create redemption %s: %v", suffix, err)
+		}
+		if err := db.Create(&model.DomainJoinRequest{DomainUUID: domainUUID, UserUUID: "joiner-" + suffix, InviteID: invite.ID}).Error; err != nil {
+			t.Fatalf("create join request %s: %v", suffix, err)
+		}
+		if err := db.Create(&model.DomainRoomGroup{DomainUUID: domainUUID, Name: "group-" + suffix}).Error; err != nil {
+			t.Fatalf("create room group %s: %v", suffix, err)
+		}
+		if err := db.Create(&model.DomainRoomLayout{DomainUUID: domainUUID, UngroupedPosition: 1}).Error; err != nil {
+			t.Fatalf("create room layout %s: %v", suffix, err)
+		}
+		if err := db.Create(&model.UserDomainLayoutItem{UserUUID: "user-" + suffix, DomainUUID: domainUUID}).Error; err != nil {
+			t.Fatalf("create layout item %s: %v", suffix, err)
+		}
+		return invite.ID
+	}
+
+	targetInviteID := seedDomainRows(target.UUID, "t")
+	seedDomainRows(other.UUID, "o")
+
+	seedRoomMessages := func(domainUUID, roomName, msgUUID string) string {
+		room := &model.Room{Name: roomName, DomainUUID: domainUUID}
+		if err := db.Create(room).Error; err != nil {
+			t.Fatalf("create room %s: %v", roomName, err)
+		}
+		msg := &model.Message{UUID: msgUUID, RoomUUID: room.UUID, AuthorID: "alice", Content: "hello"}
+		if err := db.Create(msg).Error; err != nil {
+			t.Fatalf("create message %s: %v", msgUUID, err)
+		}
+		if err := db.Create(&model.MessageReaction{MessageUUID: msgUUID, UserID: "alice", Emoji: "ok"}).Error; err != nil {
+			t.Fatalf("create reaction %s: %v", msgUUID, err)
+		}
+		if err := db.Create(&model.MessageMention{MessageUUID: msgUUID, UserID: "bob"}).Error; err != nil {
+			t.Fatalf("create mention %s: %v", msgUUID, err)
+		}
+		softMsg := &model.Message{UUID: msgUUID + "-soft", RoomUUID: room.UUID, AuthorID: "alice", Content: "gone"}
+		if err := db.Create(softMsg).Error; err != nil {
+			t.Fatalf("create soft message %s: %v", msgUUID, err)
+		}
+		if err := db.Delete(softMsg).Error; err != nil {
+			t.Fatalf("soft delete message %s: %v", msgUUID, err)
+		}
+		if err := db.Create(&model.MessageReaction{MessageUUID: softMsg.UUID, UserID: "alice", Emoji: "ok"}).Error; err != nil {
+			t.Fatalf("create soft reaction %s: %v", msgUUID, err)
+		}
+		return room.UUID
+	}
+
+	targetRoomUUID := seedRoomMessages(target.UUID, "target-room", "msg-target")
+	seedRoomMessages(other.UUID, "other-room", "msg-other")
+
+	// 域级公告及其已读记录应随域删除
+	targetAnn := &model.Announcement{UUID: "ann-target", ScopeType: model.AnnouncementScopeDomain, ScopeID: target.UUID, Title: "t"}
+	if err := db.Create(targetAnn).Error; err != nil {
+		t.Fatalf("create target announcement: %v", err)
+	}
+	if err := db.Create(&model.AnnouncementRead{AnnouncementUUID: targetAnn.UUID, UserUUID: "user-t"}).Error; err != nil {
+		t.Fatalf("create announcement read: %v", err)
+	}
+	if err := db.Create(&model.Announcement{UUID: "ann-other", ScopeType: model.AnnouncementScopeDomain, ScopeID: other.UUID, Title: "t"}).Error; err != nil {
+		t.Fatalf("create other announcement: %v", err)
+	}
+
+	privateConv := &model.ConversationParticipant{ConversationID: "conv-private", IdentityA: "alice", IdentityB: "bob"}
+	if err := db.Create(privateConv).Error; err != nil {
+		t.Fatalf("create private conversation: %v", err)
+	}
+
+	countRows := func(value interface{}, query string, arg interface{}) int64 {
+		var n int64
+		if err := db.Unscoped().Model(value).Where(query, arg).Count(&n).Error; err != nil {
+			t.Fatalf("count %T: %v", value, err)
+		}
+		return n
+	}
+
+	type check struct {
+		name  string
+		value interface{}
+		query string
+		arg   interface{}
+	}
+	targetChecks := []check{
+		{"domains", &model.Domain{}, "uuid = ?", target.UUID},
+		{"domain_members", &model.DomainMember{}, "domain_uuid = ?", target.UUID},
+		{"domain_roles", &model.DomainRole{}, "domain_uuid = ?", target.UUID},
+		{"domain_role_permissions", &model.DomainRolePermission{}, "domain_uuid = ?", target.UUID},
+		{"domain_invites", &model.DomainInvite{}, "domain_uuid = ?", target.UUID},
+		{"domain_invite_redemptions by domain_uuid", &model.DomainInviteRedemption{}, "domain_uuid = ?", target.UUID},
+		{"domain_invite_redemptions by invite_id", &model.DomainInviteRedemption{}, "invite_id = ?", targetInviteID},
+		{"domain_join_requests", &model.DomainJoinRequest{}, "domain_uuid = ?", target.UUID},
+		{"domain_room_groups", &model.DomainRoomGroup{}, "domain_uuid = ?", target.UUID},
+		{"domain_room_layouts", &model.DomainRoomLayout{}, "domain_uuid = ?", target.UUID},
+		{"user_domain_layout_items", &model.UserDomainLayoutItem{}, "domain_uuid = ?", target.UUID},
+		{"rooms", &model.Room{}, "domain_uuid = ?", target.UUID},
+		{"room messages", &model.Message{}, "room_uuid = ?", targetRoomUUID},
+		{"soft-deleted room messages", &model.Message{}, "room_uuid = ?", targetRoomUUID},
+		{"message reactions", &model.MessageReaction{}, "message_uuid = ?", "msg-target"},
+		{"soft-deleted message reactions", &model.MessageReaction{}, "message_uuid = ?", "msg-target-soft"},
+		{"message mentions", &model.MessageMention{}, "message_uuid = ?", "msg-target"},
+		{"domain announcements", &model.Announcement{}, "scope_id = ?", target.UUID},
+		{"announcement reads", &model.AnnouncementRead{}, "announcement_uuid = ?", "ann-target"},
+	}
+	if err := repo.Delete(target.UUID); err != nil {
+		t.Fatalf("Delete error: %v", err)
+	}
+
+	for _, c := range targetChecks {
+		if n := countRows(c.value, c.query, c.arg); n != 0 {
+			t.Errorf("expected %s removed after Delete, got %d rows", c.name, n)
+		}
+	}
+
+	otherChecks := []check{
+		{"other domain", &model.Domain{}, "uuid = ?", other.UUID},
+		{"other domain invites", &model.DomainInvite{}, "domain_uuid = ?", other.UUID},
+		{"other domain rooms", &model.Room{}, "domain_uuid = ?", other.UUID},
+		{"other domain room messages", &model.Message{}, "uuid = ?", "msg-other"},
+		{"private conversation", &model.ConversationParticipant{}, "conversation_id = ?", privateConv.ConversationID},
+		{"other domain announcement", &model.Announcement{}, "uuid = ?", "ann-other"},
+	}
+	for _, c := range otherChecks {
+		if n := countRows(c.value, c.query, c.arg); n != 1 {
+			t.Errorf("expected %s preserved after Delete, got %d rows", c.name, n)
+		}
 	}
 }

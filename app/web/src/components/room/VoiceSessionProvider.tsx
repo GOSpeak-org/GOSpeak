@@ -27,7 +27,7 @@ const VoiceSessionContext = createContext<VoiceSessionValue | null>(null);
 export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 	const session = useVoiceSession();
 	useRoomAudioBridge(session.sfuClient, session.isJoined);
-	useRoomSounds(session.phase);
+	useRoomSounds(session.phase, session.currentRoom);
 	useMobileSessionBridge({
 		isJoined: session.isJoined,
 		currentRoom: session.currentRoom,

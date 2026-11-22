@@ -163,7 +163,7 @@ func TestRoomHandler_Update_BotClaimsMissingPermissionDoesNotFallBackToGlobal(t 
 		t.Fatalf("open sqlite: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&model.User{},&model.Room{}, &model.Permission{}, &model.RolePermission{}); err != nil {
+		&model.User{}, &model.Room{}, &model.Permission{}, &model.RolePermission{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	room := model.Room{Name: "lobby", DomainUUID: "", CreatedBy: "someone-else"}

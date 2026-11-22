@@ -70,7 +70,7 @@ chmod +x gospeak-server-v1.0.3-linux-amd64
 
 ### 源码开发
 
-需要 Go 1.27.3+、Node.js 20+、pnpm 10+ 与 Docker。
+需要 Go 1.27.4+、Node.js 20+、pnpm 10+ 与 Docker。
 
 ```bash
 git clone https://github.com/NoelOrin/GOSpeak.git
@@ -93,20 +93,22 @@ pnpm start:dev
 ```bash
 cd deploy
 ./init.sh --domain voice.example.com
-docker compose up -d --build
+cd ..
+docker compose -f deploy/docker-compose.standard.yml up -d --build
 ```
 
-`--domain` 将 `edge` 加入 `COMPOSE_PROFILES`，内置 Caddy 自动申请 HTTPS 证书并处理 WebSocket 升级。浏览器打开 `https://voice.example.com`。
+`--domain` 将 `edge` 加入 `COMPOSE_PROFILES`；只有全档位版 `docker-compose.standard.yml` 会读取该变量并启动内置 Caddy 自动申请 HTTPS 证书。浏览器打开 `https://voice.example.com`。精简版 `docker-compose.yml` 不含 Caddy，裸 `docker compose up -d` 不会启用 HTTPS。
 
 ### 使用已有反向代理
 
 ```bash
 cd deploy
 ./init.sh
-docker compose up -d --build
+cd ..
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-不传 `--domain`。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。
+不传 `--domain`，用精简版即可。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。
 
 内置入口是 Caddy（`deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [app/docs/deploy/reverse-proxy.md](app/docs/deploy/reverse-proxy.md)。
 

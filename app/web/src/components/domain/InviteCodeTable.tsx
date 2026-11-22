@@ -33,7 +33,7 @@ export default function InviteCodeTable({
 	onCopy?: (invite: DomainInvite) => void;
 }) {
 	if (invites.length === 0) {
-		return <p className="text-muted-foreground text-sm">还没有邀请码</p>;
+		return <p className="text-faint-foreground text-sm">还没有邀请码</p>;
 	}
 	return (
 		<table className="w-full text-sm">
@@ -53,7 +53,7 @@ export default function InviteCodeTable({
 					return (
 						<tr
 							key={invite.id}
-							className="border-border/60 border-b last:border-0"
+							className="border-border border-b last:border-0"
 						>
 							<td className="py-2">{invite.label || "—"}</td>
 							<td className="py-2">

@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"GOSpeak/internal/audit"
+	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
-	"GOSpeak/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +22,6 @@ type UserHandler struct {
 func NewUserHandler(userService *service.UserService, permSvc *service.PermissionService, auditor *audit.Service) *UserHandler {
 	return &UserHandler{userService: userService, permSvc: permSvc, auditor: auditor}
 }
-
 
 var presetAvatarPaths = []string{
 	"/presets/avatar-1.svg",

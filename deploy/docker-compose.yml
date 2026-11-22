@@ -5,18 +5,18 @@
 # 数据库用 SQLite，存储用本地磁盘，开箱即用。
 #
 # 用法（在仓库根目录执行）:
-#   docker compose -f deploy/docker-compose.simple.yml up -d --build
-#   docker compose -f deploy/docker-compose.simple.yml logs -f gospeak
-#   docker compose -f deploy/docker-compose.simple.yml down
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   docker compose -f deploy/docker-compose.yml logs -f gospeak
+#   docker compose -f deploy/docker-compose.yml down
 #
-# 配置来源与完整版一致：deploy/.env（用 deploy/init.sh 生成）
+# 配置来源与全档位版一致：deploy/.env（用 deploy/init.sh 生成）
 #
-# 与完整版 docker-compose.yml 的区别：
+# 与全档位版 docker-compose.standard.yml 的区别：
 #   - 无 profiles，up 即起，不需要 COMPOSE_PROFILES
 #   - 去掉 postgres / rustfs / prometheus / alertmanager / grafana / loki / promtail
-#   - 保留同名 volume，可与完整版互相切换而不丢数据
+#   - 保留同名 volume，可与全档位版互相切换而不丢数据
 #
-# 需要 PostgreSQL、对象存储或监控时，改用完整版 docker-compose.yml。
+# 需要 PostgreSQL、对象存储或监控时，改用 docker-compose.standard.yml。
 # =============================================================================
 
 name: gospeak
@@ -29,7 +29,7 @@ services:
     # 默认 latest 跟随最近一次发布（含 -rc 预发布）；生产稳妥选版本线标签 :1，
     # 固定版本用 :1.1.0 这类精确标签
     image: ${GOSPEAK_IMAGE:-ghcr.io/noelorin/gospeak:latest}
-    pull_policy: ${GOSPEAK_PULL_POLICY:-missing}
+    pull_policy: ${GOSPEAK_PULL_POLICY:-always}
     container_name: gospeak-app
     # 唯一配置来源：deploy/.env（compose 插值与应用 env 共用）
     env_file:

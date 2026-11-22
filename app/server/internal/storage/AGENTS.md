@@ -20,7 +20,7 @@
 - URL 基址、S3 超时与预签名有效期全部走 `objectstore.Config`：`PublicURL`/`S3PublicBaseURL`、`S3Timeout`(5s)、`S3PresignTTL`(5m)，业务侧不自己拼 URL。
 - **不设置库的 `S3Prefix`**：handler 已把 `path_prefix` 写进 object key，重复设置会双重前缀。
 - 库的 `Get` 有 64MB 上限、`Put` 只接受 `[]byte`；本模块当前不用 `Get`，上传会把文件读入内存（`MaxFileSize` 默认 5MB）。
-- 库要求 Go 1.27.3，server 的 `go.mod` 已对齐；依赖走已发布版本 `v0.1.0`，不在 `go.mod` 里保留指向本机路径的 `replace`，否则 CI 无法解析依赖。
+- 库要求 Go 1.27.4，server 的 `go.mod` 已对齐；依赖走已发布版本 `v0.1.0`，不在 `go.mod` 里保留指向本机路径的 `replace`，否则 CI 无法解析依赖。
 
 ## 易错点
 

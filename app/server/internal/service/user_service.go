@@ -17,11 +17,17 @@ var ErrUserNotFound = pkg.NewAppError(pkg.NOT_FOUND, "user not found")
 
 // UserService 用户服务，支持按 ID / UUID / 用户名查询以及 CRUD 操作。
 type UserService struct {
-	userRepo *repository.UserRepository
+	userRepo              *repository.UserRepository
+	onTokenVersionChanged func(userUUID string)
 }
 
 func NewUserService(userRepo *repository.UserRepository) *UserService {
 	return &UserService{userRepo: userRepo}
+}
+
+// SetTokenVersionInvalidator 注入 token 版本缓存失效回调（组合根传入 middleware.InvalidateTokenVersion）。
+func (s *UserService) SetTokenVersionInvalidator(fn func(userUUID string)) {
+	s.onTokenVersionChanged = fn
 }
 
 // GetByID 按主键 ID 查询用户，不存在返回 NOT_FOUND。
@@ -129,6 +135,9 @@ func (s *UserService) UpdateRole(id uint, role string) error {
 	}
 	if err := s.userRepo.UpdateRoleStatusAndInvalidate(user.ID, role, status); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
+	}
+	if s.onTokenVersionChanged != nil {
+		s.onTokenVersionChanged(user.UUID)
 	}
 	return nil
 }

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 	checkRelease: vi.fn(),
 	downloadRelease: vi.fn(),
 	openReleasePage: vi.fn(),
+	openExternal: vi.fn(() => Promise.resolve()),
 	onProgress: vi.fn(() => () => {}),
 	logsPath: vi.fn(() => Promise.resolve("")),
 	inDesktop: vi.fn(() => true),
@@ -24,6 +25,7 @@ vi.mock("@gospeak/desktop", () => ({
 		openReleasePage: mocks.openReleasePage,
 		onProgress: mocks.onProgress,
 	}),
+	createBrowser: () => ({ openExternal: mocks.openExternal }),
 	createClientLog: () => ({ logsPath: mocks.logsPath, revealLogs: vi.fn() }),
 }));
 
@@ -92,5 +94,26 @@ describe("关于页 更新检查与下载", () => {
 		mocks.inDesktop.mockReturnValue(false);
 		render(<AboutTab.component />);
 		expect(screen.queryByRole("button", { name: "检查更新" })).toBeNull();
+	});
+});
+
+describe("关于页 项目地址", () => {
+	const repoURL = "https://github.com/NoelOrin/GOSpeak";
+
+	it("桌面端点击项目地址走宿主系统浏览器", () => {
+		mocks.inDesktop.mockReturnValue(true);
+		render(<AboutTab.component />);
+		const link = screen.getByRole("link", { name: "GitHub ↗" });
+		expect(link.getAttribute("href")).toBe(repoURL);
+		fireEvent.click(link);
+		expect(mocks.openExternal).toHaveBeenCalledWith(repoURL);
+	});
+
+	it("Web 端点击项目地址保留默认新标签行为", () => {
+		mocks.inDesktop.mockReturnValue(false);
+		render(<AboutTab.component />);
+		const link = screen.getByRole("link", { name: "GitHub ↗" });
+		fireEvent.click(link);
+		expect(mocks.openExternal).not.toHaveBeenCalled();
 	});
 });

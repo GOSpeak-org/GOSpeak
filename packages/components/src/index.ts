@@ -59,6 +59,7 @@ export { Slider } from "./components/slider";
 export { Switch } from "./components/switch";
 export { Toggle } from "./components/toggle";
 export {
+	TOOLTIP_CONTENT_CLASS,
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,

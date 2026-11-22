@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"GOSpeak/internal/audit"
+	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
 	"GOSpeak/internal/signal"
-	"GOSpeak/internal/middleware"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +29,6 @@ type MuteHandler struct {
 func NewMuteHandler(muteSvc *service.MuteService, userSvc *service.UserService, broadcaster MuteBroadcaster, auditor *audit.Service) *MuteHandler {
 	return &MuteHandler{muteSvc: muteSvc, userSvc: userSvc, broadcaster: broadcaster, auditor: auditor}
 }
-
 
 // CreateMute
 // @Summary      禁言用户

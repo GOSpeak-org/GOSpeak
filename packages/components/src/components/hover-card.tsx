@@ -31,7 +31,7 @@ export const HoverCardContent = forwardRef<
 				sideOffset={sideOffset}
 				collisionPadding={collisionPadding}
 				className={cn(
-					"bg-popover text-popover-foreground border-border z-[100] rounded-lg border shadow-md outline-none",
+					"bg-popover text-popover-foreground border-border z-popover rounded-lg border shadow-md outline-none",
 					className,
 				)}
 				{...props}
