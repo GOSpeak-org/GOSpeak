@@ -281,9 +281,48 @@ export default function Sidebar({
 
 	return (
 		<div className="flex h-full min-h-0 w-16 flex-col select-none">
+			<div
+				className={`flex flex-col items-center gap-2 px-2 ${__GOSPEAK_DESKTOP__ ? "pt-2" : ""}`}
+			>
+				<OptionSquare
+					label="首页"
+					active={homeActive}
+					onClick={() => navigate({ to: "/discover" })}
+				>
+					<Home {...iconProps} />
+				</OptionSquare>
+				<OptionSquare
+					label="聊天"
+					active={chatActive}
+					onClick={() => navigate({ to: "/chat" })}
+				>
+					<MessageSquare {...iconProps} />
+				</OptionSquare>
+				{hasManageAccess() && (
+					<OptionSquare
+						label="管理"
+						active={manageActive}
+						onClick={() =>
+							navigate({
+								to: `/manage/${firstAccessibleManagePath() ?? "users"}`,
+							})
+						}
+					>
+						<ShieldCheck {...iconProps} />
+					</OptionSquare>
+				)}
+				<OptionSquare
+					label="设置"
+					active={settingsActive}
+					onClick={() => onOpenSettings?.()}
+				>
+					<Settings {...iconProps} />
+				</OptionSquare>
+				<div className="bg-border my-1 h-px w-full shrink-0" />
+			</div>
 			<ScrollArea
 				className="min-h-0 flex-1"
-				viewportClassName={`px-2 pb-3 ${__GOSPEAK_DESKTOP__ ? "pt-2" : ""}`}
+				viewportClassName="flex flex-col px-2 pb-3 [&>div]:mt-auto"
 				type="auto"
 			>
 				<DndContext
@@ -297,41 +336,6 @@ export default function Sidebar({
 					}}
 				>
 					<div className="flex flex-col items-center gap-2">
-						<OptionSquare
-							label="首页"
-							active={homeActive}
-							onClick={() => navigate({ to: "/discover" })}
-						>
-							<Home {...iconProps} />
-						</OptionSquare>
-						<OptionSquare
-							label="聊天"
-							active={chatActive}
-							onClick={() => navigate({ to: "/chat" })}
-						>
-							<MessageSquare {...iconProps} />
-						</OptionSquare>
-						{hasManageAccess() && (
-							<OptionSquare
-								label="管理"
-								active={manageActive}
-								onClick={() =>
-									navigate({
-										to: `/manage/${firstAccessibleManagePath() ?? "users"}`,
-									})
-								}
-							>
-								<ShieldCheck {...iconProps} />
-							</OptionSquare>
-						)}
-						<OptionSquare
-							label="设置"
-							active={settingsActive}
-							onClick={() => onOpenSettings?.()}
-						>
-							<Settings {...iconProps} />
-						</OptionSquare>
-						<div className="bg-border my-1 h-px w-full shrink-0" />
 						<SortableContext
 							items={[
 								...groups.map((g) => GROUP_PREFIX + g.uuid),
