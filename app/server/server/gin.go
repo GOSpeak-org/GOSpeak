@@ -304,7 +304,7 @@ func StartGin(env EnvEnum) error {
 	signalH := handler.NewSignalHandler(sfuSvc, jobQueue, resolveLiveKitSecret, resolveLiveKitKey)
 
 	authCookieCfg := handler.NewAuthCookieConfig(cfg)
-	authH := handler.NewAuthHandler(authSvc, authCookieCfg)
+	authH := handler.NewAuthHandler(authSvc, authCookieCfg, permSvc)
 	joinRequestSvc.SetEventBus(eventBus)
 	inviteJoinSvc := service.NewInviteJoinService(
 		repository.NewDBTxRunner(db), inviteSvc, joinRequestSvc,
