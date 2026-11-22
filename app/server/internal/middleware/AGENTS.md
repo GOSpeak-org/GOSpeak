@@ -10,6 +10,8 @@ Gin 中间件：请求标识、鉴权、域成员校验、限流、CORS。
 | `domain.go` | `SetDomainChecker` / `IsDomainMember` / `IsPlatformAdmin` / `RequireDomainMember(IfProvided)` / `RequirePlatformAdminOrDomainMember(IfProvided)` |
 | `ratelimit.go` | `RateLimit(max, window)` |
 | `request_id.go` | `RequestID()` |
+| `password_change.go` | `RequirePasswordChanged()`：默认口令管理员门禁；`InvalidateTokenVersion()` / `ClearDefaultPasswordCache()` 缓存失效 |
+| `security_headers.go` | `SecurityHeaders()`：全局 CSP + nosniff + Referrer-Policy（Swagger 单独放宽） |
 
 ## JWTAuth 检查顺序
 
