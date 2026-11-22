@@ -61,6 +61,24 @@ export interface SFUProvidersListResponse {
 	capabilities?: Partial<Record<SFUProvider, SFUMediaCapabilities>>;
 }
 
+export type SFUConfigSource = "env" | "db";
+
+/** 实际生效的配置视图：值来自 ResolveConfig，sources 标注每个字段来自 env 还是 DB。 */
+export interface EffectiveSFUConfig {
+	provider: SFUProvider;
+	/** 后端访问 LiveKit 的地址（admin API），不是浏览器连接地址。 */
+	livekit_host: string;
+	livekit_key: string;
+	livekit_secret_set: boolean;
+	livekit_public_url: string;
+	/** 浏览器实际连接的 LiveKit 地址（由请求推导或 LIVEKIT_PUBLIC_URL）。 */
+	browser_server_url: string;
+	sources: Record<
+		"livekit_host" | "livekit_key" | "livekit_secret",
+		SFUConfigSource
+	>;
+}
+
 /** 获取当前激活 provider 的配置 */
 
 /** 获取当前激活 provider 的配置 */
@@ -87,7 +105,15 @@ export async function getSFUConfigByProvider(
 	return data;
 }
 
-/** 更新指定 provider 的配置并激活为当前（语义不变，但后端已改为 per-provider 行） */
+/** 获取实际生效的配置视图（含 env/DB 来源标注） */
+export async function getEffectiveSFUConfig(): Promise<EffectiveSFUConfig> {
+	const data = await apiClient.post<EffectiveSFUConfig>({
+		url: "/api/v1/sfu/effective-config",
+	});
+
+	if (!data) throw new Error("effective sfu config is missing");
+	return data;
+}
 
 /** 更新指定 provider 的配置并激活为当前（语义不变，但后端已改为 per-provider 行） */
 export async function updateSFUConfig(
