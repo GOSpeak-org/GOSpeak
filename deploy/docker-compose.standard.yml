@@ -169,6 +169,8 @@ services:
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./observability/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      # METRICS_TOKEN 写入这里供抓取使用（init.sh 按 observability 档位生成）
+      - ./observability/prometheus/metrics_token:/etc/prometheus/metrics_token:ro
       - prometheus-data:/prometheus
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"

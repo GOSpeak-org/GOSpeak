@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/ins
 └── data/              SQLite 与应用数据
 ```
 
-会同时写入 `gospeak.service` 与 `livekit.service`（无 systemd 环境自动跳过），并已为 `.env` 填入随机的 `JWT_KEY` / `STORAGE_ENCRYPT_KEY` / `LIVEKIT_KEY` / `LIVEKIT_SECRET`。
+会同时写入 `gospeak.service` 与 `livekit.service`（无 systemd 环境自动跳过），并已为 `.env` 填入随机的 `JWT_KEY` / `STORAGE_ENCRYPT_KEY` / `METRICS_TOKEN` / `LIVEKIT_KEY` / `LIVEKIT_SECRET`（`METRICS_TOKEN` 是 `server -e prod` 启动的必填项，老安装重复执行时会补上）。
 
 先看要装什么，不下载：
 

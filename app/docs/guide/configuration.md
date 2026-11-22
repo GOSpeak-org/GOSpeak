@@ -105,7 +105,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `COOKIE_DOMAIN` / `COOKIE_PATH` | — / `/` | Cookie 作用域 |
 | `COOKIE_SECURE` | `auto` | `auto` / `true` / `false` |
 | `COOKIE_SAMESITE` | `lax` | `lax` / `strict` / `none` |
-| `METRICS_TOKEN` | — | 指标端点访问令牌 |
+| `METRICS_TOKEN` | — | 指标端点访问令牌；生产必填（留空启动即失败），dev 留空 = 免鉴权 |
 
 ## 日志
 

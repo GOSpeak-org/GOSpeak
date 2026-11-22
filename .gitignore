@@ -129,6 +129,8 @@ test/.runtime/
 # 部署运行时密钥
 # ========================
 deploy/.env
+# prometheus 抓取 /metrics 用的令牌（deploy/init.sh 按 observability 档位生成）
+deploy/observability/prometheus/metrics_token
 deploy/env/app.srs.env
 deploy/env/app.livekit.env
 deploy/env/*.local.env

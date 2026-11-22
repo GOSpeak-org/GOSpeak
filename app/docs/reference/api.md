@@ -284,7 +284,7 @@ Authorization: Bearer <access_token>
 |------|------|
 | `GET /ping` | 进程存活即返回 200，不访问数据库 |
 | `GET /readyz` | 会检查数据库连接，失败时返回 503 |
-| `GET /metrics` | Prometheus 指标，设置 `METRICS_TOKEN` 后需携带 Bearer 令牌 |
+| `GET /metrics` | Prometheus 指标；生产必填 `METRICS_TOKEN`，需携带 Bearer 令牌（dev 未设置时公开） |
 
 ## WebSocket
 

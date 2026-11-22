@@ -76,13 +76,13 @@ LOG_FORMAT=json
 
 ## 保护 `/metrics`
 
-默认 `/metrics` 是公开的，任何人都可以抓取。生产环境建议增加令牌：
+未设置令牌时 `/metrics` 是公开的，任何人都可以抓取。生产环境（`APP_ENV=prod`）**必须**设置，留空会在启动时被配置校验直接拒绝：
 
 ```ini
 METRICS_TOKEN=<随机字符串>
 ```
 
-设置之后请求必须带 `Authorization: Bearer <token>`。
+`deploy/init.sh` 生成 `.env` 时会自动填一个随机值。设置之后请求必须带 `Authorization: Bearer <token>`。
 
 更稳妥的做法是在反代或防火墙层面直接挡掉外网访问。使用自有 Nginx 时：
 

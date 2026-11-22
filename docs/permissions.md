@@ -283,7 +283,7 @@ middleware.RequireOwnerOrPermission("room_owner", permcode.PermRoomUpdate)
 | GET | `/api/v1/system/update/current` | admin 角色 | 当前版本 |
 | GET | `/api/v1/system/update/check` | admin 角色 | 检查更新 |
 
-非 `/api/v1` 全局路由：`GET /ping`、`GET /readyz`、`GET /uploads/*filepath`、`GET /swagger/*any` 均为公开；`GET /metrics` 在设置 `METRICS_TOKEN` 后需令牌。
+非 `/api/v1` 全局路由：`GET /ping`、`GET /readyz`、`GET /uploads/*filepath`、`GET /swagger/*any` 均为公开；`GET /metrics` 需 `METRICS_TOKEN` 令牌（生产必填，dev 未设置时公开）。
 
 ---
 

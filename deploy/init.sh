@@ -64,6 +64,15 @@ normalize_domain() {
   printf '%s' "$d"
 }
 
+# ── 档位判定 ────────────────────────────────────────────────────────────────
+# COMPOSE_PROFILES 只对全档位编排（docker-compose.standard.yml）生效；
+# 精简编排（docker-compose.yml）忽略它，等价于 app,livekit 两档。
+has_profile() {
+  local name="$1" profiles
+  profiles="$(env_get COMPOSE_PROFILES "$ENV_FILE")"
+  [[ ",${profiles}," == *",${name},"* ]]
+}
+
 # ── 一致性校验 ──────────────────────────────────────────────────────────────
 # 校验分两类：
 #   A. 仓库结构合规（CI 也跑，不依赖 .env 存在）
@@ -184,6 +193,41 @@ check_consistency() {
     esac
   fi
 
+  # /metrics：生产配置校验强制要求 METRICS_TOKEN，空值会让进程启动即 panic。
+  # 在这里提前拦下来，比等到容器反复重启再翻日志便宜得多。
+  local app_env metrics_token
+  app_env="$(env_get APP_ENV "$ENV_FILE")"
+  metrics_token="$(env_get METRICS_TOKEN "$ENV_FILE")"
+  if [[ -z "$metrics_token" ]]; then
+    if [[ "$app_env" == "prod" || "$app_env" == "production" ]]; then
+      echo "  [x] $ENV_FILE 是生产环境（APP_ENV=$app_env）但 METRICS_TOKEN 为空，应用启动会直接失败" >&2
+      echo "      修复：./init.sh --force 重新生成，或在 $ENV_FILE 补一行 METRICS_TOKEN=<随机字符串>" >&2
+      rc=1
+    else
+      echo "  [-] METRICS_TOKEN 未设置：dev 环境 /metrics 免鉴权（生产必填）"
+    fi
+  else
+    echo "  [ok] $ENV_FILE 已设置 METRICS_TOKEN（APP_ENV=${app_env:-dev}）"
+  fi
+
+  # Prometheus 抓 /metrics 要带同一令牌，走文件注入免得密钥进配置文件。
+  # 只有启用了 observability 档位才需要这个文件，精简档不生成也不校验。
+  if has_profile observability; then
+    local token_file="observability/prometheus/metrics_token"
+    if [[ ! -f "$token_file" ]]; then
+      echo "  [x] 已启用 observability 档位，但缺少 $token_file：prometheus 抓取会 401" >&2
+      echo "      修复：./init.sh --force（会按 .env 的档位重新生成）" >&2
+      rc=1
+    elif [[ "$(tr -d '\r\n' < "$token_file")" != "$metrics_token" ]]; then
+      echo "  [x] $token_file 与 .env 的 METRICS_TOKEN 不一致：prometheus 抓取会 401" >&2
+      rc=1
+    else
+      echo "  [ok] $token_file 与 .env 的 METRICS_TOKEN 一致"
+    fi
+  else
+    echo "  [-] 未启用 observability 档位，跳过 prometheus 抓取令牌文件"
+  fi
+
   return $rc
 }
 
@@ -240,14 +284,18 @@ rand() { openssl rand -hex 32; }
 echo "==> 生成随机密钥"
 JWT_KEY=$(rand)
 STORAGE_ENCRYPT_KEY=$(rand)
+# 生产配置校验强制要求 METRICS_TOKEN，缺了会启动即 panic，必须一并生成。
+METRICS_TOKEN=$(rand)
 POSTGRES_PASSWORD=$(rand)
 LIVEKIT_KEY="API$(openssl rand -hex 6)"
 LIVEKIT_SECRET=$(openssl rand -base64 48 | tr -d '/+=' | cut -c1-43)
 
-# --force 重新生成时保留已填的域名，避免每次重置都要重填。
+# --force 重新生成时保留已填的域名与档位，避免每次重置都要重填。
 PREV_DOMAIN=""
+PREV_PROFILES=""
 if [[ -f "$ENV_FILE" ]]; then
   PREV_DOMAIN="$(env_get GOSPEAK_DOMAIN "$ENV_FILE")"
+  PREV_PROFILES="$(env_get COMPOSE_PROFILES "$ENV_FILE")"
 fi
 
 echo "==> 写出 ${ENV_FILE}（以 ${ENV_TPL} 为模板，替换全部密钥）"
@@ -256,10 +304,18 @@ echo "==> 写出 ${ENV_FILE}（以 ${ENV_TPL} 为模板，替换全部密钥）"
 sed \
   -e "s|^JWT_KEY=.*|JWT_KEY=$JWT_KEY|" \
   -e "s|^STORAGE_ENCRYPT_KEY=.*|STORAGE_ENCRYPT_KEY=$STORAGE_ENCRYPT_KEY|" \
+  -e "s|^METRICS_TOKEN=.*|METRICS_TOKEN=$METRICS_TOKEN|" \
   -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$POSTGRES_PASSWORD|" \
   -e "s|^LIVEKIT_KEY=.*|LIVEKIT_KEY=$LIVEKIT_KEY|" \
   -e "s|^LIVEKIT_SECRET=.*|LIVEKIT_SECRET=$LIVEKIT_SECRET|" \
   "$ENV_TPL" > "$ENV_FILE"
+
+# 沿用旧档位：模板只给 app,livekit，用户手动加的 observability/postgres 不应被重置。
+if [[ -n "$PREV_PROFILES" ]]; then
+  sed -i.bak "s|^COMPOSE_PROFILES=.*|COMPOSE_PROFILES=$PREV_PROFILES|" "$ENV_FILE"
+  rm -f "$ENV_FILE.bak"
+  echo "  [ok] 沿用已有 COMPOSE_PROFILES=$PREV_PROFILES"
+fi
 
 # 域名优先级：命令行参数 > 环境变量 > 已有 .env 的值
 DOMAIN="$(normalize_domain "${DOMAIN_ARG:-${GOSPEAK_DOMAIN:-$PREV_DOMAIN}}")"
@@ -281,6 +337,17 @@ else
   echo "  [ok] GOSPEAK_DOMAIN 留空（Caddy 只听 80；不开 edge 档位可忽略）"
 fi
 
+# Prometheus 抓 /metrics 要带 Bearer 令牌，用文件注入免得把密钥写进配置文件。
+# 只有 observability 档位需要；644 是因为容器内 prometheus 以 nobody 运行。
+if has_profile observability; then
+  PROM_TOKEN_FILE="observability/prometheus/metrics_token"
+  printf '%s' "$METRICS_TOKEN" > "$PROM_TOKEN_FILE"
+  chmod 644 "$PROM_TOKEN_FILE"
+  echo "  [ok] 已写出 ${PROM_TOKEN_FILE}（prometheus 抓取令牌）"
+else
+  echo "  [-] 未启用 observability 档位，不生成 prometheus 抓取令牌文件"
+fi
+
 echo "==> 归一 $LIVEKIT_YAML"
 normalize_livekit_yaml
 
@@ -292,7 +359,14 @@ if ! check_consistency; then
 fi
 
 echo ""
-echo "完成。后续命令一律显式带 -f（裸 up -d 只会选中精简版，不启用 edge/HTTPS）:"
+if has_profile observability; then
+  echo "完成。当前 .env 启用了 observability 档位，用全档位编排启动:"
+  echo "  docker compose -f deploy/docker-compose.standard.yml up -d --build"
+else
+  echo "完成。当前是精简档位（app + livekit）:"
+  echo "  docker compose -f deploy/docker-compose.yml up -d --build"
+fi
+echo "其余命令一律显式带 -f（裸 up -d 只会选中精简版，不启用 edge/HTTPS）:"
 cat <<'EOF'
 
   # 有域名：填 GOSPEAK_DOMAIN，并启用内置 Caddy（自动 HTTPS）

@@ -244,7 +244,7 @@ ufw allow 3478/udp
 | `LIVEKIT_PUBLIC_URL` | **空** | 下发给浏览器的 `serverUrl`。留空即按请求自动推导为同源 `/livekit` |
 | `LIVEKIT_KEY` / `LIVEKIT_SECRET` | 随机值 | 唯一密钥来源，compose 注入 LiveKit 容器，`livekit.yaml` 不存凭据 |
 | `STORAGE_ENCRYPT_KEY` | — | 生产必填，64 位 hex，加密存储配置里的敏感字段 |
-| `METRICS_TOKEN` | 空 | 可选，`/metrics` 的 Bearer token；留空表示不鉴权 |
+| `METRICS_TOKEN` | 随机值 | 生产必填，`/metrics` 的 Bearer token（`init.sh` 自动生成）；dev 留空 = 免鉴权，prod 留空启动即失败 |
 
 ### 4.1 LiveKit 地址：为什么默认留空
 

@@ -153,11 +153,17 @@ write_env() {
 	local env_file="$INSTALL_DIR/.env"
 	if [ -f "$env_file" ]; then
 		log "保留已有配置: $env_file"
+		# 生产启动（-e prod）强制要求 METRICS_TOKEN；老安装补一行，避免升级后直接 panic。
+		if ! grep -q '^METRICS_TOKEN=' "$env_file"; then
+			printf 'METRICS_TOKEN=%s\n' "$(rand_hex 32)" >>"$env_file"
+			log "已为已有配置补充 METRICS_TOKEN（生产必填）"
+		fi
 		return
 	fi
-	local jwt_key storage_key lk_key lk_secret
+	local jwt_key storage_key metrics_token lk_key lk_secret
 	jwt_key="$(rand_hex 32)"
 	storage_key="$(rand_hex 32)"
+	metrics_token="$(rand_hex 32)"
 	lk_key="API$(rand_hex 6)"
 	lk_secret="$(rand_hex 24)"
 	cat >"$env_file" <<EOF
@@ -172,6 +178,8 @@ STORAGE_PATH_PREFIX=uploads/
 STORAGE_ENCRYPT_KEY=$storage_key
 JWT_KEY=$jwt_key
 JWT_KEY_TTL=24h
+# /metrics 访问令牌；server -e prod 启动强制要求，留空会被配置校验拒绝
+METRICS_TOKEN=$metrics_token
 SFU_PROVIDER=livekit
 LIVEKIT_HOST=ws://127.0.0.1:7880
 LIVEKIT_PUBLIC_URL=
