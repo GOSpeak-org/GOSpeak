@@ -21,16 +21,20 @@ type tokenVersionChecker interface {
 	GetTokenVersionByUUID(userUUID string) (uint, error)
 }
 
+// defaultPasswordChecker 判断用户是否仍在使用默认口令（管理员首次改密门禁）。
+type defaultPasswordChecker func(userUUID string) (bool, error)
+
 // BlacklistChecker 校验 token 是否已吊销，nil 时按未黑名单放行（fail-open 语义）。
 type BlacklistChecker func(key string) (bool, error)
 
 // Dependencies 聚合 HTTP/WS 鉴权所需的业务实现，由组合根一次注入。
 type Dependencies struct {
-	PermissionChecker   permissionChecker
-	TokenVersionChecker tokenVersionChecker
-	DomainChecker       func(domainUUID, userUUID string) bool
-	BlacklistChecker    BlacklistChecker
-	AuthCookieName      string
+	PermissionChecker       permissionChecker
+	TokenVersionChecker     tokenVersionChecker
+	DefaultPasswordChecker  defaultPasswordChecker
+	DomainChecker           func(domainUUID, userUUID string) bool
+	BlacklistChecker        BlacklistChecker
+	AuthCookieName          string
 }
 
 // Auth 持有不可变依赖快照，生产路径由 Configure 一次注入。
@@ -53,6 +57,9 @@ func Configure(deps Dependencies) {
 	}
 	if deps.TokenVersionChecker != nil {
 		defaultAuth.deps.TokenVersionChecker = deps.TokenVersionChecker
+	}
+	if deps.DefaultPasswordChecker != nil {
+		defaultAuth.deps.DefaultPasswordChecker = deps.DefaultPasswordChecker
 	}
 	if deps.DomainChecker != nil {
 		defaultAuth.deps.DomainChecker = deps.DomainChecker

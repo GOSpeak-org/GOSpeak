@@ -461,6 +461,19 @@ func (s *AuthService) GetTokenVersionByUUID(userUUID string) (uint, error) {
 	return user.TokenVersion, nil
 }
 
+// NeedsPasswordChange 判断用户是否仍在使用默认管理员口令。
+// 供 middleware 的默认口令门禁调用；只有 admin 角色且口令未改才返回 true。
+func (s *AuthService) NeedsPasswordChange(userUUID string) (bool, error) {
+	user, err := s.userRepo.GetByUUID(userUUID)
+	if err != nil {
+		return false, err
+	}
+	if user.Role != model.RoleAdmin {
+		return false, nil
+	}
+	return authbossHasher.CompareHashAndPassword(user.Password, DefaultAdminPassword) == nil, nil
+}
+
 // generateTokenPair 顺序生成 access_token 和 refresh_token。
 // 注意：不能并发调用 GetSigningKey()，否则两个 goroutine 可能拿到不同密钥。
 func generateTokenPair(username, displayName, userUUID, role string, tokenVersion uint) (string, string, error) {

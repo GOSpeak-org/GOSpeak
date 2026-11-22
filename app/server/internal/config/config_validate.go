@@ -57,6 +57,21 @@ func (c *Config) Validate() error {
 	default:
 		errs = append(errs, fmt.Sprintf("COOKIE_SAMESITE %q unsupported (lax|strict|none)", c.CookieSameSite))
 	}
+	// SameSite=none 允许跨站携带 Cookie；此时 WS Origin 若回退到 CORS 的 "*"
+	// 会形成 CSWSH（跨站 WS 冒充），必须显式给出不含 "*" 的白名单。
+	if c.CookieSameSite == "none" {
+		origins := c.WSAllowedOriginsList()
+		if len(origins) == 0 {
+			errs = append(errs, "WS_ALLOWED_ORIGINS is required when COOKIE_SAMESITE=none")
+		} else {
+			for _, o := range origins {
+				if strings.TrimSpace(o) == "*" {
+					errs = append(errs, "WS_ALLOWED_ORIGINS must not contain '*' when COOKIE_SAMESITE=none")
+					break
+				}
+			}
+		}
+	}
 
 	if port, err := strconv.Atoi(c.ServerPort); err != nil || port < 1 || port > 65535 {
 		errs = append(errs, fmt.Sprintf("SERVER_PORT %q invalid", c.ServerPort))
@@ -117,6 +132,10 @@ func (c *Config) Validate() error {
 		key := strings.TrimSpace(c.JWTKey)
 		if key == "" || key == "default-secret" {
 			errs = append(errs, "JWT_KEY is required in production")
+		}
+		// /metrics 暴露房间/在线用户/连接池等信息，生产必须设 token。
+		if strings.TrimSpace(c.MetricsToken) == "" {
+			errs = append(errs, "METRICS_TOKEN is required in production")
 		}
 	}
 

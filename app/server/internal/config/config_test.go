@@ -88,11 +88,22 @@ func TestLoadRejectsProductionWithoutStorageEncryptKey(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsProductionWithoutMetricsToken(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("STORAGE_ENCRYPT_KEY", strings.Repeat("ab", 32))
+	t.Setenv("JWT_KEY", "test-production-secret")
+	if _, err := Load(); err == nil {
+		t.Fatal("expected production METRICS_TOKEN error")
+	}
+}
+
 func TestLoadAcceptsProductionWithStorageEncryptKey(t *testing.T) {
 	clearConfigEnv(t)
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("STORAGE_ENCRYPT_KEY", strings.Repeat("ab", 32))
 	t.Setenv("JWT_KEY", "test-production-secret")
+	t.Setenv("METRICS_TOKEN", "test-metrics-token")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)

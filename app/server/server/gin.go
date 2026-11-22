@@ -340,11 +340,12 @@ func StartGin(env EnvEnum) error {
 	sfuConfigH := handler.NewSFUConfigHandler(sfuConfigSvc, signalHub)
 	storageH := handler.NewStorageHandler(storageSvc)
 	middleware.Configure(middleware.Dependencies{
-		PermissionChecker:   permSvc,
-		TokenVersionChecker: authSvc,
-		DomainChecker:       domainSvc.IsMember,
-		BlacklistChecker:    authstate.IsBlacklistedErr,
-		AuthCookieName:      cfg.AccessCookieName,
+		PermissionChecker:      permSvc,
+		TokenVersionChecker:    authSvc,
+		DefaultPasswordChecker: authSvc.NeedsPasswordChange,
+		DomainChecker:          domainSvc.IsMember,
+		BlacklistChecker:       authstate.IsBlacklistedErr,
+		AuthCookieName:         cfg.AccessCookieName,
 	})
 
 	startJobConsumers(jobQueue, eventBus.InstanceID(), signalHub, messageSvc, conversationSvc)

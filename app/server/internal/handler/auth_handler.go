@@ -253,6 +253,8 @@ func (h *AuthHandler) FirstChangePassword(c *gin.Context) {
 		pkg.HandleError(c, err)
 		return
 	}
+	// 改密成功后立即失效门禁缓存，避免缓存窗口内仍被当作默认口令会话。
+	middleware.ClearDefaultPasswordCache(resp.User.UUID)
 
 	h.withPermissions(resp)
 	h.cookie.Set(c, resp.Token, resp.RefreshToken)
