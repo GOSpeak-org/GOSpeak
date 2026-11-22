@@ -305,6 +305,42 @@ func TestResolveConfig_EnvOverridesActiveProvider(t *testing.T) {
 	}
 }
 
+func TestEffectiveConfig_SourcesTrackEnvOverrides(t *testing.T) {
+	repo := newSFUConfigTestRepo(t)
+	baseCfg := &config.Config{
+		SFUProvider: "livekit",
+		LiveKitHost: "env-host",
+		LiveKitKey:  "env-key",
+		// LiveKitSecret 故意留空 → 应回退到 DB 并标注 db
+	}
+	svc := NewSFUConfigService(repo, baseCfg)
+	if err := svc.SyncFromEnv(); err != nil {
+		t.Fatalf("sync from env: %v", err)
+	}
+	if err := repo.Save(&model.SFUConfig{
+		Provider:      "livekit",
+		LiveKitHost:   "db-host",
+		LiveKitKey:    "db-key",
+		LiveKitSecret: "db-secret",
+	}); err != nil {
+		t.Fatalf("save livekit: %v", err)
+	}
+
+	eff, err := svc.EffectiveConfig()
+	if err != nil {
+		t.Fatalf("effective config: %v", err)
+	}
+	if eff.LiveKitHost != "env-host" || eff.Sources["livekit_host"] != ConfigSourceEnv {
+		t.Errorf("host = %q/%q, want env-host/env", eff.LiveKitHost, eff.Sources["livekit_host"])
+	}
+	if eff.LiveKitKey != "env-key" || eff.Sources["livekit_key"] != ConfigSourceEnv {
+		t.Errorf("key = %q/%q, want env-key/env", eff.LiveKitKey, eff.Sources["livekit_key"])
+	}
+	if !eff.LiveKitSecretSet || eff.Sources["livekit_secret"] != ConfigSourceDB {
+		t.Errorf("secret set = %v source = %q, want true/db", eff.LiveKitSecretSet, eff.Sources["livekit_secret"])
+	}
+}
+
 func TestUpdateFromDTO_KeepsExistingSecrets(t *testing.T) {
 	repo := newSFUConfigTestRepo(t)
 	svc := NewSFUConfigService(repo, &config.Config{SFUProvider: "livekit"})

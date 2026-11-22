@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"GOSpeak/internal/livekitproxy"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
 	"GOSpeak/internal/sfu"
@@ -60,6 +61,22 @@ func (h *SFUConfigHandler) Update(c *gin.Context) {
 		h.notifier.ForceSFUProviderSwitch(cfg.Provider)
 	}
 	pkg.Success(c, service.ToPublicSFUConfig(cfg))
+}
+
+// GetEffective 返回实际生效的配置视图（含来源标注与浏览器连接地址）。
+// 与 Get 的 DB 草稿区分：这里展示运行参数，避免管理页看到的值与真实连接不一致。
+func (h *SFUConfigHandler) GetEffective(c *gin.Context) {
+	cfg, err := h.svc.EffectiveConfig()
+	if err != nil {
+		pkg.HandleError(c, err)
+		return
+	}
+	if cfg.LiveKitPublicURL != "" {
+		cfg.BrowserServerURL = cfg.LiveKitPublicURL
+	} else {
+		cfg.BrowserServerURL = livekitproxy.ServerURLForRequest(c.Request)
+	}
+	pkg.Success(c, cfg)
 }
 
 // ListProviders 返回所有已配置 provider 的列表 + 当前激活的 provider。

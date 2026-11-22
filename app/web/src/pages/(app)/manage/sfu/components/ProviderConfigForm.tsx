@@ -1,14 +1,21 @@
 import type { SFUProvider } from "@gospeak/sfu-client/types";
-import type { UpdateSFUConfigParams } from "@/api/sfu";
+import type { SFUConfigSource, UpdateSFUConfigParams } from "@/api/sfu";
 import PasswordInput from "@/components/common/passwordInput";
+import { AlertTriangle } from "lucide-react";
 import type { SecretFlags } from "./constants";
 import type { FieldErrors } from "./validation";
+
+type ConfigSources = Record<
+	"livekit_host" | "livekit_key" | "livekit_secret",
+	SFUConfigSource
+>;
 
 export interface ProviderConfigFormProps {
 	provider: SFUProvider;
 	form: UpdateSFUConfigParams;
 	errors: FieldErrors;
 	secretFlags: SecretFlags;
+	sources?: ConfigSources;
 	saving: boolean;
 	updateField: <K extends keyof UpdateSFUConfigParams>(
 		key: K,
@@ -24,15 +31,25 @@ const inputErrorClass =
 function FormField({
 	label,
 	error,
+	overridden,
 	children,
 }: {
 	label: string;
 	error?: string;
+	overridden?: boolean;
 	children: React.ReactNode;
 }) {
 	return (
 		<label className="block">
-			<span className="mb-1 block text-sm">{label}</span>
+			<span className="mb-1 flex flex-wrap items-center gap-2 text-sm">
+				{label}
+				{overridden && (
+					<span className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-normal">
+						<AlertTriangle size={11} />
+						环境变量覆盖，修改不生效
+					</span>
+				)}
+			</span>
 			{children}
 			{error && <p className="text-destructive mt-1 text-xs">{error}</p>}
 		</label>
@@ -44,6 +61,7 @@ export default function ProviderConfigForm({
 	form,
 	errors,
 	secretFlags,
+	sources,
 	saving,
 	updateField,
 }: ProviderConfigFormProps) {
@@ -52,11 +70,15 @@ export default function ProviderConfigForm({
 	if (provider === "livekit") {
 		return (
 			<div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
-				<FormField label="Host" error={errors.livekit_host}>
+				<FormField
+					label="Host（后端 LiveKit 地址）"
+					error={errors.livekit_host}
+					overridden={sources?.livekit_host === "env"}
+				>
 					<input
 						type="text"
 						className={cls(errors.livekit_host)}
-						placeholder="wss://livekit.example.com"
+						placeholder="ws://livekit:7880"
 						value={form.livekit_host ?? ""}
 						onChange={(event) =>
 							updateField("livekit_host", event.currentTarget.value)
@@ -64,7 +86,11 @@ export default function ProviderConfigForm({
 						disabled={saving}
 					/>
 				</FormField>
-				<FormField label="API Key" error={errors.livekit_key}>
+				<FormField
+					label="API Key"
+					error={errors.livekit_key}
+					overridden={sources?.livekit_key === "env"}
+				>
 					<input
 						type="text"
 						className={cls(errors.livekit_key)}
@@ -76,7 +102,11 @@ export default function ProviderConfigForm({
 						disabled={saving}
 					/>
 				</FormField>
-				<FormField label="API Secret" error={errors.livekit_secret}>
+				<FormField
+					label="API Secret"
+					error={errors.livekit_secret}
+					overridden={sources?.livekit_secret === "env"}
+				>
 					<PasswordInput
 						native
 						autoComplete="off"

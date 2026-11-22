@@ -6,6 +6,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Info, RefreshCcw, Save, ServerCog } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+	getEffectiveSFUConfig,
 	getSFUConfigByProvider,
 	getSFUEnforcementProfile,
 	getSFUProviderCapabilities,
@@ -23,6 +24,7 @@ import { denyAccess } from "@/utils/accessDenied";
 import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
 import CapabilityBadge from "./components/CapabilityBadge";
+import EffectiveConfigPanel from "./components/EffectiveConfigPanel";
 import {
 	emptyFormForProvider,
 	emptySecretFlags,
@@ -78,6 +80,10 @@ function SFUPage() {
 	>({});
 	const [errors, setErrors] = useState<FieldErrors>({});
 	const [saving, setSaving] = useState(false);
+	const { data: effectiveConfig, refetch: refetchEffective } = useQuery({
+		queryKey: ["sfu-effective-config-manage"],
+		queryFn: getEffectiveSFUConfig,
+	});
 
 	const activeProvider = providersResponse?.active ?? DEFAULT_SFU_PROVIDER;
 	const selected = selectedProvider ?? activeProvider;
@@ -198,6 +204,7 @@ function SFUPage() {
 			populateProvider(saved.provider, saved);
 			setSelectedProvider(saved.provider);
 			void refetchList();
+			void refetchEffective();
 			toast.success("SFU 配置已保存");
 		} catch (error) {
 			toastActionError(error, "保存 SFU 配置失败");
@@ -221,6 +228,7 @@ function SFUPage() {
 						className="hover:bg-muted flex size-9 cursor-pointer items-center justify-center rounded-sm transition-colors disabled:pointer-events-none disabled:opacity-50"
 						onClick={() => {
 							void refetchList();
+							void refetchEffective();
 						}}
 						disabled={saving || isLoading}
 						title="重新加载"
@@ -354,11 +362,13 @@ function SFUPage() {
 						</div>
 					</section>
 
+					<EffectiveConfigPanel effective={effectiveConfig} />
+
 					<section className="border-border bg-card rounded-lg border p-4 shadow-sm md:p-5">
 						<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<div className="text-sm font-semibold">
-									{PROVIDER_LABELS[selectedProvider ?? activeProvider]} 配置
+									{PROVIDER_LABELS[selectedProvider ?? activeProvider]} 配置草稿
 								</div>
 								<p className="text-faint-foreground mt-0.5 text-xs">
 									仅编辑当前提供商参数；密钥留空表示保留已有配置
@@ -384,6 +394,7 @@ function SFUPage() {
 									form={form()}
 									errors={errors}
 									secretFlags={secretFlags()}
+									sources={effectiveConfig?.sources}
 									saving={saving}
 									updateField={updateField}
 								/>

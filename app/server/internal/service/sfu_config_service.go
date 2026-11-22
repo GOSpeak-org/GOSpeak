@@ -32,6 +32,28 @@ type PublicSFUConfig struct {
 	UpdatedAt        string `json:"updated_at,omitempty"`
 }
 
+// ConfigSource 标识生效值的来源。
+type ConfigSource string
+
+const (
+	ConfigSourceEnv ConfigSource = "env"
+	ConfigSourceDB  ConfigSource = "db"
+)
+
+// EffectiveSFUConfig 是管理后台展示的「实际生效」配置视图。
+// 与 PublicSFUConfig（DB 草稿，供编辑）区分：本结构来自 ResolveConfig()，
+// 并逐字段标注来源，避免管理页展示值与运行参数不一致。
+// 浏览器连接地址由 handler 按请求推导后填入 BrowserServerURL。
+type EffectiveSFUConfig struct {
+	Provider         string                   `json:"provider"`
+	LiveKitHost      string                   `json:"livekit_host"`
+	LiveKitKey       string                   `json:"livekit_key"`
+	LiveKitSecretSet bool                     `json:"livekit_secret_set"`
+	LiveKitPublicURL string                   `json:"livekit_public_url"`
+	BrowserServerURL string                   `json:"browser_server_url"`
+	Sources          map[string]ConfigSource `json:"sources"`
+}
+
 type SFUConfigService struct {
 	repo    *repository.SFUConfigRepository
 	baseCfg *config.Config
@@ -200,6 +222,37 @@ func (s *SFUConfigService) ResolveConfig() (*config.Config, error) {
 	// 由请求 Host 推导，不再回退到可能只有容器内网可达的 LiveKitHost。
 	resolved.LiveKitPublicURL = strings.TrimSpace(s.baseCfg.LiveKitPublicURL)
 	return &resolved, nil
+}
+
+// EffectiveConfig 返回实际生效的配置视图，逐字段标注来源是 env 还是 DB。
+// 规则与 ResolveConfig 一致：env 非空即覆盖 DB。
+func (s *SFUConfigService) EffectiveConfig() (*EffectiveSFUConfig, error) {
+	resolved, err := s.ResolveConfig()
+	if err != nil {
+		return nil, err
+	}
+	sources := map[string]ConfigSource{
+		"livekit_host":   ConfigSourceDB,
+		"livekit_key":    ConfigSourceDB,
+		"livekit_secret": ConfigSourceDB,
+	}
+	if s.baseCfg.LiveKitHost != "" {
+		sources["livekit_host"] = ConfigSourceEnv
+	}
+	if s.baseCfg.LiveKitKey != "" {
+		sources["livekit_key"] = ConfigSourceEnv
+	}
+	if s.baseCfg.LiveKitSecret != "" {
+		sources["livekit_secret"] = ConfigSourceEnv
+	}
+	return &EffectiveSFUConfig{
+		Provider:         resolved.SFUProvider,
+		LiveKitHost:      resolved.LiveKitHost,
+		LiveKitKey:       resolved.LiveKitKey,
+		LiveKitSecretSet: resolved.LiveKitSecret != "",
+		LiveKitPublicURL: strings.TrimSpace(resolved.LiveKitPublicURL),
+		Sources:          sources,
+	}, nil
 }
 
 func isValidProvider(p string) bool {
