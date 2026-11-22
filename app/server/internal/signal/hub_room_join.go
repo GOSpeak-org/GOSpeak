@@ -5,6 +5,7 @@ import (
 	"GOSpeak/internal/logger"
 	"GOSpeak/internal/model"
 	"GOSpeak/internal/pkg"
+	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/protocol"
 	"GOSpeak/internal/sfu"
 	"GOSpeak/internal/ws"
@@ -13,6 +14,34 @@ import (
 	"strings"
 	"time"
 )
+
+// canCreateRoom 按 permcode.PermRoomCreate 判定建房权限，与 HTTP 通道一致。
+// 生产由 gin.go 注入两个 checker；未注入时（嵌入式/测试）回退到成员关系，
+// 并留一条 warn，避免漏装配静默变回无权限校验。
+func (h *Hub) canCreateRoom(c ws.ClientMessenger, domainUUID string) bool {
+	claims := c.Claims()
+	userUUID := ""
+	role := ""
+	if claims != nil {
+		userUUID = claims.UserUUID
+		if userUUID == "" {
+			userUUID = claims.Username
+		}
+		role = claims.Role
+	}
+	if domainUUID != "" {
+		if h.domainPermChecker == nil {
+			logger.WithComponent("Signal").Warn("[Signal] domain permission checker not injected; room:create falls back to membership only")
+			return h.domainMemberAllowed(c, domainUUID)
+		}
+		return userUUID != "" && h.domainPermChecker(domainUUID, userUUID, permcode.PermRoomCreate)
+	}
+	if h.permChecker == nil {
+		logger.WithComponent("Signal").Warn("[Signal] global permission checker not injected; platform room:create falls back to membership")
+		return true
+	}
+	return permissionGranted(claims, role, permcode.PermRoomCreate, h.permChecker)
+}
 
 func (h *Hub) OnRoomCreate(c ws.ClientMessenger, data string) {
 	var req RoomRequest
@@ -26,6 +55,14 @@ func (h *Hub) OnRoomCreate(c ws.ClientMessenger, data string) {
 	if !h.domainMemberAllowed(c, req.DomainUUID) {
 		c.Send(map[string]interface{}{"event": EventRoomCreated, "data": map[string]interface{}{
 			"error": "not a member of this domain",
+		}})
+		return
+	}
+	// 与 HTTP POST /room/create 同口径：域房间按域角色权限判定，平台房间按
+	// 全局角色权限判定。仅校验域成员不足以建房，否则任意成员可经 WS 绕过 PermRoomCreate。
+	if !h.canCreateRoom(c, req.DomainUUID) {
+		c.Send(map[string]interface{}{"event": EventRoomCreated, "data": map[string]interface{}{
+			"error": "insufficient room permission",
 		}})
 		return
 	}

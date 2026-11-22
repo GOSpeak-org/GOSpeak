@@ -1,9 +1,12 @@
 package signal
 
 import (
-	"GOSpeak/internal/ws"
-	"GOSpeak/internal/logger"
 	"strings"
+
+	"GOSpeak/internal/bus"
+	"GOSpeak/internal/logger"
+	"GOSpeak/internal/protocol"
+	"GOSpeak/internal/ws"
 )
 
 // OnDomainDelete 清理指定 Domain 下所有信令房间（房间键前缀匹配）。
@@ -222,11 +225,10 @@ func (h *Hub) HandleRemoteEvent(event string, payload interface{}) {
 		h.clearLocalRoomsForSFUSwitch()
 	case EventStateRoomChanged:
 		room := ""
-		switch p := payload.(type) {
-		case map[string]interface{}:
-			if v, ok := p["room"].(string); ok {
-				room = v
-			}
+		if p, err := bus.DecodePayload[protocol.StateRoomChangedPayload](payload); err == nil {
+			room = p.Room
+		} else {
+			logger.WithComponent("Signal").Infof("[Signal] invalid state room-changed payload: %T (%v)", payload, err)
 		}
 		h.ApplyRemoteRoomState(room)
 	default:

@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"log"
+
 	"GOSpeak/internal/model"
 
 	"gorm.io/gorm"
@@ -31,7 +33,10 @@ func (r *RoomLayoutRepository) GetLayout(domainUUID string) (model.DomainRoomLay
 	var layout model.DomainRoomLayout
 	err := r.db.Where("domain_uuid = ?", domainUUID).First(&layout).Error
 	if err == gorm.ErrRecordNotFound {
-		groups, _ := r.ListGroups(domainUUID)
+		groups, listErr := r.ListGroups(domainUUID)
+		if listErr != nil {
+			log.Printf("[RoomLayout] list groups for %s failed while building default layout: %v", domainUUID, listErr)
+		}
 		return model.DomainRoomLayout{DomainUUID: domainUUID, UngroupedPosition: len(groups)}, nil
 	}
 	return layout, err

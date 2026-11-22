@@ -4,7 +4,6 @@ import (
 	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/permcode"
 	"GOSpeak/internal/pkg"
-	"GOSpeak/internal/repository"
 	"GOSpeak/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +26,7 @@ type roomLayoutGetReq struct {
 
 type roomLayoutSaveReq struct {
 	DomainUUID         string                  `json:"domain_uuid" binding:"required"`
-	Groups             []repository.GroupInput `json:"groups"`
+	Groups             []service.RoomGroupInput `json:"groups"`
 	UngroupedPosition  int                     `json:"ungrouped_position"`
 	UngroupedRoomUUIDs []string                `json:"ungrouped_room_uuids"`
 }

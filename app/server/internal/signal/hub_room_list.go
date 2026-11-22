@@ -164,7 +164,11 @@ func (h *Hub) getMergedRoomsScoped(domainUUID string, platformOnly bool) []RoomI
 
 			snaps := make(map[string]bus.RoomMembersSnapshot, len(remoteNames))
 			if bulk, ok := h.membershipStore.(bulkRoomMembersReader); ok {
-				snaps, _ = bulk.GetRoomMembersBatch(ctx, remoteNames)
+				var batchErr error
+				snaps, batchErr = bulk.GetRoomMembersBatch(ctx, remoteNames)
+				if batchErr != nil {
+					logger.WithComponent("Signal").Infof("[Signal] batch room members failed: %v", batchErr)
+				}
 			} else {
 				for _, name := range remoteNames {
 					if snap, getErr := h.membershipStore.GetRoomMembers(ctx, name); getErr == nil {
@@ -254,8 +258,15 @@ func (h *Hub) layoutSummary(domainUUID string) (protocol.RoomListLayoutPayload, 
 	var groups []model.DomainRoomGroup
 	var layout model.DomainRoomLayout
 	if h.layoutStore != nil && domainUUID != "" {
-		groups, _ = h.layoutStore.Groups(domainUUID)
-		layout, _ = h.layoutStore.Layout(domainUUID)
+		var err error
+		groups, err = h.layoutStore.Groups(domainUUID)
+		if err != nil {
+			logger.WithComponent("Signal").Infof("[Signal] room layout groups for %s: %v", domainUUID, err)
+		}
+		layout, err = h.layoutStore.Layout(domainUUID)
+		if err != nil {
+			logger.WithComponent("Signal").Infof("[Signal] room layout for %s: %v", domainUUID, err)
+		}
 	}
 	summary := protocol.RoomListLayoutPayload{
 		Groups:            make([]protocol.RoomListGroupPayload, 0, len(groups)),

@@ -1424,22 +1424,6 @@ func TestMessageService_Search_RejectsVoiceRoom(t *testing.T) {
 	assertErrorCode(t, err, pkg.FORBIDDEN)
 }
 
-// ─── broadcastRoomKey Tests ───
-
-func TestBroadcastRoomKey_PlatformRoom(t *testing.T) {
-	got := broadcastRoomKey("", "my-room")
-	if got != "my-room" {
-		t.Errorf("expected 'my-room', got %q", got)
-	}
-}
-
-func TestBroadcastRoomKey_DomainRoom(t *testing.T) {
-	got := broadcastRoomKey("dom-123", "my-room")
-	if got != "dom-123:my-room" {
-		t.Errorf("expected 'dom-123:my-room', got %q", got)
-	}
-}
-
 // ─── Domain-scoped broadcast room key tests ───
 
 func TestMessageService_Send_BroadcastUsesDomainScopedKey(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 
 	"GOSpeak/internal/bus"
 	"GOSpeak/internal/logger"
+	"GOSpeak/internal/protocol"
 )
 
 // notifyRoomStateChanged tells peer instances to refresh room list/updated from KV.
@@ -14,12 +15,12 @@ func (h *Hub) notifyRoomStateChanged(room string) {
 	if h.stateNotifier == nil {
 		return
 	}
-	payload := map[string]interface{}{
-		"room": room,
-		"ts":   time.Now().UnixMilli(),
+	payload := protocol.StateRoomChangedPayload{
+		Room: room,
+		TS:   time.Now().UnixMilli(),
 	}
 	ctx, cancel := kvTimeoutCtx()
-	err := h.stateNotifier.PublishInternal(ctx, EventStateRoomChanged, payload)
+	err := h.stateNotifier.PublishInternal(ctx, protocol.EventStateRoomChanged, payload)
 	cancel()
 	if err != nil {
 		logger.WithComponent("Signal").Infof("[Signal] publish state room-changed %s: %v", room, err)

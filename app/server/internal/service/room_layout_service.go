@@ -16,6 +16,15 @@ type RoomBrief struct {
 	SortOrder   int    `json:"sort_order"`
 }
 
+// RoomGroupInput 是房间分组的 service 层 DTO；HTTP 边界只依赖本类型，
+// repository.GroupInput 由 service 内部转换，不向 handler 泄漏。
+type RoomGroupInput struct {
+	UUID      string   `json:"uuid"`
+	Name      string   `json:"name"`
+	SortOrder int      `json:"sort_order"`
+	RoomUUIDs []string `json:"room_uuids"`
+}
+
 type GroupLayout struct {
 	UUID      string      `json:"uuid"`
 	Name      string      `json:"name"`
@@ -84,7 +93,7 @@ func (s *RoomLayoutService) GetLayout(domainUUID string, canManage bool) (*Layou
 	return view, nil
 }
 
-func (s *RoomLayoutService) SaveLayout(domainUUID string, groups []repository.GroupInput, ungroupedUUIDs []string, ungroupedPosition int) (*LayoutView, *pkg.AppError) {
+func (s *RoomLayoutService) SaveLayout(domainUUID string, groups []RoomGroupInput, ungroupedUUIDs []string, ungroupedPosition int) (*LayoutView, *pkg.AppError) {
 	rooms, err := s.repo.DomainRooms(domainUUID)
 	if err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
@@ -120,7 +129,13 @@ func (s *RoomLayoutService) SaveLayout(domainUUID string, groups []repository.Gr
 	if ungroupedPosition > len(groups) {
 		ungroupedPosition = len(groups)
 	}
-	if err := s.repo.SaveLayout(domainUUID, groups, ungroupedUUIDs, ungroupedPosition); err != nil {
+	repoGroups := make([]repository.GroupInput, 0, len(groups))
+	for _, g := range groups {
+		repoGroups = append(repoGroups, repository.GroupInput{
+			UUID: g.UUID, Name: g.Name, SortOrder: g.SortOrder, RoomUUIDs: g.RoomUUIDs,
+		})
+	}
+	if err := s.repo.SaveLayout(domainUUID, repoGroups, ungroupedUUIDs, ungroupedPosition); err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	return s.GetLayout(domainUUID, true)

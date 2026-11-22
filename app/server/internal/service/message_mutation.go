@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -75,7 +76,9 @@ func (s *MessageService) Edit(roomUUID, messageUUID string, actor MessageActor, 
 	// 1) broadcast first
 	s.enrichAuthorDTO(dto)
 	if s.bus != nil {
-		_ = s.bus.PublishRoom(context.Background(), broadcastRoomKey(room.DomainUUID, room.Name), protocol.EventMessageUpdated, dto)
+		if err := s.bus.PublishRoom(context.Background(), pkg.RoomKey(room.DomainUUID, room.Name), protocol.EventMessageUpdated, dto); err != nil {
+			log.Printf("[Message] publish edit failed: room=%s message=%s: %v", room.Name, messageUUID, err)
+		}
 	}
 
 	// 2) enqueue mutate
@@ -145,7 +148,9 @@ func (s *MessageService) Delete(roomUUID, messageUUID string, actor MessageActor
 		CreatedAt:  msg.CreatedAt,
 	}
 	if s.bus != nil {
-		_ = s.bus.PublishRoom(context.Background(), broadcastRoomKey(room.DomainUUID, room.Name), protocol.EventMessageDeleted, dto)
+		if err := s.bus.PublishRoom(context.Background(), pkg.RoomKey(room.DomainUUID, room.Name), protocol.EventMessageDeleted, dto); err != nil {
+			log.Printf("[Message] publish delete failed: room=%s message=%s: %v", room.Name, messageUUID, err)
+		}
 	}
 
 	// 2) enqueue mutate
@@ -204,12 +209,14 @@ func (s *MessageService) React(roomUUID, messageUUID string, actor MessageActor,
 
 	// 1) broadcast first
 	if s.bus != nil {
-		_ = s.bus.PublishRoom(context.Background(), broadcastRoomKey(room.DomainUUID, room.Name), protocol.EventMessageReaction, protocol.MessageReactionPayload{
+		if err := s.bus.PublishRoom(context.Background(), pkg.RoomKey(room.DomainUUID, room.Name), protocol.EventMessageReaction, protocol.MessageReactionPayload{
 			Action:      "added",
 			MessageUUID: messageUUID,
 			UserID:      actor.Identity,
 			Emoji:       emoji,
-		})
+		}); err != nil {
+			log.Printf("[Message] publish reaction add failed: room=%s message=%s: %v", room.Name, messageUUID, err)
+		}
 	}
 
 	// 2) enqueue mutate
@@ -271,12 +278,14 @@ func (s *MessageService) Unreact(roomUUID, messageUUID string, actor MessageActo
 
 	// 1) broadcast first
 	if s.bus != nil {
-		_ = s.bus.PublishRoom(context.Background(), broadcastRoomKey(room.DomainUUID, room.Name), protocol.EventMessageReaction, protocol.MessageReactionPayload{
+		if err := s.bus.PublishRoom(context.Background(), pkg.RoomKey(room.DomainUUID, room.Name), protocol.EventMessageReaction, protocol.MessageReactionPayload{
 			Action:      "removed",
 			MessageUUID: messageUUID,
 			UserID:      actor.Identity,
 			Emoji:       emoji,
-		})
+		}); err != nil {
+			log.Printf("[Message] publish reaction remove failed: room=%s message=%s: %v", room.Name, messageUUID, err)
+		}
 	}
 
 	// 2) enqueue mutate

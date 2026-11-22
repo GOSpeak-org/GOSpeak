@@ -27,7 +27,7 @@ func TestRoomLayoutService_GetAndSave(t *testing.T) {
 	if appErr != nil || view.UngroupedPosition != 0 || len(view.Ungrouped) != 2 {
 		t.Fatalf("initial view: %+v err=%v", view, appErr)
 	}
-	if _, appErr = svc.SaveLayout("domain-a", []repository.GroupInput{
+	if _, appErr = svc.SaveLayout("domain-a", []RoomGroupInput{
 		{Name: "语音", RoomUUIDs: []string{"room-a"}},
 	}, []string{"room-b"}, 1); appErr != nil {
 		t.Fatalf("SaveLayout: %v", appErr)
