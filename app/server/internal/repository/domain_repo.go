@@ -81,14 +81,94 @@ func (r *DomainRepository) Update(domain *model.Domain) error {
 }
 func (r *DomainRepository) Delete(uuid string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("domain_uuid = ?", uuid).Delete(&model.DomainMember{}).Error; err != nil {
+		roomUUIDs, err := domainRoomUUIDs(tx, uuid)
+		if err != nil {
 			return err
 		}
-		if err := tx.Where("domain_uuid = ?", uuid).Delete(&model.Room{}).Error; err != nil {
+		if err := deleteRoomMessages(tx, roomUUIDs); err != nil {
 			return err
+		}
+		if err := deleteDomainInviteRedemptions(tx, uuid); err != nil {
+			return err
+		}
+		if err := deleteDomainAnnouncements(tx, uuid); err != nil {
+			return err
+		}
+		domainChildren := []interface{}{
+			&model.DomainInvite{},
+			&model.DomainJoinRequest{},
+			&model.DomainRolePermission{},
+			&model.DomainRole{},
+			&model.DomainRoomGroup{},
+			&model.DomainRoomLayout{},
+			&model.UserDomainLayoutItem{},
+			&model.DomainMember{},
+			&model.Room{},
+		}
+		for _, child := range domainChildren {
+			if err := tx.Where("domain_uuid = ?", uuid).Delete(child).Error; err != nil {
+				return err
+			}
 		}
 		return tx.Where("uuid = ?", uuid).Delete(&model.Domain{}).Error
 	})
+}
+
+func domainRoomUUIDs(tx *gorm.DB, domainUUID string) ([]string, error) {
+	var roomUUIDs []string
+	err := tx.Model(&model.Room{}).Where("domain_uuid = ?", domainUUID).Pluck("uuid", &roomUUIDs).Error
+	return roomUUIDs, err
+}
+
+func deleteRoomMessages(tx *gorm.DB, roomUUIDs []string) error {
+	if len(roomUUIDs) == 0 {
+		return nil
+	}
+	var messageUUIDs []string
+	if err := tx.Unscoped().Model(&model.Message{}).
+		Where("room_uuid IN ?", roomUUIDs).Pluck("uuid", &messageUUIDs).Error; err != nil {
+		return err
+	}
+	if len(messageUUIDs) > 0 {
+		if err := tx.Where("message_uuid IN ?", messageUUIDs).Delete(&model.MessageReaction{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("message_uuid IN ?", messageUUIDs).Delete(&model.MessageMention{}).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Unscoped().Where("room_uuid IN ?", roomUUIDs).Delete(&model.Message{}).Error
+}
+
+// deleteDomainAnnouncements 清理域级公告及其已读记录（含软删公告）。
+func deleteDomainAnnouncements(tx *gorm.DB, domainUUID string) error {
+	var announcementUUIDs []string
+	if err := tx.Unscoped().Model(&model.Announcement{}).
+		Where("scope_type = ? AND scope_id = ?", model.AnnouncementScopeDomain, domainUUID).
+		Pluck("uuid", &announcementUUIDs).Error; err != nil {
+		return err
+	}
+	if len(announcementUUIDs) > 0 {
+		if err := tx.Where("announcement_uuid IN ?", announcementUUIDs).Delete(&model.AnnouncementRead{}).Error; err != nil {
+			return err
+		}
+	}
+	return tx.Unscoped().
+		Where("scope_type = ? AND scope_id = ?", model.AnnouncementScopeDomain, domainUUID).
+		Delete(&model.Announcement{}).Error
+}
+
+func deleteDomainInviteRedemptions(tx *gorm.DB, domainUUID string) error {
+	var inviteIDs []uint
+	if err := tx.Model(&model.DomainInvite{}).
+		Where("domain_uuid = ?", domainUUID).Pluck("id", &inviteIDs).Error; err != nil {
+		return err
+	}
+	q := tx.Where("domain_uuid = ?", domainUUID)
+	if len(inviteIDs) > 0 {
+		q = q.Or("invite_id IN ?", inviteIDs)
+	}
+	return q.Delete(&model.DomainInviteRedemption{}).Error
 }
 
 // --- DomainMember ---
