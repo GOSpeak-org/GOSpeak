@@ -35,7 +35,7 @@ export default function SettingsPage() {
 	};
 
 	return (
-		<div className="bg-background flex h-full flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+		<div className="flex h-full flex-col overflow-y-auto pb-[env(safe-area-inset-bottom)]">
 			<header className="border-border bg-card sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b px-2">
 				<button
 					type="button"

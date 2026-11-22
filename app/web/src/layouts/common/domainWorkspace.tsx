@@ -241,7 +241,7 @@ export default function DomainWorkspace({
 								<div className="bg-border group-hover:bg-primary pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 transition-colors" />
 							</div>
 							<section
-								className={`bg-muted flex flex-col overflow-hidden ${chatFullscreen ? "min-h-0 flex-1" : "shrink-0"}`}
+								className={`flex flex-col overflow-hidden ${chatFullscreen ? "min-h-0 flex-1" : "shrink-0"}`}
 								style={chatFullscreen ? undefined : { height: chatHeight }}
 								aria-label="文字聊天"
 							>
@@ -422,7 +422,7 @@ function VoiceEmptyState() {
 	const noRooms = list.length === 0;
 
 	return (
-		<div className="bg-muted flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
+		<div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center select-none">
 			<div className="bg-muted border-border flex size-16 items-center justify-center rounded-full border">
 				<Headphones size={32} strokeWidth={1.5} className="text-foreground" />
 			</div>

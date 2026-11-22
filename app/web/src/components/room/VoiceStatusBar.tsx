@@ -123,7 +123,7 @@ export default function VoiceStatusBar({ className }: { className?: string }) {
 	return (
 		<div
 			className={clsx(
-				"bg-muted border-border flex shrink-0 items-center gap-1 border-t px-2 py-1.5 select-none",
+				"border-border flex shrink-0 items-center gap-1 border-t px-2 py-1.5 select-none",
 				className,
 			)}
 		>

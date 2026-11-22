@@ -710,8 +710,25 @@ html.bg-custom {
 	);
 }
 
-html.bg-custom .surface-glass {
+/* 背衬层：模糊只在 body 上做一次，所有面板透出同一层背衬。
+   面板自身不再各自挂 backdrop-filter——各自模糊会各自采样背景图不同位置的像素，
+   同一 token 也会显出左右色差（实测左面板比主区暗 26 级、饱和度差 8 倍）。
+   模糊半径与饱和度完全由设置页滑杆的两个变量决定，这里不写死任何数值。 */
+html.bg-custom body {
+	isolation: isolate;
+}
+
+html.bg-custom body::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	pointer-events: none;
 	backdrop-filter: blur(var(--bg-blur, 14px)) saturate(var(--bg-saturate, 1));
+}
+
+html.bg-custom .surface-glass {
+	backdrop-filter: none;
 }
 
 /* 管理页外壳嵌在 Main 的 surface-glass 外壳内，透明继承那一层即可；

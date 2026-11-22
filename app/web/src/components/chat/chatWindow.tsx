@@ -118,7 +118,7 @@ export default function ChatWindow() {
 		return (
 			<div className="flex h-full min-w-0 flex-1 flex-col">
 				{/* 与域页 ChannelHeader 同构：h-10 + 裸图标，非图标方块 */}
-				<header className="bg-muted border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+				<header className="border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 					<MessageSquareText
 						size={20}
 						className="text-muted-foreground shrink-0"
@@ -138,7 +138,7 @@ export default function ChatWindow() {
 	return (
 		<div className="flex h-full min-w-0 flex-1 flex-col">
 			{/* 面板标题栏：图标 + 对方名称 */}
-			<header className="bg-muted border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
+			<header className="border-border relative z-10 flex h-10 shrink-0 items-center gap-2 border-b px-3">
 				<MessageSquareText
 					size={20}
 					className="text-muted-foreground shrink-0"
