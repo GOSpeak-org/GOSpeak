@@ -2,7 +2,7 @@
 
 > 版本: 1.1 · 更新: 2026-07-11
 >
-> **统一部署入口已迁到 [`deploy/DEPLOY.md`](../deploy/DEPLOY.md) + [`deploy/docker-compose.yml`](../deploy/docker-compose.yml)。**
+> **统一部署入口已迁到 [`deploy/DEPLOY.md`](../deploy/DEPLOY.md) + [`deploy/docker-compose.standard.yml`](../deploy/docker-compose.standard.yml)。**
 > 本文保留概念说明；一键命令与公网清单以 `deploy/DEPLOY.md` 为准。
 
 GOSpeak 实时音视频平台的部署文档。覆盖本地开发、Docker 部署、生产上线全流程。
@@ -141,7 +141,7 @@ NATS 总线固定为进程内嵌运行（含 JetStream），承担内部事件�
 
 ### 4.1 依赖服务 — 渐进式数据库三档
 
-首次部署推荐 `cd deploy && ./init.sh` 自动生成配置。`deploy/docker-compose.yml` 用 Compose `profiles` 提供档位组合，档位写在 `deploy/.env` 的 `COMPOSE_PROFILES`，之后命令都是裸 `docker compose up -d`：
+首次部署推荐 `cd deploy && ./init.sh` 自动生成配置。`deploy/docker-compose.standard.yml` 用 Compose `profiles` 提供档位组合，档位写在 `deploy/.env` 的 `COMPOSE_PROFILES`，之后命令都是裸 `docker compose up -d`：
 
 | 档 | `deploy/.env` 关键项 |
 |----|----------------------|
@@ -314,7 +314,7 @@ docker run -d ... gospeak:latest  # 同 5.2 step 4
 
 - 架构总览: `ARCHITECTURE.md`
 - Agent 指南: `AGENTS.md`
-- 一键编排方案: `deploy/docker-compose.yml`
+- 一键编排方案: `deploy/docker-compose.standard.yml`
 - 权威部署入口: `deploy/DEPLOY.md`
 - 反代与 HTTPS: `deploy/Caddyfile` + `app/docs/deploy/reverse-proxy.md`
 - 服务成熟度: `docs/sfu-provider-maturity.md`

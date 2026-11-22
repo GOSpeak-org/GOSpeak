@@ -48,7 +48,7 @@ docker compose up -d                # 启动，档位由 .env 的 COMPOSE_PROFIL
 
 ## 1.1 简化版（推荐起步）
 
-只需要应用 + LiveKit 时，用 `docker-compose.simple.yml`：无 profiles、无 PostgreSQL、
+只需要应用 + LiveKit 时，用 `docker-compose.yml`：无 profiles、无 PostgreSQL、
 无 RustFS、无可观测性栈，数据库走 SQLite、存储走本地磁盘，开箱即用。
 
 ```bash
@@ -57,8 +57,8 @@ cd deploy
 
 # 在仓库根目录执行（注意 -f 路径）
 cd ..
-docker compose -f deploy/docker-compose.simple.yml up -d
-docker compose -f deploy/docker-compose.simple.yml logs -f gospeak
+docker compose -f deploy/docker-compose.yml up -d
+docker compose -f deploy/docker-compose.yml logs -f gospeak
 ```
 
 与完整版的区别：
@@ -72,7 +72,7 @@ docker compose -f deploy/docker-compose.simple.yml logs -f gospeak
 | 监控 | 无 | Prometheus/Grafana/Loki/Alertmanager |
 
 两个文件共用同一份 `deploy/.env` 和同名 volume，**可在两者间切换而不丢数据**。
-需要 PostgreSQL、对象存储或监控时改用完整版 `docker-compose.yml`。
+需要 PostgreSQL、对象存储或监控时改用全档位版 `docker-compose.standard.yml`。
 
 ---
 

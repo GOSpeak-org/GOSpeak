@@ -1,12 +1,12 @@
 # Docker Compose 详解
 
-`deploy/docker-compose.yml` 将整套服务编排在一起。本文逐一说明每个组件、每个档位与常用操作。
+`deploy/docker-compose.standard.yml` 将整套服务编排在一起；`deploy/docker-compose.yml` 是只含 app + LiveKit 的精简入口。本文逐一说明每个组件、每个档位与常用操作。
 
 ## 单文件与档位机制
 
 传统做法是维护多份 compose 文件（基础版、完整版、生产版），一处修改需要在多处同步。
 
-GOSpeak 只使用一个文件，由 `COMPOSE_PROFILES` 决定启用的服务：
+全档位版使用单文件 `docker-compose.standard.yml`，由 `COMPOSE_PROFILES` 决定启用的服务：
 
 ```ini
 COMPOSE_PROFILES=app,livekit
