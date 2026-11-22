@@ -13,21 +13,27 @@ import (
 // 这里只防止高频请求把 DB + bcrypt 打爆。
 const defaultPasswordCacheTTL = 10 * time.Second
 
-var defaultPasswordCache = struct {
-	sync.Mutex
-	m map[string]struct {
-		needsChange bool
-		expires     time.Time
-	}
-}{m: make(map[string]struct {
+type passwordCacheEntry struct {
 	needsChange bool
 	expires     time.Time
-})}
+	gen         uint64
+}
+
+var defaultPasswordCache = struct {
+	sync.Mutex
+	m   map[string]passwordCacheEntry
+	gen map[string]uint64
+}{
+	m:   make(map[string]passwordCacheEntry),
+	gen: make(map[string]uint64),
+}
 
 // ClearDefaultPasswordCache 在管理员改密成功后调用，立即失效该用户的门禁缓存。
+// 递增 per-user generation，使查询期间并发写回的旧结果因 gen 不匹配而被丢弃。
 func ClearDefaultPasswordCache(userUUID string) {
 	defaultPasswordCache.Lock()
 	delete(defaultPasswordCache.m, userUUID)
+	defaultPasswordCache.gen[userUUID]++
 	defaultPasswordCache.Unlock()
 }
 
@@ -60,6 +66,7 @@ func RequirePasswordChanged() gin.HandlerFunc {
 		now := time.Now()
 		defaultPasswordCache.Lock()
 		entry, ok := defaultPasswordCache.m[uuid]
+		gen := defaultPasswordCache.gen[uuid]
 		if ok && now.Before(entry.expires) {
 			defaultPasswordCache.Unlock()
 			if entry.needsChange {
@@ -79,10 +86,14 @@ func RequirePasswordChanged() gin.HandlerFunc {
 			return
 		}
 		defaultPasswordCache.Lock()
-		defaultPasswordCache.m[uuid] = struct {
-			needsChange bool
-			expires     time.Time
-		}{needsChange: needsChange, expires: now.Add(defaultPasswordCacheTTL)}
+		// 查询期间若 Clear 递增了 generation，说明改密已发生，丢弃本次旧结果。
+		if defaultPasswordCache.gen[uuid] == gen {
+			defaultPasswordCache.m[uuid] = passwordCacheEntry{
+				needsChange: needsChange,
+				expires:     now.Add(defaultPasswordCacheTTL),
+				gen:         gen,
+			}
+		}
 		defaultPasswordCache.Unlock()
 
 		if needsChange {

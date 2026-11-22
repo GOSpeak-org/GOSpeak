@@ -21,7 +21,12 @@ func installWSPolicy(engine *policy.Engine, registry *ws.HandlerRegistry, upgrad
 	upgraderCfg.ConnectPolicy = func(claims *pkg.Claims) (pkg.ErrCode, string) {
 		// 默认口令管理员在改密前不得建立 WS 连接，否则可绕过 HTTP 门禁建房/踢人。
 		if claims != nil && claims.Role == "admin" && claims.UserUUID != "" {
-			if needs, err := middleware.DefaultPasswordNeedsChange(claims.UserUUID); err == nil && needs {
+			needs, err := middleware.DefaultPasswordNeedsChange(claims.UserUUID)
+			if err != nil {
+				// 与 HTTP 侧 RequirePasswordChanged 同口径：查询失败 fail-closed。
+				return pkg.INTERNAL_ERROR, "password status check failed"
+			}
+			if needs {
 				return pkg.FORBIDDEN, "must change default password first"
 			}
 		}

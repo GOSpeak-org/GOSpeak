@@ -37,7 +37,8 @@ func (h *Hub) canCreateRoom(c ws.ClientMessenger, domainUUID string) bool {
 		return userUUID != "" && h.domainPermChecker(domainUUID, userUUID, permcode.PermRoomCreate)
 	}
 	if h.permChecker == nil {
-		logger.WithComponent("Signal").Warn("[Signal] global permission checker not injected; platform room:create falls back to membership")
+		// 生产由 gin.go 注入 permSvc；未注入仅见于嵌入式/测试路径，放行以兼容旧装配。
+		logger.WithComponent("Signal").Warn("[Signal] global permission checker not injected; platform room:create allows unguarded")
 		return true
 	}
 	return permissionGranted(claims, role, permcode.PermRoomCreate, h.permChecker)
@@ -408,6 +409,10 @@ func (h *Hub) OnRoomJoinSFU(c ws.ClientMessenger, data string) (string, error) {
 			return marshalAck(map[string]interface{}{"error": "invalid password"})
 		}
 		tempRoomPassword = hashedPassword
+	} else if meta, metaErr := h.getRoomMeta(roomKey(req.DomainUUID, req.Room)); metaErr == nil {
+		// 房间仅存在于共享 KV（跨实例/重启）时，用 meta 中的密码物化本地房间，
+		// 否则本地 Room.Password 为空会让 CheckRoomPassword 误判为无密码房而放行。
+		tempRoomPassword = meta.Password
 	}
 
 	// Text room guard: text rooms have no media, reject SFU join.

@@ -347,9 +347,14 @@ func StartGin(env EnvEnum) error {
 		BlacklistChecker:       authstate.IsBlacklistedErr,
 		AuthCookieName:         cfg.AccessCookieName,
 	})
-	// 改密/改角色成功后主动失效 token 版本缓存，消除 ≤1 TTL 的旧值窗口。
-	authSvc.SetTokenVersionInvalidator(middleware.InvalidateTokenVersion)
-	userSvc.SetTokenVersionInvalidator(middleware.InvalidateTokenVersion)
+	// 改密/改角色成功后主动失效 token 版本缓存，消除 ≤1 TTL 的旧值窗口；
+	// 同时清默认口令门禁缓存，避免改密后新会话被旧 needsChange 结果误拦。
+	onIdentityChanged := func(userUUID string) {
+		middleware.InvalidateTokenVersion(userUUID)
+		middleware.ClearDefaultPasswordCache(userUUID)
+	}
+	authSvc.SetTokenVersionInvalidator(onIdentityChanged)
+	userSvc.SetTokenVersionInvalidator(onIdentityChanged)
 
 	startJobConsumers(jobQueue, eventBus.InstanceID(), signalHub, messageSvc, conversationSvc)
 

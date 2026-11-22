@@ -137,3 +137,31 @@ func TestOnRoomJoinSFU_RemoteMetaRoomDoesNotRequireCreatePermission(t *testing.T
 		t.Fatalf("joining a room known via shared meta must not require PermRoomCreate, got %s", ackRaw)
 	}
 }
+
+func TestOnRoomJoinSFU_RemoteMetaRoomKeepsPassword(t *testing.T) {
+	store := newMemStateStore()
+	hub := NewHub(nil, nil, nil, nil)
+	hub.fanout = newMockBroadcaster()
+	hub.SetMembershipStore(store, "inst-a")
+	hub.SetDomainChecker(func(domainUUID, userUUID string) bool { return true })
+	hub.SetDomainPermissionChecker(func(domainUUID, userUUID, permCode string) bool { return false })
+
+	hash, err := pkg.HashPassword("secret")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	key := roomKey("domain-a", "meta-secret-room")
+	store.metas[key] = bus.RoomMeta{
+		Name: "meta-secret-room", DomainUUID: "domain-a", Type: model.RoomTypeVoice, Password: hash,
+	}
+
+	// 无密码加入仅存在于 KV 的带密码房间：必须被拒，不能因本地 Room.Password 为空而放行。
+	conn := newAuthedMockClient("sock-5", "member-5")
+	ackRaw, err := hub.OnRoomJoinSFU(conn, `{"room":"meta-secret-room","domain_uuid":"domain-a","identity":"member-5"}`)
+	if err != nil {
+		t.Fatalf("OnRoomJoinSFU error: %v", err)
+	}
+	if ack := decodeAck(t, ackRaw); ack["ok"] == true {
+		t.Fatalf("joining a password-protected meta room without password must fail, got %s", ackRaw)
+	}
+}
