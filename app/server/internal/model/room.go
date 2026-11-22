@@ -39,6 +39,9 @@ func (r *Room) TableName() string {
 const (
 	RoomTypeText  = "text"
 	RoomTypeVoice = "voice"
+
+	// MinVoiceRoomLimit 语音房人数下限。0 仅表示文字房不限人数，语音房必须至少容纳两人。
+	MinVoiceRoomLimit = 2
 )
 
 func NormalizeRoomType(t string) string {

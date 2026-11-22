@@ -142,6 +142,10 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	if err := migrateVoiceRoomLimit(db); err != nil {
+		return nil, err
+	}
+
 	return db, nil
 }
 

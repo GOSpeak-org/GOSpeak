@@ -8,6 +8,7 @@ import (
 
 	"github.com/nrednav/cuid2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // migrateStorageConfigSchema 修复 storage_configs 上不安全的 GORM default。
@@ -398,9 +399,15 @@ func migrateRoomPasswords(db *gorm.DB) error {
 	return nil
 }
 
-// EnsureDefaultDomain 在管理员用户就绪后创建/修复默认 Domain。
+// migrateVoiceRoomLimit 把存量语音房非法的 0/1 人数上限归一化为下限 2。
+// 0 只对文字房表示“不限人数”，语音房展示为 0/0 会让人误以为房间不可用。
+func migrateVoiceRoomLimit(db *gorm.DB) error {
+	return db.Model(&model.Room{}).
+		Where(clause.Neq{Column: "type", Value: model.RoomTypeText}).
+		Where(clause.Lt{Column: "limit", Value: model.MinVoiceRoomLimit}).
+		Update("limit", model.MinVoiceRoomLimit).Error
+}
 
-// EnsureDefaultDomain 在管理员用户就绪后创建/修复默认 Domain。
 func EnsureDefaultDomain(db *gorm.DB, ownerUUID string) error {
 	if ownerUUID == "" {
 		return fmt.Errorf("default domain owner uuid is required")

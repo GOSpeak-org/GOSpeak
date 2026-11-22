@@ -134,6 +134,8 @@ func (s *RoomService) CreateRoom(name, password, description string, limit uint,
 	if room.Type == model.RoomTypeText {
 		room.AudioOnly = true
 		room.Limit = 0
+	} else if room.Limit < model.MinVoiceRoomLimit {
+		room.Limit = model.MinVoiceRoomLimit
 	}
 	if err := s.Create(room); err != nil {
 		return nil, err
@@ -235,6 +237,8 @@ func (s *RoomService) ListPlatform(page, pageSize int, roomType string) ([]model
 func (s *RoomService) Update(room *model.Room) error {
 	if model.NormalizeRoomType(room.Type) == model.RoomTypeText {
 		room.Limit = 0
+	} else if room.Limit < model.MinVoiceRoomLimit {
+		room.Limit = model.MinVoiceRoomLimit
 	}
 	if err := s.roomRepo.Update(room); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
