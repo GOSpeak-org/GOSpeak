@@ -2,6 +2,7 @@ import { getInitialDeepLink, onDeepLink } from "@gospeak/desktop";
 import { createDeepLink } from "@gospeak/mobile-capabilities";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { reportError } from "@/utils/errorReport";
 
 interface PathNavigator {
 	navigate: (options: { to: string }) => unknown;
@@ -35,7 +36,13 @@ export function useDeepLinkNavigation() {
 				.then((initial) => {
 					if (initial) go(initial);
 				})
-				.catch(() => {});
+				.catch((error) => {
+					reportError({
+						error,
+						scope: "global",
+						source: "deeplink.init.desktop",
+					});
+				});
 		}
 
 		if (__GOSPEAK_MOBILE__) {
@@ -46,7 +53,13 @@ export function useDeepLinkNavigation() {
 				.then((initial) => {
 					if (initial) go(initial);
 				})
-				.catch(() => {});
+				.catch((error) => {
+					reportError({
+						error,
+						scope: "global",
+						source: "deeplink.init.mobile",
+					});
+				});
 		}
 
 		return () => {
