@@ -28,7 +28,7 @@ func TestSecurityHeaders_Global(t *testing.T) {
 		t.Fatal("missing Content-Security-Policy")
 	}
 	// 现有功能依赖的来源必须放行，否则头像裁切/背景/发言检测会坏。
-	for _, need := range []string{"blob:", "worker-src", "wss:", "unsafe-inline"} {
+	for _, need := range []string{"blob:", "worker-src", "wss:", "https:", "http:", "unsafe-inline"} {
 		if !strings.Contains(csp, need) {
 			t.Errorf("CSP missing %q: %s", need, csp)
 		}

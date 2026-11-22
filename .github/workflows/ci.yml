@@ -217,11 +217,10 @@ jobs:
   protocol-check:
     name: Protocol gen-diff
     needs: changes
+    # 无条件对所有 PR/push 运行：gate 硬性要求本 job 为 success，
+    # 若按路径跳过会变成 skipped 并把前端/文档 PR 全部卡死。
     # 独立于 run_tests：手动关闭 Go 测试也不能关掉协议漂移检查。
-    if: >-
-      ${{ !cancelled() &&
-          (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' ||
-           needs.changes.outputs.go == 'true' || needs.changes.outputs.ci == 'true') }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

@@ -18,7 +18,7 @@ const cspPolicy = "default-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"img-src 'self' blob: data: https:; " +
 	"font-src 'self' data:; " +
-	"connect-src 'self' wss: ws: blob:; " +
+	"connect-src 'self' wss: ws: blob: https: http:; " +
 	"worker-src 'self' blob:; " +
 	"object-src 'none'; " +
 	"base-uri 'self'; " +
@@ -30,7 +30,7 @@ const swaggerCspPolicy = "default-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"img-src 'self' blob: data: https:; " +
 	"font-src 'self' data:; " +
-	"connect-src 'self' wss: ws: blob:; " +
+	"connect-src 'self' wss: ws: blob: https: http:; " +
 	"worker-src 'self' blob:; " +
 	"object-src 'none'; " +
 	"base-uri 'self'; " +

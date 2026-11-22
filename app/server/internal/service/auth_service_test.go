@@ -230,6 +230,8 @@ func TestRefreshFromToken_LegacyTokenWithoutFamilyCannotReplay(t *testing.T) {
 		TokenVersion: 1,
 		TokenType:    pkg.RefreshTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    pkg.TokenIssuer,
+			Audience:  jwt.ClaimStrings{pkg.TokenAudience},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			ID:        "legacy-jti-1",
 		},
