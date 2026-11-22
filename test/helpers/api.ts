@@ -194,11 +194,45 @@ export async function registerUser(
  * 凭据只在这里定义一处，测试文件不要重复硬编码。
  */
 const ADMIN_USERNAME = process.env.GOSPEAK_TEST_ADMIN_USERNAME ?? "admin";
-const ADMIN_PASSWORD = process.env.GOSPEAK_TEST_ADMIN_PASSWORD ?? "admin123";
+const SEED_ADMIN_PASSWORD =
+	process.env.GOSPEAK_TEST_ADMIN_PASSWORD ?? "admin123";
+// 服务端强制管理员改掉默认口令；测试脚手架统一改成这个固定口令。
+// 跨 vitest worker 共用同一个临时 server，因此必须是固定值而非每 worker 随机值。
+const INTEGRATION_ADMIN_PASSWORD = "IntegrationPassw0rd!2026";
 
-/** 用种子管理员账号登录，供需要断言凭据本身可用的用例复用。 */
+/**
+ * 用种子管理员账号登录，供需要断言凭据本身可用的用例复用。
+ *
+ * 仍使用默认口令的管理员会被 RequirePasswordChanged 拦下（1013）。
+ * 这里按候选口令依次尝试：第一个成功且 need_change_password 的登录会先
+ * 调用 first_change_password 完成改密，后续 worker 直接用改密后的口令登录。
+ * 不用模块级 token/password 缓存，避免跨文件模块隔离导致状态丢失；
+ * 请求级随机 X-Forwarded-For 也使失败尝试不会撞登录限流。
+ */
 export async function loginAdmin(): Promise<AuthData> {
-	return login(ADMIN_USERNAME, ADMIN_PASSWORD);
+	const candidates = [
+		...new Set([SEED_ADMIN_PASSWORD, INTEGRATION_ADMIN_PASSWORD]),
+	];
+	let lastError: unknown;
+	for (const password of candidates) {
+		try {
+			const data = await login(ADMIN_USERNAME, password);
+			if (!data.need_change_password) {
+				return data;
+			}
+			const changed = await api<AuthData>(
+				"/api/v1/auth/first_change_password",
+				{
+					token: data.access_token,
+					body: { new_password: INTEGRATION_ADMIN_PASSWORD },
+				},
+			);
+			return assertSuccess(changed);
+		} catch (error) {
+			lastError = error;
+		}
+	}
+	throw lastError;
 }
 
 /**
