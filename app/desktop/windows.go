@@ -121,8 +121,10 @@ func openMainWindow() {
 		// so loading does not flash another color.
 		BackgroundColor: "light-dark(#f8f8f8, #17181b)",
 		// Lets the loopback page call bound Go methods (server config, overlay,
-		// capabilities). PreloadScript routes navigator.clipboard through the host
-		// so WebView2 never shows its own clipboard permission prompt.
+		// capabilities, clipboard). PreloadScript only injects the client-log bridge:
+		// clipboard access goes through the Clipboard binding via @gospeak/desktop's
+		// createClipboard(), so the page never patches navigator.clipboard and
+		// WebView2 shows no clipboard permission prompt.
 		Page: mygo.PageOptions{
 			TrustedOrigins: originOf(base),
 			PreloadScript:  pagePreloadScript,

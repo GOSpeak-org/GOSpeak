@@ -17,7 +17,7 @@ type NotificationOptions struct {
 
 // notificationClickEvent carries the clicked notification's ID to the pages;
 // the web side listens on "notification.click" and matches the ID.
-var notificationClickEvent = mygo.NewEvent[string]("notification.click")
+var notificationClickEvent = mygo.NewEvent[string](eventNotificationClick)
 
 // Notification exposes native desktop notifications.
 //

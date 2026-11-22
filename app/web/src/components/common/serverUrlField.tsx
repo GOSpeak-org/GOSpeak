@@ -1,5 +1,9 @@
 import { Button, Input } from "@gospeak/components";
-import { createServerConfig, inDesktop } from "@gospeak/desktop";
+import {
+	createClipboard,
+	createServerConfig,
+	inDesktop,
+} from "@gospeak/desktop";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { parseInviteLink, type ParsedInviteLink } from "@/utils/domainInvite";
@@ -50,8 +54,7 @@ export default function ServerUrlField({
 		// 但不自动切服务器（切服务器会清会话并重载，必须用户确认）。
 		void (async () => {
 			try {
-				if (!navigator.clipboard?.readText) return;
-				const text = await navigator.clipboard.readText();
+				const text = await createClipboard().readText();
 				const parsed = parseInviteLink(text);
 				if (!parsed) return;
 				setInvite(parsed);

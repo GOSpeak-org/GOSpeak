@@ -11,7 +11,7 @@ import (
 
 // deeplinkOpenEvent carries normalized invite paths to the pages; the web side
 // listens on "deeplink.open" (packages/desktop onDeepLink) and navigates.
-var deeplinkOpenEvent = mygo.NewEvent[string]("deeplink.open")
+var deeplinkOpenEvent = mygo.NewEvent[string](eventDeeplinkOpen)
 
 // deeplinkScheme is the custom URL scheme registered by the packaged app
 // (urlSchemes in mygo.config.ts) and at run time for unbundled builds.

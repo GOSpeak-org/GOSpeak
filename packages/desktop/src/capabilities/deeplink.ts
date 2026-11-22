@@ -1,4 +1,5 @@
 import { bridge, command } from "../bridge";
+import { desktopEvents } from "../events";
 import { isDesktop } from "../runtime";
 
 /**
@@ -7,7 +8,7 @@ import { isDesktop } from "../runtime";
  */
 export function onDeepLink(handler: (url: string) => void): () => void {
 	if (!isDesktop()) return () => {};
-	return bridge.listen("deeplink.open", (payload) =>
+	return bridge.listen(desktopEvents.deeplinkOpen, (payload) =>
 		handler(payload as string),
 	);
 }

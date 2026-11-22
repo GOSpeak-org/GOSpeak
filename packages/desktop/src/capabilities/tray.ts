@@ -1,4 +1,5 @@
 import { bridge, command } from "../bridge";
+import { desktopEvents } from "../events";
 import { isDesktop } from "../runtime";
 
 export interface TrayMenuItem {
@@ -36,7 +37,7 @@ const native: SystemTray = {
 		bridge.invoke(command("Tray", "SetTooltip"), tooltip),
 	setMenu: (items) => bridge.invoke(command("Tray", "SetMenu"), items),
 	onMenuClick: (handler) =>
-		bridge.listen("tray.menuClick", (p) => handler(p as string)),
+		bridge.listen(desktopEvents.trayMenuClick, (p) => handler(p as string)),
 	show: () => bridge.invoke(command("Tray", "Show")),
 	hide: () => bridge.invoke(command("Tray", "Hide")),
 };

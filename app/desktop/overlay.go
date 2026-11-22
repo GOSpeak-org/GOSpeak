@@ -145,12 +145,12 @@ func overlayWindow() *mygo.Window {
 // Overlay 事件：类型化 Event[T]（mygo v0.8.3+），Broadcast 发到所有窗口页面，
 // 仅主窗口设置 UI 消费；覆盖层由宿主原生绘制，不订阅页面事件。
 var (
-	overlayVisibilityEvent = mygo.NewEvent[bool]("overlay.visibility")
-	overlayLockEvent       = mygo.NewEvent[bool]("overlay.lock")
+	overlayVisibilityEvent = mygo.NewEvent[bool](eventOverlayVisibility)
+	overlayLockEvent       = mygo.NewEvent[bool](eventOverlayLock)
 	// overlayEnabledEvent tells the main window's relay whether the feature is
 	// on, so it can keep the overlay's state warm while the window is hidden
 	// (instant content when it pops up) and stop pushing entirely when off.
-	overlayEnabledEvent = mygo.NewEvent[bool]("overlay.enabled")
+	overlayEnabledEvent = mygo.NewEvent[bool](eventOverlayEnabled)
 )
 
 const overlayConfigFileName = "overlay-config.json"

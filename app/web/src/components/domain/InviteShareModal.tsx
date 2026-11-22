@@ -5,13 +5,15 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@gospeak/components";
-import { inDesktop } from "@gospeak/desktop";
+import { createClipboard, inDesktop } from "@gospeak/desktop";
 import {
 	domainDeepLinkUrl,
 	extractDomainInviteCode,
 } from "@/utils/domainInvite";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
+
+const clipboard = createClipboard();
 
 export default function InviteShareModal({
 	open,
@@ -69,7 +71,7 @@ export default function InviteShareModal({
 	const copyLink = async () => {
 		setCopyError("");
 		try {
-			await navigator.clipboard.writeText(inviteUrl);
+			await clipboard.writeText(inviteUrl);
 			setCopied(true);
 			if (copyTimer.current !== undefined) clearTimeout(copyTimer.current);
 			copyTimer.current = setTimeout(() => setCopied(false), 2000);
@@ -81,7 +83,7 @@ export default function InviteShareModal({
 	const copyDeepLink = async () => {
 		setCopyError("");
 		try {
-			await navigator.clipboard.writeText(deepLink);
+			await clipboard.writeText(deepLink);
 			setCopiedDeepLink(true);
 			if (deepLinkTimer.current !== undefined)
 				clearTimeout(deepLinkTimer.current);

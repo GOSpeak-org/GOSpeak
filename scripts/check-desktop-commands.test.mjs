@@ -3,9 +3,12 @@ import test from "node:test";
 
 import {
 	checkCommands,
+	checkEvents,
 	extractGoBindings,
+	extractGoEvents,
 	extractScriptCommands,
 	extractTsCommands,
+	extractTsEvents,
 } from "./check-desktop-commands.mjs";
 
 const goSource = `
@@ -127,4 +130,116 @@ func (proxyServer) serveDist() {}
 	]);
 
 	assert.deepEqual([...bindings], ["Window.Minimize"]);
+});
+
+// ---- 跨进程事件名门禁 ----
+
+const goEventsSource = `
+package main
+
+const (
+	eventOverlayVisibility = "overlay.visibility"
+	eventDeeplinkOpen      = "deeplink.open"
+)
+
+var extra = mygo.NewEvent[string]("tray.menuClick")
+`;
+
+const tsEventsSource = `
+export const desktopEvents = {
+	overlayVisibility: "overlay.visibility",
+	deeplinkOpen: "deeplink.open",
+} as const;
+`;
+
+const tsListenSource = `
+return bridge.listen("tray.menuClick", handler);
+`;
+
+test("extracts Go events from constants and NewEvent call sites with locations", () => {
+	const events = extractGoEvents([
+		{ path: "app/desktop/events.go", source: goEventsSource },
+	]);
+
+	assert.deepEqual([...events.keys()].sort(), [
+		"deeplink.open",
+		"overlay.visibility",
+		"tray.menuClick",
+	]);
+	assert.equal(events.get("overlay.visibility").path, "app/desktop/events.go");
+	assert.equal(events.get("tray.menuClick").path, "app/desktop/events.go");
+});
+
+test("extracts TS events from the constants module and listen call sites", () => {
+	const events = extractTsEvents([
+		{ path: "packages/desktop/src/events.ts", source: tsEventsSource },
+		{
+			path: "packages/desktop/src/capabilities/tray.ts",
+			source: tsListenSource,
+		},
+	]);
+
+	assert.deepEqual([...events.keys()].sort(), [
+		"deeplink.open",
+		"overlay.visibility",
+		"tray.menuClick",
+	]);
+	assert.equal(
+		events.get("tray.menuClick").path,
+		"packages/desktop/src/capabilities/tray.ts",
+	);
+});
+
+test("matching event names pass the check", () => {
+	const names = ["overlay.visibility", "deeplink.open"];
+	const at = (path) => new Map(names.map((n) => [n, { path, line: 3 }]));
+	const result = checkEvents({
+		goEvents: at("app/desktop/events.go"),
+		tsEvents: at("packages/desktop/src/events.ts"),
+	});
+
+	assert.deepEqual(result.goOnly, []);
+	assert.deepEqual(result.tsOnly, []);
+	assert.equal(result.ok, true);
+});
+
+test("an extra Go event fails the check", () => {
+	const result = checkEvents({
+		goEvents: new Map([
+			["overlay.visibility", { path: "app/desktop/events.go", line: 2 }],
+			["overlay.extra", { path: "app/desktop/events.go", line: 3 }],
+		]),
+		tsEvents: new Map([
+			[
+				"overlay.visibility",
+				{ path: "packages/desktop/src/events.ts", line: 2 },
+			],
+		]),
+	});
+
+	assert.deepEqual(result.goOnly, ["overlay.extra"]);
+	assert.deepEqual(result.tsOnly, []);
+	assert.equal(result.ok, false);
+});
+
+test("an extra TS event fails the check", () => {
+	const result = checkEvents({
+		goEvents: new Map([
+			["overlay.visibility", { path: "app/desktop/events.go", line: 2 }],
+		]),
+		tsEvents: new Map([
+			[
+				"overlay.visibility",
+				{ path: "packages/desktop/src/events.ts", line: 2 },
+			],
+			[
+				"overlay.extra",
+				{ path: "packages/desktop/src/capabilities/overlay.ts", line: 9 },
+			],
+		]),
+	});
+
+	assert.deepEqual(result.goOnly, []);
+	assert.deepEqual(result.tsOnly, ["overlay.extra"]);
+	assert.equal(result.ok, false);
 });

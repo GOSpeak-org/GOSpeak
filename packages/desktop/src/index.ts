@@ -91,6 +91,8 @@ export {
 	type HostLogEntry,
 } from "./capabilities/clientlog";
 
+export { createClipboard, type Clipboard } from "./capabilities/clipboard";
+
 export { createBrowser, type Browser } from "./capabilities/browser";
 
 export {
@@ -110,8 +112,8 @@ import { isDesktop } from "./runtime";
 /**
  * Single object that bundles the commonly used capabilities: window, tray,
  * autostart, updater, overlay and clientLog. Notification, deep link, dialog,
- * server-config and screen-recording helpers stay standalone exports so this
- * surface does not grow with every new capability.
+ * server-config, clipboard and screen-recording helpers stay standalone exports
+ * so this surface does not grow with every new capability.
  *
  * In the browser all members are inert fallbacks; in the desktop host they map
  * to native implementations.

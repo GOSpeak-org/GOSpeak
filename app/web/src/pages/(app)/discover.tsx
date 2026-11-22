@@ -25,6 +25,7 @@ import {
 } from "@/utils/domainInvite";
 import { localizedApiMessage } from "@/utils/errorMessages";
 import { useKeepAliveActive } from "@/components/common/keepAliveOutlet";
+import { createClipboard } from "@gospeak/desktop";
 
 export const Route = createFileRoute("/(app)/discover")({
 	component: DiscoverPage,
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/(app)/discover")({
 });
 
 const PAGE_SIZE = 12;
+const clipboard = createClipboard();
 
 export function DiscoverPage() {
 	const isActive = useKeepAliveActive();
@@ -223,8 +225,7 @@ export function DiscoverPage() {
 			try {
 				// 先等已加入域列表就绪，否则 isJoined 会读到旧数据而误弹已加入域的确认框
 				await domainStore.loadMyDomains();
-				if (!navigator.clipboard?.readText) return;
-				const text = await navigator.clipboard.readText();
+				const text = await clipboard.readText();
 				const code = extractDomainInviteCode(text);
 				if (!code) return;
 				setHeroInput(code);
