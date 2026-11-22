@@ -52,15 +52,41 @@ function applyLayout(layout: DomainLayout): void {
 	useDomainLayoutStore.setState({ groups: layout.groups, items: layout.items });
 }
 
+// 显示顺序整体上下颠倒：在 store 内部反转 sort_order，保存/加载时再翻回服务端语义。
+function flipLayout(layout: DomainLayout): DomainLayout {
+	const groups = [...layout.groups]
+		.sort((a, b) => a.sort_order - b.sort_order)
+		.map((group, index) => ({
+			...group,
+			sort_order: layout.groups.length - 1 - index,
+		}));
+	const byGroup = new Map<string, DomainLayoutItem[]>();
+	for (const item of layout.items) {
+		const key = item.group_uuid ?? "";
+		const list = byGroup.get(key) ?? [];
+		list.push(item);
+		byGroup.set(key, list);
+	}
+	const items: DomainLayoutItem[] = [];
+	for (const list of byGroup.values()) {
+		list.sort((a, b) => a.sort_order - b.sort_order);
+		const size = list.length;
+		for (const [index, item] of list.entries()) {
+			items.push({ ...item, sort_order: size - 1 - index });
+		}
+	}
+	return { groups, items };
+}
+
 async function flushSave(
 	generation: number,
 	layout: DomainLayout,
 ): Promise<void> {
 	useDomainLayoutStore.setState({ saving: true, error: null });
 	try {
-		const saved = await saveDomainLayout(layout);
+		const saved = await saveDomainLayout(flipLayout(layout));
 		if (generation === saveGeneration) {
-			applyLayout(normalizeLayout(saved));
+			applyLayout(flipLayout(normalizeLayout(saved)));
 			useDomainLayoutStore.setState({ saving: false });
 		}
 	} catch (error) {
@@ -88,7 +114,7 @@ const load = async (): Promise<void> => {
 	try {
 		const layout = await getDomainLayout();
 		if (generation === loadGeneration) {
-			applyLayout(normalizeLayout(layout));
+			applyLayout(flipLayout(normalizeLayout(layout)));
 			useDomainLayoutStore.setState({ loaded: true, loading: false });
 		}
 	} catch {

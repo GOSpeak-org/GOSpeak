@@ -139,7 +139,7 @@ export default function Sidebar({
 		return (domains ?? []).map((domain, index) => ({
 			domain_uuid: domain.uuid,
 			group_uuid: null,
-			sort_order: index,
+			sort_order: (domains?.length ?? 0) - 1 - index,
 		}));
 	}, [items, domains]);
 	const itemOrder = useMemo(
