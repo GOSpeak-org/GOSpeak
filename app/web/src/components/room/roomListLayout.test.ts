@@ -77,4 +77,13 @@ describe("groupRoomsForSidebar", () => {
 		expect(groupedRoom).toMatchObject({ blockUUID: "g1" });
 		expect(ungroupedRoom).toMatchObject({ blockUUID: "__ungrouped__" });
 	});
+	it("布局里没有对应分组时，房间仍作为未分组可见（不静默消失）", () => {
+		const rows = groupRoomsForSidebar(
+			[room("r1", "a", "ghost-group"), room("r2", "b")],
+			layout,
+		);
+		const roomRows = rows.filter((row) => row.kind === "room");
+		expect(roomRows.map((row) => row.room.uuid).sort()).toEqual(["r1", "r2"]);
+		for (const row of roomRows) expect(row.blockUUID).toBe("__ungrouped__");
+	});
 });

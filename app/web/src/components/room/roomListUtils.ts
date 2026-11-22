@@ -24,9 +24,11 @@ export function groupRoomsForSidebar(
 ): SidebarRow[] {
 	const groups = [...layout.groups].sort((a, b) => a.sort_order - b.sort_order);
 	const byGroup = new Map<string, RoomInfo[]>();
+	const knownGroups = new Set(groups.map((group) => group.uuid));
 	const ungrouped: RoomInfo[] = [];
 	for (const room of rooms) {
-		if (room.group_uuid) {
+		// 布局缺帧（首屏 / 跨域残留）时房间不能凭空消失：未知分组按未分组兜底展示
+		if (room.group_uuid && knownGroups.has(room.group_uuid)) {
 			const list = byGroup.get(room.group_uuid) ?? [];
 			list.push(room);
 			byGroup.set(room.group_uuid, list);
