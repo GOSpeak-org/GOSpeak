@@ -11,7 +11,7 @@
  *    不要退回旧版那套洋红 354 / 青 181 的配色，那和亮色是两套视觉语言。
  *
  * 2) 表面是一条单调亮度阶梯，明暗方向相反：
- *    亮：sunken(83.4) < muted(95) < background = card(98) = popover(98)
+ *    亮：sunken(83.4) < selected(89) < border(91) < muted(95) < background = card(98) = popover(98)
  *    暗：sunken(16.5) < muted(19.5) < background(21) < card(24) < popover(27) < selected(29.5)
  *    暗色没有阴影可用，层级只能靠亮度，所以 background / card / popover 必须分开三档；
  *    `bg-muted` 容器里放 `bg-card` 面板（见 layouts/layout.tsx），muted 必须更低，
@@ -51,6 +51,7 @@
 	--card: oklch(98% 0 0);
 	--card-base: oklch(98% 0 0);
 	--card-foreground: oklch(0% 0 0);
+	--popover-base: oklch(98% 0 0);
 	--popover: oklch(98% 0 0);
 	--popover-foreground: oklch(0% 0 0);
 	--primary: oklch(51.1% 0.262 276.966);
@@ -73,7 +74,9 @@
 	--info-foreground: oklch(12.144% 0.045 252.05);
 	--neutral: oklch(21.31% 0.128 278.68);
 	--neutral-foreground: oklch(84.262% 0.025 278.68);
+	--border-base: oklch(91% 0 0);
 	--border: oklch(91% 0 0);
+	--input-base: oklch(91% 0 0);
 	--input: oklch(91% 0 0);
 	--ring: oklch(51.1% 0.262 276.966);
 	--overlay-scrim: oklch(0% 0 0 / 50%);
@@ -93,11 +96,14 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
-	/* 下沉面 / 选中面必须按主题分别定值（见文首规则 2）：
-	   亮色 = 原 color-mix(muted 72%, fg 10%) / color-mix(muted 74%, fg 9%) 的解算结果，
-	   保留原值以免亮色基线漂移；暗色不能沿用 color-mix，那样算是"往上浮"。 */
+	/* 下沉面 / 选中面必须按主题分别定值（见文首规则 2）。
+	   亮色 selected 提到描边下方一档：旧值 84.7% 和 sunken 83.4% 几乎重合，
+	   压在浅色玻璃面板上像贴了一块方砖；89% 才是"比描边略深的选择面"。
+	   暗色不能沿用亮色算法，那样算是"往上浮"，会顶到 card 24% 上。 */
+	--sunken-base: oklch(83.41% 0 0);
 	--sunken: oklch(83.41% 0 0);
-	--selected: oklch(84.7% 0 0);
+	--selected-base: oklch(89% 0 0);
+	--selected: oklch(89% 0 0);
 }
 
 .dark,
@@ -111,6 +117,7 @@
 	--card: oklch(24% 0.008 277);
 	--card-base: oklch(24% 0.008 277);
 	--card-foreground: oklch(94% 0.006 277);
+	--popover-base: oklch(27% 0.009 277);
 	--popover: oklch(27% 0.009 277);
 	--popover-foreground: oklch(94% 0.006 277);
 	--primary: oklch(56.5% 0.205 277);
@@ -133,7 +140,9 @@
 	--info-foreground: oklch(20% 0.05 252.05);
 	--neutral: oklch(31% 0.032 278.68);
 	--neutral-foreground: oklch(92% 0.01 278.68);
+	--border-base: oklch(30.5% 0.008 277);
 	--border: oklch(30.5% 0.008 277);
+	--input-base: oklch(30.5% 0.008 277);
 	--input: oklch(30.5% 0.008 277);
 	--ring: oklch(66% 0.185 277);
 	--overlay-scrim: oklch(7% 0.012 277 / 66%);
@@ -153,7 +162,9 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(16.5% 0.005 277);
 	--sunken: oklch(16.5% 0.005 277);
+	--selected-base: oklch(29.5% 0.009 277);
 	--selected: oklch(29.5% 0.009 277);
 }
 
@@ -177,6 +188,7 @@
 	--card: oklch(98.5% 0.005 235);
 	--card-base: oklch(98.5% 0.005 235);
 	--card-foreground: oklch(8% 0.012 255);
+	--popover-base: oklch(98.5% 0.005 235);
 	--popover: oklch(98.5% 0.005 235);
 	--popover-foreground: oklch(8% 0.012 255);
 	--primary: oklch(51.1% 0.262 276.966);
@@ -199,7 +211,9 @@
 	--info-foreground: oklch(12.144% 0.045 252.05);
 	--neutral: oklch(28% 0.04 250);
 	--neutral-foreground: oklch(88% 0.015 250);
+	--border-base: oklch(91.5% 0.008 235);
 	--border: oklch(91.5% 0.008 235);
+	--input-base: oklch(91.5% 0.008 235);
 	--input: oklch(91.5% 0.008 235);
 	--ring: oklch(51.1% 0.262 276.966);
 	--overlay-scrim: oklch(0% 0 0 / 50%);
@@ -219,8 +233,10 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(82.5% 0.009 235);
 	--sunken: oklch(82.5% 0.009 235);
-	--selected: oklch(85% 0.012 235);
+	--selected-base: oklch(89% 0.012 235);
+	--selected: oklch(89% 0.012 235);
 }
 
 [data-theme="midnight"] {
@@ -231,6 +247,7 @@
 	--card: oklch(23% 0.016 250);
 	--card-base: oklch(23% 0.016 250);
 	--card-foreground: oklch(94% 0.01 250);
+	--popover-base: oklch(26% 0.018 250);
 	--popover: oklch(26% 0.018 250);
 	--popover-foreground: oklch(94% 0.01 250);
 	--primary: oklch(57% 0.19 277);
@@ -253,7 +270,9 @@
 	--info-foreground: oklch(20% 0.05 252.05);
 	--neutral: oklch(29% 0.035 250);
 	--neutral-foreground: oklch(92% 0.012 250);
+	--border-base: oklch(30% 0.016 250);
 	--border: oklch(30% 0.016 250);
+	--input-base: oklch(30% 0.016 250);
 	--input: oklch(30% 0.016 250);
 	--ring: oklch(66% 0.17 277);
 	--overlay-scrim: oklch(7% 0.012 250 / 66%);
@@ -273,7 +292,9 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(15% 0.01 250);
 	--sunken: oklch(15% 0.01 250);
+	--selected-base: oklch(28.5% 0.02 250);
 	--selected: oklch(28.5% 0.02 250);
 }
 
@@ -285,6 +306,7 @@
 	--card: oklch(98.5% 0.006 75);
 	--card-base: oklch(98.5% 0.006 75);
 	--card-foreground: oklch(8% 0.012 40);
+	--popover-base: oklch(98.5% 0.006 75);
 	--popover: oklch(98.5% 0.006 75);
 	--popover-foreground: oklch(8% 0.012 40);
 	--primary: oklch(51.1% 0.262 276.966);
@@ -307,7 +329,9 @@
 	--info-foreground: oklch(12.144% 0.045 252.05);
 	--neutral: oklch(28% 0.045 55);
 	--neutral-foreground: oklch(88% 0.018 55);
+	--border-base: oklch(91.5% 0.01 70);
 	--border: oklch(91.5% 0.01 70);
+	--input-base: oklch(91.5% 0.01 70);
 	--input: oklch(91.5% 0.01 70);
 	--ring: oklch(51.1% 0.262 276.966);
 	--overlay-scrim: oklch(0% 0 0 / 50%);
@@ -327,8 +351,10 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(82.5% 0.012 70);
 	--sunken: oklch(82.5% 0.012 70);
-	--selected: oklch(85% 0.014 70);
+	--selected-base: oklch(89% 0.014 70);
+	--selected: oklch(89% 0.014 70);
 }
 
 [data-theme="cinder"] {
@@ -339,6 +365,7 @@
 	--card: oklch(23% 0.014 55);
 	--card-base: oklch(23% 0.014 55);
 	--card-foreground: oklch(94% 0.01 60);
+	--popover-base: oklch(26% 0.016 55);
 	--popover: oklch(26% 0.016 55);
 	--popover-foreground: oklch(94% 0.01 60);
 	--primary: oklch(57% 0.19 277);
@@ -361,7 +388,9 @@
 	--info-foreground: oklch(20% 0.05 252.05);
 	--neutral: oklch(29% 0.04 55);
 	--neutral-foreground: oklch(92% 0.012 55);
+	--border-base: oklch(30% 0.014 55);
 	--border: oklch(30% 0.014 55);
+	--input-base: oklch(30% 0.014 55);
 	--input: oklch(30% 0.014 55);
 	--ring: oklch(66% 0.17 277);
 	--overlay-scrim: oklch(7% 0.012 55 / 66%);
@@ -381,7 +410,9 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(15% 0.01 55);
 	--sunken: oklch(15% 0.01 55);
+	--selected-base: oklch(28.5% 0.02 55);
 	--selected: oklch(28.5% 0.02 55);
 }
 
@@ -393,6 +424,7 @@
 	--card: oklch(98.3% 0.006 150);
 	--card-base: oklch(98.3% 0.006 150);
 	--card-foreground: oklch(8% 0.012 155);
+	--popover-base: oklch(98.3% 0.006 150);
 	--popover: oklch(98.3% 0.006 150);
 	--popover-foreground: oklch(8% 0.012 155);
 	--primary: oklch(51.1% 0.262 276.966);
@@ -415,7 +447,9 @@
 	--info-foreground: oklch(12.144% 0.045 252.05);
 	--neutral: oklch(26% 0.05 155);
 	--neutral-foreground: oklch(88% 0.015 155);
+	--border-base: oklch(91.5% 0.01 150);
 	--border: oklch(91.5% 0.01 150);
+	--input-base: oklch(91.5% 0.01 150);
 	--input: oklch(91.5% 0.01 150);
 	--ring: oklch(51.1% 0.262 276.966);
 	--overlay-scrim: oklch(0% 0 0 / 50%);
@@ -435,8 +469,10 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(82% 0.011 150);
 	--sunken: oklch(82% 0.011 150);
-	--selected: oklch(84.5% 0.013 150);
+	--selected-base: oklch(89% 0.013 150);
+	--selected: oklch(89% 0.013 150);
 }
 
 [data-theme="grove"] {
@@ -447,6 +483,7 @@
 	--card: oklch(22.5% 0.014 155);
 	--card-base: oklch(22.5% 0.014 155);
 	--card-foreground: oklch(94% 0.01 155);
+	--popover-base: oklch(25.5% 0.016 155);
 	--popover: oklch(25.5% 0.016 155);
 	--popover-foreground: oklch(94% 0.01 155);
 	--primary: oklch(57% 0.19 277);
@@ -469,7 +506,9 @@
 	--info-foreground: oklch(20% 0.05 252.05);
 	--neutral: oklch(28% 0.035 155);
 	--neutral-foreground: oklch(92% 0.012 155);
+	--border-base: oklch(29.5% 0.014 155);
 	--border: oklch(29.5% 0.014 155);
+	--input-base: oklch(29.5% 0.014 155);
 	--input: oklch(29.5% 0.014 155);
 	--ring: oklch(66% 0.17 277);
 	--overlay-scrim: oklch(7% 0.012 155 / 66%);
@@ -489,7 +528,9 @@
 		var(--primary-foreground) 42%,
 		transparent
 	);
+	--sunken-base: oklch(14.5% 0.008 155);
 	--sunken: oklch(14.5% 0.008 155);
+	--selected-base: oklch(28% 0.018 155);
 	--selected: oklch(28% 0.018 155);
 }
 
@@ -698,14 +739,49 @@
  * 的像素，同一 token 也会显出左右色差。
  */
 html.bg-custom {
+	/* 玻璃模式：所有表面 token 都从 -base 派生半透明版本。
+	   -background / -card / -popover 是"浮起来的面"，密度跟不透明度滑杆同源（--bg-card-alpha）；
+	   -muted / -sunken / -selected 是"贴在面板上的面"，低一档（--bg-muted-alpha = 滑杆 × 0.75）；
+	   -border / -input 是发丝线，base 与表面的明度只差 7 级，
+	   若跟着用低密度会直接消失，所以给一个 80% 下限保证分隔线始终可见。 */
+	--background: color-mix(
+		in oklab,
+		var(--background-base) var(--bg-card-alpha, 68%),
+		transparent
+	);
 	--card: color-mix(
 		in oklab,
 		var(--card-base) var(--bg-card-alpha, 68%),
 		transparent
 	);
+	--popover: color-mix(
+		in oklab,
+		var(--popover-base) var(--bg-card-alpha, 68%),
+		transparent
+	);
 	--muted: color-mix(
 		in oklab,
 		var(--muted-base) var(--bg-muted-alpha, 51%),
+		transparent
+	);
+	--sunken: color-mix(
+		in oklab,
+		var(--sunken-base) var(--bg-muted-alpha, 51%),
+		transparent
+	);
+	--selected: color-mix(
+		in oklab,
+		var(--selected-base) var(--bg-muted-alpha, 51%),
+		transparent
+	);
+	--border: color-mix(
+		in oklab,
+		var(--border-base) max(var(--bg-card-alpha, 68%), 80%),
+		transparent
+	);
+	--input: color-mix(
+		in oklab,
+		var(--input-base) max(var(--bg-card-alpha, 68%), 80%),
 		transparent
 	);
 }

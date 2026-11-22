@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { RoomListLayoutPayload } from "@/protocol/generated/payloads";
 import type { RoomInfo } from "@/socket/types";
-import { groupRoomsForSidebar } from "./roomListUtils";
+import {
+	groupRoomsForSidebar,
+	visibleRowsAfterCollapse,
+} from "./roomListUtils";
 
 function room(
 	uuid: string,
@@ -85,5 +88,21 @@ describe("groupRoomsForSidebar", () => {
 		const roomRows = rows.filter((row) => row.kind === "room");
 		expect(roomRows.map((row) => row.room.uuid).sort()).toEqual(["r1", "r2"]);
 		for (const row of roomRows) expect(row.blockUUID).toBe("__ungrouped__");
+	});
+	it("收起分组后组内房间从行列表移除，未分组内容随之上移", () => {
+		const rows = groupRoomsForSidebar(
+			[room("r1", "a", "g1"), room("r2", "b", "g1"), room("r3", "c")],
+			{ ...layout, ungrouped_position: 1 },
+		);
+		const collapsed = visibleRowsAfterCollapse(rows, { g1: true });
+		expect(
+			collapsed.map((row) =>
+				row.kind === "group" ? `group:${row.name}` : `room:${row.room.uuid}`,
+			),
+		).toEqual(["group:常用", "room:r3"]);
+		expect(visibleRowsAfterCollapse(rows, {})).toHaveLength(4);
+		expect(
+			visibleRowsAfterCollapse(rows, { __ungrouped__: true }),
+		).toHaveLength(3);
 	});
 });

@@ -17,6 +17,7 @@ import {
 	groupRoomsForSidebar,
 	toEditRoomRecord,
 	visibleRoomsForDomain,
+	visibleRowsAfterCollapse,
 } from "@/components/room/roomListUtils";
 import RoomGroupHeader from "@/components/room/components/roomGroupHeader";
 import RoomLayoutEditBar from "@/components/room/components/roomLayoutEditBar";
@@ -182,11 +183,19 @@ export default function RoomList() {
 	const roomsLoading = useSocketStore((s) => s.roomsLoading);
 	const currentRoom = useSocketStore((s) => s.currentRoom);
 	const currentDomainUUID = socketStore.currentDomainUUID();
-	const visibleRooms = visibleRoomsForDomain(rooms, currentDomainUUID);
+	const visibleRooms = useMemo(
+		() => visibleRoomsForDomain(rooms, currentDomainUUID),
+		[rooms, currentDomainUUID],
+	);
 	const roomLayout = useSocketStore((s) => s.roomLayout);
 	const rows = useMemo(
 		() => groupRoomsForSidebar(visibleRooms, roomLayout),
 		[visibleRooms, roomLayout],
+	);
+	// 收起的分组整块不进入虚拟列表，否则下方内容不会跟着上移（留下与组内容等高的空洞）
+	const layoutRows = useMemo(
+		() => visibleRowsAfterCollapse(rows, collapsedGroups),
+		[rows, collapsedGroups],
 	);
 	const canEditLayout =
 		!!currentDomainUUID &&
@@ -305,10 +314,22 @@ export default function RoomList() {
 	// estimateSize 只是首屏估算：真实行高由 measureElement 动态测量，
 	// 桌面紧凑行与移动端 44px 触控行都能自动跟上，不会出现固定高度留下的空隙。
 	const virtualizer = useVirtualizer({
-		count: connected && !editingLayout && rows.length > 0 ? rows.length : 0,
+		count:
+			connected && !editingLayout && layoutRows.length > 0
+				? layoutRows.length
+				: 0,
 		getScrollElement: () => viewportRef.current,
 		estimateSize: () => 40,
 		overscan: 8,
+		// 房间行高随成员列表增减、分组插入/收起而跳变。默认按 index 缓存测量值，
+		// 行插入后旧高度会落到新行上，出现上下行重叠；按行身份建键可隔离这种串位。
+		getItemKey: (index) => {
+			const row = layoutRows[index];
+			if (!row) return `row-${index}`;
+			return row.kind === "group"
+				? `group:${row.uuid}`
+				: `${row.room.domain_uuid ?? ""}:${row.room.name}`;
+		},
 	});
 
 	return (
@@ -343,10 +364,10 @@ export default function RoomList() {
 									onSave={() => void saveLayout()}
 									saving={savingLayout}
 								/>
-							) : rows.length > 0 ? (
+							) : layoutRows.length > 0 ? (
 								(() => {
 									return virtualizer.getVirtualItems().map((virtualRow) => {
-										const row = rows[virtualRow.index];
+										const row = layoutRows[virtualRow.index];
 										if (row.kind === "group") {
 											const collapsed = !!collapsedGroups[row.uuid];
 											return (
@@ -377,7 +398,6 @@ export default function RoomList() {
 												</div>
 											);
 										}
-										if (collapsedGroups[row.blockUUID]) return null;
 										const room = row.room;
 										return (
 											<div

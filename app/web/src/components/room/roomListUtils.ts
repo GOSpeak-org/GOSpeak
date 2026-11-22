@@ -66,6 +66,17 @@ export function groupRoomsForSidebar(
 	return rows;
 }
 
+/** 收起的分组要把组内房间整块从行列表里拿掉：虚拟列表的 count 和各行偏移都基于行列表，
+ * 只把行渲染成 null 会留下与组内容等高的空洞，下面的内容不会上移。 */
+export function visibleRowsAfterCollapse(
+	rows: SidebarRow[],
+	collapsedGroups: Record<string, boolean>,
+): SidebarRow[] {
+	return rows.filter(
+		(row) => row.kind === "group" || !collapsedGroups[row.blockUUID],
+	);
+}
+
 export function canManageRoomItem(
 	room: Pick<RoomInfo, "name" | "domain_uuid" | "created_by">,
 	permission: RoomManagePermission,
