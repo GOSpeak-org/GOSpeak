@@ -545,7 +545,7 @@ function UsersPage() {
 							</Button>
 						}
 					>
-						<div className="grid grid-cols-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_240px]">
+						<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(280px,340px)_minmax(220px,280px)_minmax(200px,260px)]">
 							<div>
 								<label
 									className="text-muted-foreground mb-1 block py-1 text-xs font-medium"

@@ -264,7 +264,7 @@ export default function MutePage() {
 					</span>
 				}
 			>
-				<div className="grid grid-cols-1 gap-4 xl:grid-cols-[220px_minmax(0,1fr)_240px]">
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(280px,340px)_minmax(220px,280px)_minmax(200px,260px)]">
 					<UserSearchSelect
 						id="mute-user"
 						value={userId}

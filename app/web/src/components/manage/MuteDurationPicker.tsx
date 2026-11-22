@@ -1,3 +1,10 @@
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@gospeak/components";
 import { Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { formatDurationSeconds, formatMuteEndsAt } from "@/utils/format";
@@ -115,6 +122,15 @@ export default function MuteDurationPicker({
 		emitTimed(seconds);
 	};
 
+	const handleSelectValue = (value: string) => {
+		if (value === "custom") {
+			enableCustom();
+			return;
+		}
+		const preset = PRESETS.find((p) => p.id === value);
+		if (preset) selectPreset(preset);
+	};
+
 	const enableCustom = () => {
 		const base = permanent
 			? 30 * 60
@@ -154,41 +170,28 @@ export default function MuteDurationPicker({
 		return max === undefined ? v : Math.min(max, v);
 	};
 
-	const presetBtn = (active: boolean) =>
-		`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-sm border px-3 text-sm shadow-none transition-colors ${
-			active
-				? "border-primary bg-selected text-foreground"
-				: "border-border bg-card text-foreground hover:bg-muted"
-		}`;
-
 	const inputClass =
 		"border-input bg-card text-foreground focus-visible:ring-ring flex h-9 w-full rounded-sm border px-3 text-sm focus-visible:outline-none focus-visible:ring-2";
 
 	return (
 		<div className="space-y-3">
-			<div className="flex flex-wrap gap-2">
-				{PRESETS.map((preset) => {
-					const active = activePresetId === preset.id;
-					return (
-						<button
-							key={preset.id}
-							type="button"
-							className={presetBtn(active)}
-							onClick={() => selectPreset(preset)}
-						>
-							{preset.permanent && <InfinityIcon size={14} />}
-							{preset.label}
-						</button>
-					);
-				})}
-				<button
-					type="button"
-					className={presetBtn(activePresetId === "custom")}
-					onClick={enableCustom}
+			<Select value={activePresetId} onValueChange={handleSelectValue}>
+				<SelectTrigger
+					id="mute-duration"
+					aria-label="禁言时长"
+					className="w-full max-w-64"
 				>
-					自定义
-				</button>
-			</div>
+					<SelectValue placeholder="选择禁言时长" />
+				</SelectTrigger>
+				<SelectContent>
+					{PRESETS.map((preset) => (
+						<SelectItem key={preset.id} value={preset.id}>
+							{preset.label}
+						</SelectItem>
+					))}
+					<SelectItem value="custom">自定义</SelectItem>
+				</SelectContent>
+			</Select>
 
 			{!permanent && (customMode || activePresetId === "custom") && (
 				<div className="border-border bg-muted/40 rounded-lg border p-3">
