@@ -91,6 +91,8 @@ export {
 	type HostLogEntry,
 } from "./capabilities/clientlog";
 
+export { createBrowser, type Browser } from "./capabilities/browser";
+
 export {
 	checkScreenRecording,
 	guideScreenRecording,
