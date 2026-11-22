@@ -61,10 +61,23 @@ type AuthService struct {
 	userRepo                 *repository.UserRepository
 	emailConfigService       *EmailConfigService
 	emailVerificationService *EmailVerificationService
+	onTokenVersionChanged    func(userUUID string)
 }
 
 func NewAuthService(userRepo *repository.UserRepository, emailConfigService *EmailConfigService, emailVerificationService *EmailVerificationService) *AuthService {
 	return &AuthService{userRepo: userRepo, emailConfigService: emailConfigService, emailVerificationService: emailVerificationService}
+}
+
+// SetTokenVersionInvalidator 注入 token 版本缓存失效回调（组合根传入 middleware.InvalidateTokenVersion）。
+// 所有递增 TokenVersion 的路径在写库成功后主动调用，消除缓存旧值窗口。
+func (s *AuthService) SetTokenVersionInvalidator(fn func(userUUID string)) {
+	s.onTokenVersionChanged = fn
+}
+
+func (s *AuthService) invalidateTokenVersion(userUUID string) {
+	if s.onTokenVersionChanged != nil {
+		s.onTokenVersionChanged(userUUID)
+	}
 }
 
 // LoginRequest 用户名密码登录请求体。
@@ -344,6 +357,7 @@ func (s *AuthService) ChangePassword(username, oldPassword, newPassword string) 
 	if err := s.userRepo.UpdatePasswordAndInvalidate(user); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.invalidateTokenVersion(user.UUID)
 	return nil
 }
 
@@ -387,6 +401,7 @@ func (s *AuthService) FirstChangePassword(username, newPassword string, name *st
 	if err := s.userRepo.UpdatePasswordAndInvalidate(user); err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.invalidateTokenVersion(user.UUID)
 
 	// 重新读取用户获取递增后的 TokenVersion，换发新 token 对
 	updatedUser, err := s.userRepo.GetByID(user.ID)
@@ -437,6 +452,7 @@ func (s *AuthService) ResetPassword(email, code, newPassword string) error {
 	if err := s.userRepo.UpdatePasswordAndInvalidate(user); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
+	s.invalidateTokenVersion(user.UUID)
 	return nil
 }
 

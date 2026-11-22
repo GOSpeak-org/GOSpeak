@@ -91,6 +91,14 @@ var tokenVersionCache = struct {
 	m map[string]tokenVersionCacheEntry
 }{m: make(map[string]tokenVersionCacheEntry)}
 
+// InvalidateTokenVersion 在改密/改角色后清除 token 版本缓存，
+// 让下一次鉴权立即从 DB 读取最新版本，消除缓存旧值窗口。
+func InvalidateTokenVersion(userUUID string) {
+	tokenVersionCache.Lock()
+	delete(tokenVersionCache.m, userUUID)
+	tokenVersionCache.Unlock()
+}
+
 // SetPermissionChecker 注入权限查询实现（测试缝；生产路径走 Configure）。
 func SetPermissionChecker(c permissionChecker) {
 	authMu.Lock()

@@ -163,7 +163,7 @@ func StartGin(env EnvEnum) error {
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
 		logger.WithComponent("HTTP").Warnf("set trusted proxies failed: %v", err)
 	}
-	r.Use(middleware.RequestID(), logger.GinRecovery(), logger.GinLogger(), middleware.CORS(strings.Split(cfg.CORSOrigin, ",")))
+	r.Use(middleware.RequestID(), logger.GinRecovery(), logger.GinLogger(), middleware.CORS(strings.Split(cfg.CORSOrigin, ",")), middleware.SecurityHeaders())
 
 	wsFanout := ws.NewFanout()
 	wsHandler := ws.NewHandlerRegistry()
@@ -347,6 +347,9 @@ func StartGin(env EnvEnum) error {
 		BlacklistChecker:       authstate.IsBlacklistedErr,
 		AuthCookieName:         cfg.AccessCookieName,
 	})
+	// 改密/改角色成功后主动失效 token 版本缓存，消除 ≤1 TTL 的旧值窗口。
+	authSvc.SetTokenVersionInvalidator(middleware.InvalidateTokenVersion)
+	userSvc.SetTokenVersionInvalidator(middleware.InvalidateTokenVersion)
 
 	startJobConsumers(jobQueue, eventBus.InstanceID(), signalHub, messageSvc, conversationSvc)
 
