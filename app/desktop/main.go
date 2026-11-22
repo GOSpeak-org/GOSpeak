@@ -64,6 +64,7 @@ func main() {
 	mygo.Bind(ServerConfig{})
 	mygo.Bind(ClientLog{})
 	mygo.Bind(ScreenCapture{})
+	mygo.Bind(Browser{})
 	startupMark("services bound")
 
 	// Deep links (gospeak://invite/d/<CODE>) must be wired before Run so the
