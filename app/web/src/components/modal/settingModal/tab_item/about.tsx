@@ -1,5 +1,6 @@
 import { Button } from "@gospeak/components";
 import {
+	createBrowser,
 	createClientLog,
 	createUpdater,
 	inDesktop,
@@ -27,6 +28,8 @@ type UpdateState =
 	| "done"
 	| "error";
 
+const REPO_URL = "https://github.com/NoelOrin/GOSpeak";
+
 /**
  * 关于 / 日志。
  *
@@ -39,6 +42,7 @@ function AboutForm() {
 	const [logsPath, setLogsPath] = useState("");
 	const desktop = inDesktop();
 	const updater = createUpdater();
+	const browser = createBrowser();
 
 	const [updateStatus, setUpdateStatus] = useState<UpdateState>("idle");
 	const [release, setRelease] = useState<ReleaseInfo | null>(null);
@@ -142,6 +146,22 @@ function AboutForm() {
 					<div className="flex items-center justify-between gap-4">
 						<span className="text-muted-foreground text-xs">运行环境</span>
 						<span className="font-medium">{desktop ? "桌面端" : "浏览器"}</span>
+					</div>
+					<div className="flex items-center justify-between gap-4">
+						<span className="text-muted-foreground text-xs">项目地址</span>
+						<a
+							href={REPO_URL}
+							target="_blank"
+							rel="noreferrer"
+							className="text-primary text-xs hover:underline"
+							onClick={(e) => {
+								if (!inDesktop()) return;
+								e.preventDefault();
+								void browser.openExternal(REPO_URL);
+							}}
+						>
+							GitHub ↗
+						</a>
 					</div>
 				</div>
 
