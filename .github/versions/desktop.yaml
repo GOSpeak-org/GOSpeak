@@ -15,19 +15,14 @@
 #   app/desktop/package.json 的 version
 #   app/desktop/mygo.config.ts 的 version（决定安装包文件名）
 # 两者都必须与本文件一致。
-version: "1.2.0-rc.1"
+version: "1.2.0-rc.2"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时以最近的 gospeak-desktop-v* tag 为基线按 commit 生成
 # （首个桌面版本无基线，会使用简短默认说明）。
 notes: |
-  GOSpeak Desktop 1.2.0-rc.1 —— 内嵌前端随 1.2.0-rc.1 更新，新增浏览器外链与剪贴板能力门面。
-
-  ## 宿主
-  - 新增 Browser.OpenExternal 桥接命令与浏览器打开能力
-  - 剪贴板走能力门面，事件名建单一事实源与门禁
+  GOSpeak Desktop 1.2.0-rc.2 —— 内嵌前端跟随 1.2.0-rc.2 更新。
 
   ## 随前端更新
-  - 域内房间分组、拖拽排序与个人布局
-  - 全局 CSP、强制改密等安全加固
-  - 个人背景图、玻璃强度与房间体验优化
+  - 管理页 SFU 实际生效配置面板与来源标注
+  - 环境变量覆盖提示改用 warning 语义色彩 token
