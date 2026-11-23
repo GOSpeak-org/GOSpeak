@@ -43,7 +43,7 @@ jobs:
 
       - uses: ./.github/actions/pnpm-install
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
@@ -52,7 +52,7 @@ jobs:
 
       # setup-gradle 一次覆盖 Gradle distribution、依赖 jar 和 local build cache。
       # 缓存键由 action 基于 job id + git SHA 自动生成，无需手写 hashFiles。
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - uses: actions/setup-go@v7
         with:
