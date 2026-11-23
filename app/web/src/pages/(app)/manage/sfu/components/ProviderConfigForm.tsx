@@ -44,8 +44,8 @@ function FormField({
 			<span className="mb-1 flex flex-wrap items-center gap-2 text-sm">
 				{label}
 				{overridden && (
-					<span className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-normal">
-						<AlertTriangle size={11} />
+					<span className="border-warning/40 bg-warning/10 text-warning inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-normal">
+						<AlertTriangle size={12} />
 						环境变量覆盖，修改不生效
 					</span>
 				)}

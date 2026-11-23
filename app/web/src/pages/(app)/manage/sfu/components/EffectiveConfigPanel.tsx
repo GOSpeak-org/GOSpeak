@@ -14,7 +14,7 @@ function SourceBadge({ source }: { source: SFUConfigSource | undefined }) {
 			className={[
 				"rounded-full border px-2 py-0.5 text-2xs",
 				env
-					? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+					? "border-warning/40 bg-warning/10 text-warning"
 					: "border-border text-muted-foreground",
 			].join(" ")}
 		>
@@ -52,7 +52,7 @@ function ValueRow({
 				{value || <span className="text-faint-foreground">未配置</span>}
 			</div>
 			{overridden && (
-				<p className="text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 text-2xs">
+				<p className="text-warning mt-1 flex items-center gap-1 text-2xs">
 					<AlertTriangle size={12} className="shrink-0" />
 					{hint ?? "由环境变量覆盖，页面修改不会影响运行"}
 				</p>
@@ -83,7 +83,7 @@ export default function EffectiveConfigPanel({
 					</p>
 				</div>
 				{hasOverride && (
-					<span className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs">
+					<span className="border-warning/40 bg-warning/10 text-warning flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs">
 						<AlertTriangle size={12} />
 						{envKeys.length} 项由环境变量管理
 					</span>
@@ -120,10 +120,7 @@ export default function EffectiveConfigPanel({
 
 			<div className="border-border bg-muted/40 text-muted-foreground mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-2xs">
 				{hasOverride ? (
-					<AlertTriangle
-						size={14}
-						className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0"
-					/>
+					<AlertTriangle size={14} className="text-warning mt-0.5 shrink-0" />
 				) : (
 					<CheckCircle2 size={14} className="mt-0.5 shrink-0" />
 				)}
