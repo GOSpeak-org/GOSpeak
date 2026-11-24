@@ -9,6 +9,7 @@ type RoomRequest struct {
 }
 
 type MemberInfo struct {
+	UserUUID    string `json:"user_uuid,omitempty"`
 	ID          string `json:"id"`
 	Identity    string `json:"identity"`
 	Name        string `json:"name"`
@@ -41,7 +42,7 @@ type RoomInfo struct {
 
 // MuteInfo is the DTO broadcast to clients for mute/unmute events.
 type MuteInfo struct {
-	UserID    uint   `json:"user_id"`
+	UserUUID  string `json:"user_uuid"`
 	Duration  int64  `json:"duration"`
 	Permanent bool   `json:"permanent"`
 	Reason    string `json:"reason"`

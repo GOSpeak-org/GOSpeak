@@ -46,7 +46,7 @@ func TestHub_BroadcastMute_UsesEventBus(t *testing.T) {
 	hub := NewHub(nil, nil, nil, nil)
 	bus := &captureBus{}
 	hub.SetEventBus(bus)
-	hub.BroadcastMute(9, &MuteInfo{Permanent: true, Reason: "x"})
+	hub.BroadcastMute("9", &MuteInfo{Permanent: true, Reason: "x"})
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
 	if len(bus.ns) != 1 || bus.ns[0] != EventUserMuted {

@@ -176,8 +176,21 @@ function reset(overrides: Partial<typeof session> = {}) {
 	});
 }
 
+const meMember = {
+	id: "1",
+	user_uuid: "user-uuid-me",
+	identity: "me",
+	name: "me",
+	display_name: "我",
+	avatar: "",
+	is_muted: false,
+	is_mic_muted: false,
+	joined_at: 0,
+};
+
 const bob = {
 	id: "2",
+	user_uuid: "user-uuid-bob",
 	identity: "bob",
 	name: "bob",
 	display_name: "Bob",
@@ -471,12 +484,11 @@ describe("RoomDetail / 成员卡片禁言", () => {
 		expect(mocks.createMute).not.toHaveBeenCalled();
 	});
 
-	it("确认禁言后按 identity 查询用户并调用现有 createMute 接口", async () => {
+	it("成员已有 user_uuid 时直接禁言，不再查询用户资料", async () => {
 		joinWithMembers();
 		mocks.hasPermission.mockImplementation(
 			(code?: string) => code === "mute:manage",
 		);
-		mocks.fetchUserInfo.mockResolvedValue({ id: 42, name: "bob" });
 		render(<RoomDetail />);
 
 		openMemberMenu(screen.getByRole("button", { name: /更多操作/ }));
@@ -485,9 +497,9 @@ describe("RoomDetail / 成员卡片禁言", () => {
 		fireEvent.click(within(dialog).getByRole("button", { name: "禁言" }));
 
 		await waitFor(() => {
-			expect(mocks.fetchUserInfo).toHaveBeenCalledWith("bob");
+			expect(mocks.fetchUserInfo).not.toHaveBeenCalled();
 			expect(mocks.createMute).toHaveBeenCalledWith({
-				user_id: 42,
+				user_uuid: "user-uuid-bob",
 				duration: 3600,
 				permanent: false,
 				reason: "",
@@ -516,7 +528,9 @@ function joinWithShares(
 		isJoined: true,
 		isLoading: false,
 	});
-	mocks.socket.rooms = [{ name: "测试", domain_uuid: null, members: [bob] }];
+	mocks.socket.rooms = [
+		{ name: "测试", domain_uuid: null, members: [bob, meMember] },
+	];
 	mocks.share.remote = remote;
 	mocks.share.remotePublications = remotePublications;
 	mocks.share.localSharing = localSharing;
@@ -771,7 +785,7 @@ describe("RoomDetail / 共享观看与切换", () => {
 		expect(screen.getByText("Bob")).toBeTruthy();
 	});
 
-	it("本人共享直接进入共享视图，点击退出共享仍然可用", () => {
+	it("本人共享不自动进入自预览，卡片显示共享角标", () => {
 		joinWithShares(
 			[screenTrack("bob")],
 			[screenPublication("bob")],
@@ -780,12 +794,33 @@ describe("RoomDetail / 共享观看与切换", () => {
 		);
 		render(<RoomDetail />);
 
-		expect(screen.getByText("你正在共享屏幕")).toBeTruthy();
+		expect(screen.queryByText("你正在共享屏幕")).toBeNull();
 		expect(
-			screen.getByRole("button", { name: "切换到 me 的共享" }),
+			screen.getByRole("button", { name: "观看 我 的屏幕共享" }),
 		).toBeTruthy();
 		expect(
-			screen.getByRole("button", { name: "切换到 Bob 的共享" }),
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		).toBeTruthy();
+	});
+
+	it("点击本人卡片进入自预览，不触发远端订阅；退出后回到成员网格", async () => {
+		joinWithShares(
+			[screenTrack("bob")],
+			[screenPublication("bob")],
+			true,
+			makeTrack(),
+		);
+		render(<RoomDetail />);
+
+		fireEvent.click(screen.getByRole("button", { name: "观看 我 的屏幕共享" }));
+		expect(screen.getByText("你正在共享屏幕")).toBeTruthy();
+		expect(mocks.watchScreenShare).not.toHaveBeenCalled();
+
+		fireEvent.click(screen.getByRole("button", { name: "退出预览" }));
+		expect(screen.queryByText("你正在共享屏幕")).toBeNull();
+		expect(mocks.stopWatchingScreenShare).not.toHaveBeenCalled();
+		expect(
+			screen.getByRole("button", { name: "观看 我 的屏幕共享" }),
 		).toBeTruthy();
 	});
 });

@@ -235,6 +235,35 @@ func migrateDomainCUID2(db *gorm.DB) error {
 	return nil
 }
 
+// migrateMuteUserUUID 把存量 mutes 表的数字用户外键回填为 UUID 字符串列，
+// 然后删除已废弃的数字列与其唯一索引。幂等：列不存在时跳过。
+func migrateMuteUserUUID(db *gorm.DB) error {
+	if !db.Migrator().HasTable("mutes") {
+		return nil
+	}
+	var drops []legacyColumnDrop
+	if db.Migrator().HasColumn("mutes", "user_id") {
+		if err := db.Exec(`UPDATE mutes SET user_uuid = (
+			SELECT uuid FROM users WHERE users.id = mutes.user_id
+		) WHERE user_uuid IS NULL OR user_uuid = ''`).Error; err != nil {
+			return fmt.Errorf("migrate mutes user_uuid: %w", err)
+		}
+		drops = append(drops, legacyColumnDrop{table: "mutes", column: "user_id", indexes: []string{"idx_mutes_user_id"}})
+	}
+	if db.Migrator().HasColumn("mutes", "muter_id") {
+		if err := db.Exec(`UPDATE mutes SET muter_uuid = (
+			SELECT uuid FROM users WHERE users.id = mutes.muter_id
+		) WHERE muter_uuid IS NULL OR muter_uuid = ''`).Error; err != nil {
+			return fmt.Errorf("migrate mutes muter_uuid: %w", err)
+		}
+		drops = append(drops, legacyColumnDrop{table: "mutes", column: "muter_id"})
+	}
+	if len(drops) == 0 {
+		return nil
+	}
+	return dropLegacyColumns(db, drops)
+}
+
 func autoMigrate() error {
 	if err := getDB().AutoMigrate(
 		&model.Role{},
@@ -277,6 +306,9 @@ func autoMigrate() error {
 		return err
 	}
 	if err := dropLegacyConversationColumns(getDB()); err != nil {
+		return err
+	}
+	if err := migrateMuteUserUUID(getDB()); err != nil {
 		return err
 	}
 	return migrateConversationQueryIndexes(getDB())

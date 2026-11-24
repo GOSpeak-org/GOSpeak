@@ -104,7 +104,7 @@ export interface MessageSendPayload {
 }
 
 export interface MuteInfo {
-	user_id: number;
+	user_uuid: string;
 	duration: number;
 	permanent: boolean;
 	reason: string;

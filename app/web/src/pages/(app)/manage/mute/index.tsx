@@ -62,18 +62,18 @@ export default function MutePage() {
 		queryKey: ["manage-mute-user-search", userQuery],
 		queryFn: () => listUsers(1, 50, true, userQuery || undefined),
 	});
-	const [userId, setUserId] = useState<number | "">("");
+	const [userId, setUserId] = useState<string | "">("");
 	const [duration, setDuration] = useState(3600);
 	const [permanent, setPermanent] = useState(false);
 	const [reason, setReason] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [confirmMute, setConfirmMute] = useState(false);
 	const [muteError, setMuteError] = useState("");
-	const [cancellingId, setCancellingId] = useState<number | null>(null);
+	const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-	const userMap = new Map<number, string>(
+	const userMap = new Map<string, string>(
 		(usersData?.users ?? []).map((u) => [
-			u.id,
+			u.uuid,
 			`${u.display_name} (${u.name})`,
 		]),
 	);
@@ -107,10 +107,10 @@ export default function MutePage() {
 		setSubmitting(true);
 		const now = new Date().toISOString();
 		const optimisticRecord: MuteRecord = {
-			id: -uid,
+			id: 0,
 			uuid: `optimistic-${uid}`,
-			user_id: uid,
-			muter_id: -1,
+			user_uuid: uid,
+			muter_uuid: "",
 			duration,
 			permanent,
 			expires_at: permanent
@@ -125,12 +125,12 @@ export default function MutePage() {
 				snapshot,
 				apply: () =>
 					updateMutes((prev) => [
-						...prev.filter((m) => m.user_id !== uid),
+						...prev.filter((m) => m.user_uuid !== uid),
 						optimisticRecord,
 					]),
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () =>
-					createMute({ user_id: uid, duration, permanent, reason }),
+					createMute({ user_uuid: uid, duration, permanent, reason }),
 				settle: reconcile,
 				onError: (error) => setMuteError(toastActionError(error, "禁言失败")),
 				onSuccess: () => {
@@ -147,13 +147,13 @@ export default function MutePage() {
 		}
 	};
 
-	const handleCancelMute = async (uid: number) => {
+	const handleCancelMute = async (uid: string) => {
 		setCancellingId(uid);
 		try {
 			await runOptimistic({
 				snapshot,
 				apply: () =>
-					updateMutes((prev) => prev.filter((m) => m.user_id !== uid)),
+					updateMutes((prev) => prev.filter((m) => m.user_uuid !== uid)),
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () => cancelMute(uid),
 				settle: reconcile,
@@ -209,9 +209,9 @@ export default function MutePage() {
 							</thead>
 							<tbody>
 								{mutes.map((mute) => (
-									<tr key={mute.user_id} className={manageTableRowClass}>
+									<tr key={mute.user_uuid} className={manageTableRowClass}>
 										<td className="px-3 py-2 font-semibold">
-											{userMap.get(mute.user_id) || `#${mute.user_id}`}
+											{userMap.get(mute.user_uuid) || `#${mute.user_uuid}`}
 										</td>
 										<td className="px-3 py-2">
 											<ManageTag>
@@ -234,14 +234,14 @@ export default function MutePage() {
 											{mute.reason || "—"}
 										</td>
 										<td className="text-foreground px-3 py-2 text-xs">
-											{userMap.get(mute.muter_id) || `#${mute.muter_id}`}
+											{userMap.get(mute.muter_uuid) || `#${mute.muter_uuid}`}
 										</td>
 										<td className="px-3 py-2">
 											<button
 												type="button"
 												className="text-muted-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50"
-												disabled={cancellingId === mute.user_id}
-												onClick={() => void handleCancelMute(mute.user_id)}
+												disabled={cancellingId === mute.user_uuid}
+												onClick={() => void handleCancelMute(mute.user_uuid)}
 											>
 												<UserCheck size={14} />
 												解除
@@ -267,8 +267,9 @@ export default function MutePage() {
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(280px,340px)_minmax(220px,280px)_minmax(200px,260px)]">
 					<UserSearchSelect
 						id="mute-user"
+						valueKey="uuid"
 						value={userId}
-						onChange={setUserId}
+						onChange={(v) => setUserId(String(v))}
 						users={usersData?.users || []}
 						loading={usersLoading}
 						disabled={submitting}
@@ -327,7 +328,7 @@ export default function MutePage() {
 				title="禁言用户"
 				message={
 					<span>
-						确认对「{userMap.get(Number(userId)) ?? `#${userId}`}」
+						确认对「{userMap.get(userId) ?? `#${userId}`}」
 						{permanent
 							? "永久禁言"
 							: `禁言 ${Math.max(1, Math.round(duration / 60))} 分钟`}

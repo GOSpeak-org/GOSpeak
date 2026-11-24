@@ -14,6 +14,7 @@ vi.mock("@/hooks/useMemberRoster", () => ({
 
 const alice: RosterMember = {
 	identity: "alice",
+	user_uuid: "uuid-alice",
 	name: "alice",
 	display_name: "Alice",
 	avatar: "",

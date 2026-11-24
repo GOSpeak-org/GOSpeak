@@ -278,6 +278,7 @@ func (h *Hub) enrichMembers(members []MemberInfo) []MemberInfo {
 	for i := range out {
 		m := &out[i]
 		if u := users[m.Identity]; u != nil {
+			m.UserUUID = u.UUID
 			m.Name = u.Name
 			m.DisplayName = u.DisplayName
 			m.Avatar = u.Avatar

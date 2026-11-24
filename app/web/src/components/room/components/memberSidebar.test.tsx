@@ -14,6 +14,7 @@ vi.mock("./userInfoPopover", () => ({ default: () => null }));
 
 const online = {
 	identity: "alice",
+	user_uuid: "uuid-alice",
 	name: "alice",
 	display_name: "Alice",
 	avatar: "",
@@ -25,6 +26,7 @@ const online = {
 
 const offline = {
 	identity: "bob",
+	user_uuid: "uuid-bob",
 	name: "bob",
 	display_name: "Bob",
 	avatar: "",

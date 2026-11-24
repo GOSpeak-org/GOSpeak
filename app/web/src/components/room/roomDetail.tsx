@@ -90,10 +90,11 @@ export default function RoomDetail() {
 	const localTrack = useScreenShareStore((s) => s.localTrack);
 	const { watchScreenShare, stopWatchingScreenShare } = useWatchScreenShare();
 
-	const sharingIdentities = useMemo(
-		() => new Set(remotePublications.map((item) => item.identity)),
-		[remotePublications],
-	);
+	const sharingIdentities = useMemo(() => {
+		const ids = new Set(remotePublications.map((item) => item.identity));
+		if (localSharing && localTrack && myName) ids.add(myName);
+		return ids;
+	}, [remotePublications, localSharing, localTrack, myName]);
 
 	const shareEntries = useMemo<ShareEntry[]>(() => {
 		const entries = remoteVideos
@@ -121,6 +122,10 @@ export default function RoomDetail() {
 	const switchToShare = useCallback(
 		async (identity: string, key: string) => {
 			if (key === activeKey) return;
+			if (key === "local") {
+				setActiveKey("local");
+				return;
+			}
 			setPendingIdentity(identity);
 			try {
 				await Promise.resolve(watchScreenShare(identity));
@@ -136,15 +141,14 @@ export default function RoomDetail() {
 
 	const handleWatchShare = useCallback(
 		(identity: string) => {
-			void switchToShare(identity, `remote:${identity}`);
+			const key = identity === myName ? "local" : `remote:${identity}`;
+			void switchToShare(identity, key);
 		},
-		[switchToShare],
+		[myName, switchToShare],
 	);
 
-	const effectiveKey =
-		activeKey ?? (localSharing && localTrack ? "local" : null);
 	const activeEntry =
-		shareEntries.find((entry) => entry.key === effectiveKey) ?? null;
+		shareEntries.find((entry) => entry.key === activeKey) ?? null;
 	const sharedTrack = activeEntry?.track ?? null;
 	const activeMember = roomMembers.find(
 		(member) => member.identity === activeEntry?.identity,
@@ -196,6 +200,10 @@ export default function RoomDetail() {
 							type="button"
 							className="bg-card border-border text-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition-colors"
 							onClick={() => {
+								if (activeEntry?.isLocal) {
+									setActiveKey(null);
+									return;
+								}
 								void Promise.resolve(stopWatchingScreenShare()).catch(() => {
 									toast.error("退出共享失败，请稍后重试");
 								});
@@ -203,7 +211,7 @@ export default function RoomDetail() {
 							}}
 						>
 							<LogOut size={14} />
-							<span>退出共享</span>
+							<span>{activeEntry?.isLocal ? "退出预览" : "退出共享"}</span>
 						</button>
 					</div>
 					{shareEntries.length > 1 && (
@@ -413,9 +421,11 @@ function MemberCard({
 	const handleBanMute = async () => {
 		setMuting(true);
 		try {
-			const info = await fetchUserInfo(member.identity);
+			// 成员在线快照已带 user_uuid 时直接用；旧路径（member:joined 未 enrich）降级查询
+			const userUUID =
+				member.user_uuid || (await fetchUserInfo(member.identity)).uuid;
 			await createMute({
-				user_id: info.id,
+				user_uuid: userUUID,
 				duration: 3600,
 				permanent: false,
 				reason: "",

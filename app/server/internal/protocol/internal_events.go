@@ -27,12 +27,12 @@ type PermissionsInvalidatedPayload struct {
 }
 
 type MuteChangedPayload struct {
-	UserID   string `json:"user_id"`
+	UserUUID string `json:"user_uuid"`
 	Identity string `json:"identity"`
 }
 
 type MuteExpiredPayload struct {
-	UserID string `json:"user_id"`
+	UserUUID string `json:"user_uuid"`
 }
 
 type DomainMembershipChangedPayload struct {
@@ -57,4 +57,3 @@ type StateRoomChangedPayload struct {
 	Room string `json:"room"`
 	TS   int64  `json:"ts"`
 }
-

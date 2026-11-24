@@ -229,10 +229,8 @@ func StartGin(env EnvEnum) error {
 	dispatcher.Register(service.EventDomainPolicyChanged, domainSvc.OnRemotePolicyChanged)
 	dispatcher.Register(service.EventMuteChanged, muteSvc.OnRemoteInvalidate)
 	dispatcher.Register(service.EventMuteExpired, func(payload interface{}) {
-		if p, err := bus.DecodePayload[service.MuteExpiredPayload](payload); err == nil {
-			if userID, uerr := strconv.ParseUint(p.UserID, 10, 64); uerr == nil && userID > 0 {
-				signalHub.BroadcastUnmute(uint(userID))
-			}
+		if p, err := bus.DecodePayload[service.MuteExpiredPayload](payload); err == nil && p.UserUUID != "" {
+			signalHub.BroadcastUnmute(p.UserUUID)
 		}
 	})
 	dispatcher.Register(service.EventDomainMemberAdded, func(payload interface{}) {

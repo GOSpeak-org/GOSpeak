@@ -74,12 +74,12 @@ func (c *countingMembershipStore) calls() (int, int) {
 
 func TestBroadcastMute_PublishesMemberMuted(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		7: {ID: 7, Name: "alice"},
+		7: {ID: 7, UUID: "7", Name: "alice"},
 	}}, nil)
 	bus := &captureMuteBus{}
 	hub.SetEventBus(bus)
 
-	hub.BroadcastMute(7, &MuteInfo{Permanent: true})
+	hub.BroadcastMute("7", &MuteInfo{Permanent: true})
 
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
@@ -95,7 +95,7 @@ func TestBroadcastMute_PublishesMemberMuted(t *testing.T) {
 func TestBroadcastMute_PublishesMemberMuted_ToMemberRooms(t *testing.T) {
 	hub := newTestHub()
 	hub.userStore = &idUserStore{users: map[uint]*model.User{
-		7: {ID: 7, Name: "alice"},
+		7: {ID: 7, UUID: "7", Name: "alice"},
 	}}
 	bus := &captureMuteBus{}
 	hub.SetEventBus(bus)
@@ -110,7 +110,7 @@ func TestBroadcastMute_PublishesMemberMuted_ToMemberRooms(t *testing.T) {
 		t.Fatalf("join other sfu room: %v", err)
 	}
 
-	hub.BroadcastMute(7, &MuteInfo{Permanent: true})
+	hub.BroadcastMute("7", &MuteInfo{Permanent: true})
 
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
@@ -127,12 +127,12 @@ func TestBroadcastMute_PublishesMemberMuted_ToMemberRooms(t *testing.T) {
 
 func TestBroadcastUnmute_PublishesMemberUnmuted(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		7: {ID: 7, Name: "alice"},
+		7: {ID: 7, UUID: "7", Name: "alice"},
 	}}, nil)
 	bus := &captureMuteBus{}
 	hub.SetEventBus(bus)
 
-	hub.BroadcastUnmute(7)
+	hub.BroadcastUnmute("7")
 
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
@@ -148,7 +148,7 @@ func TestBroadcastUnmute_PublishesMemberUnmuted(t *testing.T) {
 func TestBroadcastUnmute_PublishesMemberUnmuted_ToMemberRooms(t *testing.T) {
 	hub := newTestHub()
 	hub.userStore = &idUserStore{users: map[uint]*model.User{
-		7: {ID: 7, Name: "alice"},
+		7: {ID: 7, UUID: "7", Name: "alice"},
 	}}
 	bus := &captureMuteBus{}
 	hub.SetEventBus(bus)
@@ -162,7 +162,7 @@ func TestBroadcastUnmute_PublishesMemberUnmuted_ToMemberRooms(t *testing.T) {
 		t.Fatalf("join other sfu room: %v", err)
 	}
 
-	hub.BroadcastUnmute(7)
+	hub.BroadcastUnmute("7")
 
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
@@ -184,7 +184,7 @@ func TestBroadcastUnmute_PublishesMemberUnmuted_ToMemberRooms(t *testing.T) {
 func TestBroadcastMuteUnmute_ComputesRoomsOnce(t *testing.T) {
 	hub := newTestHub()
 	hub.userStore = &idUserStore{users: map[uint]*model.User{
-		7: {ID: 7, Name: "alice"},
+		7: {ID: 7, UUID: "7", Name: "alice"},
 	}}
 	hub.SetSFU(&capsProvider{caps: sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementHard}})
 
@@ -198,13 +198,13 @@ func TestBroadcastMuteUnmute_ComputesRoomsOnce(t *testing.T) {
 	hub.SetMembershipStore(store, "test-instance")
 	hub.SetEventBus(&captureMuteBus{})
 
-	hub.BroadcastMute(7, &MuteInfo{Permanent: true})
+	hub.BroadcastMute("7", &MuteInfo{Permanent: true})
 	lists, gets := store.calls()
 	if lists != 1 || gets != 1 {
 		t.Fatalf("BroadcastMute KV scans: list=%d get=%d, want 1/1 (rooms computed once)", lists, gets)
 	}
 
-	hub.BroadcastUnmute(7)
+	hub.BroadcastUnmute("7")
 	lists, gets = store.calls()
 	if lists != 2 || gets != 2 {
 		t.Fatalf("BroadcastUnmute KV scans: list=%d get=%d, want 2/2 cumulative (rooms computed once per broadcast)", lists, gets)
@@ -213,7 +213,7 @@ func TestBroadcastMuteUnmute_ComputesRoomsOnce(t *testing.T) {
 
 func TestBroadcastMute_NilInfoDoesNotPanic(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		7: {ID: 7, Name: "alice"},
+		7: {ID: 7, UUID: "7", Name: "alice"},
 	}}, nil)
 	bus := &captureMuteBus{}
 	hub.SetEventBus(bus)
@@ -223,7 +223,7 @@ func TestBroadcastMute_NilInfoDoesNotPanic(t *testing.T) {
 			t.Fatalf("BroadcastMute(nil) panicked: %v", r)
 		}
 	}()
-	hub.BroadcastMute(7, nil)
+	hub.BroadcastMute("7", nil)
 
 	bus.mu.Lock()
 	defer bus.mu.Unlock()
@@ -238,7 +238,7 @@ func TestBroadcastMute_NilInfoDoesNotPanic(t *testing.T) {
 	if permanent, ok := payload["permanent"].(bool); !ok || permanent {
 		t.Fatalf("user:muted permanent = %v, want false", payload["permanent"])
 	}
-	if userID, _ := payload["user_id"].(uint); userID != 7 {
-		t.Fatalf("user:muted user_id = %v, want 7", payload["user_id"])
+	if userUUID, _ := payload["user_uuid"].(string); userUUID != "7" {
+		t.Fatalf("user:muted user_uuid = %v, want 7", payload["user_uuid"])
 	}
 }

@@ -116,9 +116,9 @@ function UsersPage() {
 		if (userPage > userTotalPages) setUserPage(Math.max(1, userTotalPages));
 	}, [userPage, userTotalPages]);
 
-	const muteMap = new Map<number, MuteRecord>();
+	const muteMap = new Map<string, MuteRecord>();
 	for (const mute of mutes) {
-		muteMap.set(mute.user_id, mute);
+		muteMap.set(mute.user_uuid, mute);
 	}
 
 	const USERS_KEY = ["manage-users"] as const;
@@ -130,19 +130,19 @@ function UsersPage() {
 		]);
 	type UserList = { users: BackendUser[]; total: number };
 
-	const [muteUserId, setMuteUserId] = useState<number | "">("");
+	const [muteUserId, setMuteUserId] = useState<string | "">("");
 	const [muteDuration, setMuteDuration] = useState(3600);
 	const [mutePerm, setMutePerm] = useState(false);
 	const [muteReason, setMuteReason] = useState("");
 	const [submitting, setSubmitting] = useState(false);
-	const [cancellingId, setCancellingId] = useState<number | null>(null);
+	const [cancellingId, setCancellingId] = useState<string | null>(null);
 	const [deletingUser, setDeletingUser] = useState<BackendUser | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [deletingError, setDeletingError] = useState("");
 
 	const users = (usersData?.users || []).filter((u) => !u.is_bot);
-	const userMap = new Map<number, string>(
-		users.map((u) => [u.id, u.display_name || u.name]),
+	const userMap = new Map<string, string>(
+		users.map((u) => [u.uuid, u.display_name || u.name]),
 	);
 
 	const runRoleChange = async (
@@ -256,10 +256,10 @@ function UsersPage() {
 		setSubmitting(true);
 		const now = new Date().toISOString();
 		const optimisticRecord: MuteRecord = {
-			id: -uid,
+			id: 0,
 			uuid: `optimistic-${uid}`,
-			user_id: uid,
-			muter_id: -1,
+			user_uuid: uid,
+			muter_uuid: "",
 			duration: muteDuration,
 			permanent: mutePerm,
 			expires_at: mutePerm
@@ -277,14 +277,14 @@ function UsersPage() {
 						queryClient,
 						{ queryKey: MUTES_KEY },
 						(prev) => [
-							...prev.filter((m) => m.user_id !== uid),
+							...prev.filter((m) => m.user_uuid !== uid),
 							optimisticRecord,
 						],
 					),
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () =>
 					createMute({
-						user_id: uid,
+						user_uuid: uid,
 						duration: muteDuration,
 						permanent: mutePerm,
 						reason: muteReason,
@@ -305,7 +305,7 @@ function UsersPage() {
 		}
 	};
 
-	const handleCancelMute = async (uid: number) => {
+	const handleCancelMute = async (uid: string) => {
 		setCancellingId(uid);
 		try {
 			await runOptimistic({
@@ -314,7 +314,7 @@ function UsersPage() {
 					updateQueryData<MuteRecord[]>(
 						queryClient,
 						{ queryKey: MUTES_KEY },
-						(prev) => prev.filter((m) => m.user_id !== uid),
+						(prev) => prev.filter((m) => m.user_uuid !== uid),
 					),
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () => cancelMute(uid),
@@ -392,7 +392,7 @@ function UsersPage() {
 							</thead>
 							<tbody>
 								{users.map((user) => {
-									const mute = muteMap.get(user.id);
+									const mute = muteMap.get(user.uuid);
 									const muted = !!mute;
 									const isSelf = selfId === user.id;
 									return (
@@ -465,8 +465,8 @@ function UsersPage() {
 																type="button"
 																className={iconBtnClass}
 																title="解除禁言"
-																disabled={cancellingId === user.id}
-																onClick={() => void handleCancelMute(user.id)}
+																disabled={cancellingId === user.uuid}
+																onClick={() => void handleCancelMute(user.uuid)}
 															>
 																<UserCheck size={14} />
 															</button>
@@ -476,7 +476,7 @@ function UsersPage() {
 																className={iconBtnClass}
 																title="禁言"
 																onClick={() => {
-																	setMuteUserId(user.id);
+																	setMuteUserId(user.uuid);
 																	setMutePerm(false);
 																	setMuteDuration(3600);
 																}}
@@ -554,9 +554,9 @@ function UsersPage() {
 									用户
 								</label>
 								<Select
-									value={muteUserId === "" ? NONE_USER : String(muteUserId)}
+									value={muteUserId === "" ? NONE_USER : muteUserId}
 									onValueChange={(next) =>
-										setMuteUserId(next === NONE_USER ? "" : Number(next))
+										setMuteUserId(next === NONE_USER ? "" : next)
 									}
 								>
 									<SelectTrigger id="mute-user" className="h-9">
@@ -565,7 +565,7 @@ function UsersPage() {
 									<SelectContent>
 										<SelectItem value={NONE_USER}>选择用户</SelectItem>
 										{users.map((u) => (
-											<SelectItem key={u.id} value={String(u.id)}>
+											<SelectItem key={u.uuid || u.id} value={u.uuid}>
 												{u.display_name || u.name} ({u.name})
 											</SelectItem>
 										))}
@@ -639,9 +639,9 @@ function UsersPage() {
 									</thead>
 									<tbody>
 										{mutes.map((mute) => (
-											<tr key={mute.user_id} className={manageTableRowClass}>
+											<tr key={mute.user_uuid} className={manageTableRowClass}>
 												<td className="px-3 py-2 font-medium">
-													{userMap.get(mute.user_id) || `#${mute.user_id}`}
+													{userMap.get(mute.user_uuid) || `#${mute.user_uuid}`}
 												</td>
 												<td className="px-3 py-2">
 													<ManageTag>
@@ -657,14 +657,17 @@ function UsersPage() {
 													{mute.reason || "—"}
 												</td>
 												<td className="text-muted-foreground px-3 py-2 text-sm">
-													{userMap.get(mute.muter_id) || `#${mute.muter_id}`}
+													{userMap.get(mute.muter_uuid) ||
+														`#${mute.muter_uuid}`}
 												</td>
 												<td className="px-3 py-2">
 													<button
 														type="button"
 														className="text-muted-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50"
-														disabled={cancellingId === mute.user_id}
-														onClick={() => void handleCancelMute(mute.user_id)}
+														disabled={cancellingId === mute.user_uuid}
+														onClick={() =>
+															void handleCancelMute(mute.user_uuid)
+														}
 													>
 														<UserCheck size={14} />
 														解除
@@ -717,7 +720,7 @@ function UsersPage() {
 				message={
 					<span>
 						确认对「
-						{userMap.get(Number(muteUserId)) ?? `#${muteUserId}`}」
+						{userMap.get(muteUserId) ?? `#${muteUserId}`}」
 						{mutePerm
 							? "永久禁言"
 							: `禁言 ${Math.max(1, Math.round(muteDuration / 60))} 分钟`}

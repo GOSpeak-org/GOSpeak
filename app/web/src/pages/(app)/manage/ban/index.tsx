@@ -192,7 +192,7 @@ export default function BanPage() {
 					<UserSearchSelect
 						id="ban-user"
 						value={targetUserId}
-						onChange={setTargetUserId}
+						onChange={(v) => setTargetUserId(v as number)}
 						users={normalUsers}
 						loading={isLoading}
 						disabled={banning}

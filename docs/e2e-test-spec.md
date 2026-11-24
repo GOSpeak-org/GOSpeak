@@ -104,10 +104,10 @@ E2E_BROWSER 显式指定 → OS 默认浏览器 → chrome → chromium → msed
 | `rapid-switch` | A/B 快速来回 | 1 | 每轮 join 成功，无 failed/retry |
 | `media` | 单人推流/会话 | 1 | getUserMedia + RTCPeerConnection/local track |
 | `multi-user` | 本地多人拉流 | 2 | 双方人数 ≥2，各自收到远端 audio |
-| `domain`（扩展） | Domain 创建/切换/成员 | 1~2 | API 与 UI 一致，成员同步 |
-| `ws-*`（扩展） | WS 协议/重连/并发 | 1~3 | 协议格式、状态恢复、无消息丢失 |
+| `domain`（规划中） | Domain 创建/切换/成员 | 1~2 | API 与 UI 一致，成员同步 |
+| `ws-*`（规划中） | WS 协议/重连/并发 | 1~3 | 协议格式、状态恢复、无消息丢失 |
 
-Domain 多租户、文本消息与 WS 协议相关功能均已落地，`domain` 与 `ws-*` 套件已实现功能，待补充 E2E 套件纳入全量回归；当前语音全量回归仍以 `join`、`switch`、`rapid-switch`、`media`、`multi-user` 为准。
+Domain 多租户、文本消息与 WS 协议相关**后端功能**均已落地，但自动化 E2E 套件尚未实现：`run-room-voice-e2e` 当前仅支持 `join`、`switch`、`rapid-switch`、`media`、`multi-user` 五个语音套件，`domain` / `ws-*` 属规划中，不纳入当前 CI 回归。
 
 ## 5. 用例规范
 

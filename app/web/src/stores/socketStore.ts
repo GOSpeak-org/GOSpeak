@@ -398,7 +398,7 @@ async function connectWithLock(url: string): Promise<string> {
 				handleMessageCreated: (dto) => messageCreatedHandler?.(dto),
 				handleAnnouncementNew: (dto) => announcementHandler?.(dto),
 				currentUserName: () => useUserStore.getState().user?.name ?? "",
-				currentUserID: () => useUserStore.getState().user?.id,
+				currentUserUUID: () => useUserStore.getState().user?.uuid,
 			});
 		}
 		return url;
