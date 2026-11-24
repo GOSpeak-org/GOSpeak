@@ -8,7 +8,14 @@ import {
 	toast,
 } from "@gospeak/components";
 import { clsx } from "clsx";
-import { Ellipsis, Gavel, LogOut, Volume2, VolumeX } from "lucide-react";
+import {
+	Ellipsis,
+	Gavel,
+	LogOut,
+	MonitorUp,
+	Volume2,
+	VolumeX,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RemoteVideoTrackLike } from "@gospeak/sfu-client/types";
 import { createMute } from "@/api/mute";
@@ -37,6 +44,7 @@ import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
 import ScreenShareView from "./ScreenShareView";
 import { useVoiceSessionContext } from "./VoiceSessionProvider";
+import { useWatchScreenShare } from "./useWatchScreenShare";
 
 interface ShareEntry {
 	key: string;
@@ -77,8 +85,15 @@ export default function RoomDetail() {
 
 	// 屏幕共享：候选来自远端屏幕共享 + 本人共享，切换条只展示头像与名字。
 	const remoteVideos = useScreenShareStore((s) => s.remote);
+	const remotePublications = useScreenShareStore((s) => s.remotePublications);
 	const localSharing = useScreenShareStore((s) => s.localSharing);
 	const localTrack = useScreenShareStore((s) => s.localTrack);
+	const { watchScreenShare, stopWatchingScreenShare } = useWatchScreenShare();
+
+	const sharingIdentities = useMemo(
+		() => new Set(remotePublications.map((item) => item.identity)),
+		[remotePublications],
+	);
 
 	const shareEntries = useMemo<ShareEntry[]>(() => {
 		const entries = remoteVideos
@@ -101,15 +116,18 @@ export default function RoomDetail() {
 	}, [remoteVideos, localSharing, localTrack, myName]);
 
 	const [activeKey, setActiveKey] = useState<string | null>(null);
+	const effectiveKey =
+		activeKey ?? (localSharing && localTrack ? "local" : null);
 	const activeEntry =
-		shareEntries.find((entry) => entry.key === activeKey) ??
-		shareEntries[0] ??
-		null;
+		shareEntries.find((entry) => entry.key === effectiveKey) ?? null;
 	const sharedTrack = activeEntry?.track ?? null;
+	const activeMember = roomMembers.find(
+		(member) => member.identity === activeEntry?.identity,
+	);
 	const sharedLabel = activeEntry
 		? activeEntry.isLocal
 			? "你正在共享屏幕"
-			: `${activeEntry.identity} 正在共享屏幕`
+			: `${activeMember?.display_name || activeMember?.name || activeEntry.identity} 正在共享屏幕`
 		: "";
 
 	// 密码错时允许重新输入：此前"重试"只是用同一个错误密码再发一次，必然再失败
@@ -147,6 +165,19 @@ export default function RoomDetail() {
 						<div className="bg-card border-border text-foreground absolute top-3 left-3 rounded-md border px-2 py-1 text-xs shadow-sm">
 							{sharedLabel}
 						</div>
+					</div>
+					<div className="mt-3 flex shrink-0 justify-end">
+						<button
+							type="button"
+							className="bg-card border-border text-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition-colors"
+							onClick={() => {
+								void stopWatchingScreenShare();
+								setActiveKey(null);
+							}}
+						>
+							<LogOut size={14} />
+							<span>退出共享</span>
+						</button>
 					</div>
 					{shareEntries.length > 1 && (
 						<div className="ds-scroll mt-3 flex shrink-0 gap-2 overflow-x-auto">
@@ -205,6 +236,11 @@ export default function RoomDetail() {
 										)
 									}
 									onCloseMenu={closeMemberMenu}
+									sharing={sharingIdentities.has(member.identity)}
+									onWatchShare={() => {
+										void watchScreenShare(member.identity);
+										setActiveKey(`remote:${member.identity}`);
+									}}
 								/>
 							))
 						) : (
@@ -300,11 +336,15 @@ function MemberCard({
 	menuOpen,
 	onToggleMenu,
 	onCloseMenu,
+	sharing,
+	onWatchShare,
 }: {
 	member: MemberInfo;
 	menuOpen: boolean;
 	onToggleMenu: () => void;
 	onCloseMenu: () => void;
+	sharing: boolean;
+	onWatchShare: () => void;
 }) {
 	const isMe = member.identity === useUserStore.getState().user?.name;
 	const user = useUserStore((s) => s.user);
@@ -371,6 +411,18 @@ function MemberCard({
 					className="size-20"
 					textClass="text-xl"
 				/>
+
+				{sharing && (
+					<button
+						type="button"
+						className="bg-primary text-primary-foreground absolute right-2 bottom-9 flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-2xs transition-opacity hover:opacity-90"
+						aria-label={`观看 ${displayName} 的屏幕共享`}
+						onClick={onWatchShare}
+					>
+						<MonitorUp size={12} />
+						<span>正在共享屏幕</span>
+					</button>
+				)}
 
 				<div className="bg-sunken absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 py-1.5">
 					<span className="text-foreground truncate text-sm font-medium">

@@ -55,9 +55,15 @@ const mocks = vi.hoisted(() => ({
 			source: "screen" | "camera";
 			track: unknown;
 		}>,
+		remotePublications: [] as Array<{
+			identity: string;
+			source: "screen";
+		}>,
 		localSharing: false,
 		localTrack: null as unknown,
 	},
+	watchScreenShare: vi.fn(),
+	stopWatchingScreenShare: vi.fn(),
 }));
 
 /**
@@ -152,6 +158,12 @@ vi.mock("@/stores/screenShareStore", () => ({
 	useScreenShareStore: (selector: (s: unknown) => unknown) =>
 		selector(mocks.share),
 }));
+vi.mock("./useWatchScreenShare", () => ({
+	useWatchScreenShare: () => ({
+		watchScreenShare: mocks.watchScreenShare,
+		stopWatchingScreenShare: mocks.stopWatchingScreenShare,
+	}),
+}));
 
 function reset(overrides: Partial<typeof session> = {}) {
 	Object.assign(session, {
@@ -194,6 +206,7 @@ beforeEach(() => {
 	mocks.createMute.mockReset();
 	mocks.voice.otherMemberState = {};
 	mocks.share.remote = [];
+	mocks.share.remotePublications = [];
 	mocks.share.localSharing = false;
 	mocks.share.localTrack = null;
 });
@@ -491,6 +504,7 @@ function joinWithShares(
 		source: "screen" | "camera";
 		track: unknown;
 	}>,
+	remotePublications: Array<{ identity: string; source: "screen" }> = [],
 	localSharing = false,
 	localTrack: unknown = null,
 ) {
@@ -502,24 +516,76 @@ function joinWithShares(
 	});
 	mocks.socket.rooms = [{ name: "测试", domain_uuid: null, members: [bob] }];
 	mocks.share.remote = remote;
+	mocks.share.remotePublications = remotePublications;
 	mocks.share.localSharing = localSharing;
 	mocks.share.localTrack = localTrack;
 }
 
-describe("RoomDetail / 共享画面切换条", () => {
-	it("单人共享不渲染切换条", () => {
-		joinWithShares([{ identity: "bob", source: "screen", track: makeTrack() }]);
+function screenPublication(identity: string) {
+	return { identity, source: "screen" as const };
+}
+
+function screenTrack(identity: string) {
+	return { identity, source: "screen" as const, track: makeTrack() };
+}
+
+describe("RoomDetail / 共享观看与切换", () => {
+	it("仅 publication 存在时不自动播放，成员卡片显示共享角标", () => {
+		joinWithShares([], [screenPublication("bob")]);
 		render(<RoomDetail />);
 
-		expect(screen.getByText("bob 正在共享屏幕")).toBeTruthy();
-		expect(screen.queryByRole("button", { name: /切换到/ })).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		).toBeTruthy();
+		expect(screen.getByText("Bob")).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "退出共享" })).toBeNull();
+		expect(document.querySelector("video")).toBeNull();
 	});
 
-	it("多人共享渲染头像与名字，点击后切换主画面", () => {
-		joinWithShares([
-			{ identity: "bob", source: "screen", track: makeTrack() },
-			{ identity: "alice", source: "screen", track: makeTrack() },
-		]);
+	it("点击共享角标调用 watchScreenShare(identity)", () => {
+		joinWithShares([], [screenPublication("bob")]);
+		render(<RoomDetail />);
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+
+		expect(mocks.watchScreenShare).toHaveBeenCalledTimes(1);
+		expect(mocks.watchScreenShare).toHaveBeenCalledWith("bob");
+	});
+
+	it("点击观看已订阅 track 后渲染共享画面与退出按钮", () => {
+		joinWithShares([screenTrack("bob")], [screenPublication("bob")]);
+		render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+
+		expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "退出共享" })).toBeTruthy();
+	});
+
+	it("点击退出共享调用 stopWatchingScreenShare 并回到成员网格", () => {
+		joinWithShares([screenTrack("bob")], [screenPublication("bob")]);
+		render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "退出共享" }));
+
+		expect(mocks.stopWatchingScreenShare).toHaveBeenCalledTimes(1);
+		expect(screen.queryByRole("button", { name: "退出共享" })).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		).toBeTruthy();
+	});
+
+	it("多人已订阅共享渲染切换条，点击后切换主画面", () => {
+		joinWithShares(
+			[screenTrack("bob"), screenTrack("alice")],
+			[screenPublication("bob"), screenPublication("alice")],
+		);
 		mocks.socket.rooms = [
 			{
 				name: "测试",
@@ -531,8 +597,11 @@ describe("RoomDetail / 共享画面切换条", () => {
 			},
 		];
 		render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
 
-		expect(screen.getByText("bob 正在共享屏幕")).toBeTruthy();
+		expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
 		const aliceButton = screen.getByRole("button", {
 			name: "切换到 Alice 的共享",
 		});
@@ -541,15 +610,15 @@ describe("RoomDetail / 共享画面切换条", () => {
 
 		fireEvent.click(aliceButton);
 
-		expect(screen.getByText("alice 正在共享屏幕")).toBeTruthy();
+		expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
 		expect(aliceButton.getAttribute("aria-pressed")).toBe("true");
 	});
 
-	it("当前共享者离开后回退到第一项", () => {
-		joinWithShares([
-			{ identity: "bob", source: "screen", track: makeTrack() },
-			{ identity: "alice", source: "screen", track: makeTrack() },
-		]);
+	it("当前共享者离开后回到成员网格", () => {
+		joinWithShares(
+			[screenTrack("bob"), screenTrack("alice")],
+			[screenPublication("bob"), screenPublication("alice")],
+		);
 		mocks.socket.rooms = [
 			{
 				name: "测试",
@@ -562,17 +631,22 @@ describe("RoomDetail / 共享画面切换条", () => {
 		];
 		const { rerender } = render(<RoomDetail />);
 		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+		fireEvent.click(
 			screen.getByRole("button", { name: "切换到 Alice 的共享" }),
 		);
-		expect(screen.getByText("alice 正在共享屏幕")).toBeTruthy();
+		expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
 
 		mocks.share.remote = mocks.share.remote.filter(
 			(item) => item.identity !== "alice",
 		);
 		rerender(<RoomDetail />);
 
-		expect(screen.getByText("bob 正在共享屏幕")).toBeTruthy();
-		expect(screen.queryByRole("button", { name: /Alice/ })).toBeNull();
+		expect(screen.queryByRole("button", { name: "退出共享" })).toBeNull();
+		expect(document.querySelector("video")).toBeNull();
+		expect(screen.queryByRole("button", { name: /切换到/ })).toBeNull();
+		expect(screen.getByText("Bob")).toBeTruthy();
 	});
 
 	it("只有摄像头画面时回落到成员卡片网格", () => {
@@ -583,9 +657,10 @@ describe("RoomDetail / 共享画面切换条", () => {
 		expect(screen.getByText("Bob")).toBeTruthy();
 	});
 
-	it("本人共享也进入切换条，且默认选中本人", () => {
+	it("本人共享直接进入共享视图，点击退出共享仍然可用", () => {
 		joinWithShares(
-			[{ identity: "bob", source: "screen", track: makeTrack() }],
+			[screenTrack("bob")],
+			[screenPublication("bob")],
 			true,
 			makeTrack(),
 		);
