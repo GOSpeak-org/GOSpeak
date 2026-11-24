@@ -62,7 +62,7 @@ const mocks = vi.hoisted(() => ({
 		localSharing: false,
 		localTrack: null as unknown,
 	},
-	watchScreenShare: vi.fn(),
+	watchScreenShare: vi.fn(() => Promise.resolve()),
 	stopWatchingScreenShare: vi.fn(),
 }));
 
@@ -542,6 +542,54 @@ describe("RoomDetail / 共享观看与切换", () => {
 		expect(document.querySelector("video")).toBeNull();
 	});
 
+	it("首次点击等待订阅完成，track 到达后进入共享视图", async () => {
+		const deferred: { resolve?: () => void } = {};
+		mocks.watchScreenShare.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					deferred.resolve = resolve;
+				}),
+		);
+		joinWithShares([], [screenPublication("bob")]);
+		const { rerender } = render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+
+		expect(screen.queryByRole("button", { name: "退出共享" })).toBeNull();
+		expect(screen.getByText("正在订阅共享...")).toBeTruthy();
+
+		deferred.resolve?.();
+		await waitFor(() => {
+			expect(deferred.resolve).toBeTruthy();
+		});
+		mocks.share.remote = [screenTrack("bob")];
+		rerender(<RoomDetail />);
+
+		expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "退出共享" })).toBeTruthy();
+	});
+
+	it("订阅失败时不进入共享视图且给出反馈", async () => {
+		mocks.watchScreenShare.mockImplementationOnce(() =>
+			Promise.reject(new Error("subscribe failed")),
+		);
+		joinWithShares([], [screenPublication("bob")]);
+		render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByText("正在订阅共享...")).toBeNull();
+		});
+		expect(screen.queryByRole("button", { name: "退出共享" })).toBeNull();
+		expect(document.querySelector("video")).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		).toBeTruthy();
+	});
+
 	it("点击共享角标调用 watchScreenShare(identity)", () => {
 		joinWithShares([], [screenPublication("bob")]);
 		render(<RoomDetail />);
@@ -554,23 +602,28 @@ describe("RoomDetail / 共享观看与切换", () => {
 		expect(mocks.watchScreenShare).toHaveBeenCalledWith("bob");
 	});
 
-	it("点击观看已订阅 track 后渲染共享画面与退出按钮", () => {
+	it("点击观看已订阅 track 后渲染共享画面与退出按钮", async () => {
 		joinWithShares([screenTrack("bob")], [screenPublication("bob")]);
 		render(<RoomDetail />);
 		fireEvent.click(
 			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
 		);
 
-		expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		});
 		expect(screen.getByRole("button", { name: "退出共享" })).toBeTruthy();
 	});
 
-	it("点击退出共享调用 stopWatchingScreenShare 并回到成员网格", () => {
+	it("点击退出共享调用 stopWatchingScreenShare 并回到成员网格", async () => {
 		joinWithShares([screenTrack("bob")], [screenPublication("bob")]);
 		render(<RoomDetail />);
 		fireEvent.click(
 			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
 		);
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "退出共享" })).toBeTruthy();
+		});
 
 		fireEvent.click(screen.getByRole("button", { name: "退出共享" }));
 
@@ -581,7 +634,7 @@ describe("RoomDetail / 共享观看与切换", () => {
 		).toBeTruthy();
 	});
 
-	it("多人已订阅共享渲染切换条，点击后切换主画面", () => {
+	it("多人已订阅共享渲染切换条，点击后切换主画面", async () => {
 		joinWithShares(
 			[screenTrack("bob"), screenTrack("alice")],
 			[screenPublication("bob"), screenPublication("alice")],
@@ -601,7 +654,9 @@ describe("RoomDetail / 共享观看与切换", () => {
 			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
 		);
 
-		expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		});
 		const aliceButton = screen.getByRole("button", {
 			name: "切换到 Alice 的共享",
 		});
@@ -614,7 +669,7 @@ describe("RoomDetail / 共享观看与切换", () => {
 		expect(aliceButton.getAttribute("aria-pressed")).toBe("true");
 	});
 
-	it("当前共享者离开后回到成员网格", () => {
+	it("当前共享者离开后回到成员网格", async () => {
 		joinWithShares(
 			[screenTrack("bob"), screenTrack("alice")],
 			[screenPublication("bob"), screenPublication("alice")],
@@ -633,6 +688,9 @@ describe("RoomDetail / 共享观看与切换", () => {
 		fireEvent.click(
 			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
 		);
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "退出共享" })).toBeTruthy();
+		});
 		fireEvent.click(
 			screen.getByRole("button", { name: "切换到 Alice 的共享" }),
 		);

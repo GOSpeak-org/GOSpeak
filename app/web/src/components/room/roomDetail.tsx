@@ -116,6 +116,24 @@ export default function RoomDetail() {
 	}, [remoteVideos, localSharing, localTrack, myName]);
 
 	const [activeKey, setActiveKey] = useState<string | null>(null);
+	const [pendingIdentity, setPendingIdentity] = useState<string | null>(null);
+
+	const handleWatchShare = useCallback(
+		(identity: string) => {
+			setPendingIdentity(identity);
+			void watchScreenShare(identity)
+				.then(() => {
+					setPendingIdentity(null);
+					setActiveKey(`remote:${identity}`);
+				})
+				.catch(() => {
+					setPendingIdentity(null);
+					toast.error("观看共享失败，请稍后重试");
+				});
+		},
+		[watchScreenShare],
+	);
+
 	const effectiveKey =
 		activeKey ?? (localSharing && localTrack ? "local" : null);
 	const activeEntry =
@@ -237,10 +255,8 @@ export default function RoomDetail() {
 									}
 									onCloseMenu={closeMemberMenu}
 									sharing={sharingIdentities.has(member.identity)}
-									onWatchShare={() => {
-										void watchScreenShare(member.identity);
-										setActiveKey(`remote:${member.identity}`);
-									}}
+									onWatchShare={() => handleWatchShare(member.identity)}
+									pending={pendingIdentity === member.identity}
 								/>
 							))
 						) : (
@@ -338,6 +354,7 @@ function MemberCard({
 	onCloseMenu,
 	sharing,
 	onWatchShare,
+	pending,
 }: {
 	member: MemberInfo;
 	menuOpen: boolean;
@@ -345,6 +362,7 @@ function MemberCard({
 	onCloseMenu: () => void;
 	sharing: boolean;
 	onWatchShare: () => void;
+	pending: boolean;
 }) {
 	const isMe = member.identity === useUserStore.getState().user?.name;
 	const user = useUserStore((s) => s.user);
@@ -415,12 +433,13 @@ function MemberCard({
 				{sharing && (
 					<button
 						type="button"
-						className="bg-primary text-primary-foreground absolute right-2 bottom-9 flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-2xs transition-opacity hover:opacity-90"
+						disabled={pending}
+						className="bg-primary text-primary-foreground absolute right-2 bottom-9 flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-2xs transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-80"
 						aria-label={`观看 ${displayName} 的屏幕共享`}
 						onClick={onWatchShare}
 					>
 						<MonitorUp size={12} />
-						<span>正在共享屏幕</span>
+						<span>{pending ? "正在订阅共享..." : "正在共享屏幕"}</span>
 					</button>
 				)}
 
