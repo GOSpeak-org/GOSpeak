@@ -28,6 +28,7 @@ import {
 import type {
 	JoinParams,
 	RemoteTrackInfo,
+	RemoteVideoPublicationInfo,
 	RemoteVideoTrackInfo,
 	RemoteVideoTrackLike,
 	SFUClient,
@@ -43,6 +44,10 @@ export class LiveKitSFUClient implements SFUClient {
 	private onRemoteAudioTrackRemovedCb?: (identity: string) => void;
 	private onRemoteVideoTrackCb?: (info: RemoteVideoTrackInfo) => void;
 	private onRemoteVideoTrackRemovedCb?: (identity: string) => void;
+	private onRemoteVideoPublicationChangedCb?: (
+		info: RemoteVideoPublicationInfo & { available: boolean },
+	) => void;
+	private remoteVideoPublications = new Map<string, RemoteTrackPublication>();
 	private onLocalScreenShareChangedCb?: (sharing: boolean) => void;
 	private onDisconnectedCb?: (info?: SFUDisconnectInfo) => void;
 	private onReconnectingCb?: () => void;
@@ -98,6 +103,8 @@ export class LiveKitSFUClient implements SFUClient {
 					this.onRemoteAudioTrackRemovedCb = undefined;
 					this.onRemoteVideoTrackCb = undefined;
 					this.onRemoteVideoTrackRemovedCb = undefined;
+					this.onRemoteVideoPublicationChangedCb = undefined;
+					this.remoteVideoPublications.clear();
 					this.onLocalScreenShareChangedCb = undefined;
 					void this.room.disconnect().catch(() => {});
 				}
@@ -118,6 +125,53 @@ export class LiveKitSFUClient implements SFUClient {
 					speakers.some((speaker) => speaker.isLocal),
 				);
 			})
+			.on(
+				RoomEvent.TrackPublished,
+				(
+					publication: RemoteTrackPublication,
+					participant: RemoteParticipant,
+				) => {
+					if (participant.isLocal) return;
+					if (publication.kind === Track.Kind.Audio) {
+						void publication.setSubscribed(true);
+						return;
+					}
+					if (publication.kind !== Track.Kind.Video) return;
+					const info = remoteVideoPublicationInfo(
+						participant.identity,
+						publication,
+					);
+					this.remoteVideoPublications.set(
+						publicationKey(info.identity, info.source),
+						publication,
+					);
+					this.onRemoteVideoPublicationChangedCb?.({
+						...info,
+						available: true,
+					});
+				},
+			)
+			.on(
+				RoomEvent.TrackUnpublished,
+				(
+					publication: RemoteTrackPublication,
+					participant: RemoteParticipant,
+				) => {
+					if (participant.isLocal || publication.kind !== Track.Kind.Video)
+						return;
+					const info = remoteVideoPublicationInfo(
+						participant.identity,
+						publication,
+					);
+					this.remoteVideoPublications.delete(
+						publicationKey(info.identity, info.source),
+					);
+					this.onRemoteVideoPublicationChangedCb?.({
+						...info,
+						available: false,
+					});
+				},
+			)
 			.on(
 				RoomEvent.TrackSubscribed,
 				(
@@ -175,7 +229,7 @@ export class LiveKitSFUClient implements SFUClient {
 	async joinRoom(params: JoinParams): Promise<void> {
 		const { token, serverUrl: url, identity: _identity } = params;
 		await this.room.prepareConnection(url, token);
-		await this.room.connect(url, token);
+		await this.room.connect(url, token, { autoSubscribe: false });
 		// connect 失败会抛异常，此处仅防御性检查 room 仍 connected 才启麦
 		if (this.room.state === "connected") {
 			try {
@@ -199,6 +253,8 @@ export class LiveKitSFUClient implements SFUClient {
 		this.onRemoteAudioTrackRemovedCb = undefined;
 		this.onRemoteVideoTrackCb = undefined;
 		this.onRemoteVideoTrackRemovedCb = undefined;
+		this.onRemoteVideoPublicationChangedCb = undefined;
+		this.remoteVideoPublications.clear();
 		this.onLocalScreenShareChangedCb = undefined;
 		this.onDisconnectedCb = undefined;
 		this.onReconnectingCb = undefined;
@@ -329,6 +385,34 @@ export class LiveKitSFUClient implements SFUClient {
 		this.onRemoteVideoTrackRemovedCb = cb;
 	}
 
+	onRemoteVideoPublicationChanged(
+		cb: (info: RemoteVideoPublicationInfo & { available: boolean }) => void,
+	): void {
+		this.onRemoteVideoPublicationChangedCb = cb;
+	}
+
+	getExistingRemoteVideoPublications(): RemoteVideoPublicationInfo[] {
+		const out: RemoteVideoPublicationInfo[] = [];
+		for (const participant of this.room.remoteParticipants.values()) {
+			for (const publication of participant.videoTrackPublications.values()) {
+				out.push(remoteVideoPublicationInfo(participant.identity, publication));
+			}
+		}
+		return out;
+	}
+
+	async setRemoteVideoSubscribed(
+		identity: string,
+		source: "screen" | "camera",
+		subscribed: boolean,
+	): Promise<void> {
+		const publication = this.remoteVideoPublications.get(
+			publicationKey(identity, source),
+		);
+		if (!publication) return;
+		await publication.setSubscribed(subscribed);
+	}
+
 	getExistingRemoteVideoTracks(): RemoteVideoTrackInfo[] {
 		const out: RemoteVideoTrackInfo[] = [];
 		for (const participant of this.room.remoteParticipants.values()) {
@@ -399,6 +483,21 @@ export class LiveKitSFUClient implements SFUClient {
 	async destroy(): Promise<void> {
 		await this.leaveRoom();
 	}
+}
+
+function publicationKey(identity: string, source: "screen" | "camera"): string {
+	return `${identity}:${source}`;
+}
+
+function remoteVideoPublicationInfo(
+	identity: string,
+	publication: RemoteTrackPublication,
+): RemoteVideoPublicationInfo {
+	return {
+		identity,
+		source:
+			publication.source === Track.Source.ScreenShare ? "screen" : "camera",
+	};
 }
 
 const UNRECOVERABLE_DISCONNECT_REASONS = new Set<DisconnectReason>([
