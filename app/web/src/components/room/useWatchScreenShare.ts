@@ -4,9 +4,11 @@ import type { SFUClient } from "@gospeak/sfu-client/types";
 type Subscription = { identity: string; source: "screen" };
 
 let client: SFUClient | null = null;
+let generation = 0;
 let activeSubscription: Subscription | null = null;
 
 export function setScreenShareSubscriptionClient(next: SFUClient | null) {
+	generation += 1;
 	if (client !== next && activeSubscription && client) {
 		void client.setRemoteVideoSubscribed?.(
 			activeSubscription.identity,
@@ -19,15 +21,7 @@ export function setScreenShareSubscriptionClient(next: SFUClient | null) {
 }
 
 export function resetScreenShareSubscription() {
-	if (client && activeSubscription) {
-		void client.setRemoteVideoSubscribed?.(
-			activeSubscription.identity,
-			activeSubscription.source,
-			false,
-		);
-	}
-	activeSubscription = null;
-	client = null;
+	setScreenShareSubscriptionClient(null);
 }
 
 export function useWatchScreenShare(): {
@@ -36,6 +30,7 @@ export function useWatchScreenShare(): {
 } {
 	const watchScreenShare = useCallback(async (identity: string) => {
 		const current = client;
+		const token = generation;
 		if (!current?.setRemoteVideoSubscribed) return;
 		const next: Subscription = { identity, source: "screen" };
 		if (activeSubscription?.identity === identity) return;
@@ -47,11 +42,14 @@ export function useWatchScreenShare(): {
 			);
 		}
 		await current.setRemoteVideoSubscribed(next.identity, next.source, true);
-		activeSubscription = next;
+		if (client === current && generation === token) {
+			activeSubscription = next;
+		}
 	}, []);
 
 	const stopWatchingScreenShare = useCallback(async () => {
 		const current = client;
+		const token = generation;
 		if (!current?.setRemoteVideoSubscribed || !activeSubscription) return;
 		const active = activeSubscription;
 		await current.setRemoteVideoSubscribed(
@@ -59,7 +57,9 @@ export function useWatchScreenShare(): {
 			active.source,
 			false,
 		);
-		activeSubscription = null;
+		if (client === current && generation === token) {
+			activeSubscription = null;
+		}
 	}, []);
 
 	return { watchScreenShare, stopWatchingScreenShare };

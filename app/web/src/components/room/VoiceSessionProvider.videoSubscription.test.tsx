@@ -178,6 +178,50 @@ describe("VoiceSessionProvider video subscription bridge", () => {
 		expect(mocks.sfuClient.setRemoteVideoSubscribed).toHaveBeenCalledTimes(1);
 	});
 
+	it("does not let a stale client subscription update active after client switch", async () => {
+		let resolveOld: (() => void) | null = null;
+		const oldSet = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					resolveOld = resolve;
+				}),
+		);
+		const oldClient = {
+			...mocks.sfuClient,
+			setRemoteVideoSubscribed: oldSet,
+		} as unknown as SFUClient;
+		mocks.session.sfuClient = oldClient;
+		const { rerender, unmount } = renderProvider();
+
+		let watchPromise: Promise<void> | null = null;
+		await act(async () => {
+			watchPromise = w().watchScreenShare("alice");
+		});
+
+		mocks.session.sfuClient = mocks.sfuClient as unknown as SFUClient;
+		await act(async () => {
+			rerender(
+				<VoiceSessionProvider>
+					<Probe />
+				</VoiceSessionProvider>,
+			);
+		});
+		await act(async () => {
+			resolveOld?.();
+			await watchPromise;
+		});
+
+		await act(async () => {
+			await w().stopWatchingScreenShare();
+		});
+		expect(mocks.sfuClient.setRemoteVideoSubscribed).not.toHaveBeenCalledWith(
+			"alice",
+			"screen",
+			false,
+		);
+		unmount();
+	});
+
 	it("resets the store and unsubscribes active on unmount", async () => {
 		const { unmount } = renderProvider();
 		await act(async () => {
