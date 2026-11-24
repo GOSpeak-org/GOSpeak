@@ -114,4 +114,115 @@ describe("LiveKit remote video on-demand subscription", () => {
 		expect(audioSetSubscribed).toHaveBeenCalledWith(true);
 		expect(videoSetSubscribed).not.toHaveBeenCalled();
 	});
+
+	it("subscribes only the selected video publication by identity and source", async () => {
+		const { LiveKitSFUClient } = await import("./livekit-client");
+		const client = new LiveKitSFUClient();
+		const room = rooms[0];
+
+		await client.joinRoom({
+			token: "token",
+			serverUrl: "wss://sfu.example",
+			identity: "local",
+		});
+
+		const screenSetSubscribed = vi.fn();
+		const cameraSetSubscribed = vi.fn();
+		const screenPublication = {
+			kind: "video",
+			source: "screen_share",
+			setSubscribed: screenSetSubscribed,
+		};
+		const cameraPublication = {
+			kind: "video",
+			source: "camera",
+			setSubscribed: cameraSetSubscribed,
+		};
+		const participant = { identity: "bob" };
+
+		room.emit("trackPublished", screenPublication, participant);
+		room.emit("trackPublished", cameraPublication, participant);
+
+		await client.setRemoteVideoSubscribed?.("bob", "screen", true);
+
+		expect(screenSetSubscribed).toHaveBeenCalledWith(true);
+		expect(cameraSetSubscribed).not.toHaveBeenCalled();
+
+		await client.setRemoteVideoSubscribed?.("bob", "screen", false);
+
+		expect(screenSetSubscribed).toHaveBeenLastCalledWith(false);
+		expect(cameraSetSubscribed).not.toHaveBeenCalled();
+	});
+
+	it("notifies availability false when a video publication is unpublished", async () => {
+		const { LiveKitSFUClient } = await import("./livekit-client");
+		const client = new LiveKitSFUClient();
+		const room = rooms[0];
+
+		await client.joinRoom({
+			token: "token",
+			serverUrl: "wss://sfu.example",
+			identity: "local",
+		});
+
+		const changed = vi.fn();
+		client.onRemoteVideoPublicationChanged?.(changed);
+
+		const publication = {
+			kind: "video",
+			source: "screen_share",
+			setSubscribed: vi.fn(),
+		};
+		const participant = { identity: "bob" };
+
+		room.emit("trackPublished", publication, participant);
+		expect(changed).toHaveBeenLastCalledWith({
+			identity: "bob",
+			source: "screen",
+			available: true,
+		});
+
+		room.emit("trackUnpublished", publication, participant);
+		expect(changed).toHaveBeenLastCalledWith({
+			identity: "bob",
+			source: "screen",
+			available: false,
+		});
+	});
+
+	it("returns existing video publications regardless of subscription state", async () => {
+		const { LiveKitSFUClient } = await import("./livekit-client");
+		const client = new LiveKitSFUClient();
+		const room = rooms[0];
+
+		await client.joinRoom({
+			token: "token",
+			serverUrl: "wss://sfu.example",
+			identity: "local",
+		});
+
+		const screenPublication = {
+			kind: "video",
+			source: "screen_share",
+			setSubscribed: vi.fn(),
+		};
+		const cameraPublication = {
+			kind: "video",
+			source: "camera",
+			setSubscribed: vi.fn(),
+		};
+		const participant = {
+			identity: "bob",
+			videoTrackPublications: new Map([
+				["screen", screenPublication],
+				["camera", cameraPublication],
+			]),
+		};
+		room.remoteParticipants.set("bob", participant as never);
+
+		expect(client.getExistingRemoteVideoPublications?.()).toEqual([
+			{ identity: "bob", source: "screen" },
+			{ identity: "bob", source: "camera" },
+		]);
+	});
 });
