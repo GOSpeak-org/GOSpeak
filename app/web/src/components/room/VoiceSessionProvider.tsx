@@ -13,6 +13,10 @@ import { useMobileSessionBridge } from "./hooks/useMobileSessionBridge";
 import { useRoomAudioBridge } from "./hooks/useRoomAudioBridge";
 import { useRoomSounds } from "./hooks/useRoomSounds";
 import { useVoiceSession } from "./hooks/useVoiceSession";
+import {
+	resetScreenShareSubscription,
+	setScreenShareSubscriptionClient,
+} from "./useWatchScreenShare";
 
 type VoiceSessionValue = ReturnType<typeof useVoiceSession>;
 
@@ -39,10 +43,17 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 	const sfuClient = session.sfuClient;
 	useEffect(() => {
 		if (!sfuClient) return;
+		setScreenShareSubscriptionClient(sfuClient);
 		const store = useScreenShareStore.getState();
 		for (const info of sfuClient.getExistingRemoteVideoTracks?.() ?? []) {
 			store.upsertRemote(info);
 		}
+		store.replacePublications(
+			sfuClient.getExistingRemoteVideoPublications?.() ?? [],
+		);
+		sfuClient.onRemoteVideoPublicationChanged?.((info) => {
+			useScreenShareStore.getState().upsertPublication(info);
+		});
 		sfuClient.onRemoteVideoTrack?.((info) => {
 			useScreenShareStore.getState().upsertRemote(info);
 		});
@@ -57,6 +68,7 @@ export function VoiceSessionProvider({ children }: { children: ReactNode }) {
 			);
 		});
 		return () => {
+			resetScreenShareSubscription();
 			useScreenShareStore.getState().reset();
 		};
 	}, [sfuClient]);
