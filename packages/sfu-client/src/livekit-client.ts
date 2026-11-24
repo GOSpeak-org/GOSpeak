@@ -230,6 +230,14 @@ export class LiveKitSFUClient implements SFUClient {
 		const { token, serverUrl: url, identity: _identity } = params;
 		await this.room.prepareConnection(url, token);
 		await this.room.connect(url, token, { autoSubscribe: false });
+		// autoSubscribe:false 下，加入前已存在的音频 publication 不会再触发 TrackPublished
+		for (const participant of this.room.remoteParticipants.values()) {
+			for (const publication of participant.audioTrackPublications.values()) {
+				if (publication.kind === Track.Kind.Audio) {
+					void Promise.resolve(publication.setSubscribed(true)).catch(() => {});
+				}
+			}
+		}
 		// connect 失败会抛异常，此处仅防御性检查 room 仍 connected 才启麦
 		if (this.room.state === "connected") {
 			try {
@@ -395,7 +403,15 @@ export class LiveKitSFUClient implements SFUClient {
 		const out: RemoteVideoPublicationInfo[] = [];
 		for (const participant of this.room.remoteParticipants.values()) {
 			for (const publication of participant.videoTrackPublications.values()) {
-				out.push(remoteVideoPublicationInfo(participant.identity, publication));
+				const info = remoteVideoPublicationInfo(
+					participant.identity,
+					publication,
+				);
+				this.remoteVideoPublications.set(
+					publicationKey(info.identity, info.source),
+					publication,
+				);
+				out.push(info);
 			}
 		}
 		return out;
@@ -406,10 +422,24 @@ export class LiveKitSFUClient implements SFUClient {
 		source: "screen" | "camera",
 		subscribed: boolean,
 	): Promise<void> {
-		const publication = this.remoteVideoPublications.get(
-			publicationKey(identity, source),
-		);
-		if (!publication) return;
+		const key = publicationKey(identity, source);
+		let publication = this.remoteVideoPublications.get(key);
+		if (!publication) {
+			for (const participant of this.room.remoteParticipants.values()) {
+				if (participant.identity !== identity) continue;
+				for (const candidate of participant.videoTrackPublications.values()) {
+					if (remoteVideoPublicationInfo(identity, candidate).source !== source)
+						continue;
+					publication = candidate;
+					this.remoteVideoPublications.set(key, candidate);
+					break;
+				}
+			}
+		}
+		if (!publication) {
+			console.warn("[sfu] remote video publication not found:", key);
+			return;
+		}
 		await publication.setSubscribed(subscribed);
 	}
 

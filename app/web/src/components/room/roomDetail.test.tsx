@@ -204,6 +204,8 @@ beforeEach(() => {
 	mocks.hasPermission.mockReturnValue(false);
 	mocks.fetchUserInfo.mockReset();
 	mocks.createMute.mockReset();
+	mocks.watchScreenShare.mockReset();
+	mocks.watchScreenShare.mockImplementation(() => Promise.resolve());
 	mocks.voice.otherMemberState = {};
 	mocks.share.remote = [];
 	mocks.share.remotePublications = [];
@@ -665,8 +667,60 @@ describe("RoomDetail / 共享观看与切换", () => {
 
 		fireEvent.click(aliceButton);
 
-		expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
+		});
 		expect(aliceButton.getAttribute("aria-pressed")).toBe("true");
+	});
+
+	it("切换条点击先订阅再切换，订阅完成前保持原共享画面", async () => {
+		const deferred: { resolve?: () => void } = {};
+		joinWithShares(
+			[screenTrack("bob"), screenTrack("alice")],
+			[screenPublication("bob"), screenPublication("alice")],
+		);
+		mocks.socket.rooms = [
+			{
+				name: "测试",
+				domain_uuid: null,
+				members: [
+					bob,
+					{ ...bob, identity: "alice", name: "alice", display_name: "Alice" },
+				],
+			},
+		];
+		render(<RoomDetail />);
+		fireEvent.click(
+			screen.getByRole("button", { name: "观看 Bob 的屏幕共享" }),
+		);
+		await waitFor(() => {
+			expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		});
+		mocks.watchScreenShare.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					deferred.resolve = resolve;
+				}),
+		);
+
+		const aliceButton = screen.getByRole("button", {
+			name: "切换到 Alice 的共享",
+		});
+		fireEvent.click(aliceButton);
+
+		expect(mocks.watchScreenShare).toHaveBeenCalledWith("alice");
+		expect(screen.getByText("Bob 正在共享屏幕")).toBeTruthy();
+		expect(aliceButton.getAttribute("aria-pressed")).toBe("false");
+
+		deferred.resolve?.();
+		await waitFor(() => {
+			expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
+		});
+		expect(
+			screen
+				.getByRole("button", { name: "切换到 Alice 的共享" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
 	});
 
 	it("当前共享者离开后回到成员网格", async () => {
@@ -694,7 +748,9 @@ describe("RoomDetail / 共享观看与切换", () => {
 		fireEvent.click(
 			screen.getByRole("button", { name: "切换到 Alice 的共享" }),
 		);
-		expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.getByText("Alice 正在共享屏幕")).toBeTruthy();
+		});
 
 		mocks.share.remote = mocks.share.remote.filter(
 			(item) => item.identity !== "alice",

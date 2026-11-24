@@ -190,6 +190,65 @@ describe("LiveKit remote video on-demand subscription", () => {
 		});
 	});
 
+	it("subscribes to audio publications that existed before join", async () => {
+		const { LiveKitSFUClient } = await import("./livekit-client");
+		const audioSetSubscribed = vi.fn();
+		const client = new LiveKitSFUClient();
+		const room = rooms[0];
+		room.remoteParticipants.set("alice", {
+			audioTrackPublications: new Map([
+				[
+					"mic",
+					{
+						kind: "audio",
+						source: "microphone",
+						setSubscribed: audioSetSubscribed,
+					},
+				],
+			]),
+			videoTrackPublications: new Map(),
+		} as never);
+
+		await client.joinRoom({
+			token: "token",
+			serverUrl: "wss://sfu.example",
+			identity: "local",
+		});
+
+		expect(audioSetSubscribed).toHaveBeenCalledWith(true);
+	});
+
+	it("subscribes to a pre-existing screen publication after seeding existing publications", async () => {
+		const { LiveKitSFUClient } = await import("./livekit-client");
+		const client = new LiveKitSFUClient();
+		const room = rooms[0];
+
+		await client.joinRoom({
+			token: "token",
+			serverUrl: "wss://sfu.example",
+			identity: "local",
+		});
+
+		const screenSetSubscribed = vi.fn();
+		const screenPublication = {
+			kind: "video",
+			source: "screen_share",
+			setSubscribed: screenSetSubscribed,
+		};
+		room.remoteParticipants.set("bob", {
+			identity: "bob",
+			audioTrackPublications: new Map(),
+			videoTrackPublications: new Map([["screen", screenPublication]]),
+		} as never);
+
+		expect(client.getExistingRemoteVideoPublications?.()).toEqual([
+			{ identity: "bob", source: "screen" },
+		]);
+		await client.setRemoteVideoSubscribed?.("bob", "screen", true);
+
+		expect(screenSetSubscribed).toHaveBeenCalledWith(true);
+	});
+
 	it("returns existing video publications regardless of subscription state", async () => {
 		const { LiveKitSFUClient } = await import("./livekit-client");
 		const client = new LiveKitSFUClient();

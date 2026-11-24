@@ -118,20 +118,27 @@ export default function RoomDetail() {
 	const [activeKey, setActiveKey] = useState<string | null>(null);
 	const [pendingIdentity, setPendingIdentity] = useState<string | null>(null);
 
+	const switchToShare = useCallback(
+		async (identity: string, key: string) => {
+			if (key === activeKey) return;
+			setPendingIdentity(identity);
+			try {
+				await Promise.resolve(watchScreenShare(identity));
+				setActiveKey(key);
+			} catch {
+				toast.error("观看共享失败，请稍后重试");
+			} finally {
+				setPendingIdentity(null);
+			}
+		},
+		[activeKey, watchScreenShare],
+	);
+
 	const handleWatchShare = useCallback(
 		(identity: string) => {
-			setPendingIdentity(identity);
-			void watchScreenShare(identity)
-				.then(() => {
-					setPendingIdentity(null);
-					setActiveKey(`remote:${identity}`);
-				})
-				.catch(() => {
-					setPendingIdentity(null);
-					toast.error("观看共享失败，请稍后重试");
-				});
+			void switchToShare(identity, `remote:${identity}`);
 		},
-		[watchScreenShare],
+		[switchToShare],
 	);
 
 	const effectiveKey =
@@ -189,7 +196,9 @@ export default function RoomDetail() {
 							type="button"
 							className="bg-card border-border text-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition-colors"
 							onClick={() => {
-								void stopWatchingScreenShare();
+								void Promise.resolve(stopWatchingScreenShare()).catch(() => {
+									toast.error("退出共享失败，请稍后重试");
+								});
 								setActiveKey(null);
 							}}
 						>
@@ -207,17 +216,21 @@ export default function RoomDetail() {
 									? me?.display_name || myName || "我"
 									: member?.display_name || member?.name || entry.identity;
 								const active = entry.key === activeEntry?.key;
+								const pending = pendingIdentity === entry.identity;
 								return (
 									<button
 										key={entry.key}
 										type="button"
+										disabled={pending}
 										aria-label={`切换到 ${displayName} 的共享`}
 										aria-pressed={active}
 										className={clsx(
-											"bg-card border-border text-foreground flex shrink-0 cursor-pointer items-center gap-2 rounded-sm border px-2 py-1.5 text-sm transition-colors",
+											"bg-card border-border text-foreground flex shrink-0 cursor-pointer items-center gap-2 rounded-sm border px-2 py-1.5 text-sm transition-colors disabled:cursor-default disabled:opacity-80",
 											active ? "bg-selected" : "hover:bg-muted",
 										)}
-										onClick={() => setActiveKey(entry.key)}
+										onClick={() =>
+											void switchToShare(entry.identity, entry.key)
+										}
 									>
 										<Avatar
 											src={entry.isLocal ? me?.avatar : member?.avatar}
@@ -225,7 +238,9 @@ export default function RoomDetail() {
 											className="size-6"
 											textClass="text-2xs"
 										/>
-										<span className="max-w-24 truncate">{displayName}</span>
+										<span className="max-w-24 truncate">
+											{pending ? "正在订阅..." : displayName}
+										</span>
 									</button>
 								);
 							})}
