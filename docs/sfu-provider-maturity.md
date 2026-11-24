@@ -1,6 +1,6 @@
 ## LiveKit Provider 实现完整度
 
-**评估时间**: 2026-11-16（对照当前 `app/server/internal/sfu/` 与 `packages/sfu-client/` 源码核实）
+**评估时间**: 2026-11-24（对照当前 `app/server/internal/sfu/` 与 `packages/sfu-client/` 源码核实）
 **接口**: `sfu.Provider`（`app/server/internal/sfu/provider.go`）
 
 > 图例：✅ 完整 / ⚠️ 降级 / ❌ 返回 `ErrSFUNotSupported` 或静默空操作
@@ -67,7 +67,8 @@ SFU `MuteParticipant` 是 **服务端轨道级 SFU mute**，而非用户禁言�
 用户禁言由独立层实现：
 - `MuteService` + `MuteHandler` + `Hub.BroadcastMute` / `Hub.BroadcastUnmute`
 - WebSocket 事件：`user:muted` / `user:unmuted`（被禁言者本人）；`member:muted` / `member:unmuted`（全员订阅端静音）
-- 数据库中持久化禁言记录，含过期自动清理
+- 数据库中持久化禁言记录（以 `user_uuid` 标识用户），含过期自动清理；临时禁言优先调 `MuteParticipantTimed`，到期经内部事件 `mute:expired` 解锁并恢复 SFU 媒体
+- 媒体强制经 Hub 尽力执行，事件 `enforcement` 取 `hard` / `degraded` / `soft`（见下节）
 - 该层 **已完整实现且功能齐全**
 
 本地播放静音（静音远端音轨音量）是纯客户端行为，与以上两层无关。

@@ -42,7 +42,7 @@ cd GOSpeak/deploy
 ./init.sh --domain voice.example.com     # 无域名时去掉 --domain
 ```
 
-`./init.sh --domain voice.example.com` 写入域名并将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。执行后直接运行 `docker compose up -d --build`，无需手动调整档位。
+`./init.sh --domain voice.example.com` 写入域名并将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。档位只在大写全档位版生效，必须显式 `docker compose -f docker-compose.standard.yml up -d --build`；裸 `docker compose -f docker-compose.standard.yml up -d --build` 会选中精简版（`COMPOSE_PROFILES` 不生效）。
 
 该脚本执行以下操作：
 
@@ -68,7 +68,7 @@ COMPOSE_PROFILES=app,livekit,edge
 ### 第四步：启动
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.standard.yml up -d --build
 ```
 
 首次构建镜像需数分钟，之后重启很快。
@@ -88,7 +88,7 @@ curl -s https://voice.example.com/ping  # 经 Caddy（有域名时）
 
 ```bash
 ./init.sh --domain voice.example.com
-docker compose up -d --build
+docker compose -f docker-compose.standard.yml up -d --build
 ```
 
 Caddy 自动申请并续期证书、将 HTTP 重定向到 HTTPS、处理 WebSocket 升级。域名 A 记录指向本机公网 IP，防火墙放行 80/443。
@@ -171,7 +171,7 @@ POSTGRES_PASSWORD=<同一密码>
 | 8998 | TCP | 应用 | 仅自有反代场景需可达，不直接暴露公网 |
 | 5432 | TCP | PostgreSQL | 禁止开放 |
 
-**无需开放 7880 / 7881。** 7880 仅绑定宿主机回环地址（`127.0.0.1:7880`）供本机 `pnpm dev` 调试直连，不对公网开放，浏览器经应用同源的 `/livekit` 访问。7881 已不再发布。
+**全档位下无需开放 7880 / 7881。** 全档位 compose 中 7880 仅绑定宿主机回环地址（`127.0.0.1:7880`）供本机 `pnpm dev` 调试直连，不对公网开放，浏览器经应用同源的 `/livekit` 访问；7881 不再发布。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用。
 
 防火墙示例（Ubuntu）：
 
@@ -222,7 +222,7 @@ docker compose exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(dat
 cd GOSpeak
 git pull
 cd deploy
-docker compose up -d --build
+docker compose -f docker-compose.standard.yml up -d --build
 ```
 
 数据库表结构自动迁移，无需手动执行 SQL。升级前先备份。
@@ -240,9 +240,9 @@ curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/ins
 **手动方式**：下载单个二进制，前端已内嵌：
 
 ```bash
-# 从 Release 下载对应平台的 gospeak-server-v1.0.0-linux-amd64
-chmod +x gospeak-server-v1.0.0-linux-amd64
-./gospeak-server-v1.0.0-linux-amd64 server -e prod
+# 从 Release 下载对应平台的 gospeak-server-v<VERSION>-linux-amd64
+chmod +x gospeak-server-v<VERSION>-linux-amd64
+./gospeak-server-v<VERSION>-linux-amd64 server -e prod
 ```
 
 配合 systemd 实现开机自启与崩溃重启。此方式下 LiveKit 需单独运行；本页方案不含内置 Caddy，HTTPS 需自备反代或配置 `TLS_CERT` / `TLS_KEY`。

@@ -484,8 +484,10 @@ Member / Presence:
                                             └── room:kicked       { target_identity }
 
 Mute / Restriction:
-                                            ├── user:muted        MuteInfo
+                                            ├── user:muted        MuteInfo（user_uuid / 原因 / 到期 / enforcement）
                                             └── user:unmuted      MuteInfo
+
+`member:muted` / `member:unmuted` 为成员级订阅端静音；`enforcement` 取 `hard` / `degraded` / `soft`（见 `docs/sfu-provider-maturity.md`）。
 
 消息 / 私聊 / 公告：
 ├── message:send/edit/delete/react/unreact ──► ack
@@ -566,7 +568,7 @@ WS Endpoint: /ws（HttpOnly access cookie 鉴权，子协议仅传 `gospeak`）
 | **事件总线** | 内嵌 NATS JetStream | 内部事件/黑名单/密钥轮换/房间状态 |
 | **认证** | JWT + OAuth2 (GitHub/Google/QQ) | 用户认证 |
 | **构建工具** | Vite 8（Rolldown） | 前端打包 |
-| **桌面端** | Go 1.27 + MyGo 0.8 + 系统 WebView | 原生宿主，内嵌同一套前端；条件编译裁剪平台模块 |
+| **桌面端** | Go 1.27 + MyGo（CLI 0.10.x）+ 系统 WebView | 原生宿主，内嵌同一套前端；条件编译裁剪平台模块 |
 | **包管理** | pnpm | Monorepo 管理 |
 | **容器化** | Docker Compose | 部署编排 |
 

@@ -29,7 +29,7 @@ GOSPEAK_DOMAIN=voice.example.com
 然后：
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.standard.yml up -d --build
 ```
 
 Caddy 会自动完成以下工作：

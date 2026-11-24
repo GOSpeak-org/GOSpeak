@@ -124,7 +124,7 @@ docker compose -f deploy/docker-compose.yml up -d
 - **单一上游。** `/api`、`/ws`、`/uploads`、`/livekit` 全部由 `gospeak:8998` 提供，反向代理层只需对接这一个地址。
 - **LiveKit 不需要域名或证书。** 浏览器访问 `https://<域名>/livekit`，应用内部转发到 `ws://livekit:7880`，WebSocket 升级由应用处理。
 - **媒体流量不经过应用和反代。** 浏览器与 LiveKit 之间直接建立 WebRTC 连接（以 7882/udp 为主），应用只负责签发令牌。应用因此不会被音频流量拖垮。
-- **7880 端口不对公网开放。** 该端口只绑定宿主机回环地址（`127.0.0.1:7880`）供本机调试；对外信令走应用同源反代。
+- **全档位下 7880 端口不对公网开放。** 全档位 compose 中该端口只绑定宿主机回环地址（`127.0.0.1:7880`）供本机调试；对外信令走应用同源反代。精简版 `docker-compose.yml` 则以 `7880:7880` 对公网发布。
 
 ## 仅启动依赖服务，应用在本地运行
 
@@ -219,7 +219,7 @@ docker compose -f deploy/docker-compose.standard.yml restart gospeak
 
 ## 镜像来源
 
-默认使用本地构建。改用官方发布镜像可以省去构建时间，方法是在 `.env` 中添加：
+两个 compose 默认使用官方发布镜像 `ghcr.io/noelorin/gospeak:latest`；如需本地构建可在 `.env` 中改用相应配置（下面示例为官方镜像的其他版本 tag）：
 
 ```ini
 GOSPEAK_IMAGE=ghcr.io/noelorin/gospeak:1
@@ -255,7 +255,7 @@ docker compose -f deploy/docker-compose.standard.yml up -d
 | 9000 / 9001 | rustfs | 可选，不要暴露公网 |
 | 9090 / 9093 / 3000 / 3100 | observability | 可选，不要暴露公网 |
 
-**7880 / 7881 端口不对公网发布。** 7880 只绑定宿主机回环地址（`127.0.0.1:7880`）供本机调试，信令对外走应用同源反代；7881 不再发布。
+**全档位下 7880 / 7881 端口不对公网发布。** 全档位 compose 中 7880 只绑定宿主机回环地址（`127.0.0.1:7880`）供本机调试，信令对外走应用同源反代；7881 不再发布。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用。
 
 ## 常见问题
 

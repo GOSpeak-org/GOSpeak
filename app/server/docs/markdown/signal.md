@@ -68,7 +68,7 @@
 
 ## GET /api/v1/signal/rooms
 
-获取 LiveKit 中所有活跃房间列表
+获取 LiveKit 中所有活跃房间列表（需 admin 角色，`middleware.RequireRole("admin")`）
 
 ### Response (200)
 
@@ -79,7 +79,7 @@
   "data": [
     {
       "name": "my-room",
-      "participantCount": 2
+      "memberCount": 2
     }
   ]
 }
@@ -99,7 +99,7 @@
 
 ## GET /api/v1/signal/participants
 
-获取指定房间的所有参与者
+获取指定房间的所有参与者（需 admin 角色，`middleware.RequireRole("admin")`）
 
 ### Query Parameters
 
@@ -122,7 +122,7 @@ GET /api/v1/signal/participants?room=my-room
   "data": [
     {
       "identity": "user-123",
-      "name": "user-123"
+      "joinedAt": 1763966400
     }
   ]
 }

@@ -64,6 +64,11 @@ export default userStore;
 | `domainStore.ts` | 域数据与当前选中域 |
 | `textRoomUiStore.ts` | 文字房间 UI 状态 |
 | `workspaceUiStore.ts` | 工作区舞台（语音/文字）UI 状态 |
+| `backgroundStore.ts` / `deviceChangeStore.ts` | 背景与设备变更 |
+| `domainLayoutStore.ts` / `screenShareStore.ts` / `screenShareSettingsStore.ts` | 域布局与屏幕共享 |
+| `typingStore.ts` | 正在输入状态 |
+
+以上为主要 store，完整清单以 `src/stores/` 目录为准。
 
 ### socketStore.ts
 实时信令编排 facade（不是所有逻辑的容器）。对外仍导出 `useSocketStore` 单例 hook、`socketStore` 命令式门面（`connected()`、`members()`、`joinRoom()`、`selectRoom()` 等）与类型，调用方默认继续从 `@/stores/socketStore` 导入。

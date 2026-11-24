@@ -45,7 +45,7 @@ go run main.go server          # 未指定 -e 时默认 dev
 go run main.go server -e prod  # 生产
 ```
 
-配置全部来自环境变量，由 `config.LoadEnvFiles()` 按优先级加载：`GOSPEAK_ENV_FILE` > 工作目录 `.env.<env>`/`.env` > 仓库根 `deploy/.env`。**仓库不提交 `.env*` 文件**，样例见 `deploy/.env.example`；字段清单见 `internal/config/config.go`。
+配置全部来自环境变量，由 `config.LoadEnvFiles()` 按优先级加载：进程环境变量（已设置则不覆盖）> `GOSPEAK_ENV_FILE` > 工作目录 `.env.<env>`/`.env` > 仓库根 `deploy/.env`（逐文件仅填空缺键）。**仓库不提交 `.env*` 文件**，样例见 `deploy/.env.example`；字段清单见 `internal/config/config.go`。
 
 ## 依赖装配
 
@@ -53,8 +53,8 @@ go run main.go server -e prod  # 生产
 
 ## 禁言语义
 
-- 只维护**用户级禁言**：允许收听，禁止发布本地音轨。
-- 不引入「房间级禁言/静音」作为产品语义。
+- 只维护**用户级禁言**：允许收听，禁止发布本地音轨；以 `user_uuid` 为唯一标识，禁止在新接口用 `user_id`（见根 `AGENTS.md` §4.5）。
+- 不引入「房间级禁言/静音」作为产品语义；但信令层在禁言/解禁时会按 SFU 能力尽力做媒体层强制（`hard` / `degraded` / `soft`），并广播成员级 `member:muted` / `member:unmuted` 事件供订阅端静音。
 - `静音` = 客户端本地对远端音轨静音；`禁言` = 服务端用户级发言限制。
 
 ## 关键约束

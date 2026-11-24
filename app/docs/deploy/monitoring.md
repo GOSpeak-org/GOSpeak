@@ -9,7 +9,7 @@ COMPOSE_PROFILES=app,livekit,observability
 ```
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.standard.yml up -d
 ```
 
 启动后可以访问：

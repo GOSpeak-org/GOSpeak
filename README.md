@@ -37,6 +37,7 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 - 逐人音量：为每位成员单独调节输出音量，设置持久保存。
 - 麦克风与静音：一键闭麦、一键静音所有声音。
 - 房间管理：创建者与管理员可强制静音、踢出成员、全员静音。
+- 用户禁言：管理员可全局禁言/解禁用户（定时或永久），含媒体层强制状态与实时事件通知。
 - 角色权限：完整的角色权限体系。
 - 单二进制部署：前端通过 `go:embed` 内嵌，下载即用。
 - 同源 LiveKit：内置 `/livekit` 反向代理，信令走应用域名，媒体走 WebRTC UDP 直连。
@@ -62,15 +63,15 @@ curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/ins
 也可以手动从 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
 
 ```bash
-chmod +x gospeak-server-v1.0.3-linux-amd64
-./gospeak-server-v1.0.3-linux-amd64 server -e prod
+chmod +x gospeak-server-v<VERSION>-linux-amd64
+./gospeak-server-v<VERSION>-linux-amd64 server -e prod
 ```
 
 浏览器打开 `http://<host>:8998`。首次启动自动创建管理员账号，用户名 `admin`，默认密码 `admin123`，生产环境请立即修改。
 
 ### 源码开发
 
-需要 Go 1.27.4+、Node.js 20+、pnpm 10+ 与 Docker。
+需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。
 
 ```bash
 git clone https://github.com/NoelOrin/GOSpeak.git

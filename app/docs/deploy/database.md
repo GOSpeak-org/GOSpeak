@@ -114,7 +114,7 @@ sqlite3 db/app.db .dump > backup.sql
 #    DB_TYPE=PostgreSQL 等
 
 # 4. 启动服务（GORM 自动建表）
-docker compose up -d
+docker compose -f docker-compose.standard.yml up -d
 
 # 5. 手动将数据导入新库
 ```

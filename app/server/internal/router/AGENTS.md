@@ -7,11 +7,11 @@
 ```
 /api/v1
 ├── 公开组            无中间件（auth/email/oauth/signal/invite 的一部分）
-├── protected 组      JWTAuth() + BanCheck()，再按模块叠加 RequirePermission / RequireDomainMember
+├── protected 组      JWTAuth() + BanCheck() + RequirePasswordChanged()，再按模块叠加 RequirePermission / RequireDomainMember
 └── 根路径            /ping /readyz /uploads/* /swagger/*（及 SPA 回退）
 ```
 
-**只有两件套 `JWTAuth() + BanCheck()`**，没有访客守卫（GuestGuard 已随访客体系删除）。
+**基线三件套 `JWTAuth() + BanCheck() + RequirePasswordChanged()`**（auth 子组走 `protectedNoPwdGate` 豁免第三件），没有访客守卫（GuestGuard 已随访客体系删除）。
 
 ## 模块清单（`routes/`）
 

@@ -71,7 +71,7 @@ ws(s)://你的域名/ws
 | 事件 | 方向 | ACK | 说明 |
 |------|------|:---:|------|
 | `typing` | 双向 | | 正在输入 |
-| `user:muted` | S→C | | 当前用户被禁言（MuteInfo：禁言原因/到期时间） |
+| `user:muted` | S→C | | 当前用户被禁言（MuteInfo：`user_uuid`、禁言原因/到期时间、`enforcement` 媒体强制级别） |
 | `user:unmuted` | S→C | | 当前用户禁言被解除 |
 | `announcement:new` | S→C | | 系统公告推送 |
 | `sfu:provider-changed` | S→C | | livekit 配置更新导致媒体会话需重建时广播（payload 含 `provider`）；前端收到后重连媒体会话，不再表示 provider 切换 |

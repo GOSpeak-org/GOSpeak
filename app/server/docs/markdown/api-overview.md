@@ -226,5 +226,9 @@ Authorization: Bearer <your-jwt-token>
 | Domain | `/api/v1/domain` | 受保护 |
 | Audit | `/api/v1/audit` | 受保护 |
 | System（健康检查流） | `/api/v1/system` | 受保护 |
+| Announcement | `/api/v1/announcement` | 受保护 |
+| Invite | `/api/v1/invite`（`/invite/preview` 公开） | 公开 + 受保护 |
+| Invite Join（入域审核） | `/api/v1/domain/invites`、`/domain/join-requests` | 受保护 |
+| Swagger | `/swagger/*` | 公开 |
 
 > SFU 媒体层基于 **LiveKit**（由 `SFU_PROVIDER` 选择，唯一支持 `livekit`）。

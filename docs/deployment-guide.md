@@ -1,6 +1,6 @@
 # GOSpeak 部署/运维手册
 
-> 版本: 1.1 · 更新: 2026-07-11
+> 更新: 2026-11-24（随代码版本，当前 `VERSION` = 1.2.0-rc.2）
 >
 > **统一部署入口已迁到 [`deploy/DEPLOY.md`](../deploy/DEPLOY.md)。** 编排文件二选一：精简起步 `deploy/docker-compose.yml`、全档位 `deploy/docker-compose.standard.yml`；启动必须显式带 `-f`，不要用裸 `docker compose up -d`（会选中精简版，`COMPOSE_PROFILES` 不生效）。
 > 本文保留概念说明；一键命令与公网清单以 `deploy/DEPLOY.md` 为准。
@@ -153,13 +153,13 @@ NATS 总线固定为进程内嵌运行（含 JetStream），承担内部事件�
 |----|----------------------|
 | A 单 SQLite | `DB_TYPE=SQLite`（默认） |
 | B 单 PostgreSQL | `COMPOSE_PROFILES` 追加 `postgres`；`DB_TYPE=PostgreSQL`, `DB_HOST=postgres`, `DB_PASSWORD=...` |
-| C PostgreSQL + 内嵌 NATS | 同 B 档；`JWT_KEY_TTL=24h` 启用密钥轮换 |
+| C PostgreSQL + 密钥轮换 | 同 B 档；`JWT_KEY_TTL=24h` 启用密钥轮换（编排与 B 档相同） |
 
 - **A 档**：零外部 DB，SQLite 内嵌，最小起步
 - **B 档**：单一 PostgreSQL，中等规模
-- **C 档**：PostgreSQL + 内嵌 NATS（JWT 轮换、Token 黑名单开箱即用），生产推荐。
+- **C 档**：在 B 档基础上开启密钥轮换；JWT 轮换与 Token 黑名单在所有档位均由内嵌 NATS 提供，并非 C 档独有。
 
-NATS 为进程内嵌运行，无需外部部署，也不支持多副本共享外部 NATS。
+NATS 为进程内嵌运行，所有档位均有，无需外部部署，也不支持多副本共享外部 NATS。
 
 ### 4.1.1 SFU 配置
 

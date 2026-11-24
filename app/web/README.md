@@ -48,9 +48,9 @@ src/
 ├── components/     # 业务组件，按 room / textRoom / chat / domain / discover / manage / modal / form / home / oauth / profile / dashboard … 分组
 │   └── common/     # 通用组件，含 ErrorBoundary / PageErrorBoundary / RouteErrorComponent / withErrorBoundary
 ├── stores/         # zustand store，详见 docs/design/AGENTS-stores.md
-├── hooks/          # React hooks（media / useAuthParallax / useUpload）
+├── hooks/          # React hooks（节选：media / useAuthParallax / useUpload / useMemberRoster / 移动端 hooks）
 ├── api/            # HTTP 客户端与按领域拆分的 API 模块
-├── socket/         # WebSocket 客户端（重连、ACK、房间状态、SFU 热切换）
+├── socket/         # WebSocket 客户端（重连、ACK、房间状态；provider 变更事件的刷新/重连兜底，非多 SFU 热切换）
 ├── handler_audio/  # AudioContext、按成员音量控制
 ├── protocol/       # WS 协议类型
 ├── types/ utils/ assets/

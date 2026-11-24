@@ -68,27 +68,27 @@ curl -fsSL https://raw.githubusercontent.com/NoelOrin/GOSpeak/release/deploy/ins
 
 | 文件 | 平台 |
 |------|------|
-| `gospeak-server-v1.0.0-linux-amd64` | Linux x86_64 |
-| `gospeak-server-v1.0.0-linux-arm64` | Linux ARM64（ARM 服务器、部分 NAS） |
-| `gospeak-server-v1.0.0-linux-armv7` | Linux ARMv7（树莓派 2/3） |
-| `gospeak-server-v1.0.0-darwin-amd64` | macOS Intel |
-| `gospeak-server-v1.0.0-darwin-arm64` | macOS Apple Silicon |
-| `gospeak-server-v1.0.0-windows-amd64.exe` | Windows x64 |
-| `gospeak-server-v1.0.0-windows-arm64.exe` | Windows on ARM |
-| `gospeak-server-v1.0.0-freebsd-*` | FreeBSD |
-| `gospeak-server-v1.0.0-openbsd-amd64` | OpenBSD |
+| `gospeak-server-v<VERSION>-linux-amd64` | Linux x86_64 |
+| `gospeak-server-v<VERSION>-linux-arm64` | Linux ARM64（ARM 服务器、部分 NAS） |
+| `gospeak-server-v<VERSION>-linux-armv7` | Linux ARMv7（树莓派 2/3） |
+| `gospeak-server-v<VERSION>-darwin-amd64` | macOS Intel |
+| `gospeak-server-v<VERSION>-darwin-arm64` | macOS Apple Silicon |
+| `gospeak-server-v<VERSION>-windows-amd64.exe` | Windows x64 |
+| `gospeak-server-v<VERSION>-windows-arm64.exe` | Windows on ARM |
+| `gospeak-server-v<VERSION>-freebsd-*` | FreeBSD |
+| `gospeak-server-v<VERSION>-openbsd-amd64` | OpenBSD |
 
-同一页面还提供 `SHA256SUMS-gospeak-server-v1.0.0.txt` 校验和文件，用于校验完整性：
+同一页面还提供 `SHA256SUMS-gospeak-server-v<VERSION>.txt` 校验和文件，用于校验完整性：
 
 ```bash
-sha256sum -c SHA256SUMS-gospeak-server-v1.0.0.txt --ignore-missing
+sha256sum -c SHA256SUMS-gospeak-server-v<VERSION>.txt --ignore-missing
 ```
 
 ## 运行
 
 ```bash
-chmod +x gospeak-server-v1.0.0-linux-amd64
-./gospeak-server-v1.0.0-linux-amd64 server -e prod
+chmod +x gospeak-server-v<VERSION>-linux-amd64
+./gospeak-server-v<VERSION>-linux-amd64 server -e prod
 ```
 
 服务默认监听 8998 端口，浏览器访问 `http://服务器IP:8998` 即进入 Web 界面。
@@ -141,7 +141,7 @@ WantedBy=multi-user.target
 ```bash
 sudo useradd -r -s /sbin/nologin gospeak
 sudo mkdir -p /opt/gospeak/data
-sudo cp gospeak-server-v1.0.0-linux-amd64 /opt/gospeak/gospeak
+sudo cp gospeak-server-v<VERSION>-linux-amd64 /opt/gospeak/gospeak
 sudo chown -R gospeak:gospeak /opt/gospeak
 ```
 
@@ -164,7 +164,7 @@ journalctl -u gospeak -f
 该方式通常无需使用；需要在不重新编译二进制的前提下更新前端时，可外挂一个静态目录：
 
 ```bash
-STATIC_DIR=/var/www/gospeak ./gospeak-server-v1.0.0-linux-amd64 server -e prod
+STATIC_DIR=/var/www/gospeak ./gospeak-server-v<VERSION>-linux-amd64 server -e prod
 ```
 
 优先级：`STATIC_DIR` > `/app/static` > `./static` > 二进制内嵌。

@@ -12,7 +12,9 @@
 
 ## Backend 接口要点
 
-`BlacklistToken` / `IsBlacklisted`（fail-open）/ `IsBlacklistedErr`（返回错误，供安全敏感调用方自行选择 fail-open / fail-closed）/ `GetSigningKey` / `SetSigningKey`（create-only）/ `UpdateSigningKey` / `GetCreatedAt` / `AddHistoryKey` / `HistoryKeys` / refresh family 三方法 / `Backend()`。
+`BlacklistToken` / `IsBlacklisted`（接口层 fail-open）/ `IsBlacklistedErr`（返回错误，供安全敏感调用方自行选择 fail-open / fail-closed）/ `GetSigningKey` / `SetSigningKey`（create-only）/ `UpdateSigningKey` / `GetCreatedAt` / `AddHistoryKey` / `HistoryKeys` / refresh family 三方法 / `Backend()`。
+
+注意：接口层 `Backend.IsBlacklisted` 是 fail-open（存储报错视为未黑名单），但包级 `authstate.IsBlacklisted` 是 **fail-closed**（后端报错时返回 true，视为已黑名单），安全敏感判定直接用 `IsBlacklistedErr`。
 
 ## 签名密钥策略
 

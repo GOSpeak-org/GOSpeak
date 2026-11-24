@@ -11,10 +11,10 @@
 ```bash
 cd deploy
 ./init.sh --domain voice.example.com
-docker compose up -d
+docker compose -f docker-compose.standard.yml up -d
 ```
 
-`./init.sh --domain voice.example.com` 写入域名并将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。执行后直接运行 `docker compose up -d`，无需手动调整档位。
+`./init.sh --domain voice.example.com` 写入域名并将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。档位只在全档位版生效，必须显式 `docker compose -f docker-compose.standard.yml up -d`；裸 `docker compose up -d` 会选中精简版（无 Caddy、不读 `COMPOSE_PROFILES`）。
 
 **不启用 `edge` 的场景**：已有反向代理（Nginx / Traefik / Dokploy / 宝塔），或纯局域网无域名时，**不传 `--domain`**（或手动将 `edge` 从 `COMPOSE_PROFILES` 中移除），反代指向宿主机 `8998`。
 
@@ -98,7 +98,7 @@ webhook:
 | 7882 | UDP | 媒体（主通道） | 必须 |
 | 3478 | UDP | TURN 中继 | 建议开放 |
 
-**7880 / 7881 不对公网发布。** 7880 在 compose 中仅绑宿主机回环（`127.0.0.1:7880`），供本机 `pnpm dev` 调试直连；对外信令经应用同源的 `/livekit` 反代进入容器内网，公网不可见。7881 已不再发布。
+**全档位（`docker-compose.standard.yml`）下 7880 / 7881 不对公网发布。** 7880 仅绑宿主机回环（`127.0.0.1:7880`），供本机 `pnpm dev` 调试直连；对外信令经应用同源的 `/livekit` 反代进入容器内网，公网不可见。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用。
 
 **媒体端口未开放时语音必然不通。** 页面可进入、可登录、可见成员但无声音，通常由此导致。
 

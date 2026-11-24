@@ -139,7 +139,7 @@ GOSPEAK_DOMAIN=voice.example.com
 
 ```bash
 cd deploy
-docker compose up -d --build
+docker compose -f docker-compose.standard.yml up -d --build
 ```
 
 4. Caddy 自动申请并续期证书、把 HTTP 重定向到 HTTPS、对浏览器提供 h2（以及 h3）。反代只有一个上游 `gospeak:8998`，`/livekit` 也在其中，所以 **LiveKit 不需要自己的证书或域名**。
@@ -160,7 +160,7 @@ TLS_KEY=/path/to/privkey.pem
 3. 启动服务，同一端口自动提供 h2 + HTTP/1.1 ALPN fallback：
 
 ```bash
-./gospeak-server-v1.0.0-linux-amd64 server -e prod
+./gospeak-server-<VERSION>-linux-amd64 server -e prod
 ```
 
 4. 不配置 `TLS_CERT` / `TLS_KEY` 时行为不变，继续以明文 HTTP/1.1 监听 `SERVER_PORT`。
@@ -174,5 +174,5 @@ TLS_KEY=/path/to/privkey.pem
 - `app/server/internal/handler/authcookie.go`：Cookie `Secure` 逻辑。
 - `app/server/internal/ws/upgrader.go`：WebSocket 升级与鉴权。
 - `deploy/Caddyfile`：内置 Caddy 入口（`edge` 档位），自动 HTTPS + h2/h3。
-- `deploy/docker-compose.yml`：`caddy` 服务的端口暴露（80/443/443udp）与 `gospeak` 上游。
+- `deploy/docker-compose.standard.yml`：`caddy` 服务（`edge` profile）的端口暴露（80/443/443udp）与 `gospeak` 上游；精简版 `docker-compose.yml` 不含 Caddy。
 - `deploy/DEPLOY.md`：三种部署场景（有域名 / 已有反代 / 局域网）。

@@ -18,7 +18,7 @@ GOSpeak 是基于 WebRTC 的实时音视频沟通平台。pnpm monorepo：Go 后
 | 事件总线 | 内嵌 NATS KV — JWT 轮换 + Token 黑名单（固定 embedded）|
 | 存储 | local / S3(RustFS/R2) |
 | 认证 | JWT + OAuth2(GitHub/Google/QQ) |
-| 桌面端 | Go 1.27 · MyGo 0.8 · 系统 WebView（`app/desktop` 宿主 + `packages/desktop` 能力 SDK）|
+| 桌面端 | Go 1.27 · MyGo（CLI 0.10.x）· 系统 WebView（`app/desktop` 宿主 + `packages/desktop` 能力 SDK）|
 | 工具链 | pnpm 10 · Turbo · Biome(lint/format) · Vitest 5 + @testing-library/react · Lefthook · commitlint |
 
 ---
@@ -39,7 +39,7 @@ app/
 │   │   ├── handler/         # HTTP 控制器 (Gin)
 │   │   ├── middleware/      # JWTAuth, BanCheck, RequireRole/Permission, CORS
 │   │   ├── router/routes/  # 按模块分组路由
-│   │   ├── sfu/             # SFU Provider 抽象 + 工厂 + DynamicProvider
+│   │   ├── sfu/             # SFU Provider 抽象 + 工厂（当前仅 livekit）
 │   │   │   └── providers/   # livekit 实现
 │   │   ├── signal/          # WebSocket 信令 Hub
 │   │   ├── authstate/       # JWT 黑名单/密钥轮换 (NATS KV)
@@ -123,7 +123,7 @@ pnpm test:web        # web vitest 单测
 pnpm lint        # turbo lint（biome check + go vet）
 pnpm check       # turbo check（biome check，不自动修复）
 pnpm typecheck   # turbo typecheck（tsc --noEmit，按包并行）
-pnpm format      # biome format -r
+pnpm format      # pnpm -r format（各包 biome format --write）
 
 # CI (手动触发)
 # GitHub Actions UI → CI (manual) → Run workflow
@@ -189,7 +189,7 @@ OpenAPI: `app/server/docs/swagger.yaml`，访问 `/swagger/*any`。
 `internal/sfu/`:
 - `Provider` 接口 — token/adminToken/rooms/participants/mute/remove/delete/getHost
 - `factory.go` — 按 `SFU_PROVIDER` 实例化
-- `NewDynamicProvider(resolve)` — 运行时解析，服务层统一调用 `sfu.Provider`，禁止在 handler 泄漏 provider 分支
+- `factory/dynamic_provider.go` — `NewDynamicProvider(resolve)`：按配置指纹在唯一的 livekit provider 内做实例重建/缓存（不是多 provider 运行时切换），服务层统一调用 `sfu.Provider`，禁止在 handler 泄漏 provider 分支
 
 当前仅支持 LiveKit。
 

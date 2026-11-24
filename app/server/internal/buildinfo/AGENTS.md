@@ -5,7 +5,7 @@
 ## API
 
 - `ResolveVersion()`：启动时确定版本号。
-- `readVersionFile()`：读仓库根 `VERSION`。
+- `readInfoFile(name)`：读仓库根 `VERSION` 与 `COMMIT`（另有 `ResolveCommit()` 查找同链）。
 - `semverPattern`：校验 `X.Y.Z[-pre]` 形态。
 
 ## 优先级

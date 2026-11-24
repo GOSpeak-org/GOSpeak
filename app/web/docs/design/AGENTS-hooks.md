@@ -8,8 +8,14 @@
 hooks/
 ├── media.ts              # 音频设备枚举（getAudioDevices，getUserMedia 授权后 enumerateDevices）
 ├── useAuthParallax.ts    # 登录/注册页鼠标视差（lerp 缓动写 --px/--py，尊重 prefers-reduced-motion）
-└── useUpload.ts          # 统一文件上传（presign → PUT 直传 / POST → confirm，含进度与错误态）
+├── useUpload.ts          # 统一文件上传（presign → PUT 直传 / POST → confirm，含进度与错误态）
+├── useMemberRoster.ts / memberRoster.ts  # 成员名册
+├── useDeepLinkNavigation.ts / usePendingInvite.ts  # 深链与邀请
+├── useTypingReporter.ts  # 正在输入上报
+└── useMobile*.ts / useCoarsePointer.ts / useGlobalShortcuts.ts  # 移动端与全局快捷键
 ```
+
+以上是**通用 hook 节选**，完整清单以 `src/hooks/` 目录为准。
 
 语音会话不在 `hooks/` 里，已收敛到 `components/room/` 的分层结构（见下）：
 
@@ -21,7 +27,7 @@ components/room/
 │   ├── useRoomAudioBridge.ts  # SFUClient ↔ handler_audio：麦克风发布、主音量/静音、输出设备
 │   └── useRoomSounds.ts       # 进入/离开提示音（由 presence 与会话 phase 驱动）
 ├── session/
-│   ├── providers.ts           # 各 SFU provider 的 VoiceProviderAdapter（连接目标、串行策略、joinKey）
+│   ├── providers.ts           # 当前 LiveKit 的 VoiceProviderAdapter（连接目标、串行策略、joinKey；预留扩展位）
 │   ├── runVoiceJoin.ts        # 进房执行 + 同 joinKey 并发合并（inFlightJoins）+ VoiceJoinAbortError
 │   ├── voiceSessionTypes.ts   # Session / VoicePhase / VoiceProviderAdapter 等领域类型
 │   └── voiceSessionUi.ts      # 重连 toast 等 UI 副作用
@@ -65,6 +71,6 @@ SFUClient (@gospeak/sfu-client)
 
 ## Evolution direction
 
-- 页面 / 视图层统一依赖 `@gospeak/sfu-client`（`SFUClient` / `SFUProvider` / `createSFUClient`），不直接引用 LiveKit 等 provider 专属类型。
+- 页面 / 视图层统一依赖 `@gospeak/sfu-client`（`SFUClient` / `createSFUClient`），不直接引用 LiveKit 等 provider 专属类型；当前后端仅支持 LiveKit，不要扩展成多 provider 叙事。
 - hook 层负责把房间页状态、`socketStore`、`handler_audio` 与 SFU client 实例装配起来；编排逻辑锁定在 `useVoiceSession`，适配逻辑下沉到 `session/` 与 `services/`。
-- 远端音轨、活跃说话者、麦克风控制等输出统一为 provider-agnostic 结构；新增 provider 只需在 `session/providers.ts` 加 adapter、在 `services/loadSfuClient.ts` 加 preloader，不改编排 hook。
+- 远端音轨、活跃说话者、麦克风控制等输出统一为 provider-agnostic 结构；当前只有 LiveKit 一个实现，若未来放开第二后端，再在 `session/providers.ts` 加 adapter、`services/loadSfuClient.ts` 加 preloader，且不改编排 hook。
