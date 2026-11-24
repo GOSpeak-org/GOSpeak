@@ -24,6 +24,10 @@ export function resetScreenShareSubscription() {
 	setScreenShareSubscriptionClient(null);
 }
 
+function isCurrent(current: SFUClient | null, token: number) {
+	return client === current && generation === token;
+}
+
 export function useWatchScreenShare(): {
 	watchScreenShare: (identity: string) => Promise<void>;
 	stopWatchingScreenShare: () => Promise<void>;
@@ -40,9 +44,10 @@ export function useWatchScreenShare(): {
 				activeSubscription.source,
 				false,
 			);
+			if (!isCurrent(current, token)) return;
 		}
 		await current.setRemoteVideoSubscribed(next.identity, next.source, true);
-		if (client === current && generation === token) {
+		if (isCurrent(current, token)) {
 			activeSubscription = next;
 		}
 	}, []);
@@ -57,7 +62,7 @@ export function useWatchScreenShare(): {
 			active.source,
 			false,
 		);
-		if (client === current && generation === token) {
+		if (isCurrent(current, token)) {
 			activeSubscription = null;
 		}
 	}, []);

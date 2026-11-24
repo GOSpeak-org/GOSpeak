@@ -178,6 +178,54 @@ describe("VoiceSessionProvider video subscription bridge", () => {
 		expect(mocks.sfuClient.setRemoteVideoSubscribed).toHaveBeenCalledTimes(1);
 	});
 
+	it("aborts a stale watch when client switches during the unsubscribe await", async () => {
+		let resolveUnsubscribe: (() => void) | null = null;
+		let unsubscribeCalls = 0;
+		const calls: Array<[string, string, boolean]> = [];
+		const oldSet = vi.fn(
+			(identity: string, source: string, subscribed: boolean) => {
+				calls.push([identity, source, subscribed]);
+				if (!subscribed && ++unsubscribeCalls === 1) {
+					return new Promise<void>((resolve) => {
+						resolveUnsubscribe = resolve;
+					});
+				}
+				return Promise.resolve();
+			},
+		);
+		const oldClient = {
+			...mocks.sfuClient,
+			setRemoteVideoSubscribed: oldSet,
+		} as unknown as SFUClient;
+		mocks.session.sfuClient = oldClient;
+		const { rerender, unmount } = renderProvider();
+
+		await act(async () => {
+			await w().watchScreenShare("alice");
+		});
+		calls.length = 0;
+		let watchPromise: Promise<void> | null = null;
+		await act(async () => {
+			watchPromise = w().watchScreenShare("bob");
+		});
+
+		mocks.session.sfuClient = mocks.sfuClient as unknown as SFUClient;
+		await act(async () => {
+			rerender(
+				<VoiceSessionProvider>
+					<Probe />
+				</VoiceSessionProvider>,
+			);
+		});
+		await act(async () => {
+			resolveUnsubscribe?.();
+			await watchPromise;
+		});
+
+		expect(calls.filter((call) => call[2])).toEqual([]);
+		unmount();
+	});
+
 	it("does not let a stale client subscription update active after client switch", async () => {
 		let resolveOld: (() => void) | null = null;
 		const oldSet = vi.fn(
