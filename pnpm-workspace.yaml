@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "app/*"
   - "test"
+  - "plugins/*"
 allowBuilds:
   esbuild: true
   lefthook: true
