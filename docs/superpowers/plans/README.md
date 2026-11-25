@@ -17,5 +17,6 @@
 | [插件平台 04：集成验证](./2026-11-24-plugin-04-integration.md) | 待执行 | 3 个 Task；指标 + E2E + 全量门禁；依赖 01/02/03 |
 | [插件平台 05：文档与文档站](./2026-11-24-plugin-05-docs.md) | 待执行 | 2 个 Task；AGENTS/部署文档 + VitePress 插件指南与 API 参考；依赖 01–04 |
 | [三端拆分为 Git Submodule](./2026-11-25-submodule-split.md) | 待执行 | 10 个 Task；历史抽取 + 远端接入 + CI 改造 + metadata.yaml 版本元数据管理 + 独立发布 + 全量门禁 + 回滚预案，决策点待确认 |
+| [音频输出策略抽象与 Web Audio 优先 fallback](./2026-11-25-audio-output-strategy.md) | 待执行 | 6 个 Task；Web Audio 优先，media element fallback |
 
 > 关于页 GitHub 项目地址入口已交付并移出索引：`Browser.OpenExternal` 桥接与前端「项目地址」入口均已落地。
