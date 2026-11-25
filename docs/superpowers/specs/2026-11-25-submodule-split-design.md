@@ -10,7 +10,7 @@
 - 每个 submodule 保留该目录在主仓库中的完整 Git 历史。
 - 主仓库 HEAD 仅记录三个 submodule 的 commit 指针（gitlink），不再跟踪目录内文件。
 - 所有现有构建、lint、typecheck、CI 脚本在 submodule checkout 后继续工作，路径不变。
-- `web` 作为第四个独立发布组件，产出 `gospeak-web-v<semver>.tar.gz` 静态压缩包，支持运行时替换外部静态目录而不需要重新构建 Go 二进制。
+- `web` 作为第四个独立发布组件，产出 `gospeak-web-v<semver>.tar.gz` 静态压缩包，支持运行时替换外部静态目录而不需要重新构建 Go 二进制；前端不再嵌入任何二进制。
 - 给出清晰、可回滚的执行步骤。
 
 ## 版本与发布模型（metadata.yaml 分层管理 + 独立发布）
@@ -36,6 +36,34 @@
 - 运维把压缩包解压到 `STATIC_DIR` 指向的目录即完成热更新；embed 中仍是「最后一次 server 发布时 checkout 的 submodule 产物」，作为不带外部目录时的兜底。
 - `serveSPA` 对 `index.html` 设置 `Cache-Control: no-store`，避免更新后浏览器缓存的旧首页引用已删除的 hash 资源；带 hash 的静态资源可长缓存。
 - 回滚策略：保留上一版静态目录（如 `ui.old`），切回即恢复旧前端。
+
+## 前端去除 embed 与产物分发
+
+内嵌前端不再是兜底：`go:embed` 从服务端与桌面宿主中移除，前端产物作为独立压缩包与二进制一起发布。服务端只从外部静态目录（`STATIC_DIR` / `/app/static` / `./static`）加载前端；Docker 镜像 final stage 直接包含 `/app/static`；桌面安装包内含外部前端目录。这样前端可以独立发版与热更新，二进制体积不再随前端增长。
+
+## CI 归属
+
+CI/发布 workflow 按代码归属划分，不再集中在主仓库：
+
+- 主仓库：只跑 server/Go/scripts/protocol/集成测试与 workspace 包，负责 server 发布与 Docker 镜像；按需消费子仓库 Release 产物。
+- GOSpeak-Web：lint/typecheck/test/build 与前端静态压缩包发布（tag `gospeak-web-v*`）。
+- GOSpeak-Desktop：Go/mygo 构建、安装包与签名更新元数据（tag `gospeak-desktop-v*`）。
+- GOSpeak-Mobile：Capacitor sync、gradle/xcode 构建与 APK/IPA 发布（tag `gospeak-mobile-v*`）。
+
+主仓库的路径过滤器只跟踪 gitlink（`app/web`、`app/desktop`、`app/mobile`），不再匹配子目录内文件；子仓库 push/tag 触发自身 CI/Release，主仓库靠 gitlink 更新触发自身 CI。
+
+## 更新检测链路
+
+server / web / desktop / mobile 各自去对应仓库检查最新 Release，不再从主仓库统一读取：
+
+| 组件 | 仓库 | tag 前缀 |
+|---|---|---|
+| server | GOSpeak | `v` |
+| web | GOSpeak-Web | `gospeak-web-v` |
+| desktop | GOSpeak-Desktop | `gospeak-desktop-v` |
+| mobile | GOSpeak-Mobile | `gospeak-mobile-v` |
+
+各组件独立缓存与负缓存，避免互相污染；前端「关于」页新增 web 前端更新检测入口，桌面 updater 改查 GOSpeak-Desktop 仓库。
 
 ## 非目标
 

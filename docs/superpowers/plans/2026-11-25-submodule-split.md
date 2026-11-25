@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 `app/web`、`app/desktop`、`app/mobile` 三个目录从 GOSpeak 主仓库拆成独立 Git submodule，保留各自完整历史，路径与工具链不变；并把 `web` 提升为独立发布组件，产出静态前端压缩包，使前端可通过外部静态目录（`STATIC_DIR`）热更新，与 Go 二进制内的 embed 兜底形成互补。
+**Goal:** 把 `app/web`、`app/desktop`、`app/mobile` 三个目录从 GOSpeak 主仓库拆成独立 Git submodule，保留各自完整历史，路径与工具链不变；把 `web` 提升为独立发布组件，产出静态前端压缩包并与 Go 二进制一同分发，通过外部静态目录（`STATIC_DIR`）热更新（**不再嵌入二进制**）；并重构更新检测链路，server / web / desktop / mobile 四端各自去对应仓库检查 Release 版本。
 
-**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到三个新远端仓库的 `release` 分支；主仓库处理完未提交改动后 `git rm -r --cached` 三个目录，再 `git submodule add` 回相同路径，提交 `.gitmodules` 与 gitlink。CI/发布 workflows 必须改造为 checkout with submodules，并把路径过滤器适配 gitlink 变化；版本声明改为主仓库与子仓库分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`web`、`desktop`、`mobile`、`server` 各自独立 SemVer 与 tag，其中 `web` 的发布产物是 `dist/` 静态压缩包，供外部静态目录部署。子仓库各自建立轻量 CI。服务端 `serveSPA` 的优先级链 `STATIC_DIR > /app/static > ./static > go:embed` 保持不变，仅对 `index.html` 补 `Cache-Control: no-store`，避免前端热更新后旧首页引用失效的 hash 资源。
+**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到三个新远端仓库的 `release` 分支；主仓库处理完未提交改动后 `git rm -r --cached` 三个目录，再 `git submodule add` 回相同路径，提交 `.gitmodules` 与 gitlink。CI/发布 workflows 必须改造为 checkout with submodules，并把路径过滤器适配 gitlink 变化；版本声明改为主仓库与子仓库分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`server`、`web`、`desktop`、`mobile` 各自独立 SemVer 与 tag。前端不再 `go:embed` 进服务端/桌面二进制：服务端二进制只通过 `STATIC_DIR` / `/app/static` / `./static` 消费外部前端，发布包把前端静态压缩包与二进制一起分发；桌面宿主改为读取随安装包分发的外部前端目录。更新检测改为多仓库模型：`server` 查 GOSpeak 主仓库 `v*` tag，`web` 查 GOSpeak-Web `gospeak-web-v*`，`desktop` 查 GOSpeak-Desktop `gospeak-desktop-v*`，`mobile` 查 GOSpeak-Mobile `gospeak-mobile-v*`，各自带独立缓存与降级。`serveSPA` 对 `index.html` 补 `Cache-Control: no-store`，避免前端热更新后旧首页引用失效的 hash 资源。
 
 **Tech Stack:** Git 2.x · git-filter-repo（或 git subtree split 退化）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
 
@@ -64,9 +64,16 @@
 | `scripts/release-naming.mjs` + `.test.mjs` | 增加 mobile 与 web 组件（Task 9） |
 | `scripts/build-changelog.mjs` / `release-notes.mjs` + 各自 test | 按组件从 metadata 生成（Task 9） |
 | `.github/versions/*.yaml` | 删除，迁移到 metadata.yaml（Task 9） |
-| `.github/workflows/version-bump.yml` / `release.yml` | 两阶段版本更新与 tag 事件适配（Task 9）；release.yml 增加 web 静态压缩包构建与发布 |
+| `.github/workflows/version-bump.yml` / `release.yml` | 两阶段版本更新与 tag 事件适配（Task 9）；release.yml 增加 web 静态压缩包构建与发布；服务端与桌面产物改为「二进制 + 外部前端」打包，不再 embed |
 | `scripts/AGENTS.md` | 版本脚本描述补 submodule 守卫（Task 9） |
 | `app/server/internal/router/router.go` | `serveSPA` 为 `index.html` 响应补 `Cache-Control: no-store`（Task 9） |
+| `Dockerfile` | 移除把前端产物 COPY 进 `internal/webui/dist` 的逻辑；final stage 增加 `/app/static` 并把前端产物 COPY 进去（Task 11） |
+| `deploy/docker-compose.yml` / `deploy/docker-compose.standard.yml` | `STATIC_DIR=/app/static` 挂载点随发布包前端目录调整（Task 11） |
+| `app/server/internal/webui/embed.go` / `stub.go` | 移除 `go:embed`，`webui` 包改为仅提供外部目录探测与 `HasAssets()` 兼容层（Task 11） |
+| `app/desktop/mygo.config.ts` / `app/desktop/updater*.go` | 桌面宿主改为加载外部前端目录；updater 改查 GOSpeak-Desktop 仓库（Task 11/12） |
+| `app/server/internal/service/system_update_service.go` + `_test.go` | 更新检测抽象为多仓库模型，新增 web 检测，desktop / mobile 各自查对应子仓库（Task 12） |
+| `app/server/internal/handler/system_update_handler.go` + `app/server/internal/router/routes/system/routes.go` | 新增按组件查询更新端点（Task 12） |
+| `app/web/src/api/system.ts` + `app/web/src/components/modal/settingModal/tab_item/about.tsx` | 前端新增 web 前端更新检测入口与展示（Task 12） |
 
 **删除（从主仓库 index 移除，文件由 submodule checkout 重建）**
 
@@ -351,16 +358,31 @@ Expected: 提交成功。
 
 ---
 
-## Task 7: CI / 发布 workflows 改造以适配 submodule
+## Task 7: CI 按仓库归属拆分（各端 CI 迁回各自子仓库）
 
 **Files:**
-- Modify: `.github/workflows/ci.yml`（checkout submodules + 路径过滤器 + protocol-check）
-- Modify: `.github/workflows/release.yml`、`.github/workflows/build-mobile.yml`、`.github/workflows/docker.yml`、`.github/workflows/docs.yml`、`.github/workflows/security.yml`、`.github/workflows/version-bump.yml`（checkout 加 submodules）
-- Create: `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`（子仓库自身 CI 策略说明）
+- Modify: `.github/workflows/ci.yml`（checkout submodules + 路径过滤器 + protocol-check；移除三端专属 job）
+- Modify: `.github/workflows/release.yml`（移除 build-web / build-desktop* / desktop-checksums；仅保留 server 与协调）
+- Delete: `.github/workflows/build-mobile.yml`（迁移到 GOSpeak-Mobile）
+- Modify: `.github/workflows/docker.yml`、`.github/workflows/docs.yml`、`.github/workflows/security.yml`、`.github/workflows/version-bump.yml`（checkout 加 submodules；移除三端相关步骤）
+- Create: `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`（CI 归属矩阵与触发规则）
+- 在三个子仓库中 Create: `.github/workflows/ci.yml`（各自独立 CI）与 `.github/workflows/release.yml`（各自独立发布；由 Task 3 的子仓库提交落地）
 
 **Interfaces:**
 - Consumes: Task 5 的 submodule 结构；现有 workflows 内容。
-- Produces: 主仓库 CI 能正确 checkout submodule 并按 gitlink 变化触发；供 Task 8 验证。
+- Produces: 每端 CI 在各自仓库运行；主仓库 CI 只负责 server 与跨仓协调；供 Task 8 验证。
+
+**CI 归属矩阵（写入设计文档）：**
+
+| 工作流 | 所属仓库 | 职责 |
+|---|---|---|
+| CI（server / Go / scripts / protocol / 集成测试） | GOSpeak 主仓库 | 只跑 `app/server`、`internal/*`、`scripts`、`test`、`packages/*`（workspace 包仍留主仓库） |
+| CI（lint / typecheck / test / build web） | GOSpeak-Web | 前端自身质量门禁；生成物 `dist/` 由本仓 release 打包 |
+| CI（Go / mygo build / 安装包） | GOSpeak-Desktop | 桌面宿主自身门禁与安装包构建 |
+| CI（Capacitor sync / gradle / xcode） | GOSpeak-Mobile | 移动壳自身门禁与 APK/IPA 构建 |
+| Release（server / web 压缩包 / Docker） | GOSpeak 主仓库 | 按需 `workflow_call` 子仓库 release 产出，或消费其 Release 附件 |
+| Release（desktop） | GOSpeak-Desktop | 安装包与签名更新元数据 |
+| Release（mobile） | GOSpeak-Mobile | APK / IPA 产物 |
 
 - [ ] **Step 1: 改造 ci.yml 的 checkout**
 
@@ -414,24 +436,33 @@ Expected: 命令在主仓库运行退出码 0；若子仓库内生成物变化�
 
 Expected: `grep -r "checkout@v7" .github/workflows/` 的每项都有 `submodules: recursive`。
 
-- [ ] **Step 5: 建立子仓库自身 CI 策略文档**
+- [ ] **Step 5: 从主仓库 CI 移除三端专属 job**
 
-创建 `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`，说明：
-- 主仓库 CI 是唯一合并门禁，三端子仓库的 PR 不单独设必过 gate（避免双重维护）。
-- 子仓库 push 后，主仓库靠 Dependabot 或手动 `git submodule update --remote` 更新 gitlink，触发主仓库 CI。
-- 每个子仓库可选加一个轻量 `workflow_call` 供主仓库按需触发，但不作为必过项。
+从 `ci.yml` 删除 `build-js`（`@gospeak/web` 构建）、`test-web`、`desktop-go` 中前端/桌面构建相关步骤；`lint` 的路径参数去掉 `./app/web` / `./app/desktop` / `./app/mobile`；`typecheck` 只保留主仓库 workspace 包。从 `release.yml` 删除 `build-web`、`build-desktop-macos`、`build-desktop-others`、`desktop-checksums` 及所有向 `webui/dist` 拷贝前端产物的步骤；删除 `build-mobile.yml`。这些 job 全部迁到各自子仓库。
 
-Expected: 文档存在且包含上述三条。
+Expected: `grep -r "app/web\|app/desktop\|app/mobile" .github/workflows/` 仅剩 gitlink 路径与 checkout 配置，不含具体源码构建步骤。
 
-- [ ] **Step 6: 提交 CI 改造**
+- [ ] **Step 6: 在三个子仓库建立独立 CI / Release**
+
+在 GOSpeak-Web 创建 `.github/workflows/ci.yml`（lint / typecheck / vitest / build 前端产物）与 `release.yml`（前端静态压缩包发布，tag `gospeak-web-v*`）。在 GOSpeak-Desktop 创建 `.github/workflows/ci.yml`（go vet + go test + mygo build）与 `release.yml`（安装包与 tag `gospeak-desktop-v*`）。在 GOSpeak-Mobile 创建 `.github/workflows/ci.yml`（capacitor sync + gradle/xcode 构建）与 `release.yml`（APK/IPA，tag `gospeak-mobile-v*`）。这些 workflow 随 Task 3 的子仓库初始化提交落地，不放在主仓库。
+
+Expected: 三个子仓库各自的 `.github/workflows/` 有 ci.yml 与 release.yml；主仓库无 `build-mobile.yml`。
+
+- [ ] **Step 7: 建立 CI 归属设计文档**
+
+创建 `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`，写入上文「CI 归属矩阵」、触发规则（子仓库 push/tag 触发自身 CI/Release；主仓库靠 gitlink 更新触发自身 CI）、主仓库不再承担三端构建、子仓库 release 产物由主仓库按需消费的规则。
+
+Expected: 文档存在且包含归属矩阵四条核心行。
+
+- [ ] **Step 8: 提交 CI 改造**
 
 ```bash
 git add .github/workflows/ docs/superpowers/specs/2026-11-25-submodule-ci-design.md
-git commit -m "ci: checkout submodules and adapt path filters"
+git commit -m "ci: move per-platform workflows into submodule repos"
 ```
 Expected: 提交成功。
 
-- [ ] **Step 7: 验证 workflow 语法**
+- [ ] **Step 9: 验证 workflow 语法**
 
 ```bash
 curl -sSfL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz | tar xz -C /tmp actionlint
@@ -754,7 +785,135 @@ git commit -m "feat: metadata-driven versioning with independent releases"
 ```
 Expected: 提交成功。
 
-## Task 10: 回滚预案（仅在失败时执行）
+## Task 11: 前端去 embed，与二进制一起分发
+
+**Files:**
+- Modify: `app/server/internal/webui/embed.go` / `stub.go`（移除 go:embed，保留外部目录探测兼容层）
+- Modify: `app/server/internal/router/router.go`（仅保留外部目录路径，移除 webui.FS() 兜底分支）
+- Modify: `Dockerfile`（final stage 增设 `/app/static` 并 COPY 前端产物）
+- Modify: `deploy/docker-compose.yml` / `deploy/docker-compose.standard.yml`（前端目录挂载点）
+- Modify: `.github/workflows/ci.yml` / `release.yml`（去掉往 `internal/webui/dist` 与 `app/desktop/webui/dist` 的拷贝，改为随发布包输出 `static/`）
+- Modify: `app/desktop/mygo.config.ts` / `app/desktop/*.go`（桌面宿主读外部前端目录）
+- Modify: `app/server/internal/webui/AGENTS.md` / 根 `AGENTS.md` / `app/web/AGENTS.md`（文档同步）
+
+**Interfaces:**
+- Consumes: Task 9 的 web 静态压缩包产物；Task 5 的 submodule 结构。
+- Produces: 服务端与桌面产物均为「二进制 + 外部前端目录」；无 embed 前端。
+
+- [ ] **Step 1: 写移除 embed 的测试**
+
+为 `webui` 包新增测试：`HasAssets()` 在外部 `static` 目录不存在时为 false；`FS()` 恒返回 nil（或删除该 API 后测试路由仅走外部目录）。为 `serveSPA` 补测试：无外部目录时返回 404/空响应而非 embed 内容。
+
+Run: `go test ./internal/webui/... ./internal/router/...`（在 `app/server` 下）
+Expected: FAIL（embed 逻辑仍在）。
+
+- [ ] **Step 2: 移除 go:embed 与兜底分支**
+
+删除 `embed.go` 的 `//go:embed all:dist` 与 `embedded` 变量，`webui` 包只保留 `HasAssets()`（探测外部目录）与必要的路径常量；`stub.go` 相应简化。删除 `router.go` 中 `webui.FS()` 回退分支，仅保留 `STATIC_DIR > /app/static > ./static` 三级外部目录。
+
+Run: `go test ./internal/webui/... ./internal/router/...`
+Expected: PASS。
+
+- [ ] **Step 3: 改造 Dockerfile 与 compose**
+
+`Dockerfile` 删除 `COPY --from=web-builder /src/app/web/dist/ ./internal/webui/dist/`；final stage 加 `COPY --from=web-builder /src/app/web/dist/ /app/static/`，`VOLUME` 增加 `/app/static`（或由 compose 挂载覆盖）。`deploy/docker-compose*.yml` 确认 `STATIC_DIR=/app/static` 并把前端产物挂载到该路径。
+
+Run: `docker build -t gospeak-test .`（本地）
+Expected: 镜像内 `/app/static/index.html` 存在，二进制不含前端资源。
+
+- [ ] **Step 4: 改造 CI / release 产物布局**
+
+删除 `.github/workflows/ci.yml` 与 `release.yml` 中所有向 `app/server/internal/webui/dist` 与 `app/desktop/webui/dist` 拷贝前端产物的步骤；服务端 release 产物改为 `gospeak-server-v<version>.tar.gz`（含二进制 + `static/` 目录），web 产物仍是纯 `static/` 压缩包。桌面端改为安装包内含外部前端目录，不再 `go:embed`。
+
+Expected: actionlint 通过；release 产物列表含 server 与 web 两个可独立下载的压缩包。
+
+- [ ] **Step 5: 桌面宿主改为外部前端目录**
+
+`app/desktop/mygo.config.ts` 去掉 `webui/dist` 拷贝与 embed 相关注释，`buildCommand` 输出前端到安装包 `static/` 目录；`app/desktop` 中读取前端的 Go 代码改为指向该目录，缺失时给出明确错误提示（不再静默空页面）。
+
+Run: `pnpm --filter @gospeak/desktop-app build`（或对应构建命令）
+Expected: 桌面产物包含外部 `static/index.html`；启动能加载页面。
+
+- [ ] **Step 6: 文档同步与提交**
+
+更新 `app/server/internal/webui/AGENTS.md`（描述改为外部目录探测）、根 `AGENTS.md`（内嵌前端描述改为外部前端目录）、`app/web/AGENTS.md`（产物说明去掉 embed）、`deploy/DEPLOY.md`（补充前端独立更新与目录布局）。
+
+```bash
+git add app/server/internal/webui app/server/internal/router Dockerfile deploy .github/workflows app/desktop docs
+ git commit -m "refactor: ship frontend outside binary and enable static dir updates"
+```
+Expected: 提交成功；`grep -r "go:embed" app/server app/desktop` 无命中。
+
+## Task 12: 更新检测链路改为多仓库模型并新增 web 检测
+
+**Files:**
+- Modify: `app/server/internal/service/system_update_service.go` + `_test.go`
+- Modify: `app/server/internal/handler/system_update_handler.go`
+- Modify: `app/server/internal/router/routes/system/routes.go`
+- Modify: `app/web/src/api/system.ts` + `app/web/src/api/system.test.ts` + `app/web/src/api/backgroundRequests.test.ts`
+- Modify: `app/web/src/components/modal/settingModal/tab_item/about.tsx`
+- Modify: `app/desktop/updater_release.go` + `app/desktop/updater.go` + `app/desktop/updater_release_test.go`
+- Create: `docs/superpowers/specs/2026-11-25-update-check-design.md`
+
+**Interfaces:**
+- Consumes: Task 9 的四组件 metadata 与 tag 命名；Task 11 的去 embed 产物布局。
+- Produces: server / web / desktop / mobile 各自从对应仓库检查最新 Release；前端提供 web 更新检测入口。
+
+**仓库与 tag 映射（单一事实源，写入设计文档）：**
+
+| 组件 | 仓库 | Release tag 前缀 | 当前版本来源 |
+|---|---|---|---|
+| server | `NoelOrin/GOSpeak` | `v`（如 `v1.2.3`） | `buildinfo.Version` |
+| web | `NoelOrin/GOSpeak-Web` | `gospeak-web-v`（如 `gospeak-web-v1.0.0`） | 前端构建期常量或服务端下发 |
+| desktop | `NoelOrin/GOSpeak-Desktop` | `gospeak-desktop-v` | 桌面宿主版本 |
+| mobile | `NoelOrin/GOSpeak-Mobile` | `gospeak-mobile-v` | 移动壳版本 |
+
+- [ ] **Step 1: 写多组件更新检测测试**
+
+重写 `system_update_service_test.go`：为四个组件分别提供 stub GitHub API 响应，验证各自 tag 前缀过滤正确、互不影响；新增 web 组件检测用例；验证 desktop 旧逻辑（从主仓库读 `desktop-v*`）不再使用。
+
+Run: `go test ./internal/service/... -run TestSystemUpdate`
+Expected: FAIL（服务仍只支持单仓库）。
+
+- [ ] **Step 2: 实现多仓库检测服务**
+
+把 `SystemUpdateService` 改造为组件感知：配置表含仓库 API URL 与 tag 前缀；`Check(ctx, component)` 返回该组件的 `UpdateInfo`（Current/Latest/Available/Notes/URL）；每个组件独立缓存与负缓存，避免互相污染。web 的当前版本由服务端下发的 `web_version`（从 metadata 或独立版本文件读取）提供。
+
+Run: `go test ./internal/service/... -run TestSystemUpdate`
+Expected: PASS。
+
+- [ ] **Step 3: 扩展 handler 与路由**
+
+`CheckUpdate` 接受 `?component=server|web|desktop|mobile`（默认 server）；`CurrentVersion` 同样按组件返回。`routes.go` 保持两个端点不变，仅通过 query 参数区分组件。保留 admin 防御性校验。
+
+Run: `go test ./internal/handler/... ./internal/router/...`
+Expected: PASS。
+
+- [ ] **Step 4: 桌面 updater 改查独立仓库**
+
+`app/desktop/updater_release.go` 的 `githubAPILatest` 改为 `https://api.github.com/repos/NoelOrin/GOSpeak-Desktop/releases/latest`，tag 过滤改 `gospeak-desktop-v*`，资产名前缀同步；`releasePageURL` 改为 GOSpeak-Desktop releases 页面。更新测试 fixture。
+
+Run: `go test ./app/desktop/...`（或对应包路径）
+Expected: PASS；`grep -r "NoelOrin/GOSpeak/releases" app/desktop` 无命中（除注释）。
+
+- [ ] **Step 5: 前端新增 web 更新检测入口**
+
+`app/web/src/api/system.ts` 增加 `checkSystemUpdate(component)` 与 `getCurrentVersion(component)`；`about.tsx` 在非桌面环境下展示「前端版本」与「检查前端更新」按钮，调用 `component=web`；桌面环境下更新检查走宿主 updater（已改为查 GOSpeak-Desktop）。更新相关测试。
+
+Run: `pnpm --filter @gospeak/web test`
+Expected: PASS；`pnpm --filter @gospeak/web typecheck` PASS。
+
+- [ ] **Step 6: 编写设计文档与提交**
+
+创建 `docs/superpowers/specs/2026-11-25-update-check-design.md`，覆盖仓库/tag 映射表、四组件独立缓存、web 检测入口、桌面 updater 迁移、降级策略（仓库不可达时展示 releases 页面链接）。
+
+```bash
+git add app/server/internal/service app/server/internal/handler app/server/internal/router app/web/src/api app/web/src/components/modal/settingModal/tab_item app/desktop docs/superpowers/specs/2026-11-25-update-check-design.md
+ git commit -m "feat: multi-repo update checks with web frontend detection"
+```
+Expected: 提交成功。
+
+## Task 13: 回滚预案（仅在失败时执行）
 
 **Files:** 无（操作任务）
 
