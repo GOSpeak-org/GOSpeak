@@ -13,10 +13,8 @@ import type { BackendUser } from "@/api/auth";
 const NONE_VALUE = "__none__";
 
 export interface UserSearchSelectProps {
-	value: number | string | "";
-	onChange: (value: number | string | "") => void;
-	/** 选择值的字段：默认数字 id，禁言场景用 uuid。 */
-	valueKey?: "id" | "uuid";
+	value: string | "";
+	onChange: (value: string | "") => void;
 	users: BackendUser[];
 	searchValue: string;
 	onSearchInput: (value: string) => void;
@@ -36,7 +34,6 @@ export default function UserSearchSelect({
 	loading,
 	disabled,
 	id = "user-select",
-	valueKey = "id",
 }: UserSearchSelectProps) {
 	return (
 		<div className="min-w-60 flex-1">
@@ -70,15 +67,7 @@ export default function UserSearchSelect({
 				</form>
 				<Select
 					value={value === "" ? NONE_VALUE : String(value)}
-					onValueChange={(next) =>
-						onChange(
-							next === NONE_VALUE
-								? ""
-								: valueKey === "uuid"
-									? next
-									: Number(next),
-						)
-					}
+					onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
 					disabled={disabled}
 				>
 					<SelectTrigger id={id} className="h-9">
@@ -87,10 +76,7 @@ export default function UserSearchSelect({
 					<SelectContent>
 						<SelectItem value={NONE_VALUE}>选择用户</SelectItem>
 						{users.map((u) => (
-							<SelectItem
-								key={u.uuid || u.id}
-								value={valueKey === "uuid" ? u.uuid : String(u.id)}
-							>
+							<SelectItem key={u.uuid} value={u.uuid}>
 								{u.display_name || u.name} ({u.name})
 							</SelectItem>
 						))}

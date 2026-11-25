@@ -63,18 +63,18 @@ export async function getPresetAvatars(): Promise<string[]> {
 }
 
 export async function updateUserRole(
-	userId: number,
+	userUUID: string,
 	role: string,
 ): Promise<void> {
 	await apiClient.post({
 		url: "/api/v1/user/update-role",
-		data: { id: userId, role },
+		data: { user_uuid: userUUID, role },
 	});
 }
 
-export async function deleteUser(userId: number): Promise<void> {
+export async function deleteUser(userUUID: string): Promise<void> {
 	await apiClient.post({
 		url: "/api/v1/user/delete",
-		data: { id: userId },
+		data: { user_uuid: userUUID },
 	});
 }

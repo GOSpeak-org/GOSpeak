@@ -52,16 +52,16 @@ export default function BanPage() {
 		queryKey: ["manage-ban-user-search", userQuery],
 		queryFn: () => listUsers(1, 50, true, userQuery || undefined),
 	});
-	const [targetUserId, setTargetUserId] = useState<number | "">("");
+	const [targetUUID, setTargetUUID] = useState<string | "">("");
 	const [banning, setBanning] = useState(false);
 	const [confirmBan, setConfirmBan] = useState(false);
 	const [banError, setBanError] = useState("");
-	const [unbanningId, setUnbanningId] = useState<number | null>(null);
+	const [unbanningUUID, setUnbanningUUID] = useState<string | null>(null);
 
 	const allUsers = usersData?.users || [];
 	const bannedUsers = allUsers.filter((u) => u.role === BAN_ROLE);
 	const normalUsers = allUsers.filter((u) => u.role !== BAN_ROLE);
-	const targetUser = normalUsers.find((u) => u.id === targetUserId);
+	const targetUser = normalUsers.find((u) => u.uuid === targetUUID);
 
 	type UserList = { users: BackendUser[]; total: number };
 	const BAN_SEARCH_KEY = ["manage-ban-user-search"] as const;
@@ -71,11 +71,11 @@ export default function BanPage() {
 			{ queryKey: BAN_SEARCH_KEY },
 			{ queryKey: USERS_KEY },
 		]);
-	const setRole = (uid: number, role: string) => {
+	const setRole = (uuid: string, role: string) => {
 		for (const key of [BAN_SEARCH_KEY, USERS_KEY]) {
 			updateQueryData<UserList>(queryClient, { queryKey: key }, (prev) => ({
 				...prev,
-				users: prev.users.map((u) => (u.id === uid ? { ...u, role } : u)),
+				users: prev.users.map((u) => (u.uuid === uuid ? { ...u, role } : u)),
 			}));
 		}
 	};
@@ -86,21 +86,21 @@ export default function BanPage() {
 		]);
 
 	const handleBan = async () => {
-		const uid = targetUserId;
-		if (!uid) return;
+		const uuid = targetUUID;
+		if (!uuid) return;
 		setBanError("");
 		setBanning(true);
 		try {
 			await runOptimistic({
 				snapshot,
-				apply: () => setRole(uid, BAN_ROLE),
+				apply: () => setRole(uuid, BAN_ROLE),
 				restore: (snap) => restoreQueries(queryClient, snap),
-				request: () => updateUserRole(uid, BAN_ROLE),
+				request: () => updateUserRole(uuid, BAN_ROLE),
 				settle: reconcile,
 				onError: (error) => setBanError(toastActionError(error, "封禁失败")),
 				onSuccess: () => {
 					setConfirmBan(false);
-					setTargetUserId("");
+					setTargetUUID("");
 					toast.success("用户已封禁");
 				},
 			});
@@ -109,20 +109,20 @@ export default function BanPage() {
 		}
 	};
 
-	const handleUnban = async (uid: number) => {
-		setUnbanningId(uid);
+	const handleUnban = async (uuid: string) => {
+		setUnbanningUUID(uuid);
 		try {
 			await runOptimistic({
 				snapshot,
-				apply: () => setRole(uid, USER_ROLE),
+				apply: () => setRole(uuid, USER_ROLE),
 				restore: (snap) => restoreQueries(queryClient, snap),
-				request: () => updateUserRole(uid, USER_ROLE),
+				request: () => updateUserRole(uuid, USER_ROLE),
 				settle: reconcile,
 				onError: (error) => toastActionError(error, "解除封禁失败"),
 				onSuccess: () => toast.success("已解除封禁"),
 			});
 		} finally {
-			setUnbanningId(null);
+			setUnbanningUUID(null);
 		}
 	};
 
@@ -160,9 +160,9 @@ export default function BanPage() {
 							</thead>
 							<tbody>
 								{bannedUsers.map((user) => (
-									<tr key={user.id} className={manageTableRowClass}>
+									<tr key={user.uuid} className={manageTableRowClass}>
 										<td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-											{user.id}
+											{user.uuid.slice(0, 8)}
 										</td>
 										<td className="px-3 py-2 font-semibold">{user.name}</td>
 										<td className="text-foreground px-3 py-2">
@@ -172,8 +172,8 @@ export default function BanPage() {
 											<button
 												type="button"
 												className="text-muted-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50"
-												disabled={unbanningId === user.id}
-												onClick={() => void handleUnban(user.id)}
+												disabled={unbanningUUID === user.uuid}
+												onClick={() => void handleUnban(user.uuid)}
 											>
 												<UserCheck size={14} />
 												解除封禁
@@ -191,8 +191,8 @@ export default function BanPage() {
 				<div className="flex flex-wrap items-end gap-3">
 					<UserSearchSelect
 						id="ban-user"
-						value={targetUserId}
-						onChange={(v) => setTargetUserId(v as number)}
+						value={targetUUID}
+						onChange={(v) => setTargetUUID(String(v))}
 						users={normalUsers}
 						loading={isLoading}
 						disabled={banning}
@@ -203,7 +203,7 @@ export default function BanPage() {
 					<Button
 						type="button"
 						variant="destructive"
-						disabled={!targetUserId || banning}
+						disabled={!targetUUID || banning}
 						onClick={() => setConfirmBan(true)}
 					>
 						<Ban size={16} />
@@ -218,7 +218,9 @@ export default function BanPage() {
 				message={
 					<span>
 						确认封禁「
-						{targetUser?.display_name || targetUser?.name || `#${targetUserId}`}
+						{targetUser?.display_name ||
+							targetUser?.name ||
+							`#${targetUUID.slice(0, 8)}`}
 						」？封禁后该用户无法登录与访问，可在上方列表解除。
 						{banError && (
 							<span className="text-destructive mt-2 block">{banError}</span>

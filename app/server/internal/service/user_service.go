@@ -99,22 +99,23 @@ func (s *UserService) Update(user *model.User) error {
 }
 
 // Delete 删除用户。
-func (s *UserService) Delete(id uint) error {
-	if _, err := s.userRepo.GetByID(id); err != nil {
+func (s *UserService) Delete(userUUID string) error {
+	user, err := s.userRepo.GetByUUID(userUUID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrUserNotFound
 		}
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
-	if err := s.userRepo.Delete(id); err != nil {
+	if err := s.userRepo.Delete(user.ID); err != nil {
 		return pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	return nil
 }
 
 // UpdateRole 变更用户角色（含 ban），并递增 TokenVersion 使旧 token 立即失效。
-func (s *UserService) UpdateRole(id uint, role string) error {
-	user, err := s.userRepo.GetByID(id)
+func (s *UserService) UpdateRole(userUUID, role string) error {
+	user, err := s.userRepo.GetByUUID(userUUID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrUserNotFound
@@ -164,4 +165,3 @@ func (s *UserService) UpdateProfile(uuid, displayName, avatar string) (*model.Us
 	}
 	return user, nil
 }
-

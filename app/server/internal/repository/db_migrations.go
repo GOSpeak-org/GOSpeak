@@ -264,6 +264,38 @@ func migrateMuteUserUUID(db *gorm.DB) error {
 	return dropLegacyColumns(db, drops)
 }
 
+// migrateUserGroupUserUUID 把存量 user_groups 的数字用户外键回填为 UUID 字符串列，
+// 然后删除已废弃的数字列与其唯一索引。幂等：列不存在时跳过。
+func migrateUserGroupUserUUID(db *gorm.DB) error {
+	if !db.Migrator().HasTable("user_groups") {
+		return nil
+	}
+	if !db.Migrator().HasColumn("user_groups", "user_id") {
+		return nil
+	}
+	if err := db.Exec(`UPDATE user_groups SET user_uuid = (
+		SELECT uuid FROM users WHERE users.id = user_groups.user_id
+	) WHERE user_uuid IS NULL OR user_uuid = ''`).Error; err != nil {
+		return fmt.Errorf("migrate user_groups user_uuid: %w", err)
+	}
+	m := db.Migrator()
+	if m.HasIndex(&model.UserGroup{}, "idx_user_group_name") {
+		if err := m.DropIndex(&model.UserGroup{}, "idx_user_group_name"); err != nil {
+			return fmt.Errorf("migrate user_groups: drop legacy index: %w", err)
+		}
+	}
+	if err := dropLegacyColumns(db, []legacyColumnDrop{
+		{table: "user_groups", column: "user_id"},
+	}); err != nil {
+		return err
+	}
+	if !m.HasIndex(&model.UserGroup{}, "idx_user_group_name") {
+		if err := m.CreateIndex(&model.UserGroup{}, "idx_user_group_name"); err != nil {
+			return fmt.Errorf("migrate user_groups: recreate index: %w", err)
+		}
+	}
+	return nil
+}
 func autoMigrate() error {
 	if err := getDB().AutoMigrate(
 		&model.Role{},
@@ -309,6 +341,9 @@ func autoMigrate() error {
 		return err
 	}
 	if err := migrateMuteUserUUID(getDB()); err != nil {
+		return err
+	}
+	if err := migrateUserGroupUserUUID(getDB()); err != nil {
 		return err
 	}
 	return migrateConversationQueryIndexes(getDB())

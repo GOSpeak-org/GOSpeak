@@ -17,6 +17,7 @@ export interface AnnouncementPayload {
 }
 
 export interface MemberInfo {
+	user_uuid?: string;
 	id: string;
 	identity: string;
 	name: string;

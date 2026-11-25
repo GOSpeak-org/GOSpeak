@@ -62,7 +62,7 @@ export default function MutePage() {
 		queryKey: ["manage-mute-user-search", userQuery],
 		queryFn: () => listUsers(1, 50, true, userQuery || undefined),
 	});
-	const [userId, setUserId] = useState<string | "">("");
+	const [userUUID, setUserUUID] = useState<string | "">("");
 	const [duration, setDuration] = useState(3600);
 	const [permanent, setPermanent] = useState(false);
 	const [reason, setReason] = useState("");
@@ -97,7 +97,7 @@ export default function MutePage() {
 		);
 
 	const handleMute = async () => {
-		const uid = userId;
+		const uid = userUUID;
 		if (!uid) return;
 		if (!permanent && duration <= 0) {
 			toast.warning("请选择有效的禁言时长");
@@ -135,7 +135,7 @@ export default function MutePage() {
 				onError: (error) => setMuteError(toastActionError(error, "禁言失败")),
 				onSuccess: () => {
 					setConfirmMute(false);
-					setUserId("");
+					setUserUUID("");
 					setDuration(3600);
 					setPermanent(false);
 					setReason("");
@@ -267,9 +267,8 @@ export default function MutePage() {
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(280px,340px)_minmax(220px,280px)_minmax(200px,260px)]">
 					<UserSearchSelect
 						id="mute-user"
-						valueKey="uuid"
-						value={userId}
-						onChange={(v) => setUserId(String(v))}
+						value={userUUID}
+						onChange={(v) => setUserUUID(String(v))}
 						users={usersData?.users || []}
 						loading={usersLoading}
 						disabled={submitting}
@@ -314,7 +313,7 @@ export default function MutePage() {
 					<Button
 						type="button"
 						variant="destructive"
-						disabled={!userId || submitting}
+						disabled={!userUUID || submitting}
 						onClick={() => setConfirmMute(true)}
 					>
 						<Gavel size={16} />
@@ -328,7 +327,7 @@ export default function MutePage() {
 				title="禁言用户"
 				message={
 					<span>
-						确认对「{userMap.get(userId) ?? `#${userId}`}」
+						确认对「{userMap.get(userUUID) ?? `#${userUUID.slice(0, 8)}`}」
 						{permanent
 							? "永久禁言"
 							: `禁言 ${Math.max(1, Math.round(duration / 60))} 分钟`}

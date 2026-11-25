@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"strings"
 
 	"GOSpeak/internal/audit"
@@ -78,24 +77,24 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 // GetByID
 // @Summary      根据 ID 获取用户
-// @Description  通过用户 ID 获取用户信息
+// @Description  通过用户 UUID 获取用户信息
 // @Tags         用户
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request  body      object{id=uint}  true  "用户 ID"
+// @Param        request  body      object{user_uuid=string}  true  "用户 UUID"
 // @Success      200  {object}  pkg.Response
 // @Router       /user/get [post]
-func (h *UserHandler) GetByID(c *gin.Context) {
+func (h *UserHandler) GetByUUID(c *gin.Context) {
 	var req struct {
-		ID uint `json:"id" binding:"required"`
+		UserUUID string `json:"user_uuid" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
 
-	user, err := h.userService.GetByID(req.ID)
+	user, err := h.userService.GetByUUID(req.UserUUID)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return
@@ -144,24 +143,24 @@ func (h *UserHandler) List(c *gin.Context) {
 
 // Delete
 // @Summary      删除用户
-// @Description  根据用户 ID 删除用户
+// @Description  根据用户 UUID 删除用户
 // @Tags         用户
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request  body      object{id=uint}  true  "用户 ID"
+// @Param        request  body      object{user_uuid=string}  true  "用户 UUID"
 // @Success      200  {object}  pkg.Response
 // @Router       /user/delete [post]
 func (h *UserHandler) Delete(c *gin.Context) {
 	var req struct {
-		ID uint `json:"id" binding:"required"`
+		UserUUID string `json:"user_uuid" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
 
-	if err := h.userService.Delete(req.ID); err != nil {
+	if err := h.userService.Delete(req.UserUUID); err != nil {
 		pkg.HandleError(c, err)
 		return
 	}
@@ -172,7 +171,7 @@ func (h *UserHandler) Delete(c *gin.Context) {
 			ActorName:  un,
 			Action:     audit.ActionDeleteUser,
 			TargetType: audit.TargetUser,
-			TargetID:   fmt.Sprintf("%d", req.ID),
+			TargetID:   req.UserUUID,
 			IP:         audit.AuditIP(c),
 			Success:    true,
 		})
@@ -251,20 +250,20 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request  body      object{id=uint,role=string}  true  "用户 ID 和角色"
+// @Param        request  body      object{user_uuid=string,role=string}  true  "用户 UUID 和角色"
 // @Success      200   {object}  pkg.Response
 // @Router       /user/update-role [post]
 func (h *UserHandler) UpdateRole(c *gin.Context) {
 	var req struct {
-		ID   uint   `json:"id" binding:"required"`
-		Role string `json:"role" binding:"required"`
+		UserUUID string `json:"user_uuid" binding:"required"`
+		Role     string `json:"role" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
 
-	if err := h.userService.UpdateRole(req.ID, req.Role); err != nil {
+	if err := h.userService.UpdateRole(req.UserUUID, req.Role); err != nil {
 		pkg.HandleError(c, err)
 		return
 	}

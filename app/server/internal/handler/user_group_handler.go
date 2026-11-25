@@ -26,11 +26,11 @@ func NewUserGroupHandler(groupSvc *service.UserGroupService, userSvc *service.Us
 // @Success      200  {object}  pkg.Response
 // @Router       /user-group/list [post]
 func (h *UserGroupHandler) List(c *gin.Context) {
-	userID, ok := h.currentUserID(c)
+	userUUID, ok := h.currentUserUUID(c)
 	if !ok {
 		return
 	}
-	groups, err := h.groupSvc.List(userID)
+	groups, err := h.groupSvc.List(userUUID)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return
@@ -56,11 +56,11 @@ func (h *UserGroupHandler) Create(c *gin.Context) {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
-	userID, ok := h.currentUserID(c)
+	userUUID, ok := h.currentUserUUID(c)
 	if !ok {
 		return
 	}
-	group, err := h.groupSvc.Create(userID, req.GroupName)
+	group, err := h.groupSvc.Create(userUUID, req.GroupName)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return
@@ -87,11 +87,11 @@ func (h *UserGroupHandler) Update(c *gin.Context) {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
-	userID, ok := h.currentUserID(c)
+	userUUID, ok := h.currentUserUUID(c)
 	if !ok {
 		return
 	}
-	if err := h.groupSvc.Rename(req.ID, userID, req.GroupName); err != nil {
+	if err := h.groupSvc.Rename(req.ID, userUUID, req.GroupName); err != nil {
 		pkg.HandleError(c, err)
 		return
 	}
@@ -116,27 +116,22 @@ func (h *UserGroupHandler) Delete(c *gin.Context) {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
-	userID, ok := h.currentUserID(c)
+	userUUID, ok := h.currentUserUUID(c)
 	if !ok {
 		return
 	}
-	if err := h.groupSvc.Delete(req.ID, userID); err != nil {
+	if err := h.groupSvc.Delete(req.ID, userUUID); err != nil {
 		pkg.HandleError(c, err)
 		return
 	}
 	pkg.Success(c, nil)
 }
 
-func (h *UserGroupHandler) currentUserID(c *gin.Context) (uint, bool) {
+func (h *UserGroupHandler) currentUserUUID(c *gin.Context) (string, bool) {
 	uuidStr := middleware.CurrentUserUUID(c)
 	if uuidStr == "" {
 		pkg.Fail(c, pkg.TOKEN_NOT_EXIST)
-		return 0, false
+		return "", false
 	}
-	user, err := h.userSvc.GetByUUID(uuidStr)
-	if err != nil {
-		pkg.HandleError(c, err)
-		return 0, false
-	}
-	return user.ID, true
+	return uuidStr, true
 }

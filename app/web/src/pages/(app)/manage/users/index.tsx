@@ -84,7 +84,7 @@ function UsersPage() {
 	const canUpdateUser = hasPermission("user:update");
 	const canDeleteUser = hasPermission("user:delete");
 	const canManageMute = hasPermission("mute:manage");
-	const selfId = useUserStore((s) => s.user?.id);
+	const selfUUID = useUserStore((s) => s.user?.uuid);
 
 	const [userPage, setUserPage] = useState(1);
 	const [userSearchInput, setUserSearchInput] = useState("");
@@ -146,7 +146,7 @@ function UsersPage() {
 	);
 
 	const runRoleChange = async (
-		userId: number,
+		userUUID: string,
 		newRole: string,
 		onError?: (message: string) => void,
 		onSuccess?: () => void,
@@ -161,12 +161,12 @@ function UsersPage() {
 					(prev) => ({
 						...prev,
 						users: prev.users.map((u) =>
-							u.id === userId ? { ...u, role: newRole } : u,
+							u.uuid === userUUID ? { ...u, role: newRole } : u,
 						),
 					}),
 				),
 			restore: (snap) => restoreQueries(queryClient, snap),
-			request: () => updateUserRole(userId, newRole),
+			request: () => updateUserRole(userUUID, newRole),
 			settle: reconcile,
 			onError: (error) => {
 				const message = toastActionError(error, "修改角色失败");
@@ -179,16 +179,16 @@ function UsersPage() {
 		});
 	};
 
-	const handleRoleChange = (userId: number, newRole: string) => {
+	const handleRoleChange = (userUUID: string, newRole: string) => {
 		if (!canUpdateUser) return;
 		// 封禁与封禁页是同一高危操作，统一走确认弹窗而不是下拉框静默生效。
 		if (newRole === "ban") {
-			const target = usersData?.users?.find((u) => u.id === userId);
+			const target = usersData?.users?.find((u) => u.uuid === userUUID);
 			setBanRoleError("");
-			setPendingBanUser(target ?? ({ id: userId } as BackendUser));
+			setPendingBanUser(target ?? ({ uuid: userUUID } as BackendUser));
 			return;
 		}
-		void runRoleChange(userId, newRole);
+		void runRoleChange(userUUID, newRole);
 	};
 
 	const confirmBanRole = async () => {
@@ -196,7 +196,7 @@ function UsersPage() {
 		if (!target) return;
 		setBanningRole(true);
 		try {
-			await runRoleChange(target.id, "ban", setBanRoleError, () =>
+			await runRoleChange(target.uuid, "ban", setBanRoleError, () =>
 				setPendingBanUser(null),
 			);
 		} finally {
@@ -204,12 +204,12 @@ function UsersPage() {
 		}
 	};
 
-	const handleDeleteUser = async (userId: number) => {
+	const handleDeleteUser = async (userUUID: string) => {
 		if (!canDeleteUser) return;
 		// 统一走 ConfirmModal（原 window.confirm 与全站样式割裂，且不能显示对象名）
-		const target = usersData?.users?.find((u) => u.id === userId);
+		const target = usersData?.users?.find((u) => u.uuid === userUUID);
 		setDeletingError("");
-		setDeletingUser(target ?? ({ id: userId } as BackendUser));
+		setDeletingUser(target ?? ({ uuid: userUUID } as BackendUser));
 	};
 
 	const confirmDeleteUser = async () => {
@@ -229,12 +229,12 @@ function UsersPage() {
 						queryClient,
 						{ queryKey: USERS_KEY },
 						(prev) => ({
-							users: prev.users.filter((u) => u.id !== target.id),
+							users: prev.users.filter((u) => u.uuid !== target.uuid),
 							total: Math.max(0, prev.total - 1),
 						}),
 					),
 				restore: (snap) => restoreQueries(queryClient, snap),
-				request: () => deleteUser(target.id),
+				request: () => deleteUser(target.uuid),
 				settle: reconcile,
 				onError: (error) =>
 					setDeletingError(toastActionError(error, "删除用户失败")),
@@ -394,14 +394,14 @@ function UsersPage() {
 								{users.map((user) => {
 									const mute = muteMap.get(user.uuid);
 									const muted = !!mute;
-									const isSelf = selfId === user.id;
+									const isSelf = selfUUID === user.uuid;
 									return (
 										<tr
-											key={user.id}
+											key={user.uuid}
 											className={`${manageTableRowClass} ${muted ? "bg-muted/40" : ""}`}
 										>
 											<td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-												{user.id}
+												{user.uuid.slice(0, 8)}
 											</td>
 											<td className="px-3 py-2">
 												<div className="text-foreground font-medium">
@@ -441,7 +441,7 @@ function UsersPage() {
 															value={user.role}
 															disabled={isSelf}
 															onValueChange={(next) =>
-																void handleRoleChange(user.id, next)
+																void handleRoleChange(user.uuid, next)
 															}
 														>
 															<SelectTrigger
@@ -489,7 +489,7 @@ function UsersPage() {
 															type="button"
 															className={iconBtnClass}
 															title="删除用户"
-															onClick={() => void handleDeleteUser(user.id)}
+															onClick={() => void handleDeleteUser(user.uuid)}
 														>
 															<Trash size={14} />
 														</button>
@@ -747,7 +747,7 @@ function UsersPage() {
 						确认封禁「
 						{pendingBanUser?.display_name ||
 							pendingBanUser?.name ||
-							`#${pendingBanUser?.id ?? ""}`}
+							`#${pendingBanUser?.uuid.slice(0, 8) ?? ""}`}
 						」？封禁后该用户无法登录与访问，请在「封禁管理」页解除。
 						{banRoleError && (
 							<span className="text-destructive mt-2 block">
