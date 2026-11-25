@@ -1,8 +1,8 @@
-# 三端目录拆分为 Git Submodule 设计
+# 多平台仓库结构调整设计
 
 ## 意图与原因
 
-`app/web`（React 前端）、`app/desktop`（Go + MyGo 桌面宿主）、`app/mobile`（Capacitor 移动壳）当前与主仓库同仓开发。随着三端各自独立演进，需要把它们拆成独立 Git 仓库，通过 submodule 接入主仓库，使各端可以独立打 tag、独立 review、独立发布，同时保持同一套代码与工具链不变。
+`app/web`（React 前端）、`app/desktop`（Go + MyGo 桌面宿主）、`app/mobile`（Capacitor 移动壳）当前与主仓库同仓开发。随着三端各自独立演进，需要把它们拆成独立 Git 仓库，通过 submodule 接入主仓库，使各端可以独立打 tag、独立 review、独立发布，同时保持同一套代码与工具链不变。在此基础上，`web` 还需作为独立发布组件产出静态前端压缩包，使前端可通过外部静态目录热更新，与 Go 二进制内的 embed 兜底形成互补。
 
 ## 目标
 
@@ -10,6 +10,7 @@
 - 每个 submodule 保留该目录在主仓库中的完整 Git 历史。
 - 主仓库 HEAD 仅记录三个 submodule 的 commit 指针（gitlink），不再跟踪目录内文件。
 - 所有现有构建、lint、typecheck、CI 脚本在 submodule checkout 后继续工作，路径不变。
+- `web` 作为第四个独立发布组件，产出 `gospeak-web-v<semver>.tar.gz` 静态压缩包，支持运行时替换外部静态目录而不需要重新构建 Go 二进制。
 - 给出清晰、可回滚的执行步骤。
 
 ## 版本与发布模型（metadata.yaml 分层管理 + 独立发布）
@@ -18,18 +19,29 @@
 - 主仓库总控 `metadata.yaml` 的 `components.<name>.version` 是最终事实源；子仓库 `metadata.yaml` 的 `version` 必须一致，由 CI 校验，`metadata_ref` 指向子仓库文件。
 - 子仓库 `metadata.yaml` 还承载组件元数据（name/description/platforms/artifact_type/changelog），供 release-notes 与 build-changelog 消费。
 - 删除 `.github/versions/*.yaml`，版本与元数据全部迁移到 `metadata.yaml`。
-- **版本号不统一发布**：server / desktop / mobile 各自独立 SemVer，互不跟随。
-- 每个组件独立 tag：`gospeak-server-v<semver>` / `gospeak-desktop-v<semver>` / `gospeak-mobile-v<semver>`；独立 Release、独立 changelog、独立产物。
+- **版本号不统一发布**：server / web / desktop / mobile 各自独立 SemVer，互不跟随。
+- 每个组件独立 tag：`gospeak-server-v<semver>` / `gospeak-web-v<semver>` / `gospeak-desktop-v<semver>` / `gospeak-mobile-v<semver>`；独立 Release、独立 changelog、独立产物。
 - 版本 bump 只针对发生变更的组件：先改该子仓库 `metadata.yaml` 与版本文件并提交，再更新主仓库总控 `metadata.yaml` 的 version/tag 与 gitlink，最后打该组件 tag。
 - 子仓库 commit message 约定：`chore(<component>): bump version to <semver>`，gitlink bump 与版本发布解耦。
 - **metadata ↔ tag 协同**：tag 一律由 metadata 经 `release-naming.mjs` 派生（不手写）；metadata 中显式写的 `tag` 字段必须与派生结果一致；tag 存在性驱动发布且幂等；子仓库 metadata 版本必须与总控一致才允许打 tag；annotated tag 打在「更新 metadata + gitlink 的提交」上。删除现有 `version-bump.yml` 中强制 server/desktop 同版本的 lockstep 约束。
 - mobile 产物仍由独立 `build-mobile.yml` 发布，不进入主 release workflow 的构建阶段。
 
+## web 外部更新整合
+
+内嵌前端（`go:embed`）只是兜底。服务端 `serveSPA` 的优先级链为 `STATIC_DIR > /app/static > ./static > go:embed`：`app/server/internal/router/router.go` 在外部目录存在且含 `index.html` 时优先用 `http.FileServer(http.Dir(staticDir))`，否则回退 `webui.FS()`。因此前端更新无需重编 Go 二进制，只需替换外部目录内容。
+
+配套决策：
+- `web` 作为独立组件进入 metadata 分层模型，独立 tag `gospeak-web-v<semver>`，发布产物为 `dist/` 打包的静态压缩包（非二进制）。
+- `release.yml` 在 web tag 事件时 checkout 主仓库并 `git submodule update --init app/web`，构建前端并产出压缩包作为 Release 附件。
+- 运维把压缩包解压到 `STATIC_DIR` 指向的目录即完成热更新；embed 中仍是「最后一次 server 发布时 checkout 的 submodule 产物」，作为不带外部目录时的兜底。
+- `serveSPA` 对 `index.html` 设置 `Cache-Control: no-store`，避免更新后浏览器缓存的旧首页引用已删除的 hash 资源；带 hash 的静态资源可长缓存。
+- 回滚策略：保留上一版静态目录（如 `ui.old`），切回即恢复旧前端。
+
 ## 非目标
 
 - 不把 `packages/components`、`packages/sfu-client`、`packages/desktop`、`packages/mobile-capabilities` 拆成 submodule；它们继续作为 workspace 包留在主仓库。
 - 不改动三端业务代码、构建配置、UI token、协议生成逻辑。
-- 不改动服务端 `app/server`、`internal/*` 分层与路由。
+- 不改动服务端分层与路由结构；唯一例外是 `serveSPA` 为 `index.html` 补 `Cache-Control: no-store` 响应头（见「web 外部更新整合」）。
 - 不切换分支策略，仍按 `release` 为唯一事实源。
 
 ## 反目标（做什么会导致失败）

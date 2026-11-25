@@ -1,14 +1,16 @@
-# 三端目录拆分为 Git Submodule Implementation Plan
+# 多平台仓库结构调整 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 `app/web`、`app/desktop`、`app/mobile` 三个目录从 GOSpeak 主仓库拆成独立 Git submodule，保留各自完整历史，路径与工具链不变。
+**Goal:** 把 `app/web`、`app/desktop`、`app/mobile` 三个目录从 GOSpeak 主仓库拆成独立 Git submodule，保留各自完整历史，路径与工具链不变；并把 `web` 提升为独立发布组件，产出静态前端压缩包，使前端可通过外部静态目录（`STATIC_DIR`）热更新，与 Go 二进制内的 embed 兜底形成互补。
 
-**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到三个新远端仓库的 `release` 分支；主仓库处理完未提交改动后 `git rm -r --cached` 三个目录，再 `git submodule add` 回相同路径，提交 `.gitmodules` 与 gitlink。CI/发布 workflows 必须改造为 checkout with submodules，并把路径过滤器适配 gitlink 变化；版本声明仍集中在主仓库 `.github/versions/*.yaml`，版本 bump 采用「子仓库改版本文件 → 主仓库更新 yaml 与 gitlink」两阶段流程；子仓库各自建立轻量 CI。
+**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到三个新远端仓库的 `release` 分支；主仓库处理完未提交改动后 `git rm -r --cached` 三个目录，再 `git submodule add` 回相同路径，提交 `.gitmodules` 与 gitlink。CI/发布 workflows 必须改造为 checkout with submodules，并把路径过滤器适配 gitlink 变化；版本声明改为主仓库与子仓库分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`web`、`desktop`、`mobile`、`server` 各自独立 SemVer 与 tag，其中 `web` 的发布产物是 `dist/` 静态压缩包，供外部静态目录部署。子仓库各自建立轻量 CI。服务端 `serveSPA` 的优先级链 `STATIC_DIR > /app/static > ./static > go:embed` 保持不变，仅对 `index.html` 补 `Cache-Control: no-store`，避免前端热更新后旧首页引用失效的 hash 资源。
 
-**Tech Stack:** Git 2.x · git-filter-repo（或 git subtree split 退化）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27
+**Tech Stack:** Git 2.x · git-filter-repo（或 git subtree split 退化）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
 
-**Spec:** `docs/superpowers/specs/2026-11-25-submodule-split-design.md`
+**Specs:**
+- `docs/superpowers/specs/2026-11-25-submodule-split-design.md`
+- `docs/superpowers/specs/2026-11-25-submodule-release-design.md`（Task 9 创建，含 web 外部更新规则）
 
 ## Global Constraints
 
@@ -46,7 +48,7 @@
 | `docs/superpowers/plans/2026-11-25-submodule-split.md` | 本计划 |
 | `docs/superpowers/specs/2026-11-25-submodule-ci-design.md` | 子仓库 CI 策略说明（Task 7） |
 | `docs/superpowers/specs/2026-11-25-submodule-release-design.md` | 版本与发布规则说明（Task 9） |
-| `metadata.yaml`（主仓库 + 三个子仓库各一份） | 版本与元数据的分层单一事实源（Task 9） |
+| `metadata.yaml`（主仓库 + 三个子仓库各一份） | 版本与元数据的分层单一事实源（Task 9）；含 `web` 组件 |
 | `scripts/metadata.mjs` + `.test.mjs` | metadata.yaml 解析与一致性校验（Task 9） |
 | `.gitmodules` | 三个 submodule 的 path/url/branch 声明，由 `git submodule add` 生成 |
 
@@ -59,11 +61,12 @@
 | `docs/superpowers/specs/2026-11-25-submodule-split-design.md` | 决策点确认后回填最终选择（如子仓库地址、未提交改动处理方式） |
 | `.github/workflows/ci.yml` 等 7 个 workflow | checkout 加 submodules；路径过滤器适配 gitlink；protocol-check 调整（Task 7） |
 | `scripts/check-version.mjs` + `.test.mjs` | 改读 metadata.yaml + submodule 守卫（Task 9） |
-| `scripts/release-naming.mjs` + `.test.mjs` | 增加 mobile 组件（Task 9） |
+| `scripts/release-naming.mjs` + `.test.mjs` | 增加 mobile 与 web 组件（Task 9） |
 | `scripts/build-changelog.mjs` / `release-notes.mjs` + 各自 test | 按组件从 metadata 生成（Task 9） |
 | `.github/versions/*.yaml` | 删除，迁移到 metadata.yaml（Task 9） |
-| `.github/workflows/version-bump.yml` / `release.yml` | 两阶段版本更新与 tag 事件适配（Task 9） |
+| `.github/workflows/version-bump.yml` / `release.yml` | 两阶段版本更新与 tag 事件适配（Task 9）；release.yml 增加 web 静态压缩包构建与发布 |
 | `scripts/AGENTS.md` | 版本脚本描述补 submodule 守卫（Task 9） |
+| `app/server/internal/router/router.go` | `serveSPA` 为 `index.html` 响应补 `Cache-Control: no-store`（Task 9） |
 
 **删除（从主仓库 index 移除，文件由 submodule checkout 重建）**
 
@@ -515,11 +518,12 @@ Expected: 计划状态块存在。
 - Create: `metadata.yaml`（主仓库总控）
 - Create: `metadata.yaml`（三个子仓库各自一份，通过 Task 3 的子仓库提交落地）
 - Modify: `scripts/check-version.mjs` + `scripts/check-version.test.mjs`（改读 metadata.yaml + submodule 守卫）
-- Modify: `scripts/release-naming.mjs` + `scripts/release-naming.test.mjs`（mobile 组件）
+- Modify: `scripts/release-naming.mjs` + `scripts/release-naming.test.mjs`（mobile 与 web 组件）
 - Modify: `scripts/build-changelog.mjs` / `release-notes.mjs` + 各自 test（按组件生成）
-- Modify: `.github/workflows/version-bump.yml` / `release.yml`（metadata 驱动、按组件 bump）
+- Modify: `.github/workflows/version-bump.yml` / `release.yml`（metadata 驱动、按组件 bump；release.yml 增加 web 静态压缩包构建与发布）
 - Delete: `.github/versions/{server,desktop,mobile}.yaml`（迁移到 metadata.yaml）
-- Create: `docs/superpowers/specs/2026-11-25-submodule-release-design.md`
+- Create: `docs/superpowers/specs/2026-11-25-submodule-release-design.md`（含 web 外部更新规则）
+- Modify: `app/server/internal/router/router.go`（`serveSPA` 补 `index.html` no-store 响应头）
 - Modify: `scripts/AGENTS.md`、根 `AGENTS.md`
 
 **Interfaces:**
@@ -539,6 +543,12 @@ components:
     source: app/server
     tag: gospeak-server-v1.2.0
     release: true
+  web:
+    version: 1.0.0
+    source: app/web            # git submodule
+    metadata_ref: app/web/metadata.yaml
+    tag: gospeak-web-v1.0.0
+    release: true              # 产物为 dist/ 静态压缩包，供外部 STATIC_DIR 部署
   desktop:
     version: 1.1.0
     source: app/desktop        # git submodule
@@ -566,16 +576,29 @@ metadata:
   changelog: CHANGELOG.md
 ```
 
+`metadata.yaml`（web 子仓库根）：
+```yaml
+schema_version: 1
+component: web
+version: 1.0.0
+metadata:
+  name: GOSpeak Web
+  description: GOSpeak 前端静态产物
+  platforms: [any]
+  artifact_type: static-archive
+  changelog: CHANGELOG.md
+```
+
 规则：
 - 主仓库总控的 `components.<name>.version` 是最终事实源；子仓库 `version` 必须与之一致，由 CI 校验。
 - `metadata_ref` 指向子仓库 metadata 文件，check-version 会读取并比对版本。
 - 元数据字段（name/description/platforms/artifact_type/changelog）供 release-notes 与 build-changelog 消费。
-- **版本号不统一发布**：三组件各自独立 SemVer，互不跟随。
+- **版本号不统一发布**：server / web / desktop / mobile 四组件各自独立 SemVer，互不跟随。
 - 版本 bump 只针对发生变更的组件：先改该子仓库 `metadata.yaml` 与版本文件并 commit/push，再更新主仓库总控 `metadata.yaml` 的 `version` 与 `tag`，最后更新 gitlink 并打 tag。
 - 每个组件独立 tag / 独立 Release / 独立 changelog；不再「一版一个 Release、两端共用 server 版本号」。
 - 子仓库 commit message 约定：`chore(<component>): bump version to <semver>`，gitlink bump 与版本发布解耦。
 
-- [ ] **Step 1: 写 release-naming 增加 mobile 组件的测试**
+- [ ] **Step 1: 写 release-naming 增加 mobile 与 web 组件的测试**
 
 在 `scripts/release-naming.test.mjs` 加：
 ```js
@@ -583,13 +606,17 @@ test("releaseTag mobile", () => {
   assert.equal(releaseTag("mobile", "1.2.0"), "gospeak-mobile-v1.2.0");
   assert.deepEqual(parseReleaseTag("gospeak-mobile-v1.2.0"), { component: "mobile", version: "1.2.0" });
 });
+test("releaseTag web", () => {
+  assert.equal(releaseTag("web", "1.0.0"), "gospeak-web-v1.0.0");
+  assert.deepEqual(parseReleaseTag("gospeak-web-v1.0.0"), { component: "web", version: "1.0.0" });
+});
 ```
 Run: `node --test scripts/release-naming.test.mjs`
-Expected: FAIL（mobile 不在 COMPONENTS 中）。
+Expected: FAIL（mobile 与 web 不在 COMPONENTS 中）。
 
-- [ ] **Step 2: 实现 mobile 组件**
+- [ ] **Step 2: 实现 mobile 与 web 组件**
 
-把 `scripts/release-naming.mjs` 的 `COMPONENTS` 改为 `["server", "desktop", "mobile"]`。
+把 `scripts/release-naming.mjs` 的 `COMPONENTS` 改为 `["server", "web", "desktop", "mobile"]`。
 
 Run: `node --test scripts/release-naming.test.mjs`
 Expected: PASS。
@@ -695,21 +722,34 @@ Expected: 文档存在且包含上述七点。
 
 - [ ] **Step 13: 更新 AGENTS.md 文档**
 
-`scripts/AGENTS.md`：新增 `metadata.mjs` 行；`check-version.mjs` 描述改为读 metadata；`release-naming.mjs` 改三组件；新增设计文档指针。根 `AGENTS.md` §6 补「版本与元数据以 metadata.yaml 为单一事实源，三端独立发布」。
+`scripts/AGENTS.md`：新增 `metadata.mjs` 行；`check-version.mjs` 描述改为读 metadata；`release-naming.mjs` 改四组件（含 web）；新增设计文档指针。根 `AGENTS.md` §6 补「版本与元数据以 metadata.yaml 为单一事实源，四组件独立发布」。设计文档 `2026-11-25-submodule-release-design.md` 必须包含 web 静态包发布与外部 `STATIC_DIR` 更新规则、embed 兜底关系。
 
-Expected: `grep -n "metadata.yaml" scripts/AGENTS.md AGENTS.md` 有命中。
+Expected: `grep -n "metadata.yaml" scripts/AGENTS.md AGENTS.md` 有命中；`grep -n "STATIC_DIR" docs/superpowers/specs/2026-11-25-submodule-release-design.md` 有命中。
 
-- [ ] **Step 14: 全量脚本测试**
+- [ ] **Step 14: release.yml 增加 web 静态压缩包构建与发布**
+
+在 `release.yml` 的按组件构建阶段增加 web 分支：当 tag component 为 `web` 时，checkout 主仓库并 `git submodule update --init app/web`，执行 `pnpm install --frozen-lockfile` 与 `pnpm --filter @gospeak/web build`，把 `app/web/dist/` 打包为 `gospeak-web-v<version>.tar.gz`（保留目录结构，含 `index.html` 与带 hash 的 assets），作为该组件 Release 的下载产物。产物命名走 `release-naming.mjs` 派生，不手写版本号。
+
+Expected: 手动触发 web tag 事件后 Release 附件出现 `gospeak-web-v<version>.tar.gz`；actionlint 通过。
+
+- [ ] **Step 15: serveSPA 补 index.html no-store 响应头**
+
+在 `app/server/internal/router/router.go` 的 `serveSPA` 中，定位 `serveIndex` 的两个实现（外部目录分支与 embed 分支），在返回 `index.html` 前设置 `c.Header("Cache-Control", "no-store")`。只针对首页，带 hash 的静态资源仍可长缓存。
+
+Run: `go test ./internal/router/...`（在 `app/server` 下）
+Expected: 测试通过；`grep -n "no-store" app/server/internal/router/router.go` 至少两处命中。
+
+- [ ] **Step 16: 全量脚本测试**
 
 ```bash
 node --test scripts/*.test.mjs
 ```
 Expected: 全部通过。
 
-- [ ] **Step 15: 提交**
+- [ ] **Step 17: 提交**
 
 ```bash
-git add metadata.yaml scripts/ .github/workflows/version-bump.yml .github/workflows/release.yml docs/superpowers/specs/2026-11-25-submodule-release-design.md scripts/AGENTS.md AGENTS.md
+git add metadata.yaml scripts/ .github/workflows/version-bump.yml .github/workflows/release.yml docs/superpowers/specs/2026-11-25-submodule-release-design.md scripts/AGENTS.md AGENTS.md app/server/internal/router/router.go
 git commit -m "feat: metadata-driven versioning with independent releases"
 ```
 Expected: 提交成功。
