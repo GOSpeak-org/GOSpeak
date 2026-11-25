@@ -1,6 +1,6 @@
 # 项目缺口全景
 
-**更新**: 2026-11-16（基于当前 `dev-1116` 代码核对；分数为定性估计，非测试报告）
+**更新**: 2026-11-24（基于当前工作区代码核对；分数为定性估计，非测试报告）
 
 ## 成熟度评估
 
@@ -78,7 +78,7 @@ React 19 迁移时已全部重写，下列旧占位文件均已不存在：
 |------|------|--------|
 | Signal | `ListParticipants` 上游失败返回非 0 code 已由 `TestListParticipants_SFUError` 覆盖（历史 B05 回归防护已补） | 已完成 |
 | Invite | 过期码不建 users、需审核域只建 pending、并发消耗、跨域隔离 | 高 |
-| Mute | `/mute/*` 端点集成覆盖 | 中 |
+| Mute | `/mute/*` 端点集成覆盖 | 已完成（`test/mute` 已覆盖基本路径） |
 | Storage / SFU Config / OAuth Admin / Permission RBAC | 集成覆盖较薄 | 低 |
 
 ---

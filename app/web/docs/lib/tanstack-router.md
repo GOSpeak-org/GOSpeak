@@ -21,7 +21,7 @@ src/pages/
 │   ├── route.tsx              # 布局路由（登录守卫 + Layout + Outlet）
 │   ├── index.tsx              # → /（重定向到 /discover）
 │   ├── discover.tsx           # → /discover
-│   ├── chat.tsx / link.tsx / profile.tsx
+│   ├── chat.tsx / settings.tsx / profile.tsx
 │   ├── domain.$domainUUID.tsx # → /domain/:domainUUID
 │   └── manage/
 │       ├── route.tsx          # 管理区布局 + 权限守卫
@@ -279,7 +279,7 @@ loader 抛错时，重试需要 `router.invalidate()` 才会重新发起请求�
 
 ### DevTools
 
-`vite.config.ts` 通过 `@tanstack/devtools-vite` 启用了开发面板（端口 42069）。如需路由面板，可按需引入 `@tanstack/react-router-devtools` 的 `TanStackRouterDevtools`，仅在 `import.meta.env.DEV` 下渲染。
+`vite.config.ts` 通过 `@tanstack/devtools-vite` 启用了开发面板：开发模式从 42069 起自动选空闲端口，生产固定 42069。如需路由面板，可按需引入 `@tanstack/react-router-devtools` 的 `TanStackRouterDevtools`，仅在 `import.meta.env.DEV` 下渲染。
 
 ### 路由代码生成
 

@@ -12,7 +12,7 @@
 | `init.sh` | 生成 `.env`（含随机密钥）、归一 `livekit.yaml`、一致性校验 |
 | `install-binary.sh` | curl 直跑的单二进制安装脚本：下载当前平台最新的 GOSpeak + LiveKit 发行包、校验、生成配置与 systemd 单元 |
 | `Caddyfile` | 内置边缘（profile `edge`）：自动 HTTPS |
-| `livekit/*.yaml` | LiveKit 配置（docker / local 两种形态） |
+| `livekit/*.yaml` | LiveKit 配置（`livekit.yaml` / `livekit.docker.yaml` / `livekit.local.yaml`） |
 | `observability/` | prometheus / alertmanager / grafana / loki / promtail |
 
 ## 档位（`COMPOSE_PROFILES`）

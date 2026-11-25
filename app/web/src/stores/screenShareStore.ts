@@ -1,4 +1,5 @@
 import type {
+	RemoteVideoPublicationInfo,
 	RemoteVideoTrackInfo,
 	RemoteVideoTrackLike,
 } from "@gospeak/sfu-client/types";
@@ -17,10 +18,16 @@ interface ScreenShareState {
 	localTrack: RemoteVideoTrackLike | null;
 	/** 远端共享（屏幕 / 摄像头） */
 	remote: RemoteVideoTrackInfo[];
+	/** 可订阅的远端屏幕共享条目 */
+	remotePublications: RemoteVideoPublicationInfo[];
 	setLocalSharing: (sharing: boolean) => void;
 	setLocalTrack: (track: RemoteVideoTrackLike | null) => void;
 	upsertRemote: (info: RemoteVideoTrackInfo) => void;
 	removeRemote: (identity: string) => void;
+	upsertPublication: (
+		info: RemoteVideoPublicationInfo & { available: boolean },
+	) => void;
+	replacePublications: (list: RemoteVideoPublicationInfo[]) => void;
 	reset: () => void;
 }
 
@@ -28,6 +35,7 @@ export const useScreenShareStore = create<ScreenShareState>((set) => ({
 	localSharing: false,
 	localTrack: null,
 	remote: [],
+	remotePublications: [],
 	setLocalSharing: (localSharing) => set({ localSharing }),
 	setLocalTrack: (localTrack) => set({ localTrack }),
 	upsertRemote: (info) =>
@@ -40,5 +48,36 @@ export const useScreenShareStore = create<ScreenShareState>((set) => ({
 		set((s) => ({
 			remote: s.remote.filter((item) => item.identity !== identity),
 		})),
-	reset: () => set({ localSharing: false, localTrack: null, remote: [] }),
+	upsertPublication: ({ available, ...info }) => {
+		if (info.source !== "screen") return;
+		set((s) => {
+			const existing = s.remotePublications.find(
+				(item) =>
+					item.identity === info.identity && item.source === info.source,
+			);
+			if (!available) {
+				if (!existing) return s;
+				return {
+					remotePublications: s.remotePublications.filter(
+						(item) => item !== existing,
+					),
+				};
+			}
+			if (existing) return s;
+			return {
+				remotePublications: [...s.remotePublications, info],
+			};
+		});
+	},
+	replacePublications: (list) =>
+		set({
+			remotePublications: list.filter((item) => item.source === "screen"),
+		}),
+	reset: () =>
+		set({
+			localSharing: false,
+			localTrack: null,
+			remote: [],
+			remotePublications: [],
+		}),
 }));

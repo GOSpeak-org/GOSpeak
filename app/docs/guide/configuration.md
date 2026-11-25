@@ -2,7 +2,7 @@
 
 GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启进程生效。
 
-只有一份配置文件：**`deploy/.env`**（由 `deploy/.env.example` 复制或 `deploy/init.sh` 生成）。
+推荐统一维护一份 **`deploy/.env`**（由 `deploy/.env.example` 复制或 `deploy/init.sh` 生成），但实际存在覆盖链：进程环境变量（已设置则不覆盖）> `GOSPEAK_ENV_FILE` > 工作目录 `.env.<env>` / `.env` > `deploy/.env`，逐文件仅填空缺键。
 
 | 场景 | 怎么读到 |
 |------|---------|
@@ -104,7 +104,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `REFRESH_COOKIE_NAME` | `gospeak_refresh_token` | refresh token cookie 名 |
 | `COOKIE_DOMAIN` / `COOKIE_PATH` | — / `/` | Cookie 作用域 |
 | `COOKIE_SECURE` | `auto` | `auto` / `true` / `false` |
-| `COOKIE_SAMESITE` | `lax` | `lax` / `strict` / `none` |
+| `COOKIE_SAMESITE` | `lax` | `lax` / `strict` / `none`；设为 `none` 时必须显式配置不含 `*` 的 `WS_ALLOWED_ORIGINS`，否则启动失败 |
 | `METRICS_TOKEN` | — | 指标端点访问令牌；生产必填（留空启动即失败），dev 留空 = 免鉴权 |
 
 ## 日志
@@ -197,7 +197,7 @@ LIVEKIT_SECRET="xxxxxxxx"
 
 ## 配置不生效的排查
 
-- Docker 部署：`docker compose up -d` 重建容器以读取新环境变量，仅 `restart` 无效
+- Docker 部署：`docker compose -f docker-compose.standard.yml up -d`（或显式对应的 `-f` 编排）重建容器以读取新环境变量，仅 `restart` 无效
 - 二进制运行：须重启进程
 - SFU 后台配置存 DB，但非空 env 优先（`LIVEKIT_*` 非空时 DB 仅作回退）；存储后台配置（DB）优先于 env
 

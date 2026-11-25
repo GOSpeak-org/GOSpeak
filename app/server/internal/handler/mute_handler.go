@@ -2,21 +2,21 @@ package handler
 
 import (
 	"fmt"
+	"time"
 
 	"GOSpeak/internal/audit"
 	"GOSpeak/internal/middleware"
 	"GOSpeak/internal/pkg"
 	"GOSpeak/internal/service"
 	"GOSpeak/internal/signal"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 // MuteBroadcaster 禁言事件广播接口，由 signal.Hub 实现
 type MuteBroadcaster interface {
-	BroadcastMute(userID uint, info *signal.MuteInfo)
-	BroadcastUnmute(userID uint)
+	BroadcastMute(userUUID string, info *signal.MuteInfo)
+	BroadcastUnmute(userUUID string)
 }
 
 type MuteHandler struct {
@@ -37,12 +37,12 @@ func NewMuteHandler(muteSvc *service.MuteService, userSvc *service.UserService, 
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request  body      object{user_id=uint,duration=int64,permanent=bool,reason=string}  true  "禁言参数"
+// @Param        request  body      object{user_uuid=string,duration=int64,permanent=bool,reason=string}  true  "禁言参数"
 // @Success      200      {object}  pkg.Response
 // @Router       /mute/create [post]
 func (h *MuteHandler) CreateMute(c *gin.Context) {
 	var req struct {
-		UserID    uint   `json:"user_id" binding:"required"`
+		UserUUID  string `json:"user_uuid" binding:"required"`
 		Duration  int64  `json:"duration"`
 		Permanent bool   `json:"permanent"`
 		Reason    string `json:"reason"`
@@ -51,24 +51,21 @@ func (h *MuteHandler) CreateMute(c *gin.Context) {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
-
 	if !req.Permanent && req.Duration <= 0 {
 		pkg.Fail(c, pkg.INVALID_PARAMS, "duration is required for non-permanent mute")
 		return
 	}
-
-	userUUIDStr := middleware.CurrentUserUUID(c)
-	if userUUIDStr == "" {
+	muterUUID := middleware.CurrentUserUUID(c)
+	if muterUUID == "" {
 		pkg.Fail(c, pkg.TOKEN_NOT_EXIST, "missing user identity in context")
 		return
 	}
-	muter, err := h.userSvc.GetByUUID(userUUIDStr)
+	muter, err := h.userSvc.GetByUUID(muterUUID)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return
 	}
-
-	mute, err := h.muteSvc.MuteUser(muter.ID, req.UserID, req.Duration, req.Permanent, req.Reason)
+	mute, err := h.muteSvc.MuteUser(muterUUID, req.UserUUID, req.Duration, req.Permanent, req.Reason)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return
@@ -80,17 +77,15 @@ func (h *MuteHandler) CreateMute(c *gin.Context) {
 			ActorName:  muter.Name,
 			Action:     audit.ActionMuteUser,
 			TargetType: audit.TargetUser,
-			TargetID:   fmt.Sprintf("%d", req.UserID),
+			TargetID:   req.UserUUID,
 			Detail:     fmt.Sprintf("permanent=%v duration=%ds reason=%q", req.Permanent, req.Duration, req.Reason),
 			IP:         audit.AuditIP(c),
 			Success:    true,
 		})
 	}
-
-	// 广播禁言事件 — convert model.Mute to signal.MuteInfo at the boundary
 	if h.broadcaster != nil {
 		info := &signal.MuteInfo{
-			UserID:    mute.UserID,
+			UserUUID:  mute.UserUUID,
 			Duration:  mute.Duration,
 			Permanent: mute.Permanent,
 			Reason:    mute.Reason,
@@ -98,9 +93,8 @@ func (h *MuteHandler) CreateMute(c *gin.Context) {
 		if mute.ExpiresAt != nil {
 			info.ExpiresAt = mute.ExpiresAt.Format(time.RFC3339)
 		}
-		h.broadcaster.BroadcastMute(req.UserID, info)
+		h.broadcaster.BroadcastMute(req.UserUUID, info)
 	}
-
 	pkg.Success(c, mute)
 }
 
@@ -111,19 +105,18 @@ func (h *MuteHandler) CreateMute(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request  body      object{user_id=uint}  true  "用户 ID"
+// @Param        request  body      object{user_uuid=string}  true  "用户 UUID"
 // @Success      200     {object}  pkg.Response
 // @Router       /mute/cancel [post]
 func (h *MuteHandler) CancelMute(c *gin.Context) {
 	var req struct {
-		UserID uint `json:"user_id" binding:"required"`
+		UserUUID string `json:"user_uuid" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
-
-	if err := h.muteSvc.UnmuteUser(req.UserID); err != nil {
+	if err := h.muteSvc.UnmuteUser(req.UserUUID); err != nil {
 		pkg.HandleError(c, err)
 		return
 	}
@@ -134,17 +127,14 @@ func (h *MuteHandler) CancelMute(c *gin.Context) {
 			ActorName:  un,
 			Action:     audit.ActionUnmuteUser,
 			TargetType: audit.TargetUser,
-			TargetID:   fmt.Sprintf("%d", req.UserID),
+			TargetID:   req.UserUUID,
 			IP:         audit.AuditIP(c),
 			Success:    true,
 		})
 	}
-
-	// 广播取消禁言事件
 	if h.broadcaster != nil {
-		h.broadcaster.BroadcastUnmute(req.UserID)
+		h.broadcaster.BroadcastUnmute(req.UserUUID)
 	}
-
 	pkg.Success(c, nil)
 }
 
@@ -155,24 +145,22 @@ func (h *MuteHandler) CancelMute(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request  body      object{user_id=uint}  true  "用户 ID"
+// @Param        request  body      object{user_uuid=string}  true  "用户 UUID"
 // @Success      200     {object}  pkg.Response
 // @Router       /mute/status [post]
 func (h *MuteHandler) GetMuteStatus(c *gin.Context) {
 	var req struct {
-		UserID uint `json:"user_id" binding:"required"`
+		UserUUID string `json:"user_uuid" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		pkg.Fail(c, pkg.INVALID_PARAMS, err.Error())
 		return
 	}
-
-	mute, err := h.muteSvc.GetMuteStatus(req.UserID)
+	mute, err := h.muteSvc.GetMuteStatus(req.UserUUID)
 	if err != nil {
 		pkg.HandleError(c, err)
 		return
 	}
-
 	pkg.Success(c, mute)
 }
 
@@ -190,6 +178,5 @@ func (h *MuteHandler) ListMutes(c *gin.Context) {
 		pkg.HandleError(c, err)
 		return
 	}
-
 	pkg.Success(c, mutes)
 }

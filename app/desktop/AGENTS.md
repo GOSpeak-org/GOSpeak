@@ -5,7 +5,7 @@ Go 1.27 + MyGo 0.8.3 原生宿主。**自带前端**（embed `webui/dist`），�
 ## 启动链（`main.go`）
 
 1. `RequestSingleInstanceLock`：第二实例把命令行交给已运行实例后退出。
-2. `mygo.Bind(...)` × 12：Window / Tray / Notification / AutoStart / DeepLink / Dialog / Clipboard / Updater / Overlay / ServerConfig / ClientLog / ScreenCapture —— 每个导出方法都会变成 TS 侧 `"<Struct>.<Method>"` 命令。
+2. `mygo.Bind(...)` × 13：Window / Tray / Notification / AutoStart / DeepLink / Dialog / Clipboard / Browser / Updater / Overlay / ServerConfig / ClientLog / ScreenCapture —— 每个导出方法都会变成 TS 侧 `"<Struct>.<Method>"` 命令。
 3. `registerDeepLink()`（`gospeak://invite/d/<CODE>`，必须在 Run 之前）。
 4. `WhenReady`：`initHostLog` → `loadServerConfig` → release 下 `ensureProxyStarted` → `openMainWindow`。
 

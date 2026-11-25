@@ -25,6 +25,27 @@ export {
 	HoverCardTrigger,
 } from "./components/hover-card";
 export {
+	ContextMenu,
+	ContextMenuCheckboxItem,
+	ContextMenuContent,
+	ContextMenuGroup,
+	ContextMenuItem,
+	ContextMenuLabel,
+	ContextMenuPortal,
+	ContextMenuRadioGroup,
+	ContextMenuRadioItem,
+	ContextMenuSeparator,
+	ContextMenuShortcut,
+	ContextMenuSub,
+	ContextMenuSubContent,
+	ContextMenuSubTrigger,
+	ContextMenuTrigger,
+	type ContextMenuItemDescriptor,
+	type ShowContextMenuOptions,
+	closeContextMenu,
+	showContextMenu,
+} from "./components/context-menu";
+export {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,

@@ -4,11 +4,11 @@
 
 | 目录 | 职责 |
 |------|------|
-| `pages/` | TanStack 文件路由：`(app)/` 路由组（index/chat/discover/domain.$domainUUID/profile/manage）、`invite/d/$code`、`login`、`register`、`__root` |
+| `pages/` | TanStack 文件路由：`(app)/` 路由组（index/chat/discover/domain.$domainUUID/profile/manage）、`invite/d/$code`、`settings`、`login`、`register`、`__root` |
 | `layouts/` | 应用外壳 `layout.tsx` + `common/`（header/main/sidebar/domainWorkspace） |
 | `components/` | 业务组件，按 room / chat / textRoom / domain / discover / manage / modal / form / oauth / profile / dashboard 分组；`common/` 含三层错误边界 |
 | `stores/` | zustand：`useXxxStore` hook + `xxxStore` 门面（socket/user/domain/chat/voiceChat/theme/notification/screenShare/…） |
-| `hooks/` | React hooks（media、useUpload、useDeepLinkNavigation、useOverlayRelay、useMemberRoster、useTypingReporter…） |
+| `hooks/` | React hooks（节选：media、useUpload、useDeepLinkNavigation、useOverlayRelay、useMemberRoster、useTypingReporter、移动端 hooks…） |
 | `api/` | `apiClient`(axios) + `authTransport`(懒续期) + 按领域拆分的 typed API |
 | `socket/` | `wsClient` / `events`(重导出 protocol) / `socketEvents` / `roomState` / `providerReload` / `tabLock` |
 | `handler_audio/` | 音频装配：`index`、`speakingStore`、`notificationSounds` |

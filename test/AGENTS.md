@@ -7,6 +7,7 @@ Vitest 集成测试套件（`@gospeak/test`）：**发真实 HTTP/WS 请求**，
 ```
 auth/ user/ role/ domain/ room/ mute/ message/ conversation/
 invite/ announcement/ email/ oauth/ sfu/ signal/ storage/ system/
+room_layout/ domain_layout/
 smoke.test.ts
 helpers/{api.ts, ws.ts}
 globalSetup.ts          # 起停临时 server

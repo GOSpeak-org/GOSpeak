@@ -3,6 +3,7 @@ import type { MemberInfo } from "@/socket/types";
 
 export interface RosterMember {
 	identity: string;
+	user_uuid: string;
 	name: string;
 	display_name: string;
 	avatar: string;
@@ -65,6 +66,7 @@ export function buildMemberRoster({
 		const isMe = dm.name === myName;
 		push({
 			identity: dm.name,
+			user_uuid: dm.user_uuid || "",
 			name: dm.name,
 			display_name: isMe
 				? myUser?.display_name || dm.nickname || dm.display_name || dm.name
@@ -83,6 +85,9 @@ export function buildMemberRoster({
 		const isMe = m.identity === myName;
 		push({
 			identity: m.identity,
+			user_uuid:
+				(domainMembers ?? []).find((d) => d.name === m.identity)?.user_uuid ||
+				"",
 			name: m.name,
 			display_name: isMe
 				? myUser?.display_name || m.display_name || m.name || m.identity

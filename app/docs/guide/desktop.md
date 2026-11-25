@@ -19,10 +19,10 @@ Release，服务端与桌面端产物在同一页），正文顶部即下载表�
 
 | 平台 | 文件 | 安装方式 |
 |------|------|----------|
-| macOS（Apple Silicon） | `gospeak-desktop-v1.0.0-darwin-arm64.dmg` | 打开并将 GOSpeak 拖入「应用程序」 |
-| macOS（Intel） | `gospeak-desktop-v1.0.0-darwin-amd64.dmg` | 同上 |
-| Windows | `gospeak-desktop-v1.0.0-windows-amd64.exe` | 双击安装 |
-| Linux | `gospeak-desktop-v1.0.0-linux-amd64.deb` | 双击即装；也可用 `.tar.gz` 便携包 |
+| macOS（Apple Silicon） | `gospeak-desktop-v<VERSION>-darwin-arm64.dmg` | 打开并将 GOSpeak 拖入「应用程序」 |
+| macOS（Intel） | `gospeak-desktop-v<VERSION>-darwin-amd64.dmg` | 同上 |
+| Windows | `gospeak-desktop-v<VERSION>-windows-amd64.exe` | 双击安装 |
+| Linux | `gospeak-desktop-v<VERSION>-linux-amd64.deb` | 双击即装；也可用 `.tar.gz` 便携包 |
 
 macOS 提供 Apple Silicon 与 Intel 两个版本，需选择匹配版本。
 

@@ -77,7 +77,7 @@ LIVEKIT_SECRET=你的secret
 | 谁能进入哪个房间 | 应用（签令牌时决定） |
 | 房间内有谁 | 两方均有，应用维护自己的状态 |
 | 踢人 | 应用调用 LiveKit 管理 API |
-| 禁言 | 应用调用 LiveKit 管理 API |
+| 禁言 | 应用策略强制（用户级全局）；能力支持时经 LiveKit 媒体层尽力 hard mute |
 | 音频转发 | LiveKit |
 | 谁在说话 | LiveKit 的 active speaker 事件，应用转发给前端 |
 | 房间生命周期 | 应用决定，通知 LiveKit |
@@ -93,13 +93,14 @@ LIVEKIT_SECRET=你的secret
 | 方法 | 路径 | 权限 | 用途 |
 |------|------|------|------|
 | POST | `/api/v1/signal/token` | 登录即可 | 获取进房令牌 |
-| GET | `/api/v1/signal/rooms` | 登录即可 | 列出当前房间 |
-| GET | `/api/v1/signal/participants` | 登录即可 | 列出房间成员 |
+| GET | `/api/v1/signal/rooms` | admin 角色 | 列出当前房间（`RequireRole("admin")`） |
+| GET | `/api/v1/signal/participants` | admin 角色 | 列出房间成员（`RequireRole("admin")`） |
 | GET | `/api/v1/signal/ws-endpoint` | 登录即可 | 获取信令地址 |
 | POST | `/api/v1/signal/webhook` | LiveKit 调用 | 接收房间/成员事件 |
 | POST | `/api/v1/sfu/config` | `sfu:manage` | 读取当前配置 |
 | POST | `/api/v1/sfu/update-config` | `sfu:manage` | 修改配置并激活 |
 | POST | `/api/v1/sfu/providers` | `sfu:manage` | 列出已配置的 provider |
+| POST | `/api/v1/sfu/effective-config` | `sfu:manage` | 读取当前生效配置 |
 
 ## 下一步
 

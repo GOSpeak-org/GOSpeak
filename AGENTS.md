@@ -70,7 +70,7 @@ agent_test_logs/     agent 测试记录（规范见 agent_test_logs/AGENTS.md）
 |------------|------------|
 | 全部 HTTP 路由、分组、中间件 | `app/server/internal/router/routes/*/routes.go`，装配见 `internal/router/router.go` |
 | 数据模型与字段 | `app/server/internal/model/*.go`（`AutoMigrate` 在 `internal/repository/db_migrations.go`） |
-| 全部环境变量与默认值 | `app/server/internal/config/config.go`；样例 `deploy/.env.example`。加载优先级：`GOSPEAK_ENV_FILE` > `.env.<env>`/`.env` > 仓库根 `deploy/.env` |
+| 全部环境变量与默认值 | `app/server/internal/config/config.go`；样例 `deploy/.env.example`。加载优先级：进程环境变量（已设置则不覆盖）> `GOSPEAK_ENV_FILE` > `.env.<env>`/`.env` > 仓库根 `deploy/.env`，逐文件仅填空缺键 |
 | 错误码与 HTTP 映射 | `app/server/internal/pkg/errors.go`、`pkg/response.go` |
 | WS 事件名与 payload | `app/server/internal/protocol/events.go`、`payloads.go`、`message_payloads.go` |
 | WS 事件前端类型 | `app/web/src/protocol/generated/*.ts`（生成物，勿手改） |
@@ -150,7 +150,14 @@ WS 事件协议只有一个定义处：`app/server/internal/protocol`。
 - **桌面能力必须有 Web 降级**：新增能力在 `packages/desktop/src/capabilities/` 里同时提供 native 与 fallback。
 - 构建命令：`pnpm --filter @gospeak/web build:desktop` / `dev:desktop`；移动目标为 `build:mobile` / `dev:mobile`，由 `app/mobile`（Capacitor）装载，平台判定用 `inMobile()`（`@gospeak/mobile-capabilities`）。
 
-### 4.5 Git / 文档卫生
+### 4.5 用户标识只用 UUID
+
+- **禁止用 `UserID` / `user_id` / `userId`（数字自增 ID）标识用户**。用户的跨层唯一标识一律是 `UserUUID` / `user_uuid`（字符串 UUID），贯穿 model、repository、service、handler、HTTP 请求/响应、WS payload、内部事件、前端 API 类型与 store。
+- **允许保留的数字 ID 仅限数据库内部主键**：`User.ID`、`AuditLog.ActorID`、`OAuthAccount.UserID`、`UserGroup.UserID`、`EmailVerificationCode.UserID` 等存量字段作为内部外键/索引仍保留，但不得跨层暴露为新的用户标识，也不得在新接口、新事件、新前端类型中引入 `user_id` / `userId`。
+- **特例**：`MessageReaction` / `MessageMention` 的 `UserID` 存的是用户名/identity 字符串，不是数字用户 ID；这是历史 wire 契约，不要改动，也不要照此新增字段。
+- 新增代码在命名时优先选 `UserUUID` / `user_uuid`；看到 `UserID` / `user_id` 先确认是否属于上述存量例外，凡是要表达「哪个用户」的新代码一律用 UUID。
+
+### 4.6 Git / 文档卫生
 
 - **Conventional Commits**（`feat:` / `fix:` / `refactor:` / `docs:` / `chore:` …），由 commitlint + lefthook 强制。
 - **分支**：只有 `release` 一条常驻分支（生产，默认分支），是唯一的事实源；其余分支均为从 `release` 拉出、合并后即删的短期分支——按日迭代分支 `dev-MMDD`、功能分支 `feature/*`、修复分支 `fix/*`。不设长期 `dev` 分支。PR 前确认 lint、typecheck、build 通过。

@@ -26,9 +26,9 @@ func TestUserGroupRepo_ListAndRename(t *testing.T) {
 	repo := NewUserGroupRepository(db)
 
 	groups := []*model.UserGroup{
-		{UserID: 1, GroupName: "朋友"},
-		{UserID: 1, GroupName: "队友"},
-		{UserID: 2, GroupName: "朋友"},
+		{UserUUID: "user-uuid-1", GroupName: "朋友"},
+		{UserUUID: "user-uuid-1", GroupName: "队友"},
+		{UserUUID: "user-uuid-2", GroupName: "朋友"},
 	}
 	for _, group := range groups {
 		if err := repo.Create(group); err != nil {
@@ -36,7 +36,7 @@ func TestUserGroupRepo_ListAndRename(t *testing.T) {
 		}
 	}
 
-	got, err := repo.ListByUser(1)
+	got, err := repo.ListByUser("user-uuid-1")
 	if err != nil {
 		t.Fatal(err)
 	}

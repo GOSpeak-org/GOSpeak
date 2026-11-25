@@ -11,8 +11,8 @@ import (
 type Mute struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	UUID      string     `gorm:"type:uuid;uniqueIndex" json:"uuid"`
-	UserID    uint       `gorm:"uniqueIndex" json:"user_id"`
-	MuterID   uint       `json:"muter_id"`
+	UserUUID  string     `gorm:"type:uuid;uniqueIndex;not null" json:"user_uuid"`
+	MuterUUID string     `gorm:"type:uuid;index" json:"muter_uuid"`
 	Duration  int64      `json:"duration"` // 禁言秒数，0 = 永久
 	Permanent bool       `gorm:"default:false" json:"permanent"`
 	ExpiresAt *time.Time `json:"expires_at"` // nil = 永久禁言
@@ -21,9 +21,7 @@ type Mute struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 }
 
-func (Mute) TableName() string {
-	return "mutes"
-}
+func (Mute) TableName() string { return "mutes" }
 
 func (m *Mute) BeforeCreate(_ *gorm.DB) error {
 	if m.UUID == "" {

@@ -31,7 +31,7 @@
 - `7882/tcp` 媒体兜底
 - `3478/udp` TURN
 
-媒体端口未开放时语音无法正常工作。**7880 / 7881 不需要对公网开放**：7880 只绑宿主机回环供本机调试，LiveKit 信令对外走应用内置的同源反向代理 `/livekit`。云服务器上需要在系统防火墙和云厂商安全组中同时放行。
+媒体端口未开放时语音无法正常工作。**全档位（`-f deploy/docker-compose.standard.yml`）下 7880 / 7881 不需要对公网开放**：7880 只绑宿主机回环供本机调试，LiveKit 信令对外走应用内置的同源反向代理 `/livekit`。注意精简版 `deploy/docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产务必使用全档位或自配防火墙。云服务器上需要在系统防火墙和云厂商安全组中同时放行媒体端口。
 
 ### 能否部署到群晖 NAS？
 
@@ -109,7 +109,7 @@
 ### 「静音」与「禁言」的差异
 
 - **静音**：仅影响本地听到的声音，其他成员不受影响
-- **禁言**：服务端强制执行，被禁言的成员无法发送声音，但仍可以收听
+- **禁言**：用户级全局禁言，由服务端用户策略强制执行（能力支持时经 LiveKit 媒体层尽力 hard mute，`enforcement` 取 `hard` / `degraded` / `soft`），被禁言者无法发送声音但仍可收听
 
 ## 配置相关
 
@@ -131,7 +131,7 @@ Docker 部署还需要修改 compose 中的端口映射。
 
 ### 配置修改后不生效的排查
 
-Docker 部署需要使用 `docker compose up -d`，不能使用 `restart`——后者不会重新读取环境变量。
+Docker 部署需要使用 `docker compose -f docker-compose.standard.yml up -d`（或显式对应的 `-f` 编排），不能使用 `restart`——后者不会重新读取环境变量。
 
 存储/邮件/OAuth 为数据库配置优先；SFU 相反——非空的 `LIVEKIT_HOST` / `LIVEKIT_KEY` / `LIVEKIT_SECRET` 环境变量优先，数据库值仅在对应 env 留空时生效。
 
@@ -164,7 +164,7 @@ Docker 部署需要使用 `docker compose up -d`，不能使用 `restart`——�
 ```bash
 git pull
 cd deploy
-docker compose up -d --build
+docker compose -f docker-compose.standard.yml up -d --build
 ```
 
 数据库表结构自动迁移，升级前应先备份。

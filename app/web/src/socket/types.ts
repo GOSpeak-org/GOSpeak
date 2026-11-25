@@ -29,14 +29,14 @@ export interface RoomInfo {
 }
 
 export interface MuteEvent {
-	user_id: number;
+	user_uuid: string;
 	permanent: boolean;
 	expires_at: string | null;
 	reason: string;
 }
 
 export interface UnmuteEvent {
-	user_id: number;
+	user_uuid: string;
 }
 
 export interface ActivityEvent {

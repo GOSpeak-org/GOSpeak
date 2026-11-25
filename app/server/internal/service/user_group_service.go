@@ -24,35 +24,35 @@ func NewUserGroupService(repo *repository.UserGroupRepository) *UserGroupService
 	return &UserGroupService{repo: repo}
 }
 
-func (s *UserGroupService) List(userID uint) ([]model.UserGroup, error) {
-	groups, err := s.repo.ListByUser(userID)
+func (s *UserGroupService) List(userUUID string) ([]model.UserGroup, error) {
+	groups, err := s.repo.ListByUser(userUUID)
 	if err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	return groups, nil
 }
 
-func (s *UserGroupService) Create(userID uint, groupName string) (*model.UserGroup, error) {
+func (s *UserGroupService) Create(userUUID, groupName string) (*model.UserGroup, error) {
 	name, err := validateUserGroupName(groupName)
 	if err != nil {
 		return nil, err
 	}
-	existing, err := s.repo.FindByName(userID, name)
+	existing, err := s.repo.FindByName(userUUID, name)
 	if err == nil && existing != nil {
 		return nil, pkg.NewAppError(pkg.ALREADY_EXISTS, "user group already exists")
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
-	group := &model.UserGroup{UserID: userID, GroupName: name}
+	group := &model.UserGroup{UserUUID: userUUID, GroupName: name}
 	if err := s.repo.Create(group); err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	return group, nil
 }
 
-func (s *UserGroupService) Rename(id, userID uint, groupName string) error {
-	group, err := s.getOwnedGroup(id, userID)
+func (s *UserGroupService) Rename(id uint, userUUID, groupName string) error {
+	group, err := s.getOwnedGroup(id, userUUID)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (s *UserGroupService) Rename(id, userID uint, groupName string) error {
 	if group.GroupName == name {
 		return nil
 	}
-	existing, err := s.repo.FindByName(userID, name)
+	existing, err := s.repo.FindByName(userUUID, name)
 	if err == nil && existing != nil {
 		return pkg.NewAppError(pkg.ALREADY_EXISTS, "user group already exists")
 	}
@@ -76,8 +76,8 @@ func (s *UserGroupService) Rename(id, userID uint, groupName string) error {
 	return nil
 }
 
-func (s *UserGroupService) Delete(id, userID uint) error {
-	if _, err := s.getOwnedGroup(id, userID); err != nil {
+func (s *UserGroupService) Delete(id uint, userUUID string) error {
+	if _, err := s.getOwnedGroup(id, userUUID); err != nil {
 		return err
 	}
 	if err := s.repo.Delete(id); err != nil {
@@ -86,7 +86,7 @@ func (s *UserGroupService) Delete(id, userID uint) error {
 	return nil
 }
 
-func (s *UserGroupService) getOwnedGroup(id, userID uint) (*model.UserGroup, error) {
+func (s *UserGroupService) getOwnedGroup(id uint, userUUID string) (*model.UserGroup, error) {
 	group, err := s.repo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -94,7 +94,7 @@ func (s *UserGroupService) getOwnedGroup(id, userID uint) (*model.UserGroup, err
 		}
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
-	if group.UserID != userID {
+	if group.UserUUID != userUUID {
 		return nil, ErrUserGroupNotFound
 	}
 	return group, nil

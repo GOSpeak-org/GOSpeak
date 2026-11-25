@@ -119,6 +119,8 @@ showNotification({ title: "有人邀请你加入语音房", body: "点击加入"
 | 服务器地址 | `createServerConfig()` | `ServerConfig.*` | `localStorage` |
 | 客户端日志副本 | `createClientLog()` | `ClientLog.*` | 全部 no-op（`snapshot()` 返回空数组） |
 | 屏幕录制权限 | `checkScreenRecording()` / `guideScreenRecording()` | `ScreenCapture.Check` / `ScreenCapture.Guide` | 返回 `"granted"` |
+| 剪贴板 | `createClipboard()` | `Clipboard.*` | Web Clipboard API |
+| 浏览器外链 | `createBrowser()` | `Browser.*` | `window.open` |
 
 `createDesktop()` 只聚合其中常用的 6 项（`window` / `tray` / `autostart` / `updater` / `overlay` / `clientLog`）；
 通知、深链、对话框、服务器地址、屏幕录制权限按需直接调用上表的具名导出。

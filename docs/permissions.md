@@ -185,8 +185,8 @@ middleware.RequireOwnerOrPermission("room_owner", permcode.PermRoomUpdate)
 | POST | `/api/v1/sfu/providers` | `sfu:manage` | Provider 列表 |
 | **信令** | | | |
 | POST | `/api/v1/signal/token` | JWT | 获取加入 Token |
-| GET | `/api/v1/signal/rooms` | JWT | 房间列表 |
-| GET | `/api/v1/signal/participants` | JWT | 房间参与者 |
+| GET | `/api/v1/signal/rooms` | admin 角色 | 房间列表（`RequireRole("admin")`） |
+| GET | `/api/v1/signal/participants` | admin 角色 | 房间参与者（`RequireRole("admin")`） |
 | GET | `/api/v1/signal/ws-endpoint` | JWT | WebSocket 连接地址 |
 | **存储** | | | |
 | POST | `/api/v1/storage/presign` | JWT | 预签名上传 |
@@ -301,6 +301,10 @@ WebSocket 连接通过 `WSAuth` 中间件鉴权（JWT）。
 | `room:list` | JWT | 房间列表 |
 | `room:kick` | `signal:kick` | 踢出房间 |
 | `member:speaking` | JWT | 上报本端发言状态（C→S） |
+| `user:muted` / `user:unmuted` | JWT | 当前用户被禁言/解禁（含 `enforcement` 与原因/到期时间） |
+| `member:muted` / `member:unmuted` | JWT | 成员级订阅端静音/恢复（全员订阅） |
+
+> 本表为摘要；精确事件清单与 payload 以 `app/server/internal/protocol/events.go` 为准。
 
 ---
 

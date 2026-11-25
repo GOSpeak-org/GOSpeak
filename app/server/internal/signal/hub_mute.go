@@ -11,7 +11,7 @@ import (
 // BroadcastMute 广播禁言事件到所有客户端。
 // 禁言策略始终以信令/业务层为准（始终 soft 可达）；若当前 SFU 支持 ServerMute，
 // 再尽力对在线房间做媒体 hard/degraded mute，并在事件里标注 enforcement。
-func (h *Hub) BroadcastMute(userID uint, info *MuteInfo) {
+func (h *Hub) BroadcastMute(userUUID string, info *MuteInfo) {
 	ttlSeconds := 0
 	permanent := false
 	reason := ""
@@ -24,14 +24,14 @@ func (h *Hub) BroadcastMute(userID uint, info *MuteInfo) {
 			ttlSeconds = int(info.Duration)
 		}
 	}
-	identity := h.identityForUserID(userID)
+	identity := h.identityForUserUUID(userUUID)
 	var rooms []string
 	if identity != "" {
 		rooms = h.roomsForIdentity(identity)
 	}
 	enforcement := h.enforceUserMediaMuteInRooms(identity, rooms, true, ttlSeconds)
 	data := map[string]interface{}{
-		"user_id":     userID,
+		"user_uuid":   userUUID,
 		"permanent":   permanent,
 		"reason":      reason,
 		"enforcement": enforcement,
@@ -51,15 +51,15 @@ func (h *Hub) BroadcastMute(userID uint, info *MuteInfo) {
 }
 
 // BroadcastUnmute 广播取消禁言事件到所有客户端。
-func (h *Hub) BroadcastUnmute(userID uint) {
-	identity := h.identityForUserID(userID)
+func (h *Hub) BroadcastUnmute(userUUID string) {
+	identity := h.identityForUserUUID(userUUID)
 	var rooms []string
 	if identity != "" {
 		rooms = h.roomsForIdentity(identity)
 	}
 	enforcement := h.enforceUserMediaMuteInRooms(identity, rooms, false, 0)
 	h.publishNamespace(EventUserUnmuted, map[string]interface{}{
-		"user_id":     userID,
+		"user_uuid":   userUUID,
 		"enforcement": enforcement,
 	})
 	if identity != "" {
@@ -67,10 +67,10 @@ func (h *Hub) BroadcastUnmute(userID uint) {
 	}
 }
 
-// enforceUserMediaMute 在支持 ServerMute 的 provider 上，对 userID 当前所在房间做媒体层 mute/unmute。
+// enforceUserMediaMute 在支持 ServerMute 的 provider 上，对 userUUID 当前所在房间做媒体层 mute/unmute。
 // 返回 hard|degraded|soft。多房间必须全部成功才返回非 soft。
-func (h *Hub) enforceUserMediaMute(userID uint, muted bool, ttlSeconds int) string {
-	identity := h.identityForUserID(userID)
+func (h *Hub) enforceUserMediaMute(userUUID string, muted bool, ttlSeconds int) string {
+	identity := h.identityForUserUUID(userUUID)
 	return h.enforceUserMediaMuteByIdentity(identity, muted, ttlSeconds)
 }
 
@@ -202,14 +202,14 @@ func (h *Hub) roomsForIdentity(identity string) []string {
 	return rooms
 }
 
-// identityForUserID resolves username from userStore by numeric user id.
-func (h *Hub) identityForUserID(userID uint) string {
-	if h.userStore == nil {
+// identityForUserUUID resolves username from userStore by user UUID.
+func (h *Hub) identityForUserUUID(userUUID string) string {
+	if h.userStore == nil || userUUID == "" {
 		return ""
 	}
-	user, err := h.userStore.GetByID(userID)
+	user, err := h.userStore.GetByUUID(userUUID)
 	if err != nil || user == nil {
-		logger.WithComponent("Signal").Infof("[Signal] identityForUserID failed userID=%d err=%v", userID, err)
+		logger.WithComponent("Signal").Infof("[Signal] identityForUserUUID failed userUUID=%s err=%v", userUUID, err)
 		return ""
 	}
 	return user.Name

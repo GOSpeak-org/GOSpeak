@@ -43,10 +43,11 @@ EMAIL_CODE_SECRET=<随机字符串>
 openssl rand -hex 32
 ```
 
-修改完成后重启服务：
+修改完成后重启服务（必须显式带 `-f`，裸命令只会选中精简版）：
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.standard.yml up -d
+# 精简起步版（无 edge/postgres/观察档位）：docker compose -f docker-compose.yml up -d
 ```
 
 ## 验证配置
@@ -96,7 +97,7 @@ curl -X POST https://voice.example.com/api/v1/email/send_code \
 使用专门的邮件推送服务可以避免大部分此类问题。
 
 **配置修改后未生效**
-Docker 部署需要执行 `docker compose up -d` 重建容器，`restart` 不会重新读取环境变量。如果之前在后台修改过配置，数据库中的值会覆盖环境变量。
+Docker 部署需要执行 `docker compose -f docker-compose.standard.yml up -d`（或显式对应的 `-f` 编排）重建容器，`restart` 不会重新读取环境变量。如果之前在后台修改过配置，数据库中的值会覆盖环境变量。
 
 ## 相关接口
 

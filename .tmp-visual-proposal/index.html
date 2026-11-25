@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOSpeak · 布局 UI 视觉升级方案</title>
+<style>
+  :root{
+    --primary:#5b4bdb; --primary-deep:#4a38c7; --lime:#c8f542; --lime-deep:#a8d92a;
+    --bg:#f6f7f9; --card:#ffffff; --muted:#f1f3f6; --border:#e6e8ec;
+    --fg:#16171c; --fg-2:#6b7280; --fg-3:#9aa1ac;
+    --radius:12px;
+    font-family:"Inter Variable","Noto Sans SC",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1500px;margin:0 auto;padding:32px 28px 60px}
+  header.top{margin-bottom:26px}
+  header.top h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
+  header.top p{color:var(--fg-2);font-size:14px;margin-top:6px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--fg-2)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+  @media(max-width:1100px){.compare{grid-template-columns:1fr}}
+  .stage{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+  .stage-hd{padding:12px 16px;background:#fbfbfc;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .stage-hd .tag{font-size:12px;font-weight:700;color:var(--fg)}
+  .stage-hd .tag.new{color:var(--primary)}
+  .stage-hd .meta{font-size:11px;color:var(--fg-3)}
+  .screen{display:flex;min-height:610px;background:var(--bg)}
+  /* 侧栏 */
+  .side{width:76px;flex-shrink:0;border-right:1px solid var(--border);background:#fff;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:12px}
+  .nav-icon{width:44px;height:44px;border-radius:12px;background:var(--lime);display:flex;align-items:center;justify-content:center;color:#1b1b1b}
+  .nav-icon.off{background:#eef0f3;color:var(--fg-3)}
+  .nav-icon svg{width:20px;height:20px}
+  .side .avatar{margin-top:auto;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#a3b8ff,#7c6cf0)}
+  /* 主区 */
+  .main{flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+  .crumb{font-size:11px;color:var(--fg-3)}
+  .page-title{display:flex;align-items:center;justify-content:space-between}
+  .page-title h2{font-size:17px;font-weight:800}
+  .page-title .sub{font-size:11px;color:var(--fg-3);margin-top:2px}
+  .btn-primary{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .hero{background:linear-gradient(120deg,var(--primary),var(--primary-deep));border-radius:14px;padding:22px 24px;color:#fff;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:0;background-image:linear-gradient(to right,rgba(255,255,255,.10) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,.10) 1px,transparent 1px);background-size:30px 30px;mask-image:linear-gradient(to bottom,#000,transparent 85%);opacity:.45}
+  .hero::after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.14);filter:blur(28px);top:-90px;right:-60px}
+  .hero>*{position:relative;z-index:1}
+  .hero h3{font-size:19px;font-weight:800}
+  .hero p{font-size:12px;opacity:.82;margin-top:4px}
+  .hero-search{display:flex;gap:8px;margin-top:14px;max-width:440px}
+  .hero-search input{flex:1;height:36px;border-radius:7px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;padding:0 12px;font-size:12px;outline:none}
+  .hero-search input::placeholder{color:rgba(255,255,255,.7)}
+  .hero-search button{height:36px;border:none;border-radius:7px;background:#fff;color:var(--primary);font-size:12px;font-weight:700;padding:0 16px;cursor:pointer}
+  .chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .chip{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:6px 12px;font-size:11px;display:inline-flex;align-items:center;gap:6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:700px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .card-hd{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .card-hd b{font-size:13px}
+  .card-hd small{font-size:11px;color:var(--fg-3)}
+  .card-bd{padding:14px;min-height:120px;display:flex;align-items:center;justify-content:center;color:var(--fg-3);font-size:12px}
+  .field{height:34px;border:1px solid var(--border);border-radius:7px;background:#fff;padding:0 10px;display:flex;align-items:center;font-size:11px;color:var(--fg-3);margin-bottom:8px}
+  .btn-wide{height:34px;border:none;border-radius:7px;background:var(--primary);color:#fff;font-size:12px;font-weight:700;width:100%;cursor:pointer}
+  .domain-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:9px}
+  .domain-ico{width:38px;height:38px;border-radius:9px;background:var(--lime);display:flex;align-items:center;justify-content:center;font-weight:800;color:#1b1b1b;font-size:14px}
+  .domain-row b{font-size:12px;display:block}
+  .domain-row small{font-size:11px;color:var(--fg-3)}
+  .go{margin-left:auto;font-size:11px;border:1px solid var(--border);border-radius:6px;padding:5px 9px;background:#fff;cursor:pointer}
+  /* === 升级版专属视觉层（全部为纯 CSS 覆盖，不改布局结构） === */
+  .screen.up .side .nav-icon{box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 2px 6px rgba(168,217,42,.35)}
+  .screen.up .side .nav-icon.off{box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+  .screen.up .hero{box-shadow:0 6px 20px rgba(91,75,219,.28),inset 0 1px 0 rgba(255,255,255,.18)}
+  .screen.up .hero::after{background:rgba(255,255,255,.2)}
+  .screen.up .chip{backdrop-filter:blur(4px);transition:background .18s,transform .18s}
+  .screen.up .chip:hover{background:rgba(255,255,255,.22);transform:translateY(-1px)}
+  .screen.up .hero-search input{box-shadow:inset 0 1px 3px rgba(0,0,0,.12)}
+  .screen.up .hero-search input:focus{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+  .screen.up .card{box-shadow:0 1px 2px rgba(20,22,30,.05),0 6px 18px rgba(20,22,30,.035)}
+  .screen.up .card-hd{position:relative}
+  .screen.up .card-hd::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--primary)}
+  .screen.up .field:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(91,75,219,.12)}
+  .screen.up .domain-row{box-shadow:inset 0 0 0 1px rgba(200,245,66,.18);transition:box-shadow .18s,transform .18s}
+  .screen.up .domain-row:hover{box-shadow:0 4px 14px rgba(20,22,30,.07);transform:translateY(-1px)}
+  .screen.up .domain-ico{box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 2px 8px rgba(168,217,42,.3)}
+  .screen.up .btn-primary,.screen.up .btn-wide{box-shadow:0 2px 8px rgba(91,75,219,.25)}
+  /* 标注 */
+  .notes{margin-top:24px;border:1px solid var(--border);border-radius:16px;background:#fff;padding:20px 24px}
+  .notes h3{font-size:15px;margin-bottom:12px}
+  .notes ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}
+  @media(max-width:900px){.notes ul{grid-template-columns:1fr}}
+  .notes li{font-size:13px;color:var(--fg-2);padding-left:18px;position:relative}
+  .notes li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:50%;background:var(--primary);opacity:.65}
+  .notes li b{color:var(--fg);font-weight:700}
+  .footer-note{margin-top:16px;font-size:12px;color:var(--fg-3);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>GOSpeak · 布局 UI 视觉升级方案</h1>
+    <p>只在现有布局与组件结构上叠加视觉层增强，不改功能、不改数据流、不改主题 token 体系。左为当前，右为升级后。</p>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--primary)"></i>品牌主色 / 焦点柔光</span>
+      <span><i class="dot" style="background:var(--lime)"></i>荧光绿导航与域图标质感</span>
+      <span><i class="dot" style="background:#cfd5de"></i>卡片发丝阴影 / 装饰线</span>
+    </div>
+  </header>
+
+  <div class="compare">
+    <!-- 当前 -->
+    <div class="stage">
+      <div class="stage-hd"><span class="tag">当前布局 UI</span><span class="meta">现状对照</span></div>
+      <div class="screen">
+        <aside class="side">
+          <div class="nav-icon" title="首页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></div>
+          <div class="nav-icon off" title="聊天"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></div>
+          <div class="nav-icon off" title="域"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+          <div class="nav-icon off" title="管理"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5z"/></svg></div>
+          <div class="avatar"></div>
+        </aside>
+        <div class="main">
+          <div class="crumb">首页 / 发现域</div>
+          <div class="page-title">
+            <div><h2>发现域</h2><div class="sub">搜索公开语音域，或通过邀请码加入</div></div>
+            <button class="btn-primary">＋ 新建域</button>
+          </div>
+          <div class="hero">
+            <h3>找到你的下一个语音房</h3>
+            <p>搜索公开语音域，或粘贴好友的邀请码即刻加入</p>
+            <form class="hero-search" onsubmit="return false">
+              <input placeholder="搜索域名称 / 描述，或粘贴邀请码…">
+              <button>搜索</button>
+            </form>
+            <div class="chips"><span class="chip">⤨ 随机加入房间</span><span class="chip">↗ 前往我的域</span></div>
+          </div>
+          <div class="grid2">
+            <div class="card">
+              <div class="card-hd"><b>查找并加入</b><small>搜索公开域或粘贴邀请码</small></div>
+              <div class="card-bd" style="display:block">
+                <div class="field">搜索域名称或描述</div>
+                <button class="btn-wide" style="margin-bottom:8px">搜索</button>
+                <div style="text-align:center;color:#9aa1ac;margin:8px 0">或</div>
+                <div class="field">粘贴邀请码或邀请链接</div>
+                <div class="field">查看邀请</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><b>公开域</b><small>0 个公开域 · 刷新</small></div>
+              <div class="card-bd">暂无公开域</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><b>我的域</b><small>快捷进入已加入的语音域</small></div>
+            <div class="card-bd" style="display:block">
+              <div class="domain-row">
+                <div class="domain-ico">默</div>
+                <div><b>默认域</b><small>系统默认语音域</small></div>
+                <button class="go">🎧 进入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 升级后 -->
+    <div class="stage">
+      <div class="stage-hd"><span class="tag new">视觉升级后</span><span class="meta">仅叠加视觉层 · 布局不变</span></div>
+      <div class="screen up">
+        <aside class="side">
+          <div class="nav-icon" title="首页"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></div>
+          <div class="nav-icon off" title="聊天"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></div>
+          <div class="nav-icon off" title="域"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div>
+          <div class="nav-icon off" title="管理"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5z"/></svg></div>
+          <div class="avatar"></div>
+        </aside>
+        <div class="main">
+          <div class="crumb">首页 / 发现域</div>
+          <div class="page-title">
+            <div><h2>发现域</h2><div class="sub">搜索公开语音域，或通过邀请码加入</div></div>
+            <button class="btn-primary">＋ 新建域</button>
+          </div>
+          <div class="hero">
+            <h3>找到你的下一个语音房</h3>
+            <p>搜索公开语音域，或粘贴好友的邀请码即刻加入</p>
+            <form class="hero-search" onsubmit="return false">
+              <input placeholder="搜索域名称 / 描述，或粘贴邀请码…">
+              <button>搜索</button>
+            </form>
+            <div class="chips"><span class="chip">⤨ 随机加入房间</span><span class="chip">↗ 前往我的域</span></div>
+          </div>
+          <div class="grid2">
+            <div class="card">
+              <div class="card-hd"><b>查找并加入</b><small>搜索公开域或粘贴邀请码</small></div>
+              <div class="card-bd" style="display:block">
+                <div class="field">搜索域名称或描述</div>
+                <button class="btn-wide" style="margin-bottom:8px">搜索</button>
+                <div style="text-align:center;color:#9aa1ac;margin:8px 0">或</div>
+                <div class="field">粘贴邀请码或邀请链接</div>
+                <div class="field">查看邀请</div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hd"><b>公开域</b><small>0 个公开域 · 刷新</small></div>
+              <div class="card-bd">暂无公开域</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><b>我的域</b><small>快捷进入已加入的语音域</small></div>
+            <div class="card-bd" style="display:block">
+              <div class="domain-row">
+                <div class="domain-ico">默</div>
+                <div><b>默认域</b><small>系统默认语音域</small></div>
+                <button class="go">🎧 进入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h3>改动点清单（全部为视觉层，不碰布局 / 功能 / token）</h3>
+    <ul>
+      <li><b>导航图标质感</b>：荧光绿底加内高光 + 柔和外发光，未选中项仅内高光，层级更清楚。</li>
+      <li><b>Hero 立体感</b>：紫色渐变加外阴影与内高光，光晕更柔，网格背景与光斑更有空间感。</li>
+      <li><b>快捷胶囊</b>：加毛玻璃与 hover 微上浮，提示这是可点区域。</li>
+      <li><b>搜索框反馈</b>：内阴影增强凹陷感，聚焦时白色描边 + 柔光圈，输入更"被响应"。</li>
+      <li><b>卡片发丝阴影</b>：白卡从纯边框升级为极淡双层阴影，面板浮起但不厚重。</li>
+      <li><b>卡片标题装饰线</b>：标题区左侧加 3px 品牌色竖线，强化区块识别，不占布局空间。</li>
+      <li><b>输入聚焦反馈</b>：普通输入框聚焦时主色描边 + 柔光圈，与 Hero 搜索框一致。</li>
+      <li><b>域行与图标</b>：域行加荧光绿微描边、hover 微上浮；域图标加内高光与柔光，呼应侧栏。</li>
+      <li><b>主按钮</b>：所有主色按钮加轻投影，点击层次更明确。</li>
+    </ul>
+  </div>
+  <div class="footer-note">所有增强均可用现有 CSS 变量与工具类实现 · 支持亮/暗主题 · 支持 prefers-reduced-motion 降级</div>
+</div>
+</body>
+</html>

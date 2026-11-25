@@ -7,7 +7,7 @@
 | 文件 | 范围 |
 |------|------|
 | `permcode.go` | 平台级权限：`room:*` `user:*` `role:*` `mute:manage` `sfu:manage` `email_config:*` `message:*` `storage:*` `oauth:*` `audit:read` `announcement:*` `signal:kick` |
-| `domain_permcode.go` | 域内权限：`domain:create/read/manage/delete/invite/invite:manage/member:review/kick/role:manage` |
+| `domain_permcode.go` | 域内权限：`domain:create/read/manage/delete/invite/invite:manage/member:review/kick/role:manage/room-layout:manage` |
 
 ## 命名
 

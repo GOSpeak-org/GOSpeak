@@ -135,11 +135,11 @@ func TestRemoveParticipantSafe_SoftOnSFUError(t *testing.T) {
 
 func TestEnforceUserMediaMute_SoftWithoutServerMute(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		1: {ID: 1, Name: "alice"},
+		1: {ID: 1, UUID: "1", Name: "alice"},
 	}}, nil)
 	p := &capsProvider{caps: sfu.Capabilities{MuteLevel: sfu.EnforcementSoft}}
 	hub.SetSFU(p)
-	if got := hub.enforceUserMediaMute(1, true, 60); got != sfu.EnforcementSoft {
+	if got := hub.enforceUserMediaMute("1", true, 60); got != sfu.EnforcementSoft {
 		t.Fatalf("enforcement=%q, want soft", got)
 	}
 	if len(p.muted) != 0 {
@@ -149,7 +149,7 @@ func TestEnforceUserMediaMute_SoftWithoutServerMute(t *testing.T) {
 
 func TestEnforceUserMediaMute_DegradedWhenOnlineAndSupported(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		1: {ID: 1, Name: "alice"},
+		1: {ID: 1, UUID: "1", Name: "alice"},
 	}}, nil)
 	p := &capsProvider{caps: sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementDegraded}}
 	hub.SetSFU(p)
@@ -161,7 +161,7 @@ func TestEnforceUserMediaMute_DegradedWhenOnlineAndSupported(t *testing.T) {
 		MicMuted: make(map[string]bool),
 		Speaking: make(map[string]bool),
 	}
-	if got := hub.enforceUserMediaMute(1, true, 120); got != sfu.EnforcementDegraded {
+	if got := hub.enforceUserMediaMute("1", true, 120); got != sfu.EnforcementDegraded {
 		t.Fatalf("enforcement=%q, want degraded", got)
 	}
 	if !p.timed || p.ttlSeen != 120 {
@@ -171,7 +171,7 @@ func TestEnforceUserMediaMute_DegradedWhenOnlineAndSupported(t *testing.T) {
 
 func TestEnforceUserMediaMute_PartialMultiRoomIsSoft(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		1: {ID: 1, Name: "alice"},
+		1: {ID: 1, UUID: "1", Name: "alice"},
 	}}, nil)
 	p := &capsProvider{
 		caps:        sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementHard},
@@ -180,7 +180,7 @@ func TestEnforceUserMediaMute_PartialMultiRoomIsSoft(t *testing.T) {
 	hub.SetSFU(p)
 	hub.rooms["a"] = &Room{Name: "a", Members: map[string]*MemberInfo{"1": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
 	hub.rooms["b"] = &Room{Name: "b", Members: map[string]*MemberInfo{"2": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
-	if got := hub.enforceUserMediaMute(1, true, 10); got != sfu.EnforcementSoft {
+	if got := hub.enforceUserMediaMute("1", true, 10); got != sfu.EnforcementSoft {
 		t.Fatalf("enforcement=%q, want soft when one of two rooms fails", got)
 	}
 	if len(p.muted) != 2 {
@@ -197,13 +197,13 @@ func TestEnforceUserMediaMute_PartialMultiRoomIsSoft(t *testing.T) {
 
 func TestEnforceUserMediaMute_AllRoomsSucceedIsHard(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		1: {ID: 1, Name: "alice"},
+		1: {ID: 1, UUID: "1", Name: "alice"},
 	}}, nil)
 	p := &capsProvider{caps: sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementHard}}
 	hub.SetSFU(p)
 	hub.rooms["a"] = &Room{Name: "a", Members: map[string]*MemberInfo{"1": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
 	hub.rooms["b"] = &Room{Name: "b", Members: map[string]*MemberInfo{"2": {Identity: "alice"}}, MicMuted: map[string]bool{}, Speaking: map[string]bool{}}
-	if got := hub.enforceUserMediaMute(1, true, 10); got != sfu.EnforcementHard {
+	if got := hub.enforceUserMediaMute("1", true, 10); got != sfu.EnforcementHard {
 		t.Fatalf("enforcement=%q, want hard when every room succeeds", got)
 	}
 	if len(p.muted) != 2 {
@@ -225,7 +225,7 @@ func TestEnforcementFromLevelHelper(t *testing.T) {
 
 func TestBroadcastMute_PermanentUsesLongTTL(t *testing.T) {
 	hub := NewHub(nil, nil, &idUserStore{users: map[uint]*model.User{
-		1: {ID: 1, Name: "alice"},
+		1: {ID: 1, UUID: "1", Name: "alice"},
 	}}, nil)
 	p := &capsProvider{caps: sfu.Capabilities{ServerMute: true, MuteLevel: sfu.EnforcementDegraded}}
 	hub.SetSFU(p)
@@ -238,7 +238,7 @@ func TestBroadcastMute_PermanentUsesLongTTL(t *testing.T) {
 		Speaking: make(map[string]bool),
 	}
 
-	hub.BroadcastMute(1, &MuteInfo{Permanent: true})
+	hub.BroadcastMute("1", &MuteInfo{Permanent: true})
 	if p.ttlSeen != sfu.PermanentMuteTTLSeconds {
 		t.Fatalf("permanent mute ttl=%d, want %d", p.ttlSeen, sfu.PermanentMuteTTLSeconds)
 	}

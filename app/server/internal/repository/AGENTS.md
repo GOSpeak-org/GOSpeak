@@ -14,7 +14,7 @@
 
 ## 仓储
 
-`user_repo` `user_group_repo` `role_repo` `permission_repo` `audit`（在 handler 侧）`domain_repo` `domain_role_repo` `domain_invite_repo` `domain_join_request_repo` `room_repo` `message_repo` `conversation_repo` `mute_repo` `email_config_repo` `email_verification_code_repo` `oauth_provider_repo` `oauth_account_repo` `sfu_config_repo` `storage_config_repo` `announcement_repo`
+`user_repo` `user_group_repo` `role_repo` `permission_repo` `audit`（在 handler 侧）`domain_repo` `domain_role_repo` `domain_invite_repo` `domain_join_request_repo` `room_repo` `message_repo` `conversation_repo` `mute_repo` `email_config_repo` `email_verification_code_repo` `oauth_provider_repo` `oauth_account_repo` `sfu_config_repo` `storage_config_repo` `announcement_repo` `push_token_repo` `room_layout_repo` `user_domain_layout_repo`
 
 ## 约定
 

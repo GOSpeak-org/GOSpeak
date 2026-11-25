@@ -19,4 +19,4 @@
 - handler 必须**幂等**：队列可能重投。
 - `deps` 里的能力为 nil 时应安全跳过（现有实现即如此），不要 panic。
 - 通过接口依赖 service（`ChatPersister`/`SFUCleaner`），不要直接 import service 包，避免循环依赖。
-- 禁言到期扫描只负责触发清理 + 广播 `member:unmuted`，不要在扫描器里写业务判断。
+- 禁言到期扫描只周期性调用 `scan()` 回调；到期广播由 `MuteService` 发布内部事件 `EventMuteExpired`，signal Hub 订阅后执行完整 unmute（广播用户级与成员级解禁事件 + SFU 恢复），不要在扫描器里写业务判断。

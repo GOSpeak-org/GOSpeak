@@ -44,13 +44,13 @@ pnpm check        # biome check (format + lint)
 ```
 src/
 ├── pages/          # 文件路由（(app)/ 登录路由组、manage/ 管理区；平铺 .tsx 为主）
-├── layouts/        # 应用外壳：layout.tsx + common/{header,main,sidebar,domainWorkspace}
-├── components/     # 业务组件，按 room / textRoom / chat / domain / discover / manage / modal / form / home / oauth / profile / dashboard … 分组
+├── layouts/        # 应用外壳：layout.tsx + common/{header,main,sidebar,domainWorkspace,channelHeader,connectionIndicator}
+├── components/     # 业务组件，按 room / textRoom / chat / domain / discover / manage / modal / form / home / oauth / profile / dashboard … 分组（room/components 含 memberActionsMenu）
 │   └── common/     # 通用组件，含错误边界 errorBoundary.tsx（ErrorBoundary / PageErrorBoundary / RouteErrorComponent / withErrorBoundary）/ errorFallback.tsx
 ├── stores/         # zustand store → 详见 docs/design/AGENTS-stores.md
 ├── hooks/          # React hooks → 详见 docs/design/AGENTS-hooks.md
 ├── api/            # HTTP 客户端封装（axios）与按领域拆分的 API 模块
-├── socket/         # WS 客户端：wsClient / events / socketEvents / roomState / providerReload / tabLock
+├── socket/         # WS 客户端：wsClient / events / socketEvents / roomState / providerReload / tabLock / types
 ├── handler_audio/  # 音频处理（AudioContext、按成员音量控制）
 ├── protocol/       # WS 协议类型（generated/ 为生成产物勿手改）
 ├── types/ utils/ assets/

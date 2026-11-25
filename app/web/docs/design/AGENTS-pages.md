@@ -19,14 +19,14 @@ pages/
 │   ├── discover.tsx               # 发现页
 │   ├── chat.tsx                   # 聊天页
 │   ├── domain.$domainUUID.tsx     # 域工作区页（动态段 $domainUUID）
-│   ├── link.tsx                   # 分享链接页
+│   ├── settings.tsx               # 设置页
 │   ├── profile.tsx                # 个人资料页
 │   └── manage/                    # 管理页组
 │       ├── route.tsx              # 管理布局路由（hasManageAccess 守卫）
 │       ├── sfu/index.tsx          # 各管理子页（平铺 index.tsx）
 │       ├── oauth/index.tsx
 │       ├── domains/index.tsx (+ $domainUUID/index.tsx)
-│       ├── users/、roles/、ban/、mute/、monitor/、storage/、email/ …
+│       ├── users/、roles/、ban/、mute/、monitor/、storage/、email/、announcements/ …
 │       └── */components/          # 页面私有组件（被 routeFileIgnorePattern 忽略）
 └── login/components/              # 登录页私有弹窗（ForgotPasswordModal、ForcePasswordChangeModal…）
 ```

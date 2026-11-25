@@ -27,14 +27,17 @@ func newUserGroupServiceTest(t *testing.T) *UserGroupService {
 func TestUserGroupService_CreateAndList(t *testing.T) {
 	svc := newUserGroupServiceTest(t)
 
-	group, err := svc.Create(1, "  朋友  ")
+	group, err := svc.Create("user-uuid-1", "  朋友  ")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if group.GroupName != "朋友" {
 		t.Fatalf("want trimmed name, got %q", group.GroupName)
 	}
-	groups, err := svc.List(1)
+	if group.UserUUID != "user-uuid-1" {
+		t.Fatalf("want user_uuid persisted, got %q", group.UserUUID)
+	}
+	groups, err := svc.List("user-uuid-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,38 +48,38 @@ func TestUserGroupService_CreateAndList(t *testing.T) {
 
 func TestUserGroupService_CreateDuplicate(t *testing.T) {
 	svc := newUserGroupServiceTest(t)
-	if _, err := svc.Create(1, "朋友"); err != nil {
+	if _, err := svc.Create("user-uuid-1", "朋友"); err != nil {
 		t.Fatal(err)
 	}
-	_, err := svc.Create(1, "朋友")
+	_, err := svc.Create("user-uuid-1", "朋友")
 	assertErrorCode(t, err, pkg.ALREADY_EXISTS)
 
-	if _, err := svc.Create(2, "朋友"); err != nil {
+	if _, err := svc.Create("user-uuid-2", "朋友"); err != nil {
 		t.Fatalf("different user should be allowed: %v", err)
 	}
 }
 
 func TestUserGroupService_CreateValidation(t *testing.T) {
 	svc := newUserGroupServiceTest(t)
-	if _, err := svc.Create(1, "  "); err == nil {
+	if _, err := svc.Create("user-uuid-1", "  "); err == nil {
 		t.Fatal("want error for empty group name")
 	}
 	long := strings.Repeat("组", MaxUserGroupNameRunes+1)
-	if _, err := svc.Create(1, long); err == nil {
+	if _, err := svc.Create("user-uuid-1", long); err == nil {
 		t.Fatal("want error for long group name")
 	}
 }
 
 func TestUserGroupService_RenameOwnedGroup(t *testing.T) {
 	svc := newUserGroupServiceTest(t)
-	group, err := svc.Create(1, "朋友")
+	group, err := svc.Create("user-uuid-1", "朋友")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Rename(group.ID, 1, "队友"); err != nil {
+	if err := svc.Rename(group.ID, "user-uuid-1", "队友"); err != nil {
 		t.Fatal(err)
 	}
-	groups, err := svc.List(1)
+	groups, err := svc.List("user-uuid-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,28 +90,28 @@ func TestUserGroupService_RenameOwnedGroup(t *testing.T) {
 
 func TestUserGroupService_RenameRejectsOtherOwner(t *testing.T) {
 	svc := newUserGroupServiceTest(t)
-	group, err := svc.Create(1, "朋友")
+	group, err := svc.Create("user-uuid-1", "朋友")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Rename(group.ID, 2, "队友"); err == nil {
+	if err := svc.Rename(group.ID, "user-uuid-2", "队友"); err == nil {
 		t.Fatal("want ownership error")
 	}
 }
 
 func TestUserGroupService_DeleteOwnedGroup(t *testing.T) {
 	svc := newUserGroupServiceTest(t)
-	group, err := svc.Create(1, "朋友")
+	group, err := svc.Create("user-uuid-1", "朋友")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Delete(group.ID, 1); err != nil {
+	if err := svc.Delete(group.ID, "user-uuid-1"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.List(1); err != nil {
+	groups, err := svc.List("user-uuid-1")
+	if err != nil {
 		t.Fatal(err)
 	}
-	groups, _ := svc.List(1)
 	if len(groups) != 0 {
 		t.Fatalf("want empty list, got %+v", groups)
 	}

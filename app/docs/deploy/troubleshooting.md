@@ -113,7 +113,7 @@ UDP 端口未开放是语音不可用最常见的原因。云服务器在系统�
 - `7882/tcp` 媒体兜底
 - `3478/udp` TURN
 
-**7880 / 7881 无需开放。** 7880 只绑定宿主机回环（`127.0.0.1:7880`）供本机调试，信令对外走应用同源的 `/livekit`；7881 不再发布。
+**全档位下 7880 / 7881 无需开放。** 全档位 compose 中 7880 只绑定宿主机回环（`127.0.0.1:7880`）供本机调试，信令对外走应用同源的 `/livekit`；7881 不再发布。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布。
 
 ### 第四步：确认 ICE 候选地址
 
@@ -238,7 +238,7 @@ docker system prune -a
 # 清理日志（未配置轮转时）
 docker compose down
 sudo truncate -s 0 /var/lib/docker/containers/*/*-json.log
-docker compose up -d
+docker compose -f docker-compose.standard.yml up -d
 ```
 
 长期方案为配置 Docker 日志轮转。

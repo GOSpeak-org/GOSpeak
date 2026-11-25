@@ -48,12 +48,12 @@ describe("user module", () => {
 		// 权限，按设计仅 admin 持有（model.DefaultRolePermissions 注释），
 		// 普通用户持有会让侧栏管理入口对所有人可见。
 		const admin = await getAdminToken();
-		const byId = await api<{ id: number; name: string }>("/api/v1/user/get", {
+		const byId = await api<{ uuid: string; name: string }>("/api/v1/user/get", {
 			token: admin,
-			body: { id: user.user.id },
+			body: { user_uuid: user.user.uuid },
 		});
 		expect(byId.code).toBe(0);
-		expect(byId.data?.id).toBe(user.user.id);
+		expect(byId.data?.uuid).toBe(user.user.uuid);
 	});
 
 	it("allows admins to list and update roles", async () => {
@@ -74,26 +74,26 @@ describe("user module", () => {
 
 		const promote = await api("/api/v1/user/update-role", {
 			token: admin,
-			body: { id: user.user.id, role: "admin" },
+			body: { user_uuid: user.user.uuid, role: "admin" },
 		});
 		assertSuccess(promote);
 
 		// 写操作必须回读：只断言 code=0 抓不到「返回成功但没落库」。
 		const promoted = await api<{ role: string }>("/api/v1/user/get", {
 			token: admin,
-			body: { id: user.user.id },
+			body: { user_uuid: user.user.uuid },
 		});
 		expect(assertSuccess(promoted).role).toBe("admin");
 
 		const demote = await api("/api/v1/user/update-role", {
 			token: admin,
-			body: { id: user.user.id, role: "user" },
+			body: { user_uuid: user.user.uuid, role: "user" },
 		});
 		assertSuccess(demote);
 
 		const demoted = await api<{ role: string }>("/api/v1/user/get", {
 			token: admin,
-			body: { id: user.user.id },
+			body: { user_uuid: user.user.uuid },
 		});
 		expect(assertSuccess(demoted).role).toBe("user");
 	});
@@ -104,13 +104,13 @@ describe("user module", () => {
 
 		const deleted = await api("/api/v1/user/delete", {
 			token: admin,
-			body: { id: user.user.id },
+			body: { user_uuid: user.user.uuid },
 		});
 		expect(deleted.code).toBe(0);
 
 		const getDeleted = await api("/api/v1/user/get", {
 			token: admin,
-			body: { id: user.user.id },
+			body: { user_uuid: user.user.uuid },
 		});
 		expect(getDeleted.code).toBe(3001);
 	});

@@ -2,7 +2,7 @@ import apiClient from "./apiClient";
 
 export interface UserGroup {
 	id: number;
-	user_id: number;
+	user_uuid: string;
 	group_name: string;
 	created_at: string;
 	updated_at: string;

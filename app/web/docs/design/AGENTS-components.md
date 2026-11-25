@@ -20,7 +20,7 @@ components/
 │   ├── roomDetail.tsx            # 语音频道视图（成员网格 + 悬浮控制条）
 │   ├── roomList.tsx              # 房间列表
 │   ├── roomListUtils.ts          # 列表纯逻辑
-│   ├── components/               # 房间私有 UI（roomItem、memberSidebar、userInfoPopover、passwordModal…）
+│   ├── components/               # 房间私有 UI（roomItem、memberSidebar、memberActionsMenu、userInfoPopover、passwordModal…）
 │   ├── hooks/                    # useVoiceSession / useRoomAudioBridge / useRoomSounds
 │   ├── session/                  # providers / runVoiceJoin / voiceSessionTypes / voiceSessionUi
 │   └── services/                 # loadSfuClient（provider chunk 预热 + 动态加载）

@@ -13,8 +13,8 @@ import type { BackendUser } from "@/api/auth";
 const NONE_VALUE = "__none__";
 
 export interface UserSearchSelectProps {
-	value: number | "";
-	onChange: (value: number | "") => void;
+	value: string | "";
+	onChange: (value: string | "") => void;
 	users: BackendUser[];
 	searchValue: string;
 	onSearchInput: (value: string) => void;
@@ -67,9 +67,7 @@ export default function UserSearchSelect({
 				</form>
 				<Select
 					value={value === "" ? NONE_VALUE : String(value)}
-					onValueChange={(next) =>
-						onChange(next === NONE_VALUE ? "" : Number(next))
-					}
+					onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
 					disabled={disabled}
 				>
 					<SelectTrigger id={id} className="h-9">
@@ -78,7 +76,7 @@ export default function UserSearchSelect({
 					<SelectContent>
 						<SelectItem value={NONE_VALUE}>选择用户</SelectItem>
 						{users.map((u) => (
-							<SelectItem key={u.id} value={String(u.id)}>
+							<SelectItem key={u.uuid} value={u.uuid}>
 								{u.display_name || u.name} ({u.name})
 							</SelectItem>
 						))}

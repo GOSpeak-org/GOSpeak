@@ -11,6 +11,9 @@
 | POST | `/api/v1/auth/refresh_token` | 刷新 Token | ❌ |
 | POST | `/api/v1/auth/logout` | 退出登录 | ✅ |
 | POST | `/api/v1/auth/refresh` | 刷新当前 Token | ✅ |
+| POST | `/api/v1/auth/reset_password` | 重置密码 | ❌ |
+| POST | `/api/v1/auth/change_password` | 修改密码 | ✅ |
+| POST | `/api/v1/auth/first_change_password` | 首次改密 | ✅ |
 
 ---
 

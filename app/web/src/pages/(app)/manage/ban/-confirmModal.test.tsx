@@ -70,8 +70,8 @@ vi.mock("@/utils/permissions", () => ({ hasPermission: () => true }));
 vi.mock("@/utils/accessDenied", () => ({ denyAccess: () => {} }));
 
 vi.mock("@/components/manage/UserSearchSelect", () => ({
-	default: ({ onChange }: { onChange: (value: number | "") => void }) => (
-		<button type="button" onClick={() => onChange(7)}>
+	default: ({ onChange }: { onChange: (value: string | "") => void }) => (
+		<button type="button" onClick={() => onChange("u-7")}>
 			select user 7
 		</button>
 	),
@@ -142,7 +142,7 @@ describe("封禁管理确认弹窗", () => {
 		});
 
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-		expect(mocks.updateUserRole).toHaveBeenCalledWith(7, "ban");
+		expect(mocks.updateUserRole).toHaveBeenCalledWith("u-7", "ban");
 	});
 
 	it("请求失败时保持弹窗打开并展示错误上下文", async () => {

@@ -41,6 +41,11 @@ export interface RemoteVideoTrackInfo {
 	source: "screen" | "camera";
 }
 
+export interface RemoteVideoPublicationInfo {
+	identity: string;
+	source: "screen" | "camera";
+}
+
 export interface PeerStream {
 	identity: string;
 	stream: string;
@@ -177,6 +182,18 @@ export interface SFUClient {
 	onRemoteVideoTrackRemoved?(cb: (identity: string) => void): void;
 	/** 返回回调注册前已订阅的远端视频 track，用于补齐 join 竞态。 */
 	getExistingRemoteVideoTracks?(): RemoteVideoTrackInfo[];
+	/** 远端视频 publication 的可用性变化；按需订阅模式下不代表已订阅。 */
+	onRemoteVideoPublicationChanged?(
+		cb: (info: RemoteVideoPublicationInfo & { available: boolean }) => void,
+	): void;
+	/** 返回当前已发布的远端视频 publication（不过滤是否已订阅）。 */
+	getExistingRemoteVideoPublications?(): RemoteVideoPublicationInfo[];
+	/** 按需订阅 / 取消订阅指定成员的远端视频 publication。 */
+	setRemoteVideoSubscribed?(
+		identity: string,
+		source: "screen" | "camera",
+		subscribed: boolean,
+	): Promise<void>;
 	/**
 	 * 返回当前已订阅、但早于 `onRemoteAudioTrack` 回调注册就已到达的远端音频 track。
 	 *

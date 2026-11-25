@@ -44,7 +44,7 @@ function fakeDeps(): SocketEventDeps {
 		handleMessageCreated: vi.fn(),
 		handleAnnouncementNew: vi.fn(),
 		currentUserName: () => "",
-		currentUserID: () => undefined,
+		currentUserUUID: () => undefined,
 	};
 }
 

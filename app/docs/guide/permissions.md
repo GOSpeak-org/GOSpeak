@@ -54,6 +54,7 @@ announcement:read   看公告
 | `domain:member:review` | 审批加入申请 |
 | `domain:kick` | 从域内移除成员 |
 | `domain:role:manage` | 管理域内角色 |
+| `domain:room-layout:manage` | 管理域内房间文件夹与个人布局 |
 | `announcement:read` / `announcement:manage` | 系统公告读取 / 管理 |
 | `audit:read` | 查看审计日志（默认未授予任何角色，需手动授权） |
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"strconv"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -17,14 +16,7 @@ import (
 	"GOSpeak/internal/repository"
 )
 
-const (
-	// EventMuteChanged 是禁言状态变更的 NATS 内部失效事件。
-
-	// muteCacheTTL 控制 Worker 禁言判定的最大缓存窗口；禁言/解禁会主动失效。
-	muteCacheTTL = 5 * time.Second
-)
-
-// maxMuteReasonRunes 禁言原因最大长度。
+const muteCacheTTL = 5 * time.Second
 const maxMuteReasonRunes = 500
 
 type muteCacheEntry struct {
@@ -36,7 +28,7 @@ type muteCacheEntry struct {
 
 // MuteChecker 供 middleware 查询禁言状态的接口
 type MuteChecker interface {
-	IsMuted(userID uint) (bool, *model.Mute, error)
+	IsMuted(userUUID string) (bool, *model.Mute, error)
 }
 
 type MuteService struct {
@@ -44,10 +36,10 @@ type MuteService struct {
 	userRepo *repository.UserRepository
 	bus      cacheBus
 	expiryMu sync.Mutex
-	expiring  map[uint]bool
+	expiring map[string]bool
 
 	byIdentity map[string]muteCacheEntry
-	byUserID   map[uint]muteCacheEntry
+	byUserUUID map[string]muteCacheEntry
 	cacheMu    sync.RWMutex
 }
 
@@ -56,55 +48,36 @@ func NewMuteService(muteRepo *repository.MuteRepository, userRepo *repository.Us
 		muteRepo:   muteRepo,
 		userRepo:   userRepo,
 		byIdentity: make(map[string]muteCacheEntry),
-		byUserID:   make(map[uint]muteCacheEntry),
+		byUserUUID: make(map[string]muteCacheEntry),
+		expiring:   make(map[string]bool),
 	}
 }
 
-// SetEventBus 注入 NATS 内部事件发布器，用于禁言状态变更后的缓存失效广播。
-func (s *MuteService) SetEventBus(b cacheBus) {
-	s.bus = b
-}
+func (s *MuteService) SetEventBus(b cacheBus) { s.bus = b }
 
-// OnRemoteInvalidate 收到其他实例的禁言变更事件后清空本地缓存。
 func (s *MuteService) OnRemoteInvalidate(payload interface{}) {
 	p, err := bus.DecodePayload[MuteChangedPayload](payload)
 	if err != nil {
 		log.Printf("[Mute] invalid mute-changed payload: %T (%v)", payload, err)
 		return
 	}
-	s.invalidateMute(parseUserID(p.UserID), p.Identity, false)
+	s.invalidateMute(p.UserUUID, p.Identity, false)
 }
 
-func parseUserID(raw string) uint {
-	if raw == "" {
-		return 0
-	}
-	n, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return uint(n)
-}
-
-// invalidateMute 清理本地禁言缓存，并可选广播 NATS 失效事件。
-func (s *MuteService) invalidateMute(userID uint, identity string, publish bool) {
+func (s *MuteService) invalidateMute(userUUID string, identity string, publish bool) {
 	s.cacheMu.Lock()
-	if userID > 0 {
-		if entry, ok := s.byUserID[userID]; ok && identity == "" {
+	if userUUID != "" {
+		if entry, ok := s.byUserUUID[userUUID]; ok && identity == "" {
 			identity = entry.identity
 		}
-		delete(s.byUserID, userID)
+		delete(s.byUserUUID, userUUID)
 	}
 	if identity != "" {
 		delete(s.byIdentity, identity)
 	}
 	s.cacheMu.Unlock()
-
 	if publish && s.bus != nil {
-		payload := MuteChangedPayload{
-			UserID:   strconv.FormatUint(uint64(userID), 10),
-			Identity: identity,
-		}
+		payload := MuteChangedPayload{UserUUID: userUUID, Identity: identity}
 		if err := s.bus.PublishInternal(context.Background(), EventMuteChanged, payload); err != nil {
 			log.Printf("[Mute] publish invalidate: %v", err)
 		}
@@ -112,45 +85,37 @@ func (s *MuteService) invalidateMute(userID uint, identity string, publish bool)
 }
 
 // IsMuted 检查用户是否被禁言
-// 返回: (是否禁言, 禁言记录, 错误)
-// 自动处理过期记录删除
-func (s *MuteService) IsMuted(userID uint) (bool, *model.Mute, error) {
+func (s *MuteService) IsMuted(userUUID string) (bool, *model.Mute, error) {
 	s.cacheMu.RLock()
-	if entry, ok := s.byUserID[userID]; ok && time.Now().Before(entry.expires) {
+	if entry, ok := s.byUserUUID[userUUID]; ok && time.Now().Before(entry.expires) {
 		muted, mute := entry.muted, entry.mute
 		s.cacheMu.RUnlock()
 		return muted, mute, nil
 	}
 	s.cacheMu.RUnlock()
 
-	mute, err := s.muteRepo.GetByUserID(userID)
+	mute, err := s.muteRepo.GetByUserUUID(userUUID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.cacheMute(userID, "", false, nil)
+			s.cacheMute(userUUID, "", false, nil)
 			return false, nil, nil
 		}
 		return false, nil, pkg.NewAppError(pkg.INTERNAL_ERROR)
 	}
-
-	// 永久禁言
 	if mute.Permanent {
-		s.cacheMute(userID, "", true, mute)
+		s.cacheMute(userUUID, "", true, mute)
 		return true, mute, nil
 	}
-
-	// 临时禁言：检查过期
 	if mute.ExpiresAt != nil && mute.ExpiresAt.Before(time.Now()) {
-		if delErr := s.muteRepo.DeleteByUserID(userID); delErr != nil && !errors.Is(delErr, gorm.ErrRecordNotFound) {
+		if delErr := s.muteRepo.DeleteByUserUUID(userUUID); delErr != nil && !errors.Is(delErr, gorm.ErrRecordNotFound) {
 			return false, nil, pkg.NewAppError(pkg.INTERNAL_ERROR)
 		}
-		// 删除成功后走完整 unmute 流程：广播事件 + 恢复 SFU 媒体。
-		s.invalidateMute(userID, "", true)
-		s.notifyExpired(userID)
-		s.cacheMute(userID, "", false, nil)
+		s.invalidateMute(userUUID, "", true)
+		s.notifyExpired(userUUID)
+		s.cacheMute(userUUID, "", false, nil)
 		return false, nil, nil
 	}
-
-	s.cacheMute(userID, "", true, mute)
+	s.cacheMute(userUUID, "", true, mute)
 	return true, mute, nil
 }
 
@@ -158,7 +123,6 @@ func (s *MuteService) IsMuted(userID uint) (bool, *model.Mute, error) {
 func (s *MuteService) IsMutedByIdentity(identity string) (bool, *model.Mute, error) {
 	s.cacheMu.RLock()
 	if entry, ok := s.byIdentity[identity]; ok && time.Now().Before(entry.expires) {
-		// 批量查询缓存只有 bool 结果，无 mute 详情；命中禁言时回源补详情。
 		if !entry.muted || entry.mute != nil {
 			muted, mute := entry.muted, entry.mute
 			s.cacheMu.RUnlock()
@@ -166,69 +130,58 @@ func (s *MuteService) IsMutedByIdentity(identity string) (bool, *model.Mute, err
 		}
 	}
 	s.cacheMu.RUnlock()
-
 	user, err := s.userRepo.GetByName(identity)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			s.cacheMute(0, identity, false, nil)
+			s.cacheMute("", identity, false, nil)
 			return false, nil, nil
 		}
 		return false, nil, pkg.NewAppError(pkg.INTERNAL_ERROR)
 	}
-	muted, mute, err := s.IsMuted(user.ID)
+	muted, mute, err := s.IsMuted(user.UUID)
 	if err != nil {
 		return false, nil, err
 	}
-	s.cacheMute(user.ID, identity, muted, mute)
+	s.cacheMute(user.UUID, identity, muted, mute)
 	return muted, mute, nil
 }
 
-// IsMutedBatch 按用户名批量检查生效禁言，返回 identity -> muted 映射。
-func (s *MuteService) IsMutedBatch(identities []string) (map[string]bool, error) {
-	result := make(map[string]bool, len(identities))
+// IsMutedBatch 按用户 UUID 批量检查生效禁言，返回 uuid -> muted 映射。
+func (s *MuteService) IsMutedBatch(userUUIDs []string) (map[string]bool, error) {
+	result := make(map[string]bool, len(userUUIDs))
 	var missing []string
 	now := time.Now()
 	s.cacheMu.RLock()
-	for _, id := range identities {
-		if entry, ok := s.byIdentity[id]; ok && now.Before(entry.expires) {
-			result[id] = entry.muted
+	for _, u := range userUUIDs {
+		if entry, ok := s.byUserUUID[u]; ok && now.Before(entry.expires) {
+			result[u] = entry.muted
 			continue
 		}
-		missing = append(missing, id)
+		missing = append(missing, u)
 	}
 	s.cacheMu.RUnlock()
 	if len(missing) == 0 {
 		return result, nil
 	}
-
 	muted, err := s.muteRepo.IsMutedBatch(missing)
 	if err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, err.Error())
 	}
 	s.cacheMu.Lock()
-	for _, id := range missing {
-		isMuted := muted[id]
-		result[id] = isMuted
-		s.byIdentity[id] = muteCacheEntry{
-			muted:    isMuted,
-			identity: id,
-			expires:  time.Now().Add(muteCacheTTL),
-		}
+	for _, u := range missing {
+		isMuted := muted[u]
+		result[u] = isMuted
+		s.byUserUUID[u] = muteCacheEntry{muted: isMuted, expires: time.Now().Add(muteCacheTTL)}
 	}
 	s.cacheMu.Unlock()
 	return result, nil
 }
 
-func (s *MuteService) cacheMute(userID uint, identity string, muted bool, mute *model.Mute) {
-	entry := muteCacheEntry{
-		muted:    muted,
-		mute:     mute,
-		identity: identity,
-		expires:  time.Now().Add(muteCacheTTL),
-	}
+func (s *MuteService) cacheMute(userUUID string, identity string, muted bool, mute *model.Mute) {
+	entry := muteCacheEntry{muted: muted, mute: mute, identity: identity, expires: time.Now().Add(muteCacheTTL)}
 	s.cacheMu.Lock()
-	if userID > 0 {
-		s.byUserID[userID] = entry
+	if userUUID != "" {
+		s.byUserUUID[userUUID] = entry
 	}
 	if identity != "" {
 		s.byIdentity[identity] = entry
@@ -238,69 +191,55 @@ func (s *MuteService) cacheMute(userID uint, identity string, muted bool, mute *
 
 // IsMutedByUUID 通过 UUID 检查禁言状态（供 middleware 使用）
 func (s *MuteService) IsMutedByUUID(uuid string) (bool, error) {
-	user, err := s.userRepo.GetByUUID(uuid)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return false, nil
-		}
-		return false, pkg.NewAppError(pkg.INTERNAL_ERROR)
-	}
-	muted, _, err := s.IsMuted(user.ID)
+	muted, _, err := s.IsMuted(uuid)
 	return muted, err
 }
 
-// MuteUser 禁言用户
-// duration: 禁言秒数（permanent=true 时忽略）
-func (s *MuteService) MuteUser(muterID, userID uint, duration int64, permanent bool, reason string) (*model.Mute, error) {
+// MuteUser 禁言用户（按 user_uuid）
+func (s *MuteService) MuteUser(muterUUID string, userUUID string, duration int64, permanent bool, reason string) (*model.Mute, error) {
 	if !permanent && duration <= 0 {
 		return nil, pkg.NewAppError(pkg.INVALID_PARAMS, "duration is required for temporary mute")
 	}
-	if userID == 0 {
-		return nil, pkg.NewAppError(pkg.INVALID_PARAMS, "user_id is required")
+	if userUUID == "" {
+		return nil, pkg.NewAppError(pkg.INVALID_PARAMS, "user_uuid is required")
 	}
 	if utf8.RuneCountInString(reason) > maxMuteReasonRunes {
 		return nil, pkg.NewAppError(pkg.INVALID_PARAMS, "reason is too long")
 	}
-	target, err := s.userRepo.GetByID(userID)
+	target, err := s.userRepo.GetByUUID(userUUID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, pkg.NewAppError(pkg.USER_NOT_FOUND)
 		}
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR)
 	}
-	// 禁止禁言管理员；Bot 可禁言普通用户，但不可抬权到管理面。
 	if target.Role == model.RoleAdmin {
-		muter, merr := s.userRepo.GetByID(muterID)
+		muter, merr := s.userRepo.GetByUUID(muterUUID)
 		if merr != nil || muter == nil || muter.Role != "admin" || muter.IsBot {
 			return nil, pkg.NewAppError(pkg.FORBIDDEN, "cannot mute admin")
 		}
 	}
-
 	mute := &model.Mute{
-		UserID:    userID,
-		MuterID:   muterID,
+		UserUUID:  userUUID,
+		MuterUUID: muterUUID,
 		Duration:  duration,
 		Permanent: permanent,
 		Reason:    reason,
 	}
-
 	if !permanent && duration > 0 {
 		expiresAt := time.Now().Add(time.Duration(duration) * time.Second)
 		mute.ExpiresAt = &expiresAt
-		mute.Duration = duration
 	}
-
 	if err := s.muteRepo.Upsert(mute); err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR, "failed to create mute record")
 	}
-
-	s.invalidateMute(userID, target.Name, true)
+	s.invalidateMute(userUUID, target.Name, true)
 	return mute, nil
 }
 
 // UnmuteUser 取消禁言
-func (s *MuteService) UnmuteUser(userID uint) error {
-	if err := s.muteRepo.DeleteByUserID(userID); err != nil {
+func (s *MuteService) UnmuteUser(userUUID string) error {
+	if err := s.muteRepo.DeleteByUserUUID(userUUID); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return pkg.NewAppError(pkg.NOT_FOUND, "mute record not found")
 		}
@@ -308,52 +247,45 @@ func (s *MuteService) UnmuteUser(userID uint) error {
 	}
 	identity := ""
 	s.cacheMu.RLock()
-	if entry, ok := s.byUserID[userID]; ok {
+	if entry, ok := s.byUserUUID[userUUID]; ok {
 		identity = entry.identity
 	}
 	s.cacheMu.RUnlock()
 	if identity == "" {
-		if user, userErr := s.userRepo.GetByID(userID); userErr == nil && user != nil {
+		if user, userErr := s.userRepo.GetByUUID(userUUID); userErr == nil && user != nil {
 			identity = user.Name
 		}
 	}
-	s.invalidateMute(userID, identity, true)
+	s.invalidateMute(userUUID, identity, true)
 	return nil
 }
 
-// notifyExpired 发布禁言到期事件（订阅方执行完整 unmute），并防止并发调用重复触发。
-func (s *MuteService) notifyExpired(userID uint) {
-	if userID == 0 || s.bus == nil {
+// notifyExpired 发布禁言到期事件（订阅方执行完整 unmute），并防止并发重复触发。
+func (s *MuteService) notifyExpired(userUUID string) {
+	if userUUID == "" || s.bus == nil {
 		return
 	}
 	s.expiryMu.Lock()
-	if s.expiring == nil {
-		s.expiring = make(map[uint]bool)
-	}
-	if s.expiring[userID] {
+	if s.expiring[userUUID] {
 		s.expiryMu.Unlock()
 		return
 	}
-	s.expiring[userID] = true
+	s.expiring[userUUID] = true
 	s.expiryMu.Unlock()
 	defer func() {
 		s.expiryMu.Lock()
-		delete(s.expiring, userID)
+		delete(s.expiring, userUUID)
 		s.expiryMu.Unlock()
 	}()
-	// 发布到期事件：订阅方（signal Hub）执行完整 unmute（广播 + SFU 恢复），
-	// service 层不再倒挂依赖 signal。
-	if s.bus != nil {
-		payload := MuteExpiredPayload{UserID: strconv.FormatUint(uint64(userID), 10)}
-		if err := s.bus.PublishInternal(context.Background(), EventMuteExpired, payload); err != nil {
-			log.Printf("[Mute] publish expiry: %v", err)
-		}
+	payload := MuteExpiredPayload{UserUUID: userUUID}
+	if err := s.bus.PublishInternal(context.Background(), EventMuteExpired, payload); err != nil {
+		log.Printf("[Mute] publish expiry: %v", err)
 	}
 }
 
 // GetMuteStatus 查询禁言状态
-func (s *MuteService) GetMuteStatus(userID uint) (*model.Mute, error) {
-	muted, mute, err := s.IsMuted(userID)
+func (s *MuteService) GetMuteStatus(userUUID string) (*model.Mute, error) {
+	muted, mute, err := s.IsMuted(userUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -369,12 +301,11 @@ func (s *MuteService) ListActiveMutes() ([]model.Mute, error) {
 	if err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR)
 	}
-	// 清理过期记录
 	if err := s.muteRepo.DeleteExpired(); err != nil {
 		return nil, pkg.NewAppError(pkg.INTERNAL_ERROR)
 	}
 	for _, mute := range expired {
-		s.notifyExpired(mute.UserID)
+		s.notifyExpired(mute.UserUUID)
 	}
 	return s.muteRepo.ListActive()
 }

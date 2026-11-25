@@ -84,7 +84,7 @@ function UsersPage() {
 	const canUpdateUser = hasPermission("user:update");
 	const canDeleteUser = hasPermission("user:delete");
 	const canManageMute = hasPermission("mute:manage");
-	const selfId = useUserStore((s) => s.user?.id);
+	const selfUUID = useUserStore((s) => s.user?.uuid);
 
 	const [userPage, setUserPage] = useState(1);
 	const [userSearchInput, setUserSearchInput] = useState("");
@@ -116,9 +116,9 @@ function UsersPage() {
 		if (userPage > userTotalPages) setUserPage(Math.max(1, userTotalPages));
 	}, [userPage, userTotalPages]);
 
-	const muteMap = new Map<number, MuteRecord>();
+	const muteMap = new Map<string, MuteRecord>();
 	for (const mute of mutes) {
-		muteMap.set(mute.user_id, mute);
+		muteMap.set(mute.user_uuid, mute);
 	}
 
 	const USERS_KEY = ["manage-users"] as const;
@@ -130,23 +130,23 @@ function UsersPage() {
 		]);
 	type UserList = { users: BackendUser[]; total: number };
 
-	const [muteUserId, setMuteUserId] = useState<number | "">("");
+	const [muteUserId, setMuteUserId] = useState<string | "">("");
 	const [muteDuration, setMuteDuration] = useState(3600);
 	const [mutePerm, setMutePerm] = useState(false);
 	const [muteReason, setMuteReason] = useState("");
 	const [submitting, setSubmitting] = useState(false);
-	const [cancellingId, setCancellingId] = useState<number | null>(null);
+	const [cancellingId, setCancellingId] = useState<string | null>(null);
 	const [deletingUser, setDeletingUser] = useState<BackendUser | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [deletingError, setDeletingError] = useState("");
 
 	const users = (usersData?.users || []).filter((u) => !u.is_bot);
-	const userMap = new Map<number, string>(
-		users.map((u) => [u.id, u.display_name || u.name]),
+	const userMap = new Map<string, string>(
+		users.map((u) => [u.uuid, u.display_name || u.name]),
 	);
 
 	const runRoleChange = async (
-		userId: number,
+		userUUID: string,
 		newRole: string,
 		onError?: (message: string) => void,
 		onSuccess?: () => void,
@@ -161,12 +161,12 @@ function UsersPage() {
 					(prev) => ({
 						...prev,
 						users: prev.users.map((u) =>
-							u.id === userId ? { ...u, role: newRole } : u,
+							u.uuid === userUUID ? { ...u, role: newRole } : u,
 						),
 					}),
 				),
 			restore: (snap) => restoreQueries(queryClient, snap),
-			request: () => updateUserRole(userId, newRole),
+			request: () => updateUserRole(userUUID, newRole),
 			settle: reconcile,
 			onError: (error) => {
 				const message = toastActionError(error, "修改角色失败");
@@ -179,16 +179,16 @@ function UsersPage() {
 		});
 	};
 
-	const handleRoleChange = (userId: number, newRole: string) => {
+	const handleRoleChange = (userUUID: string, newRole: string) => {
 		if (!canUpdateUser) return;
 		// 封禁与封禁页是同一高危操作，统一走确认弹窗而不是下拉框静默生效。
 		if (newRole === "ban") {
-			const target = usersData?.users?.find((u) => u.id === userId);
+			const target = usersData?.users?.find((u) => u.uuid === userUUID);
 			setBanRoleError("");
-			setPendingBanUser(target ?? ({ id: userId } as BackendUser));
+			setPendingBanUser(target ?? ({ uuid: userUUID } as BackendUser));
 			return;
 		}
-		void runRoleChange(userId, newRole);
+		void runRoleChange(userUUID, newRole);
 	};
 
 	const confirmBanRole = async () => {
@@ -196,7 +196,7 @@ function UsersPage() {
 		if (!target) return;
 		setBanningRole(true);
 		try {
-			await runRoleChange(target.id, "ban", setBanRoleError, () =>
+			await runRoleChange(target.uuid, "ban", setBanRoleError, () =>
 				setPendingBanUser(null),
 			);
 		} finally {
@@ -204,12 +204,12 @@ function UsersPage() {
 		}
 	};
 
-	const handleDeleteUser = async (userId: number) => {
+	const handleDeleteUser = async (userUUID: string) => {
 		if (!canDeleteUser) return;
 		// 统一走 ConfirmModal（原 window.confirm 与全站样式割裂，且不能显示对象名）
-		const target = usersData?.users?.find((u) => u.id === userId);
+		const target = usersData?.users?.find((u) => u.uuid === userUUID);
 		setDeletingError("");
-		setDeletingUser(target ?? ({ id: userId } as BackendUser));
+		setDeletingUser(target ?? ({ uuid: userUUID } as BackendUser));
 	};
 
 	const confirmDeleteUser = async () => {
@@ -229,12 +229,12 @@ function UsersPage() {
 						queryClient,
 						{ queryKey: USERS_KEY },
 						(prev) => ({
-							users: prev.users.filter((u) => u.id !== target.id),
+							users: prev.users.filter((u) => u.uuid !== target.uuid),
 							total: Math.max(0, prev.total - 1),
 						}),
 					),
 				restore: (snap) => restoreQueries(queryClient, snap),
-				request: () => deleteUser(target.id),
+				request: () => deleteUser(target.uuid),
 				settle: reconcile,
 				onError: (error) =>
 					setDeletingError(toastActionError(error, "删除用户失败")),
@@ -256,10 +256,10 @@ function UsersPage() {
 		setSubmitting(true);
 		const now = new Date().toISOString();
 		const optimisticRecord: MuteRecord = {
-			id: -uid,
+			id: 0,
 			uuid: `optimistic-${uid}`,
-			user_id: uid,
-			muter_id: -1,
+			user_uuid: uid,
+			muter_uuid: "",
 			duration: muteDuration,
 			permanent: mutePerm,
 			expires_at: mutePerm
@@ -277,14 +277,14 @@ function UsersPage() {
 						queryClient,
 						{ queryKey: MUTES_KEY },
 						(prev) => [
-							...prev.filter((m) => m.user_id !== uid),
+							...prev.filter((m) => m.user_uuid !== uid),
 							optimisticRecord,
 						],
 					),
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () =>
 					createMute({
-						user_id: uid,
+						user_uuid: uid,
 						duration: muteDuration,
 						permanent: mutePerm,
 						reason: muteReason,
@@ -305,7 +305,7 @@ function UsersPage() {
 		}
 	};
 
-	const handleCancelMute = async (uid: number) => {
+	const handleCancelMute = async (uid: string) => {
 		setCancellingId(uid);
 		try {
 			await runOptimistic({
@@ -314,7 +314,7 @@ function UsersPage() {
 					updateQueryData<MuteRecord[]>(
 						queryClient,
 						{ queryKey: MUTES_KEY },
-						(prev) => prev.filter((m) => m.user_id !== uid),
+						(prev) => prev.filter((m) => m.user_uuid !== uid),
 					),
 				restore: (snap) => restoreQueries(queryClient, snap),
 				request: () => cancelMute(uid),
@@ -392,16 +392,16 @@ function UsersPage() {
 							</thead>
 							<tbody>
 								{users.map((user) => {
-									const mute = muteMap.get(user.id);
+									const mute = muteMap.get(user.uuid);
 									const muted = !!mute;
-									const isSelf = selfId === user.id;
+									const isSelf = selfUUID === user.uuid;
 									return (
 										<tr
-											key={user.id}
+											key={user.uuid}
 											className={`${manageTableRowClass} ${muted ? "bg-muted/40" : ""}`}
 										>
 											<td className="text-muted-foreground px-3 py-2 font-mono text-xs">
-												{user.id}
+												{user.uuid.slice(0, 8)}
 											</td>
 											<td className="px-3 py-2">
 												<div className="text-foreground font-medium">
@@ -441,7 +441,7 @@ function UsersPage() {
 															value={user.role}
 															disabled={isSelf}
 															onValueChange={(next) =>
-																void handleRoleChange(user.id, next)
+																void handleRoleChange(user.uuid, next)
 															}
 														>
 															<SelectTrigger
@@ -465,8 +465,8 @@ function UsersPage() {
 																type="button"
 																className={iconBtnClass}
 																title="解除禁言"
-																disabled={cancellingId === user.id}
-																onClick={() => void handleCancelMute(user.id)}
+																disabled={cancellingId === user.uuid}
+																onClick={() => void handleCancelMute(user.uuid)}
 															>
 																<UserCheck size={14} />
 															</button>
@@ -476,7 +476,7 @@ function UsersPage() {
 																className={iconBtnClass}
 																title="禁言"
 																onClick={() => {
-																	setMuteUserId(user.id);
+																	setMuteUserId(user.uuid);
 																	setMutePerm(false);
 																	setMuteDuration(3600);
 																}}
@@ -489,7 +489,7 @@ function UsersPage() {
 															type="button"
 															className={iconBtnClass}
 															title="删除用户"
-															onClick={() => void handleDeleteUser(user.id)}
+															onClick={() => void handleDeleteUser(user.uuid)}
 														>
 															<Trash size={14} />
 														</button>
@@ -554,9 +554,9 @@ function UsersPage() {
 									用户
 								</label>
 								<Select
-									value={muteUserId === "" ? NONE_USER : String(muteUserId)}
+									value={muteUserId === "" ? NONE_USER : muteUserId}
 									onValueChange={(next) =>
-										setMuteUserId(next === NONE_USER ? "" : Number(next))
+										setMuteUserId(next === NONE_USER ? "" : next)
 									}
 								>
 									<SelectTrigger id="mute-user" className="h-9">
@@ -565,7 +565,7 @@ function UsersPage() {
 									<SelectContent>
 										<SelectItem value={NONE_USER}>选择用户</SelectItem>
 										{users.map((u) => (
-											<SelectItem key={u.id} value={String(u.id)}>
+											<SelectItem key={u.uuid || u.id} value={u.uuid}>
 												{u.display_name || u.name} ({u.name})
 											</SelectItem>
 										))}
@@ -639,9 +639,9 @@ function UsersPage() {
 									</thead>
 									<tbody>
 										{mutes.map((mute) => (
-											<tr key={mute.user_id} className={manageTableRowClass}>
+											<tr key={mute.user_uuid} className={manageTableRowClass}>
 												<td className="px-3 py-2 font-medium">
-													{userMap.get(mute.user_id) || `#${mute.user_id}`}
+													{userMap.get(mute.user_uuid) || `#${mute.user_uuid}`}
 												</td>
 												<td className="px-3 py-2">
 													<ManageTag>
@@ -657,14 +657,17 @@ function UsersPage() {
 													{mute.reason || "—"}
 												</td>
 												<td className="text-muted-foreground px-3 py-2 text-sm">
-													{userMap.get(mute.muter_id) || `#${mute.muter_id}`}
+													{userMap.get(mute.muter_uuid) ||
+														`#${mute.muter_uuid}`}
 												</td>
 												<td className="px-3 py-2">
 													<button
 														type="button"
 														className="text-muted-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50"
-														disabled={cancellingId === mute.user_id}
-														onClick={() => void handleCancelMute(mute.user_id)}
+														disabled={cancellingId === mute.user_uuid}
+														onClick={() =>
+															void handleCancelMute(mute.user_uuid)
+														}
 													>
 														<UserCheck size={14} />
 														解除
@@ -717,7 +720,7 @@ function UsersPage() {
 				message={
 					<span>
 						确认对「
-						{userMap.get(Number(muteUserId)) ?? `#${muteUserId}`}」
+						{userMap.get(muteUserId) ?? `#${muteUserId}`}」
 						{mutePerm
 							? "永久禁言"
 							: `禁言 ${Math.max(1, Math.round(muteDuration / 60))} 分钟`}
@@ -744,7 +747,7 @@ function UsersPage() {
 						确认封禁「
 						{pendingBanUser?.display_name ||
 							pendingBanUser?.name ||
-							`#${pendingBanUser?.id ?? ""}`}
+							`#${pendingBanUser?.uuid.slice(0, 8) ?? ""}`}
 						」？封禁后该用户无法登录与访问，请在「封禁管理」页解除。
 						{banRoleError && (
 							<span className="text-destructive mt-2 block">

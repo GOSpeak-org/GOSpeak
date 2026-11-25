@@ -17,6 +17,7 @@ export interface AnnouncementPayload {
 }
 
 export interface MemberInfo {
+	user_uuid?: string;
 	id: string;
 	identity: string;
 	name: string;
@@ -104,7 +105,7 @@ export interface MessageSendPayload {
 }
 
 export interface MuteInfo {
-	user_id: number;
+	user_uuid: string;
 	duration: number;
 	permanent: boolean;
 	reason: string;

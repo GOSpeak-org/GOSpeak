@@ -99,14 +99,23 @@ packages/
 
 ```go
 type Provider interface {
+    ProviderName() string
+    Capabilities() Capabilities
     GenerateToken(room, identity string) (string, error)
+    GenerateTokenWithPublish(room, identity string, canPublish bool) (string, error)
     ListRooms() ([]RoomSummary, error)
     ListParticipants(room string) ([]ParticipantSummary, error)
     MuteParticipant(room, identity, trackSid string, muted bool) error
+    MuteParticipantTimed(room, identity, trackSid string, muted bool, ttlSeconds int) error
     RemoveParticipant(room, identity string) error
     DeleteRoom(room string) error
     GetHost() string
+    SupportsStream() bool
+    StreamName(room, identity string) string
+    StreamInfo(room, identity string) (stream, token string, err error)
+    ClientInfo() map[string]interface{}
 }
+// 精确签名以 app/server/internal/sfu/provider.go 为准
 ```
 
 当前仅有 LiveKit 一个实现。接口的意义在于：业务层不依赖具体的底层实现，将来接入其他服务时无需修改业务代码。
@@ -153,7 +162,7 @@ type Provider interface {
 
 | 表 | 存储内容 |
 |----|--------|
-| `mutes` | 禁言记录 |
+| `mutes` | 用户级禁言记录（`UUID` / `UserUUID` / `Permanent` / `ExpiresAt` 等） |
 | `announcements` | 系统公告（平台/域级，含草稿与过期时间） |
 | `announcement_reads` | 用户公告已读记录 |
 | `audit_logs` | 审计日志 |

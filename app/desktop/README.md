@@ -27,7 +27,7 @@ GOSpeak 桌面端的**本体**：一个用 [MyGo](https://github.com/egoist/mygo
 ```
 
 - `app/desktop`（本目录）= 桌面端**本体** + Go 侧的原生能力实现。
-- `packages/desktop` = TypeScript 侧的**能力 SDK**：包装 mygo 生成的客户端，并给浏览器环境提供兜底实现，让同一套前端代码在桌面端和纯浏览器里都能跑。
+- `packages/desktop` = TypeScript 侧的**能力 SDK**：基于 `window.mygo` 的 `call` / `on` 封装（并不包装 mygo 生成的 TS 客户端），并给浏览器环境提供兜底实现，让同一套前端代码在桌面端和纯浏览器里都能跑。
 
 ## 目录
 
@@ -35,7 +35,7 @@ GOSpeak 桌面端的**本体**：一个用 [MyGo](https://github.com/egoist/mygo
 | --- | --- |
 | `go.mod` | Go module（`gospeak-desktop`），依赖 `github.com/egoist/mygo` |
 | `main.go` | 入口：`mygo.Bind(...)` 注册服务 + 创建内嵌前端的窗口 |
-| `window.go` / `tray.go` / `notification.go` / `autostart.go` / `deeplink.go` / `dialog.go` / `updater.go` / `screencapture.go` | 桌面能力服务的 Go 实现（mygo 绑定后生成 TS 客户端；`screencapture.go` 提供 `ScreenCapture.Check/Guide` 屏幕录制权限检查与系统设置引导） |
+| `window.go` / `tray.go` / `notification.go` / `autostart.go` / `deeplink.go` / `dialog.go` / `clipboard.go` / `browser.go` / `updater.go` / `screencapture.go` | 桌面能力服务的 Go 实现（mygo 绑定；`screencapture.go` 提供 `ScreenCapture.Check/Guide` 屏幕录制权限检查与系统设置引导） |
 | `deeplink.go` | `gospeak://invite/d/<CODE>` 深链：注册协议、归一化为应用内路径、冷启动暂存与运行中广播 |
 | `mygo.config.ts` | MyGo 项目配置（应用名、identifier、devUrl 指向 `@gospeak/web`） |
 | `package.json` | 通过 `mygo-cli` 提供 `mygo dev` / `mygo build` |
@@ -52,6 +52,9 @@ GOSpeak 桌面端的**本体**：一个用 [MyGo](https://github.com/egoist/mygo
 | `startup.go` | 启动耗时追踪（`GOSPEAK_STARTUP_DEBUG=1`，见「启动耗时」） |
 | `proxyport.go` | 回环代理的稳定端口选择与持久化（`proxy-port.json`） |
 | `lifecycle.go` | 关窗进托盘、Dock 激活、单实例聚焦与退出标记 |
+| `browser.go` | `Browser.OpenExternal`：在系统浏览器打开外部链接（关于页「项目地址」） |
+| `proxyroute.go` / `systemproxy.go` | 上游直连优先与系统代理回退解析 |
+| `supervisor.go` / `crashwindow.go` | 重启预算与退避、页面加载失败/崩溃独立窗口 |
 
 ## 前提
 

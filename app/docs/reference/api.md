@@ -200,8 +200,8 @@ Authorization: Bearer <access_token>
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/signal/token` | 获取进房令牌 |
-| GET | `/signal/rooms` | 当前房间 |
-| GET | `/signal/participants` | 房间成员 |
+| GET | `/signal/rooms` | 当前房间（需 admin 角色，`RequireRole("admin")`） |
+| GET | `/signal/participants` | 房间成员（需 admin 角色，`RequireRole("admin")`） |
 | GET | `/signal/ws-endpoint` | 信令地址 |
 | POST | `/signal/webhook` | LiveKit 回调（公开，通过签名校验） |
 
@@ -213,6 +213,7 @@ Authorization: Bearer <access_token>
 | POST | `/sfu/config/:provider` | `sfu:manage` | 指定 provider 的配置 |
 | POST | `/sfu/update-config` | `sfu:manage` | 修改配置并激活 |
 | POST | `/sfu/providers` | `sfu:manage` | 列出已配置的 provider |
+| POST | `/sfu/effective-config` | `sfu:manage` | 读取当前生效配置 |
 
 ## 存储
 

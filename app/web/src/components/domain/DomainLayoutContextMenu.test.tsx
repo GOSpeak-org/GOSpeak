@@ -1,3 +1,4 @@
+import { closeContextMenu } from "@gospeak/components";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DomainLayoutContextMenu from "./DomainLayoutContextMenu";
@@ -25,9 +26,9 @@ function fakeRect(top: number, right: number): DOMRect {
 	} as DOMRect;
 }
 
-function getAnchor(container: HTMLElement): HTMLElement {
+function getAnchor(): HTMLElement {
 	const anchors = Array.from(
-		container.querySelectorAll<HTMLElement>("div"),
+		document.querySelectorAll<HTMLElement>('div[aria-hidden="true"]'),
 	).filter(
 		(el) =>
 			el.style.position === "fixed" &&
@@ -38,31 +39,26 @@ function getAnchor(container: HTMLElement): HTMLElement {
 	return anchors[0];
 }
 
-function renderMenu(label = "周末开黑") {
-	const props = {
-		label,
-		groups: [],
-		onMove: vi.fn(),
-		onMoveUp: vi.fn(),
-		onMoveDown: vi.fn(),
-	};
-	return {
-		props,
-		...render(
-			<DomainLayoutContextMenu {...props}>
-				<button type="button" aria-label={label}>
-					{label}
-				</button>
-			</DomainLayoutContextMenu>,
-		),
-	};
-}
-
 describe("DomainLayoutContextMenu 顶部对齐", () => {
-	afterEach(cleanup);
+	afterEach(() => {
+		closeContextMenu();
+		cleanup();
+	});
 
 	it("右键菜单锚点取域按钮顶部，而不是鼠标落点", () => {
-		const { container } = renderMenu();
+		render(
+			<DomainLayoutContextMenu
+				label="周末开黑"
+				groups={[]}
+				onMove={vi.fn()}
+				onMoveUp={vi.fn()}
+				onMoveDown={vi.fn()}
+			>
+				<button type="button" aria-label="周末开黑">
+					周末开黑
+				</button>
+			</DomainLayoutContextMenu>,
+		);
 		const button = screen.getByLabelText("周末开黑");
 		vi.spyOn(button, "getBoundingClientRect").mockReturnValue(
 			fakeRect(137, 420),
@@ -70,7 +66,7 @@ describe("DomainLayoutContextMenu 顶部对齐", () => {
 
 		fireEvent.contextMenu(button, { clientX: 999, clientY: 888 });
 
-		const anchor = getAnchor(container);
+		const anchor = getAnchor();
 		expect(anchor.style.top).toBe("137px");
 		expect(anchor.style.left).toBe("426px");
 		expect(anchor.style.top).not.toBe("894px");
@@ -98,7 +94,7 @@ describe("DomainLayoutContextMenu 顶部对齐", () => {
 			clientY: 700,
 		});
 
-		const anchor = getAnchor(container);
+		const anchor = getAnchor();
 		expect(anchor.style.top).toBe("64px");
 		expect(anchor.style.top).not.toBe("706px");
 	});

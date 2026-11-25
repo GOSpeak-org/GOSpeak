@@ -1078,8 +1078,8 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "user_id": {
-                                    "type": "integer"
+                                "user_uuid": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -1132,8 +1132,8 @@ const docTemplate = `{
                                 "reason": {
                                     "type": "string"
                                 },
-                                "user_id": {
-                                    "type": "integer"
+                                "user_uuid": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -1201,8 +1201,8 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "user_id": {
-                                    "type": "integer"
+                                "user_uuid": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -2463,7 +2463,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根据用户 ID 删除用户",
+                "description": "根据用户 UUID 删除用户",
                 "consumes": [
                     "application/json"
                 ],
@@ -2476,15 +2476,15 @@ const docTemplate = `{
                 "summary": "删除用户",
                 "parameters": [
                     {
-                        "description": "用户 ID",
+                        "description": "用户 UUID",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "id": {
-                                    "type": "integer"
+                                "user_uuid": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -2507,7 +2507,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "通过用户 ID 获取用户信息",
+                "description": "通过用户 UUID 获取用户信息",
                 "consumes": [
                     "application/json"
                 ],
@@ -2520,15 +2520,15 @@ const docTemplate = `{
                 "summary": "根据 ID 获取用户",
                 "parameters": [
                     {
-                        "description": "用户 ID",
+                        "description": "用户 UUID",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "id": {
-                                    "type": "integer"
+                                "user_uuid": {
+                                    "type": "string"
                                 }
                             }
                         }
@@ -2791,15 +2791,15 @@ const docTemplate = `{
                 "summary": "更新用户角色",
                 "parameters": [
                     {
-                        "description": "用户 ID 和角色",
+                        "description": "用户 UUID 和角色",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "id": {
-                                    "type": "integer"
+                                "user_uuid": {
+                                    "type": "string"
                                 },
                                 "role": {
                                     "type": "string"

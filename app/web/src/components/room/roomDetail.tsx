@@ -8,7 +8,14 @@ import {
 	toast,
 } from "@gospeak/components";
 import { clsx } from "clsx";
-import { Ellipsis, Gavel, LogOut, Volume2, VolumeX } from "lucide-react";
+import {
+	Ellipsis,
+	Gavel,
+	LogOut,
+	MonitorUp,
+	Volume2,
+	VolumeX,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RemoteVideoTrackLike } from "@gospeak/sfu-client/types";
 import { createMute } from "@/api/mute";
@@ -37,6 +44,7 @@ import { hasPermission } from "@/utils/permissions";
 import { toastActionError } from "@/utils/toast";
 import ScreenShareView from "./ScreenShareView";
 import { useVoiceSessionContext } from "./VoiceSessionProvider";
+import { useWatchScreenShare } from "./useWatchScreenShare";
 
 interface ShareEntry {
 	key: string;
@@ -77,8 +85,16 @@ export default function RoomDetail() {
 
 	// 屏幕共享：候选来自远端屏幕共享 + 本人共享，切换条只展示头像与名字。
 	const remoteVideos = useScreenShareStore((s) => s.remote);
+	const remotePublications = useScreenShareStore((s) => s.remotePublications);
 	const localSharing = useScreenShareStore((s) => s.localSharing);
 	const localTrack = useScreenShareStore((s) => s.localTrack);
+	const { watchScreenShare, stopWatchingScreenShare } = useWatchScreenShare();
+
+	const sharingIdentities = useMemo(() => {
+		const ids = new Set(remotePublications.map((item) => item.identity));
+		if (localSharing && localTrack && myName) ids.add(myName);
+		return ids;
+	}, [remotePublications, localSharing, localTrack, myName]);
 
 	const shareEntries = useMemo<ShareEntry[]>(() => {
 		const entries = remoteVideos
@@ -101,15 +117,46 @@ export default function RoomDetail() {
 	}, [remoteVideos, localSharing, localTrack, myName]);
 
 	const [activeKey, setActiveKey] = useState<string | null>(null);
+	const [pendingIdentity, setPendingIdentity] = useState<string | null>(null);
+
+	const switchToShare = useCallback(
+		async (identity: string, key: string) => {
+			if (key === activeKey) return;
+			if (key === "local") {
+				setActiveKey("local");
+				return;
+			}
+			setPendingIdentity(identity);
+			try {
+				await Promise.resolve(watchScreenShare(identity));
+				setActiveKey(key);
+			} catch {
+				toast.error("观看共享失败，请稍后重试");
+			} finally {
+				setPendingIdentity(null);
+			}
+		},
+		[activeKey, watchScreenShare],
+	);
+
+	const handleWatchShare = useCallback(
+		(identity: string) => {
+			const key = identity === myName ? "local" : `remote:${identity}`;
+			void switchToShare(identity, key);
+		},
+		[myName, switchToShare],
+	);
+
 	const activeEntry =
-		shareEntries.find((entry) => entry.key === activeKey) ??
-		shareEntries[0] ??
-		null;
+		shareEntries.find((entry) => entry.key === activeKey) ?? null;
 	const sharedTrack = activeEntry?.track ?? null;
+	const activeMember = roomMembers.find(
+		(member) => member.identity === activeEntry?.identity,
+	);
 	const sharedLabel = activeEntry
 		? activeEntry.isLocal
 			? "你正在共享屏幕"
-			: `${activeEntry.identity} 正在共享屏幕`
+			: `${activeMember?.display_name || activeMember?.name || activeEntry.identity} 正在共享屏幕`
 		: "";
 
 	// 密码错时允许重新输入：此前"重试"只是用同一个错误密码再发一次，必然再失败
@@ -148,6 +195,25 @@ export default function RoomDetail() {
 							{sharedLabel}
 						</div>
 					</div>
+					<div className="mt-3 flex shrink-0 justify-end">
+						<button
+							type="button"
+							className="bg-card border-border text-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-sm border px-3 py-1.5 text-sm transition-colors"
+							onClick={() => {
+								if (activeEntry?.isLocal) {
+									setActiveKey(null);
+									return;
+								}
+								void Promise.resolve(stopWatchingScreenShare()).catch(() => {
+									toast.error("退出共享失败，请稍后重试");
+								});
+								setActiveKey(null);
+							}}
+						>
+							<LogOut size={14} />
+							<span>{activeEntry?.isLocal ? "退出预览" : "退出共享"}</span>
+						</button>
+					</div>
 					{shareEntries.length > 1 && (
 						<div className="ds-scroll mt-3 flex shrink-0 gap-2 overflow-x-auto">
 							{shareEntries.map((entry) => {
@@ -158,17 +224,21 @@ export default function RoomDetail() {
 									? me?.display_name || myName || "我"
 									: member?.display_name || member?.name || entry.identity;
 								const active = entry.key === activeEntry?.key;
+								const pending = pendingIdentity === entry.identity;
 								return (
 									<button
 										key={entry.key}
 										type="button"
+										disabled={pending}
 										aria-label={`切换到 ${displayName} 的共享`}
 										aria-pressed={active}
 										className={clsx(
-											"bg-card border-border text-foreground flex shrink-0 cursor-pointer items-center gap-2 rounded-sm border px-2 py-1.5 text-sm transition-colors",
+											"bg-card border-border text-foreground flex shrink-0 cursor-pointer items-center gap-2 rounded-sm border px-2 py-1.5 text-sm transition-colors disabled:cursor-default disabled:opacity-80",
 											active ? "bg-selected" : "hover:bg-muted",
 										)}
-										onClick={() => setActiveKey(entry.key)}
+										onClick={() =>
+											void switchToShare(entry.identity, entry.key)
+										}
 									>
 										<Avatar
 											src={entry.isLocal ? me?.avatar : member?.avatar}
@@ -176,7 +246,9 @@ export default function RoomDetail() {
 											className="size-6"
 											textClass="text-2xs"
 										/>
-										<span className="max-w-24 truncate">{displayName}</span>
+										<span className="max-w-24 truncate">
+											{pending ? "正在订阅..." : displayName}
+										</span>
 									</button>
 								);
 							})}
@@ -205,6 +277,9 @@ export default function RoomDetail() {
 										)
 									}
 									onCloseMenu={closeMemberMenu}
+									sharing={sharingIdentities.has(member.identity)}
+									onWatchShare={() => handleWatchShare(member.identity)}
+									pending={pendingIdentity === member.identity}
 								/>
 							))
 						) : (
@@ -300,11 +375,17 @@ function MemberCard({
 	menuOpen,
 	onToggleMenu,
 	onCloseMenu,
+	sharing,
+	onWatchShare,
+	pending,
 }: {
 	member: MemberInfo;
 	menuOpen: boolean;
 	onToggleMenu: () => void;
 	onCloseMenu: () => void;
+	sharing: boolean;
+	onWatchShare: () => void;
+	pending: boolean;
 }) {
 	const isMe = member.identity === useUserStore.getState().user?.name;
 	const user = useUserStore((s) => s.user);
@@ -340,9 +421,11 @@ function MemberCard({
 	const handleBanMute = async () => {
 		setMuting(true);
 		try {
-			const info = await fetchUserInfo(member.identity);
+			// 成员在线快照已带 user_uuid 时直接用；旧路径（member:joined 未 enrich）降级查询
+			const userUUID =
+				member.user_uuid || (await fetchUserInfo(member.identity)).uuid;
 			await createMute({
-				user_id: info.id,
+				user_uuid: userUUID,
 				duration: 3600,
 				permanent: false,
 				reason: "",
@@ -371,6 +454,19 @@ function MemberCard({
 					className="size-20"
 					textClass="text-xl"
 				/>
+
+				{sharing && (
+					<button
+						type="button"
+						disabled={pending}
+						className="bg-primary text-primary-foreground absolute right-2 bottom-9 flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-2xs transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-80"
+						aria-label={`观看 ${displayName} 的屏幕共享`}
+						onClick={onWatchShare}
+					>
+						<MonitorUp size={12} />
+						<span>{pending ? "正在订阅共享..." : "正在共享屏幕"}</span>
+					</button>
+				)}
 
 				<div className="bg-sunken absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-3 py-1.5">
 					<span className="text-foreground truncate text-sm font-medium">

@@ -211,7 +211,7 @@ docker compose -f deploy/docker-compose.standard.yml up -d   # 只有全档位�
 | 3478 | UDP | LiveKit | TURN 中继，NAT 严格时靠它 |
 | 8998 | TCP | gospeak | 应用端口，仅自有反代场景需要可达（不要直接暴露公网） |
 
-**不需要再开 7880 / 7881。** 7880 是 LiveKit 信令，compose 里只绑到宿主机回环（`127.0.0.1:7880`），供本机 `pnpm dev` 调试直连，**不对公网开放**；浏览器经应用同源的 `/livekit` 访问它。7881 已不再发布。
+**全档位（`docker-compose.standard.yml`）下不需要再开 7880 / 7881。** 7880 是 LiveKit 信令，在全档位 compose 里只绑到宿主机回环（`127.0.0.1:7880`），供本机 `pnpm dev` 调试直连，**不对公网开放**；浏览器经应用同源的 `/livekit` 访问它，7881 不再发布。**注意精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用精简版或直接暴露这两个端口。**
 
 Ubuntu 防火墙示例：
 
@@ -355,7 +355,7 @@ docker compose -f deploy/docker-compose.standard.yml start gospeak
 |------|------------------------|------|
 | `edge` | 有域名时加 | 内置 Caddy，自动 HTTPS；已有反代则不要加 |
 | `postgres` | 人多了换掉 SQLite | 同时要改 DB 段配置 |
-| `rustfs` | 要对象存储 / 多实例 | S3 兼容，控制台在 9001 |
+| `rustfs` | 要对象存储 | S3 兼容，控制台在 9001 |
 | `observability` | 想看监控 | Prometheus + Grafana + Alertmanager + Loki |
 
 常用组合（写入 `deploy/.env` 后用 `-f deploy/docker-compose.standard.yml` 启动）：

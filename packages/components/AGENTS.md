@@ -9,7 +9,8 @@ src/
 ├── index.ts        # 唯一出口，逐个具名导出
 ├── components/     # button/badge/checkbox/avatar/dialog/hover-card/input/
 │                   # radio-group/scroll-area/select/skeleton/slider/switch/
-│                   # toast/toggle/tooltip/card/dropdown-menu/popover + *.stories.tsx
+│                   # toast/toggle/tooltip/card/dropdown-menu/popover/context-menu + *.stories.tsx
+│                   # context-menu 另导出 showContextMenu / closeContextMenu 命令式 API
 ├── lib/utils.ts    # cn()：clsx + tailwind-merge
 └── theme.css       # 主题 token 单一事实源
 ```

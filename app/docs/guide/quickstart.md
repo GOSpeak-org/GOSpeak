@@ -34,20 +34,22 @@ cd deploy && ./init.sh && cd ..
 DB_TYPE="SQLite"
 SFU_PROVIDER="livekit"
 LIVEKIT_HOST="ws://localhost:7880"
-LIVEKIT_KEY="devkey"
-LIVEKIT_SECRET="devsecret"
+LIVEKIT_KEY="<init.sh 生成>"
 ```
 
-`LIVEKIT_KEY` / `LIVEKIT_SECRET` 可任意填写，但需与 LiveKit 容器侧配置一致。
+`LIVEKIT_KEY` / `LIVEKIT_SECRET` 已由 `init.sh` 随机生成并注入 compose 与 `.env`，本地开发无需手填；手动修改须同时同步 LiveKit 容器侧配置。
 
-> 本地开发时应用运行在宿主机，需连接 `localhost:7880`。compose 中 `livekit` 的 7880 已绑定到宿主机回环地址（`127.0.0.1:7880`），可直接连接，无需修改端口映射。该端口仅对本机可见，不对公网开放。
+> 本地开发时应用运行在宿主机，需连接 `localhost:7880`。**全档位** compose 中 `livekit` 的 7880 绑定宿主机回环（`127.0.0.1:7880`）；精简版 `deploy/docker-compose.yml` 则是 `7880:7880` 对公网发布，本地使用请注意防火墙。
 
 ## 第三步：启动语音服务
 
 ```bash
 cd deploy
 ./init.sh
-docker compose up -d
+# 本地起步用精简版（不读 COMPOSE_PROFILES）：
+docker compose -f docker-compose.yml up -d
+# 需要 edge / HTTPS / postgres 等档位时用全档位版：
+# docker compose -f docker-compose.standard.yml up -d
 ```
 
 `init.sh` 生成 `deploy/.env`（含随机密钥），compose 将密钥注入 LiveKit 容器，`livekit.yaml` 不含任何凭据，因此无需手动对齐两侧 key。

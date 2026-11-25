@@ -3,8 +3,8 @@ import apiClient from "./apiClient";
 export interface MuteRecord {
 	id: number;
 	uuid: string;
-	user_id: number;
-	muter_id: number;
+	user_uuid: string;
+	muter_uuid: string;
 	duration: number;
 	permanent: boolean;
 	expires_at: string | null;
@@ -14,7 +14,7 @@ export interface MuteRecord {
 }
 
 export interface CreateMuteParams {
-	user_id: number;
+	user_uuid: string;
 	duration: number;
 	permanent: boolean;
 	reason: string;
@@ -32,10 +32,10 @@ export async function createMute(
 	return data;
 }
 
-export async function cancelMute(userId: number): Promise<void> {
+export async function cancelMute(userUUID: string): Promise<void> {
 	await apiClient.post({
 		url: "/api/v1/mute/cancel",
-		data: { user_id: userId },
+		data: { user_uuid: userUUID },
 	});
 }
 

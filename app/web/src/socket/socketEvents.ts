@@ -63,7 +63,7 @@ export interface SocketEventDeps {
 	handleMessageCreated: (dto: MessageDTO) => void;
 	handleAnnouncementNew: (dto: AnnouncementDTO) => void;
 	currentUserName: () => string;
-	currentUserID: () => number | undefined;
+	currentUserUUID: () => string | undefined;
 }
 
 export function bindServerEvents(
@@ -237,12 +237,12 @@ export function bindServerEvents(
 	);
 
 	// 用户级禁言事件：允许收听，不允许发布本地音轨
-	// 必须按 user_id 过滤，避免全服广播误伤其他客户端
+	// 必须按 user_uuid 过滤，避免全服广播误伤其他客户端
 	adapter.onServerEvent(
 		EVENTS.USER_MUTED,
 		(data: MuteEvent & { enforcement?: string }) => {
-			console.log("[Socket] user:muted", data.user_id, data.enforcement);
-			if (data.user_id !== deps.currentUserID()) return;
+			console.log("[Socket] user:muted", data.user_uuid, data.enforcement);
+			if (data.user_uuid !== deps.currentUserUUID()) return;
 			const mode =
 				data.enforcement === "hard"
 					? "服务端原生强制停止推流"
@@ -264,8 +264,8 @@ export function bindServerEvents(
 	);
 
 	adapter.onServerEvent(EVENTS.USER_UNMUTED, (data: UnmuteEvent) => {
-		console.log("[Socket] user:unmuted", data.user_id);
-		if (data.user_id !== deps.currentUserID()) return;
+		console.log("[Socket] user:unmuted", data.user_uuid);
+		if (data.user_uuid !== deps.currentUserUUID()) return;
 		toast.success("你的禁言已被解除，可以重新发言");
 		deps.setSpeechRestricted(false);
 		deps.setSpeechRestrictionInfo(null);

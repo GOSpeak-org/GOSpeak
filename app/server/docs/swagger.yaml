@@ -987,14 +987,14 @@ paths:
       - application/json
       description: 取消用户的禁言
       parameters:
-      - description: 用户 ID
+      - description: 用户 UUID
         in: body
         name: request
         required: true
         schema:
           properties:
-            user_id:
-              type: integer
+            user_uuid:
+              type: string
           type: object
       produces:
       - application/json
@@ -1027,8 +1027,8 @@ paths:
               type: boolean
             reason:
               type: string
-            user_id:
-              type: integer
+            user_uuid:
+              type: string
           type: object
       produces:
       - application/json
@@ -1063,14 +1063,14 @@ paths:
       - application/json
       description: 查询指定用户是否被禁言
       parameters:
-      - description: 用户 ID
+      - description: 用户 UUID
         in: body
         name: request
         required: true
         schema:
           properties:
-            user_id:
-              type: integer
+            user_uuid:
+              type: string
           type: object
       produces:
       - application/json
@@ -1852,16 +1852,16 @@ paths:
     post:
       consumes:
       - application/json
-      description: 根据用户 ID 删除用户
+      description: 根据用户 UUID 删除用户
       parameters:
-      - description: 用户 ID
+      - description: 用户 UUID
         in: body
         name: request
         required: true
         schema:
           properties:
-            id:
-              type: integer
+            user_uuid:
+              type: string
           type: object
       produces:
       - application/json
@@ -1879,16 +1879,16 @@ paths:
     post:
       consumes:
       - application/json
-      description: 通过用户 ID 获取用户信息
+      description: 通过用户 UUID 获取用户信息
       parameters:
-      - description: 用户 ID
+      - description: 用户 UUID
         in: body
         name: request
         required: true
         schema:
           properties:
-            id:
-              type: integer
+            user_uuid:
+              type: string
           type: object
       produces:
       - application/json
@@ -2047,14 +2047,14 @@ paths:
       - application/json
       description: 管理员更新用户角色（admin/user）
       parameters:
-      - description: 用户 ID 和角色
+      - description: 用户 UUID 和角色
         in: body
         name: request
         required: true
         schema:
           properties:
-            id:
-              type: integer
+            user_uuid:
+              type: string
             role:
               type: string
           type: object
