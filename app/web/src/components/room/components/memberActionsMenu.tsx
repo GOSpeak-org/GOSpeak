@@ -99,14 +99,14 @@ export default function MemberActionsMenu({
 							variant="destructive"
 							onSelect={() => setKickOpen(true)}
 						>
-							<UserMinus size={15} className="shrink-0" />
+							<UserMinus size={16} className="shrink-0" />
 							踢出房间
 						</DropdownMenuItem>
 					)}
 					{canKick && canMute && <DropdownMenuSeparator />}
 					{canMute && (
 						<DropdownMenuItem onSelect={() => setMuteOpen(true)}>
-							<VolumeX size={15} className="shrink-0" />
+							<VolumeX size={16} className="shrink-0" />
 							禁言
 						</DropdownMenuItem>
 					)}
