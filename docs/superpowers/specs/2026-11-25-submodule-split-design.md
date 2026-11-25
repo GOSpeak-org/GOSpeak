@@ -12,6 +12,19 @@
 - 所有现有构建、lint、typecheck、CI 脚本在 submodule checkout 后继续工作，路径不变。
 - 给出清晰、可回滚的执行步骤。
 
+## 版本与发布模型（metadata.yaml 分层管理 + 独立发布）
+
+- **方案 C：主仓库总控 + 子仓库各自一份 `metadata.yaml`**，分层聚合。
+- 主仓库总控 `metadata.yaml` 的 `components.<name>.version` 是最终事实源；子仓库 `metadata.yaml` 的 `version` 必须一致，由 CI 校验，`metadata_ref` 指向子仓库文件。
+- 子仓库 `metadata.yaml` 还承载组件元数据（name/description/platforms/artifact_type/changelog），供 release-notes 与 build-changelog 消费。
+- 删除 `.github/versions/*.yaml`，版本与元数据全部迁移到 `metadata.yaml`。
+- **版本号不统一发布**：server / desktop / mobile 各自独立 SemVer，互不跟随。
+- 每个组件独立 tag：`gospeak-server-v<semver>` / `gospeak-desktop-v<semver>` / `gospeak-mobile-v<semver>`；独立 Release、独立 changelog、独立产物。
+- 版本 bump 只针对发生变更的组件：先改该子仓库 `metadata.yaml` 与版本文件并提交，再更新主仓库总控 `metadata.yaml` 的 version/tag 与 gitlink，最后打该组件 tag。
+- 子仓库 commit message 约定：`chore(<component>): bump version to <semver>`，gitlink bump 与版本发布解耦。
+- **metadata ↔ tag 协同**：tag 一律由 metadata 经 `release-naming.mjs` 派生（不手写）；metadata 中显式写的 `tag` 字段必须与派生结果一致；tag 存在性驱动发布且幂等；子仓库 metadata 版本必须与总控一致才允许打 tag；annotated tag 打在「更新 metadata + gitlink 的提交」上。删除现有 `version-bump.yml` 中强制 server/desktop 同版本的 lockstep 约束。
+- mobile 产物仍由独立 `build-mobile.yml` 发布，不进入主 release workflow 的构建阶段。
+
 ## 非目标
 
 - 不把 `packages/components`、`packages/sfu-client`、`packages/desktop`、`packages/mobile-capabilities` 拆成 submodule；它们继续作为 workspace 包留在主仓库。
