@@ -16,7 +16,7 @@
 | [插件平台 03：管理面与插件能力](./2026-11-24-plugin-03-capabilities.md) | 待执行 | 4 个 Task；管理 API/页面 + 插件 API + Hook + 页面挂载；依赖 01/02 |
 | [插件平台 04：集成验证](./2026-11-24-plugin-04-integration.md) | 待执行 | 3 个 Task；指标 + E2E + 全量门禁；依赖 01/02/03 |
 | [插件平台 05：文档与文档站](./2026-11-24-plugin-05-docs.md) | 待执行 | 2 个 Task；AGENTS/部署文档 + VitePress 插件指南与 API 参考；依赖 01–04 |
-| [Release 产物分离](./2026-11-25-submodule-split.md) | 待执行 | 6 个 Task；一组件一 Release（各在自己的 tag 上，产物不再挤在一起）+ 删除 lockstep 同版本约束 + release-notes 按组件渲染 + 组件解析扩展 + 修两个现存 bug（update 检测 tag 正则、index.html no-store）。原「四端拆仓」方案经 review 后放弃：CI 会从并行 13 job 变成跨仓串行，慢 2-3 倍，而痛点用约 40 行 workflow 即可解决 |
+| [Release 产物分离与独立发版](./2026-11-25-submodule-split.md) | 待执行 | 6 个 Task；一组件一 Release（各在自己的 tag 上）+ **任一组件独立发版**（删 lockstep、纳入 mobile、清理同步语义）+ release-notes 按组件渲染 + 组件解析扩展 + 修两个现存 bug（update 检测 tag 正则、index.html no-store）。原「四端拆仓」方案经 review 后放弃：CI 会从并行 13 job 变成跨仓串行，慢 2-3 倍，痛点用约 40 行 workflow 即可解决 |
 | [音频输出策略抽象与 Web Audio 优先 fallback](./2026-11-25-audio-output-strategy.md) | 待执行 | 6 个 Task；Web Audio 优先，media element fallback |
 
 > 关于页 GitHub 项目地址入口已交付并移出索引：`Browser.OpenExternal` 桥接与前端「项目地址」入口均已落地。

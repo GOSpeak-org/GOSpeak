@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让每个组件拥有独立的 GitHub Release 条目，产物不再混在一起。当前 `gospeak-server-v1.3.0-rc.1` 一个 Release 里塞了 20 个附件（10 个 server 二进制 + 7 个桌面安装包 + install.sh + 2 个 SHA256SUMS），难以管理与分发。
+**Goal:** 两个目标：(1) 让每个组件拥有独立的 GitHub Release 条目，产物不再混在一起——当前 `gospeak-server-v1.3.0-rc.1` 一个 Release 里塞了 20 个附件（10 个 server 二进制 + 7 个桌面安装包 + install.sh + 2 个 SHA256SUMS）；(2) 允许任一组件独立发版，改自己的 `.github/versions/<component>.yaml` 即可，不必与其他端同步。
 
 **Architecture:** 不拆仓库、不动目录结构。根因是 `release.yml` 里 `create-release` 硬编码了 server tag（第 157 行），导致任何组件触发都建到 server 的 Release 上；同时 `desktop_included` 逻辑（第 204-214 行）把桌面下载表格注入 server Release 正文。改为「哪个组件触发，就在哪个组件的 tag 上建 Release，只上传该组件产物」。配套删除 `version-bump.yml` 的 lockstep 同版本约束——它正是「产物挤在一个 Release」逼出来的。
 
@@ -44,18 +44,30 @@
 | `AGENTS.md` / `scripts/AGENTS.md` | 发布模型描述同步 |
 
 ---
-## Task 1: 删除 lockstep 约束
+## Task 1: 独立发版（删除 lockstep + 纳入 mobile）
 
 **Files:**
 - Modify: `.github/workflows/version-bump.yml`
+- Modify: `.github/versions/mobile.yaml`（补 release 触发所需字段，如有缺）
+- Modify: `.github/workflows/build-mobile.yml`（迁移到正式 tag，见 Step 4）
 
 **Interfaces:**
-- Consumes: 现状（`server.yaml` 与 `desktop.yaml` 强制同版本）。
-- Produces: 两端可独立发版；供 Task 2 的按组件 Release 使用。
+- Consumes: 现状（server/desktop 强制同版本；mobile 完全不在 version-bump 流程内）。
+- Produces: 任一组件改自己的 `.github/versions/<component>.yaml` 即可单独发版，其余组件不受影响。
+
+**现状盘点（重要）：** 下游编排**已经**是组件独立的：
+
+```yaml
+release-server:  if: released == 'true' && server_tag  != ''
+release-desktop: if: released == 'true' && desktop_tag != ''
+docker:          if: released == 'true' && server_tag  != ''
+```
+
+所以只改 desktop 版本时，server_tag 为空 → release-server 与 docker 自动跳过。**独立发版机制已存在**，本 Task 只需清理障碍并补齐 mobile。
 
 - [ ] **Step 1: 删除 lockstep 校验步骤**
 
-删除 `.github/workflows/version-bump.yml` 中名为 `Require lockstep component versions` 的整个 step（当前第 78-89 行），连同其 `SERVER_VERSION` / `DESKTOP_VERSION` 环境变量与比对逻辑。
+删除 `.github/workflows/version-bump.yml` 中名为 `Require lockstep component versions` 的整个 step（当前第 78-89 行），连同其 `SERVER_VERSION` / `DESKTOP_VERSION` 环境变量与比对逻辑。该约束强制两端同版本，是独立发版的硬阻塞。
 
 Run:
 ```bash
@@ -63,18 +75,84 @@ grep -n "lockstep" .github/workflows/version-bump.yml
 ```
 Expected: 无输出。
 
-- [ ] **Step 2: 确认按组件独立打 tag 仍然工作**
+- [ ] **Step 2: 清理 `released` 中间变量的同步语义**
 
-检查 `Detect published tags` 与后续打 tag 步骤，确认对 server 与 desktop 是各自独立判断 tag 是否存在（现有实现已是如此，第 155-168 行分别 `git tag -a` 并 push）。
-
-Run: `/tmp/actionlint -color .github/workflows/version-bump.yml`
-Expected: 无错误。
-
-- [ ] **Step 3: 提交**
+当前判定：
 
 ```bash
-git add .github/workflows/version-bump.yml
-git commit -m "ci: drop lockstep version constraint between server and desktop"
+if [ "$SERVER_EXISTS" = "false" ] || [ "$DESKTOP_EXISTS" = "false" ]; then
+  echo "released=true"     # 语义上像"一次发版"
+```
+
+改为按组件输出，去掉误导性的 `released`（下游 job 实际只依赖 `<component>_tag` 是否非空）：
+
+```bash
+# 每个组件独立决定自己的 tag 是否要打
+for c in server desktop mobile; do
+  if [ "[object Object]_EXISTS" = "false" ]; then
+    echo "[object Object]_tag=$(node scripts/release-naming.mjs tag "$c" "$VERSION")" >> "$GITHUB_OUTPUT"
+  else
+    echo "[object Object]_tag=" >> "$GITHUB_OUTPUT"
+  fi
+done
+```
+
+下游 `if:` 同步去掉 `released == 'true' &&` 前缀，只保留 `<component>_tag != ''`。
+
+Expected: `grep -n "released" .github/workflows/version-bump.yml` 无输出（或仅注释）。
+
+- [ ] **Step 3: 把 mobile 纳入 version-bump**
+
+1. 在 `Read declared versions` 步骤补读 `.github/versions/mobile.yaml`，输出 `mobile`；
+2. 在 `Detect published tags` 补 `check mobile "$MOBILE_VERSION"`；
+3. 新增 `Tag mobile release if version changed` step（照抄 server/desktop 的写法，`if: steps.tags.outputs.mobile_exists == 'false'`）；
+4. 新增下游 job：
+
+```yaml
+release-mobile:
+  name: Publish mobile release
+  needs: [bump-tags]
+  if: needs.bump-tags.outputs.mobile_tag != ''
+  permissions:
+    contents: write
+  uses: ./.github/workflows/release.yml
+  with:
+    tag: ${{ needs.bump-tags.outputs.mobile_tag }}
+```
+
+Expected: `grep -n "mobile" .github/workflows/version-bump.yml` 在版本读取、tag 检测、打 tag、下游 job 四处均有命中。
+
+- [ ] **Step 4: build-mobile 迁移到正式 Release**
+
+当前 `build-mobile.yml` 把手动构建的 APK 上传到固定 pre-release `gospeak-mobile-test` 并 `--clobber` 覆盖（第 96-117 行），不是正式发版。
+
+改为：`gospeak-mobile-v*` tag 触发时创建正式 Release，产物以版本化文件名上传（不覆盖）。保留 `workflow_dispatch` 手动入口用于测试包，但测试包继续走 `gospeak-mobile-test`，与正式发版互不干扰。
+
+Expected: 正式发版产物出现在 `gospeak-mobile-v<version>` 的独立 Release 中。
+
+- [ ] **Step 5: 验证独立发版**
+
+依次验证三种场景（可只改 yaml 里的 version 触发）：
+
+```bash
+# 场景 A：只 bump desktop
+# 改 .github/versions/desktop.yaml 的 version → 合并
+# 期望：只有 gospeak-desktop-v* tag 被创建；release-server / docker / release-mobile 全部 skipped
+
+# 场景 B：只 bump server
+# 期望：只有 gospeak-server-v* tag；release-desktop / release-mobile skipped；docker 运行
+
+# 场景 C：只 bump mobile
+# 期望：只有 gospeak-mobile-v* tag；其余全部 skipped
+```
+
+Expected: `gh run view <run-id>` 显示三个场景下 skipped 的 job 与预期一致。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add .github/workflows/version-bump.yml .github/workflows/build-mobile.yml .github/versions/
+git commit -m "ci: allow independent per-component releases"
 ```
 
 ---
