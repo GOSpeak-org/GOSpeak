@@ -1,4 +1,4 @@
-// GENERATED — 手改无效，跑 pnpm gen:protocol
+// GENERATED — 手改无效，跑 go run ./cmd/gen-protocol -out <dir>
 // WS 事件协议常量：来源 app/server/internal/protocol/events.go Catalog
 export const EVENTS = {
 	ANNOUNCEMENT_NEW: "announcement:new",

@@ -1,4 +1,4 @@
-// GENERATED — 手改无效，跑 pnpm gen:protocol
+// GENERATED — 手改无效，跑 go run ./cmd/gen-protocol -out <dir>
 // ACK 信封约定（与 ws.ACK 对应）：成功 data 携带结果、失败走 error 通道。
 // emitAck 成功路径 resolve 的是 data 本身（非信封）。
 export interface AckFrame<T = unknown> {
