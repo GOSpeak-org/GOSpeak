@@ -137,6 +137,8 @@ RUN mkdir -p /app/static && tar -xzf /tmp/web-dist.tar.gz -C /app/static \
 
 **为什么保留壳的历史与 tag**：`gospeak-server-v1.3.0-rc.1` 等 tag 是已发布版本的记录，删掉会丢失可追溯性。它们留在壳上作为历史，新版本在各自子仓打新 tag。
 
+**永不复用 `NoelOrin/GOSpeak` 这个路径**：已装机客户端的更新检测与所有老安装包链接都指向它，靠 GitHub 的仓库级 301 活着。
+
 ## 7. 风险
 
 | 风险 | 缓解 |
