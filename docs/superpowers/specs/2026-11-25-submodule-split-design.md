@@ -105,17 +105,17 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
   - `https://github.com/NoelOrin/GOSpeak-Web.git`
   - `https://github.com/NoelOrin/GOSpeak-Desktop.git`
   - `https://github.com/NoelOrin/GOSpeak-Mobile.git`
-- 执行工具建议：`git filter-repo`（若本机未安装则退化为 `git subtree split` + 手工清理历史）。
-- `git filter-repo` 会重写历史，**只能在临时 clone 中运行**，绝不直接在主仓库工作区运行。
+- 执行工具：Git 内置 `git filter-branch`（`--subdirectory-filter` 抽取目录、`--tree-filter` 移动目录）。**不使用 `git filter-repo`**（本机未安装）**也不用 `git subtree`**（本机无该命令）。
+- `git filter-branch` 会重写历史，**只能在临时 clone 中运行**，绝不直接在主仓库工作区运行。
 
 ## 方案
 
-### 采用的方案：filter-repo 抽取历史 + 原地 submodule
+### 采用的方案：filter-branch 抽取历史 + 原地 submodule
 
 对每个目录重复：
 
 1. 从主仓库做一个临时裸 clone 或普通 clone。
-2. 在该 clone 中用 `git filter-repo --path <dir> --to-subdirectory-filter <dir>` 把历史裁剪为该目录，并把目录内容提升到子仓库根（也可保留目录层级，见「决策点」）。
+2. 在该 clone 中用 `git filter-branch -f --prune-empty --subdirectory-filter <dir> -- --all` 把历史裁剪为该目录，并把目录内容提升到子仓库根（也可保留目录层级，见「决策点」）。
 3. 推送到对应远端仓库的 `release` 分支。
 4. 在主仓库工作区：先处理未提交改动，再 `git rm -r --cached <dir>`，删除本地目录内容，`git submodule add -b release <remote> <dir>`。
 5. 提交主仓库的 `.gitmodules` 与 gitlink 变更。
@@ -137,11 +137,11 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
 
 ## 关键风险与缓解
 
-- 历史抽取耗时/体积大：先在临时 clone 中执行；若 `filter-repo` 不可用，用 `git subtree split` 作为退路，接受历史提交信息变化。
+- 历史抽取耗时/体积大：先在临时 clone 中执行。`filter-branch` 是 Git 内置命令，无需安装；它比 filter-repo 慢，但本项目历史规模（1435 文件）可接受。
 - 主仓库 index 冲突：先 `git rm -r --cached` 再 `submodule add`，不要混用。
 - CI / 工具链路径失效：submodule 路径与原目录一致，理论上无需改路径；但仍需跑全量门禁验证。
 - 当前工作区改动丢失：执行前先 `git status --short` 与 `git diff` 存档，按决策点提交或 stash。
-- `git filter-repo` 未安装：允许通过 `python3 -m pip install git-filter-repo` 或 Homebrew 安装；若环境不允许，改用 subtree split 并在计划中标注历史等价性降低。
+- `filter-branch` 的 gotchas 警告：用 `FILTER_BRANCH_SQUELCH_WARNING=1` 抑制；运行后需 `git update-ref -d refs/original/refs/heads/<branch>` 清理备份引用，避免推送时带出旧 ref。
 
 ## 留给执行者
 

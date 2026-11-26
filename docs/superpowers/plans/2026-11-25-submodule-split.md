@@ -4,9 +4,9 @@
 
 **Goal:** 把 `app/web`、`app/desktop`、`app/mobile`、`packages/` 四个目录从 GOSpeak 主仓库拆成独立 Git 仓库并以 submodule 接入，保留各自完整历史；各端拥有独立 Release（产物不再挤在同一个 Release 条目里）、独立 tag、独立 CI 与发版节奏。前端不再嵌入二进制，改为随发布包分发的外部静态目录并支持热更新；更新检测改为多仓库模型。
 
-**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到四个新远端仓库的 `release` 分支；主仓库 `git rm -r --cached` 四个目录后 `git submodule add` 回相同路径。`GOSpeak-Web` 内部再嵌套挂载 `packages/` submodule（`GOSpeak-Packages`），使 `workspace:*` 与源码直连保持不变；`app/shared/proxyrules` 留主仓库，module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`，desktop 通过公开 Go module proxy 依赖。CI/发布 workflow 按仓库归属拆分，各子仓库独立 CI 与 Release；主仓库只负责 server、packages 的 module tag 与整体协调。版本声明改为分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`server`、`web`、`desktop`、`mobile` 各自独立 SemVer 与 tag，各自创建独立 GitHub Release。前端不再 `go:embed`：服务端只通过 `STATIC_DIR` / `/app/static` / `./static` 消费外部前端；桌面安装包内含外部前端目录。更新检测改为多仓库模型：`server` 查 GOSpeak 主仓库 `v*`，`web` 查 GOSpeak-Web `gospeak-web-v*`，`desktop` 查 GOSpeak-Desktop `gospeak-desktop-v*`，`mobile` 查 GOSpeak-Mobile `gospeak-mobile-v*`，各自独立缓存与降级。`serveSPA` 对 `index.html` 补 `Cache-Control: no-store`。
+**Architecture:** 在临时 clone 中用 Git 内置 `filter-branch --subdirectory-filter` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到四个新远端仓库的 `release` 分支；主仓库 `git rm -r --cached` 四个目录后 `git submodule add` 回相同路径。`GOSpeak-Web` 内部再嵌套挂载 `packages/` submodule（`GOSpeak-Packages`），使 `workspace:*` 与源码直连保持不变；`app/shared/proxyrules` 留主仓库，module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`，desktop 通过公开 Go module proxy 依赖。CI/发布 workflow 按仓库归属拆分，各子仓库独立 CI 与 Release；主仓库只负责 server、packages 的 module tag 与整体协调。版本声明改为分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`server`、`web`、`desktop`、`mobile` 各自独立 SemVer 与 tag，各自创建独立 GitHub Release。前端不再 `go:embed`：服务端只通过 `STATIC_DIR` / `/app/static` / `./static` 消费外部前端；桌面安装包内含外部前端目录。更新检测改为多仓库模型：`server` 查 GOSpeak 主仓库 `v*`，`web` 查 GOSpeak-Web `gospeak-web-v*`，`desktop` 查 GOSpeak-Desktop `gospeak-desktop-v*`，`mobile` 查 GOSpeak-Mobile `gospeak-mobile-v*`，各自独立缓存与降级。`serveSPA` 对 `index.html` 补 `Cache-Control: no-store`。
 
-**Tech Stack:** Git 2.x · git-filter-repo（必须安装，本机无 subtree 退化路径）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
+**Tech Stack:** Git 2.x（内置 `filter-branch`，无需额外工具）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
 
 **Specs:**
 - `docs/superpowers/specs/2026-11-25-submodule-split-design.md`
@@ -27,7 +27,7 @@
 - 子仓库结构：子仓库根即原目录内容，不保留 `app/web` / `packages` 这层前缀。
 - **嵌套 submodule**：`GOSpeak-Web` 内挂 `packages/` → `GOSpeak-Packages`（路径 `packages`）；主仓库 `packages/` 同样是 submodule（同一远端），保证 web 在两种 checkout 场景下都能解析 `workspace:*`。
 - **`app/shared/proxyrules` 留主仓库**，module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`，由 desktop 通过公开 proxy 依赖（主仓库为 public）。
-- `git filter-repo` 只在临时 clone 中运行，**绝不**在主仓库工作区直接运行。
+- 历史重写统一用 Git 内置 `filter-branch`（`--subdirectory-filter` 抽取目录、`--tree-filter` 移动目录），**不依赖 `git filter-repo` 或 `git subtree`**（两者本机均不可用）；只在临时 clone 中运行，**绝不**在主仓库工作区直接运行。
 - 文件沙箱为 danger-full-access；审批已禁用，不要请求 sandbox 提权。
 - 代码不加注释（复杂逻辑除外）、不用 emoji；提交遵循 Conventional Commits。
 - 文档与代码同 PR；计划索引只保留仍在跟进的条目。
@@ -35,7 +35,7 @@
 ## Review Focus
 
 - **当前未提交改动丢失**：`app/web` 内多个已修改文件在拆分前必须有显式落点（提交或 stash），且执行 `git rm -r --cached` 前再次核对 `git status`；Task 1 用状态快照与 diff 存档钉住。
-- **子仓库历史缺失**：filter-repo 后子仓库 `git log` 必须包含原目录中至少一次真实提交（非仅初始空提交）；Task 3 用 log 抽样钉住。
+- **子仓库历史缺失**：`filter-branch` 后子仓库 `git log` 必须包含原目录中至少一次真实提交（非仅初始空提交）；Task 3 用 log 抽样钉住。
 - **submodule 路径漂移**：主仓库 `.gitmodules` 中四个 path 必须精确为 `app/web`、`app/desktop`、`app/mobile`、`packages`；`GOSpeak-Web` 的 `.gitmodules` 中 packages path 必须是 `packages`；Task 5 / Task 6b 用 `git config -f .gitmodules --get-regexp path` 钉住。
 - **`workspace:*` 解析失败**：`GOSpeak-Web` 独立 clone 后 `pnpm install --frozen-lockfile` 必须成功，证明嵌套的 `packages/` 子模块已就位；Task 6b / Task 8 钉住。
 - **跨仓依赖断裂**：desktop 必须能通过公开 proxy 拉到 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`；mobile 必须能拿到 web 的 `dist-mobile` 产物；Task 0 / Task 8 钉住。
@@ -266,28 +266,26 @@ Expected: 四条命令均成功（空仓库无输出或仅 HEAD）。
 
 ## Task 3: 抽取四个目录历史到子仓库
 
-**Files:** 临时目录 `/tmp/gospeak-submodule-extract/{web,desktop,mobile,packages}`（由 filter-repo 创建）
+**Files:** 临时目录 `/tmp/gospeak-submodule-extract/{web,desktop,mobile,packages}`（由 filter-branch 创建）
 
 **Interfaces:**
 - Consumes: Task 1 的工作分支基准；Task 2 的远端。
 - Produces: 四个远端 `release` 分支，各自包含对应目录历史；供 Task 4 接入。
 
-- [ ] **Step 1: 安装并确认 git-filter-repo 可用**
+- [ ] **Step 1: 确认使用 Git 内置的 filter-branch（不装额外工具）**
 
-本机实测 `git filter-repo` **默认不可用**（`fatal: 'filter-repo' appears to be a git command, but we were not able to execute it`），且 `git subtree` **同样不可用**，因此没有退化路径——必须先安装成功才能继续。
+**不依赖 `git filter-repo`**（本机实测未安装），也不依赖 `git subtree`（实测无该命令）。统一使用 Git 自带的 `git filter-branch --subdirectory-filter`，已实测可用（Git 2.50.1）：
 
 ```bash
-git filter-repo --version 2>/dev/null && echo "already installed" || {
-  # 方式 A（推荐，pip3 实测存在）
-  python3 -m pip install --user git-filter-repo
-  # 方式 B（brew 实测存在）
-  # brew install git-filter-repo
-}
-git filter-repo --version
+git --version          # 需 >= 2.x，Apple Git 2.50.1 已验证
+git filter-branch -h   # 确认存在
 ```
-Expected: 输出版本号（如 `2.47.0`）。
+Expected: 输出 `git version 2.50.1` 与 filter-branch 用法提示。
 
-**若两种安装方式都失败，中止 Task 3 并向用户报告**——不要尝试 `git subtree split`（本机无该命令），也不要在未安装的情况下手工搬移历史。
+**注意事项：**
+- filter-branch 会打印 gotchas 警告，用 `FILTER_BRANCH_SQUELCH_WARNING=1` 抑制；
+- **必须在临时 clone 中运行**，绝不在主仓库工作区执行；
+- 它重写历史，运行后原 remote 引用会被改写，用 `-- --all` 覆盖所有 ref。
 
 - [ ] **Step 2: 抽取 app/web**
 
@@ -295,8 +293,8 @@ Expected: 输出版本号（如 `2.47.0`）。
 rm -rf /tmp/gospeak-submodule-extract/web
 git clone --no-local --branch chore/submodule-split /Users/noelorin/Projects/GOSpeak /tmp/gospeak-submodule-extract/web
 cd /tmp/gospeak-submodule-extract/web
-git filter-repo --path app/web --path-rename app/web/: --force
-git checkout -b release
+FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --prune-empty --subdirectory-filter app/web -- --all
+git branch -m release
 git remote add origin https://github.com/NoelOrin/GOSpeak-Web.git
 git push -u origin release
 ```
@@ -329,8 +327,8 @@ Expected: 子仓库根含 `package.json`、`capacitor.config.ts`、`ios/`、`and
 rm -rf /tmp/gospeak-submodule-extract/packages
 git clone --no-local --branch chore/submodule-split /Users/noelorin/Projects/GOSpeak /tmp/gospeak-submodule-extract/packages
 cd /tmp/gospeak-submodule-extract/packages
-git filter-repo --path packages --path-rename packages/: --force
-git checkout -b release
+FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --prune-empty --subdirectory-filter packages -- --all
+git branch -m release
 git remote add origin https://github.com/NoelOrin/GOSpeak-Packages.git
 git push -u origin release
 ```
@@ -509,15 +507,17 @@ Expected: 提交成功。
 
 - [ ] **Step 1: 在 GOSpeak-Web 中调整目录布局**
 
-**不要用 `git mv` 批量移动**（不接受多个源路径，且 `|| true` 会吞掉失败）。用 `git filter-repo` 在临时 clone 中重写路径最可靠：
+**不要用 `git mv` 批量移动**（不接受多个源路径，且 `|| true` 会吞掉失败）。用 Git 内置的 `filter-branch --tree-filter` 在临时 clone 中重写路径（已实测可用）：
 
 ```bash
 rm -rf /tmp/gospeak-web-setup
 git clone https://github.com/NoelOrin/GOSpeak-Web.git /tmp/gospeak-web-setup
 cd /tmp/gospeak-web-setup
-git filter-repo --to-subdirectory-filter web --force
+FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --prune-empty --tree-filter \
+  'mkdir -p web; for f in $(ls -A | grep -v "^web$"); do mv "$f" web/ 2>/dev/null || true; done' \
+  -- --all
 ```
-`--to-subdirectory-filter web` 会把所有文件移到 `web/` 下并重写历史路径。
+`--tree-filter` 对每个提交重放该脚本，把所有顶层文件移入 `web/` 并保留历史。
 
 Expected: 仓库根只剩 `web/` 与 `.git`；`ls web/` 含 `src/`、`package.json`、`vite.config.ts`。
 
