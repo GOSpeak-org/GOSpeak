@@ -2,13 +2,15 @@
 
 ## 意图与原因
 
-`app/web`（React 前端）、`app/desktop`（Go + MyGo 桌面宿主）、`app/mobile`（Capacitor 移动壳）当前与主仓库同仓开发。随着三端各自独立演进，需要把它们拆成独立 Git 仓库，通过 submodule 接入主仓库，使各端可以独立打 tag、独立 review、独立发布，同时保持同一套代码与工具链不变。在此基础上，`web` 还需作为独立发布组件产出静态前端压缩包，使前端可通过外部静态目录热更新，与 Go 二进制内的 embed 兜底形成互补。
+`app/web`（React 前端）、`app/desktop`（Go + MyGo 桌面宿主）、`app/mobile`（Capacitor 移动壳）、`packages/`（前端共享包）当前与主仓库同仓开发。核心痛点是**各端发布产物挤在同一个 GitHub Release 条目里**（服务端二进制、桌面安装包混在一起），难以管理与分发。因此把它们拆成独立 Git 仓库、各自独立 Release，同时保持同一套代码与工具链不变。`web` 还作为独立发布组件产出静态前端压缩包，使前端可通过外部静态目录热更新，不再嵌入二进制。
 
 ## 目标
 
-- 三个目录以 submodule 形式存在于相同路径：`app/web`、`app/desktop`、`app/mobile`。
+- 四个目录以 submodule 形式存在于相同路径：`app/web`、`app/desktop`、`app/mobile`、`packages`。
+- `GOSpeak-Web` 内嵌套挂载 `packages` submodule，使 `workspace:*` 与源码直连保持可用。
 - 每个 submodule 保留该目录在主仓库中的完整 Git 历史。
-- 主仓库 HEAD 仅记录三个 submodule 的 commit 指针（gitlink），不再跟踪目录内文件。
+- 主仓库 HEAD 仅记录四个 submodule 的 commit 指针（gitlink），不再跟踪目录内文件。
+- **各端拥有独立 GitHub Release**：server 在主仓库、web 在 GOSpeak-Web、desktop 在 GOSpeak-Desktop、mobile 在 GOSpeak-Mobile，产物不再混在同一 Release 条目。
 - 所有现有构建、lint、typecheck、CI 脚本在 submodule checkout 后继续工作，路径不变。
 - `web` 作为第四个独立发布组件，产出 `gospeak-web-v<semver>.tar.gz` 静态压缩包，支持运行时替换外部静态目录而不需要重新构建 Go 二进制；前端不再嵌入任何二进制。
 - 给出清晰、可回滚的执行步骤。
@@ -19,8 +21,8 @@
 - 主仓库总控 `metadata.yaml` 的 `components.<name>.version` 是最终事实源；子仓库 `metadata.yaml` 的 `version` 必须一致，由 CI 校验，`metadata_ref` 指向子仓库文件。
 - 子仓库 `metadata.yaml` 还承载组件元数据（name/description/platforms/artifact_type/changelog），供 release-notes 与 build-changelog 消费。
 - 删除 `.github/versions/*.yaml`，版本与元数据全部迁移到 `metadata.yaml`。
-- **版本号不统一发布**：server / web / desktop / mobile 各自独立 SemVer，互不跟随。
-- 每个组件独立 tag：`gospeak-server-v<semver>` / `gospeak-web-v<semver>` / `gospeak-desktop-v<semver>` / `gospeak-mobile-v<semver>`；独立 Release、独立 changelog、独立产物。
+- **版本号不统一发布**：server / web / desktop / mobile 各自独立 SemVer，互不跟随；`packages` 有独立 version 但不发 Release。
+- 每个组件独立 tag：`gospeak-server-v<semver>` / `gospeak-web-v<semver>` / `gospeak-desktop-v<semver>` / `gospeak-mobile-v<semver>`；**各自在自己仓库创建独立 Release**，独立 changelog、独立产物。
 - 版本 bump 只针对发生变更的组件：先改该子仓库 `metadata.yaml` 与版本文件并提交，再更新主仓库总控 `metadata.yaml` 的 version/tag 与 gitlink，最后打该组件 tag。
 - 子仓库 commit message 约定：`chore(<component>): bump version to <semver>`，gitlink bump 与版本发布解耦。
 - **metadata ↔ tag 协同**：tag 一律由 metadata 经 `release-naming.mjs` 派生（不手写）；metadata 中显式写的 `tag` 字段必须与派生结果一致；tag 存在性驱动发布且幂等；子仓库 metadata 版本必须与总控一致才允许打 tag；annotated tag 打在「更新 metadata + gitlink 的提交」上。删除现有 `version-bump.yml` 中强制 server/desktop 同版本的 lockstep 约束。
@@ -45,12 +47,13 @@
 
 CI/发布 workflow 按代码归属划分，不再集中在主仓库：
 
-- 主仓库：只跑 server/Go/scripts/protocol/集成测试与 workspace 包，负责 server 发布与 Docker 镜像；按需消费子仓库 Release 产物。
-- GOSpeak-Web：lint/typecheck/test/build 与前端静态压缩包发布（tag `gospeak-web-v*`）。
-- GOSpeak-Desktop：Go/mygo 构建、安装包与签名更新元数据（tag `gospeak-desktop-v*`）。
-- GOSpeak-Mobile：Capacitor sync、gradle/xcode 构建与 APK/IPA 发布（tag `gospeak-mobile-v*`）。
+- 主仓库：只跑 server/Go/scripts/protocol/集成测试，负责 server 发布与 Docker 镜像；为 `app/shared/proxyrules` 打 Go module tag。
+- GOSpeak-Web：lint/typecheck/test/build 与前端静态压缩包发布（tag `gospeak-web-v*`，发布到本仓 Release）。
+- GOSpeak-Packages：四个 workspace 包的 test/typecheck/build，无 Release。
+- GOSpeak-Desktop：Go/mygo 构建、安装包发布（tag `gospeak-desktop-v*`，发布到本仓 Release）。
+- GOSpeak-Mobile：Capacitor sync、gradle/xcode 构建与 APK/IPA 发布（tag `gospeak-mobile-v*`，发布到本仓 Release）。
 
-主仓库的路径过滤器只跟踪 gitlink（`app/web`、`app/desktop`、`app/mobile`），不再匹配子目录内文件；子仓库 push/tag 触发自身 CI/Release，主仓库靠 gitlink 更新触发自身 CI。
+主仓库的路径过滤器只跟踪 gitlink（`app/web`、`app/desktop`、`app/mobile`、`packages`），不再匹配子目录内文件；子仓库 push/tag 触发自身 CI/Release，主仓库靠 gitlink 更新触发自身 CI。**各仓 Releases 页面天然分开，产物不再挤在一起。**
 
 ## 更新检测链路
 
@@ -67,7 +70,16 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
 
 ## 发布链路
 
-发布 tag 只在主仓库创建（`gospeak-<component>-v<semver>`），子仓库只构建产物、不自己打 tag、不创建 Release。主仓库 `release.yml` 是唯一创建 GitHub Release 的入口，按组件 `workflow_call` 子仓库 workflow 获取产物。server 包中的 `static/` 必须来自该 tag commit 上的 `app/web` gitlink 版本（禁止浮动引用分支），发布说明标注 `bundled-web`；web 独立包可单独发布与热更新。四组件均支持 `-rc.N` 预发布段，**rc 直接进入 latest 推荐**：更新检测不过滤 rc，GitHub latest 可指向 rc，移动端去除 `--prerelease` 标记；`compareVersion` 仍保持同版本正式版 > rc，因此 rc 仅在高于所有正式版时被推荐，正式版发布后自动让位。文档站是否部署 rc 由 docs.yml 独立决定。
+**一组件一 Release，各在自己仓库创建**（这是本次拆分的核心目标）：
+
+| 组件 | 发布仓库 | tag | 产物 |
+|---|---|---|---|
+| server | GOSpeak | `gospeak-server-v*` | 二进制 + `static/` |
+| web | GOSpeak-Web | `gospeak-web-v*` | 前端静态压缩包 |
+| desktop | GOSpeak-Desktop | `gospeak-desktop-v*` | dmg / deb / exe / install.sh |
+| mobile | GOSpeak-Mobile | `gospeak-mobile-v*` | APK / IPA |
+
+各仓用自己的 tag 触发自己的 `release.yml`、创建自己的 Release。server 包中的 `static/` 必须来自该 tag commit 上的 `app/web` gitlink 对应版本（禁止浮动引用分支），发布说明标注 `bundled-web`；web 可单独发布与热更新，无需动 server。四组件均支持 `-rc.N` 预发布段，**rc 直接进入 latest 推荐**：更新检测不过滤 rc，GitHub latest 可指向 rc，移动端去除 `--prerelease` 标记；`compareVersion` 仍保持同版本正式版 > rc，因此 rc 仅在高于所有正式版时被推荐，正式版发布后自动让位。文档站是否部署 rc 由 docs.yml 独立决定。
 
 ## 非目标
 
@@ -78,7 +90,7 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
 
 ## 反目标（做什么会导致失败）
 
-- 丢失三个目录的历史。
+- 丢失四个目录的历史。
 - submodule 路径改变（例如改成 `modules/web`），导致 Vite / Turbo / CI / AGENTS.md 中大量路径失效。
 - 主仓库同时以普通目录和 submodule 形式跟踪同一路径，产生 git index 冲突。
 - 未处理当前工作区未提交改动就直接拆分，导致 `app/web` 内改动丢失。
@@ -110,7 +122,7 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
 
 ### 为什么不用其他方案
 
-- **空仓库快照**：最快，但丢失三个目录历史，不符合需求。
+- **空仓库快照**：最快，但丢失四个目录历史，不符合需求。
 - **本地相对路径 submodule**：适合临时验证，但不适合团队协作与 CI，不能作为目标方案。
 
 ## 决策点（执行前由维护者确认）

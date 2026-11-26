@@ -2,26 +2,31 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 `app/web`、`app/desktop`、`app/mobile` 三个目录从 GOSpeak 主仓库拆成独立 Git submodule，保留各自完整历史，路径与工具链不变；把 `web` 提升为独立发布组件，产出静态前端压缩包并与 Go 二进制一同分发，通过外部静态目录（`STATIC_DIR`）热更新（**不再嵌入二进制**）；并重构更新检测链路，server / web / desktop / mobile 四端各自去对应仓库检查 Release 版本。
+**Goal:** 把 `app/web`、`app/desktop`、`app/mobile`、`packages/` 四个目录从 GOSpeak 主仓库拆成独立 Git 仓库并以 submodule 接入，保留各自完整历史；各端拥有独立 Release（产物不再挤在同一个 Release 条目里）、独立 tag、独立 CI 与发版节奏。前端不再嵌入二进制，改为随发布包分发的外部静态目录并支持热更新；更新检测改为多仓库模型。
 
-**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到三个新远端仓库的 `release` 分支；主仓库处理完未提交改动后 `git rm -r --cached` 三个目录，再 `git submodule add` 回相同路径，提交 `.gitmodules` 与 gitlink。CI/发布 workflows 必须改造为 checkout with submodules，并把路径过滤器适配 gitlink 变化；版本声明改为主仓库与子仓库分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`server`、`web`、`desktop`、`mobile` 各自独立 SemVer 与 tag。前端不再 `go:embed` 进服务端/桌面二进制：服务端二进制只通过 `STATIC_DIR` / `/app/static` / `./static` 消费外部前端，发布包把前端静态压缩包与二进制一起分发；桌面宿主改为读取随安装包分发的外部前端目录。更新检测改为多仓库模型：`server` 查 GOSpeak 主仓库 `v*` tag，`web` 查 GOSpeak-Web `gospeak-web-v*`，`desktop` 查 GOSpeak-Desktop `gospeak-desktop-v*`，`mobile` 查 GOSpeak-Mobile `gospeak-mobile-v*`，各自带独立缓存与降级。`serveSPA` 对 `index.html` 补 `Cache-Control: no-store`，避免前端热更新后旧首页引用失效的 hash 资源。
+**Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到四个新远端仓库的 `release` 分支；主仓库 `git rm -r --cached` 四个目录后 `git submodule add` 回相同路径。`GOSpeak-Web` 内部再嵌套挂载 `packages/` submodule（`GOSpeak-Packages`），使 `workspace:*` 与源码直连保持不变；`app/shared/proxyrules` 留主仓库，module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`，desktop 通过公开 Go module proxy 依赖。CI/发布 workflow 按仓库归属拆分，各子仓库独立 CI 与 Release；主仓库只负责 server、packages 的 module tag 与整体协调。版本声明改为分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`server`、`web`、`desktop`、`mobile` 各自独立 SemVer 与 tag，各自创建独立 GitHub Release。前端不再 `go:embed`：服务端只通过 `STATIC_DIR` / `/app/static` / `./static` 消费外部前端；桌面安装包内含外部前端目录。更新检测改为多仓库模型：`server` 查 GOSpeak 主仓库 `v*`，`web` 查 GOSpeak-Web `gospeak-web-v*`，`desktop` 查 GOSpeak-Desktop `gospeak-desktop-v*`，`mobile` 查 GOSpeak-Mobile `gospeak-mobile-v*`，各自独立缓存与降级。`serveSPA` 对 `index.html` 补 `Cache-Control: no-store`。
 
 **Tech Stack:** Git 2.x · git-filter-repo（或 git subtree split 退化）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
 
 **Specs:**
 - `docs/superpowers/specs/2026-11-25-submodule-split-design.md`
 - `docs/superpowers/specs/2026-11-25-submodule-release-design.md`（Task 9 创建，含 web 外部更新规则）
+- `docs/superpowers/specs/2026-11-25-release-pipeline-design.md`（Task 12 创建，一组件一 Release）
+- `docs/superpowers/specs/2026-11-25-update-check-design.md`（Task 11 创建，多仓更新检测）
 
 ## Global Constraints
 
 - 工作目录：`/Users/noelorin/Projects/GOSpeak`；主仓库远端：`https://github.com/NoelOrin/GOSpeak.git`；计划编写时当前分支 `dev-1124`，执行时在 `origin/release` 签出的短期工作分支上进行（本轮为 `feature/multiplatform-repo-restructure`）。
 - 分支策略：从最新 `origin/release` 签出工作分支；唯一常驻分支为 `release`。
-- 子仓库默认地址（可替换，但一旦确定必须全程一致）：
-  - `https://github.com/NoelOrin/GOSpeak-Web.git`
-  - `https://github.com/NoelOrin/GOSpeak-Desktop.git`
-  - `https://github.com/NoelOrin/GOSpeak-Mobile.git`
+- 子仓库地址（可替换，但一旦确定必须全程一致）：
+  - `https://github.com/NoelOrin/GOSpeak-Web.git`      → 主仓库 `app/web`
+  - `https://github.com/NoelOrin/GOSpeak-Desktop.git`  → 主仓库 `app/desktop`
+  - `https://github.com/NoelOrin/GOSpeak-Mobile.git`   → 主仓库 `app/mobile`
+  - `https://github.com/NoelOrin/GOSpeak-Packages.git` → 主仓库 `packages`
 - 子仓库默认分支：`release`。
-- 子仓库结构：子仓库根即原目录内容（`src/...` 对应主仓库 `app/web/src/...`），不保留 `app/web` 这层前缀。
+- 子仓库结构：子仓库根即原目录内容，不保留 `app/web` / `packages` 这层前缀。
+- **嵌套 submodule**：`GOSpeak-Web` 内挂 `packages/` → `GOSpeak-Packages`（路径 `packages`）；主仓库 `packages/` 同样是 submodule（同一远端），保证 web 在两种 checkout 场景下都能解析 `workspace:*`。
+- **`app/shared/proxyrules` 留主仓库**，module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`，由 desktop 通过公开 proxy 依赖（主仓库为 public）。
 - `git filter-repo` 只在临时 clone 中运行，**绝不**在主仓库工作区直接运行。
 - 文件沙箱为 danger-full-access；审批已禁用，不要请求 sandbox 提权。
 - 代码不加注释（复杂逻辑除外）、不用 emoji；提交遵循 Conventional Commits。
@@ -31,10 +36,13 @@
 
 - **当前未提交改动丢失**：`app/web` 内多个已修改文件在拆分前必须有显式落点（提交或 stash），且执行 `git rm -r --cached` 前再次核对 `git status`；Task 1 用状态快照与 diff 存档钉住。
 - **子仓库历史缺失**：filter-repo 后子仓库 `git log` 必须包含原目录中至少一次真实提交（非仅初始空提交）；Task 3 用 log 抽样钉住。
-- **submodule 路径漂移**：主仓库 `.gitmodules` 中三个 path 必须精确为 `app/web`、`app/desktop`、`app/mobile`；Task 5 用 `git config -f .gitmodules --get-regexp path` 钉住。
+- **submodule 路径漂移**：主仓库 `.gitmodules` 中四个 path 必须精确为 `app/web`、`app/desktop`、`app/mobile`、`packages`；`GOSpeak-Web` 的 `.gitmodules` 中 packages path 必须是 `packages`；Task 5 / Task 6b 用 `git config -f .gitmodules --get-regexp path` 钉住。
+- **`workspace:*` 解析失败**：`GOSpeak-Web` 独立 clone 后 `pnpm install --frozen-lockfile` 必须成功，证明嵌套的 `packages/` 子模块已就位；Task 6b / Task 8 钉住。
+- **跨仓依赖断裂**：desktop 必须能通过公开 proxy 拉到 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`；mobile 必须能拿到 web 的 `dist-mobile` 产物；Task 0 / Task 8 钉住。
 - **工具链/CI 因路径变化失效**：`pnpm typecheck`、`pnpm lint`、三目标构建、`pnpm test`、Go 构建必须全部通过；Task 8 逐条验证。
-- **主仓库残留跟踪文件**：`git ls-files app/web app/desktop app/mobile` 在提交后只能返回三个 gitlink（mode 160000），不能列出目录内普通文件；Task 5 钉住。
-- **clone 后不可复现**：全新 clone + `git submodule update --init --recursive` 后目录内容完整；Task 8 钉住。
+- **主仓库残留跟踪文件**：`git ls-files app/web app/desktop app/mobile packages` 在提交后只能返回四个 gitlink（mode 160000）；Task 5 钉住。
+- **clone 后不可复现**：全新 clone + `git submodule update --init --recursive` 后目录内容完整（含嵌套层）；Task 8 钉住。
+- **各端 Release 仍挤在一起**：若 `create-release` 仍固定用 server tag，则拆分未达成目标；Task 12 钉住「一组件一 Release」。
 
 ---
 
@@ -48,9 +56,10 @@
 | `docs/superpowers/plans/2026-11-25-submodule-split.md` | 本计划 |
 | `docs/superpowers/specs/2026-11-25-submodule-ci-design.md` | 子仓库 CI 策略说明（Task 7） |
 | `docs/superpowers/specs/2026-11-25-submodule-release-design.md` | 版本与发布规则说明（Task 9） |
-| `metadata.yaml`（主仓库 + 三个子仓库各一份） | 版本与元数据的分层单一事实源（Task 9）；含 `web` 组件 |
+| `metadata.yaml`（主仓库 + 四个子仓库各一份） | 版本与元数据的分层单一事实源（Task 9）；含 `server`/`web`/`desktop`/`mobile` 四组件 |
 | `scripts/metadata.mjs` + `.test.mjs` | metadata.yaml 解析与一致性校验（Task 9） |
-| `.gitmodules` | 三个 submodule 的 path/url/branch 声明，由 `git submodule add` 生成 |
+| `.gitmodules`（主仓库） | 四个 submodule 的 path/url/branch 声明 |
+| `.gitmodules`（GOSpeak-Web） | 嵌套 `packages` submodule 声明（Task 6b） |
 
 **修改**
 
@@ -73,15 +82,90 @@
 | `app/desktop/mygo.config.ts` / `app/desktop/updater*.go` | 桌面宿主改为加载外部前端目录；updater 改查 GOSpeak-Desktop 仓库（Task 11/12） |
 | `app/server/internal/service/system_update_service.go` + `_test.go` | 更新检测抽象为多仓库模型，新增 web 检测，desktop / mobile 各自查对应子仓库（Task 12） |
 | `app/server/internal/handler/system_update_handler.go` + `app/server/internal/router/routes/system/routes.go` | 新增按组件查询更新端点（Task 12） |
-| `app/web/src/api/system.ts` + `app/web/src/components/modal/settingModal/tab_item/about.tsx` | 前端新增 web 前端更新检测入口与展示（Task 12） |
+| `app/web/src/api/system.ts` + `app/web/src/components/modal/settingModal/tab_item/about.tsx` | 前端新增 web 前端更新检测入口与展示（Task 11） |
+| `app/shared/proxyrules/go.mod` | module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`（Task 0） |
+| `app/desktop/go.mod` | 删除 `replace gospeak/proxyrules => ../shared/proxyrules`，改为公开 module 依赖（Task 0） |
+| `app/desktop/*.go` | import 路径改为新 module 路径（Task 0） |
+| `scripts/mobile-bind-proxyrules.mjs` | `MODULE_DIR` 与 go.mod 路径适配新 module 路径（Task 0） |
+| `app/server/cmd/gen-protocol/main.go` | 生成目标路径参数化，跨仓写入改为输出到指定目录（Task 0） |
+| `app/mobile/capacitor.config.ts` | `webDir` 改为本地相对路径（mobile 内自取产物，Task 0） |
+| `app/desktop/mygo.config.ts` | 前端产物来源改为本地相对路径（Task 0） |
+| `scripts/check-desktop-commands.mjs` / `check-mobile-bridge.mjs` / `mobile-version.mjs` | 路径按仓库归属拆分或参数化（Task 7） |
+| `pnpm-workspace.yaml` / `turbo.json` / `lefthook.yml` / `biome.json` | 移除或适配被拆出目录的路径（Task 7） |
 
 **删除（从主仓库 index 移除，文件由 submodule checkout 重建）**
 
 | 路径 | 说明 |
 |---|---|
-| `app/web/**` | 由 `git rm -r --cached app/web` 移除跟踪 |
-| `app/desktop/**` | 由 `git rm -r --cached app/desktop` 移除跟踪 |
-| `app/mobile/**` | 由 `git rm -r --cached app/mobile` 移除跟踪 |
+| `app/web/**` | 由 `git rm -r --cached app/web` 移除跟踪，改由 submodule 提供 |
+| `app/desktop/**` | 同上 |
+| `app/mobile/**` | 同上 |
+| `packages/**` | 同上（远端 `GOSpeak-Packages`） |
+
+---
+
+## Task 0: 前置依赖改造（拆仓前必须先做）
+
+**Files:**
+- Modify: `app/shared/proxyrules/go.mod`（module 路径）
+- Modify: `app/desktop/go.mod` + `app/desktop/*.go`（依赖方式与 import）
+- Modify: `scripts/mobile-bind-proxyrules.mjs`（路径适配）
+- Modify: `app/server/cmd/gen-protocol/main.go`（输出路径参数化）
+- Modify: `app/mobile/capacitor.config.ts` / `app/mobile/package.json`（前端产物来源）
+- Modify: `app/desktop/mygo.config.ts`（前端产物来源）
+- Modify: `AGENTS.md`（记录 proxyrules module 新路径）
+
+**Interfaces:**
+- Consumes: 当前同仓结构。
+- Produces: 跨仓依赖在拆分前已可独立成立；供 Task 3/5/6b 直接使用。
+
+**为什么先做：** 这三项是拆仓后的硬断点，先在同仓内改成「可跨仓」形态并验证通过，拆仓才不会连锁失败。
+
+- [ ] **Step 1: 改 proxyrules module 路径**
+
+把 `app/shared/proxyrules/go.mod` 的 `module gospeak/proxyrules` 改为 `module github.com/NoelOrin/GOSpeak/app/shared/proxyrules`。同步改 `app/desktop` 三处 import（`proxyserver.go`、`server_config.go`、`proxyserver_security_test.go`）与 `scripts/mobile-bind-proxyrules.mjs` 的 module 引用。
+
+Run:
+```bash
+cd app/shared/proxyrules && go build ./... && go test ./...
+cd ../../desktop && go build ./... && go test ./...
+node --test scripts/mobile-bind-proxyrules.test.mjs
+```
+Expected: 全部通过。
+
+- [ ] **Step 2: desktop 改用公开 module 依赖**
+
+先在主仓库为 proxyrules 打 module 子目录 tag（Go 子模块版本规范）：
+```bash
+git tag app/shared/proxyrules/v0.1.0
+git push origin app/shared/proxyrules/v0.1.0
+```
+然后把 `app/desktop/go.mod` 的 `require gospeak/proxyrules v0.0.0` 改为 `require github.com/NoelOrin/GOSpeak/app/shared/proxyrules v0.1.0`，删除 `replace` 行，执行 `go mod tidy`。
+
+Run: `cd app/desktop && go mod tidy && go build ./...`
+Expected: 能从 `proxy.golang.org` 解析到该 module；构建通过。
+
+- [ ] **Step 3: gen-protocol 输出路径参数化**
+
+给 `app/server/cmd/gen-protocol` 增加 `-out` 参数（默认保持当前 `../web/src/protocol/generated`），使跨仓 CI 可指定输出目录；契约测试 `protocol/gen_contract_test.go` 相应读取该参数或保持 golden 比对。
+
+Run: `cd app/server && go test ./internal/protocol/...`
+Expected: 通过；`go run ./cmd/gen-protocol -out /tmp/gen-test` 能写到指定目录。
+
+- [ ] **Step 4: 前端产物来源本地化**
+
+把 `app/mobile/capacitor.config.ts` 的 `webDir: "../web/dist-mobile"` 改为 `"www"`（mobile 仓库内目录），`package.json` 的 `sync` 脚本改为消费外部传入的产物（拆仓后由 CI 把 web 产物放进 `www/`）。同理 `app/desktop/mygo.config.ts` 的 `buildCommand` 改为消费本地 `webui/dist`（由 CI 预置），不再 `cp ../web/dist`。
+
+Run: `pnpm --filter @gospeak/web build:mobile && pnpm --filter @gospeak/mobile sync`
+Expected: 通过（此时仍在同仓，用脚本先拷产物到本地目录再 sync）。
+
+- [ ] **Step 5: 提交前置改造**
+
+```bash
+git add app/shared app/desktop app/mobile app/server/cmd/gen-protocol scripts/mobile-bind-proxyrules.mjs AGENTS.md
+git commit -m "refactor: make cross-repo dependencies resolvable before submodule split"
+```
+Expected: 提交成功。
 
 ---
 
@@ -140,34 +224,35 @@ Ruling: 默认采用方式 A 以保证 `app/web` 改动进入子仓库历史；�
 
 ---
 
-## Task 2: 创建三个远端空仓库
+## Task 2: 创建四个远端空仓库
 
 **Files:** 无本地文件（GitHub 远端操作）
 
 **Interfaces:**
 - Consumes: Task 1 确认的子仓库地址。
-- Produces: 三个可推送的空仓库；供 Task 3 推送。
+- Produces: 四个可推送的空仓库；供 Task 3 推送。
 
 - [ ] **Step 1: 创建空仓库**
 
-在 GitHub 上创建三个仓库（用 `gh` CLI 或网页），均不初始化 README/LICENSE/.gitignore：
+在 GitHub 上创建四个仓库（用 `gh` CLI 或网页），均不初始化 README/LICENSE/.gitignore：
 ```bash
 gh repo create NoelOrin/GOSpeak-Web --private --confirm
 gh repo create NoelOrin/GOSpeak-Desktop --private --confirm
 gh repo create NoelOrin/GOSpeak-Mobile --private --confirm
+gh repo create NoelOrin/GOSpeak-Packages --private --confirm
 ```
-Expected: `gh repo view NoelOrin/GOSpeak-Web` 等三个命令均成功。
+Expected: 四个 `gh repo view` 均成功。
 
 - [ ] **Step 2: 验证远端可写**
 
 ```bash
-git ls-remote https://github.com/NoelOrin/GOSpeak-Web.git
+for r in Web Desktop Mobile Packages; do git ls-remote "https://github.com/NoelOrin/GOSpeak-$r.git"; done
 ```
-Expected: 命令成功（空仓库无输出或仅 HEAD）。
+Expected: 四条命令均成功（空仓库无输出或仅 HEAD）。
 
 ---
 
-## Task 3: 抽取三个目录历史到子仓库
+## Task 3: 抽取四个目录历史到子仓库
 
 **Files:** 临时目录 `/tmp/gospeak-submodule-extract/{web,desktop,mobile}`（由 filter-repo 创建）
 
@@ -216,7 +301,30 @@ Expected: 子仓库根含原 `app/desktop` 的 `*.go`、`README.md` 等；历史
 
 Expected: 子仓库根含 `package.json`、`capacitor.config.ts`、`ios/`、`android/`；历史非空。
 
-- [ ] **Step 6: 清理临时 clone**
+- [ ] **Step 6: 抽取 packages**
+
+```bash
+rm -rf /tmp/gospeak-submodule-extract/packages
+git clone --no-local --branch chore/submodule-split /Users/noelorin/Projects/GOSpeak /tmp/gospeak-submodule-extract/packages
+cd /tmp/gospeak-submodule-extract/packages
+git filter-repo --path packages --path-rename packages/: --force
+git checkout -b release
+git remote add origin https://github.com/NoelOrin/GOSpeak-Packages.git
+git push -u origin release
+```
+
+Expected: 子仓库根出现 `components/`、`sfu-client/`、`desktop/`、`mobile-capabilities/`；历史非空。
+
+- [ ] **Step 7: 验证 packages 历史**
+
+```bash
+cd /tmp/gospeak-submodule-extract/packages
+git log --oneline -5
+git ls-tree -d HEAD --name-only
+```
+Expected: 至少 3 条真实历史提交；根目录含四个包目录。
+
+- [ ] **Step 8: 清理临时 clone**
 
 ```bash
 rm -rf /tmp/gospeak-submodule-extract
@@ -242,30 +350,30 @@ git status --short
 ```
 Expected: 输出为空或仅含计划/设计文档修改。
 
-- [ ] **Step 2: 从 index 移除三个目录（保留本地文件用于比对）**
+- [ ] **Step 2: 从 index 移除四个目录（保留本地文件用于比对）**
 
 ```bash
-git rm -r --cached app/web app/desktop app/mobile
+git rm -r --cached app/web app/desktop app/mobile packages
 ```
 Expected: 命令成功；`git status --short` 显示大量 `D  app/web/...` 等删除条目。
 
 - [ ] **Step 3: 删除本地目录内容**
 
 ```bash
-rm -rf app/web app/desktop app/mobile
+rm -rf app/web app/desktop app/mobile packages
 ```
-Expected: 三个目录不存在。
+Expected: 四个目录不存在。
 
 - [ ] **Step 4: 验证 index 无普通文件残留**
 
 ```bash
-git ls-files app/web app/desktop app/mobile | head -20
+git ls-files app/web app/desktop app/mobile packages | head -20
 ```
 Expected: 输出为空。
 
 ---
 
-## Task 5: 添加三个 submodule 并锁定指针
+## Task 5: 添加四个 submodule 并锁定指针
 
 **Files:**
 - Create: `.gitmodules`
@@ -297,26 +405,33 @@ git submodule add -b release https://github.com/NoelOrin/GOSpeak-Mobile.git app/
 ```
 Expected: 同上。
 
+- [ ] **Step 3b: 添加 packages submodule**
+
+```bash
+git submodule add -b release https://github.com/NoelOrin/GOSpeak-Packages.git packages
+```
+Expected: `packages` 目录重新出现且含四个包目录。
+
 - [ ] **Step 4: 验证 .gitmodules 路径精确**
 
 ```bash
 git config -f .gitmodules --get-regexp 'submodule\..*\.path'
 git config -f .gitmodules --get-regexp 'submodule\..*\.url'
 ```
-Expected: 三条 path 精确为 `app/web`、`app/desktop`、`app/mobile`；url 与 Task 2 一致。
+Expected: 四条 path 精确为 `app/web`、`app/desktop`、`app/mobile`、`packages`；url 与 Task 2 一致。
 
 - [ ] **Step 5: 验证 gitlink 模式**
 
 ```bash
-git ls-files -s app/web app/desktop app/mobile
+git ls-files -s app/web app/desktop app/mobile packages
 ```
-Expected: 三行 mode 均为 `160000`，即 gitlink。
+Expected: 四行 mode 均为 `160000`，即 gitlink。
 
 - [ ] **Step 6: 提交 submodule 接入**
 
 ```bash
-git add .gitmodules app/web app/desktop app/mobile
-git commit -m "refactor: split web desktop mobile into git submodules"
+git add .gitmodules app/web app/desktop app/mobile packages
+git commit -m "refactor: split web desktop mobile and packages into git submodules"
 ```
 Expected: 提交成功；`git status --short` 干净。
 
@@ -336,7 +451,7 @@ Expected: 提交成功；`git status --short` 干净。
 
 在「进行中 / 待跟进」表格中新增一行：
 ```
-| [三端拆分为 Git Submodule](./2026-11-25-submodule-split.md) | 进行中 | 待验证 submodule 全量门禁 |
+| [多平台仓库结构调整](./2026-11-25-submodule-split.md) | 进行中 | 待验证四仓 submodule 全量门禁 |
 ```
 Expected: 表格新增该行。
 
@@ -358,6 +473,79 @@ Expected: 提交成功。
 
 ---
 
+## Task 6B: GOSpeak-Web 嵌套挂载 packages
+
+**Files:**
+- Modify: `GOSpeak-Web` 仓库：新增 `.gitmodules`、`pnpm-workspace.yaml`、`package.json`
+- Modify: `GOSpeak-Web` 的 `web/package.json`（`workspace:*` 保持不变，仅确认可解析）
+
+**Interfaces:**
+- Consumes: Task 3 的 `GOSpeak-Packages` 远端；Task 5 的主仓库 submodule 结构。
+- Produces: `GOSpeak-Web` 独立 clone 后能 `pnpm install` 并构建；供 Task 7/8 验证。
+
+**为什么需要：** `app/web` 依赖 4 个 `packages/*` 包（`workspace:*`，211 处引用）。拆仓后这些包必须与 web 同处一个 pnpm workspace，否则 `pnpm install` 直接失败。
+
+- [ ] **Step 1: 在 GOSpeak-Web 中调整目录布局**
+
+把抽取出的内容从仓库根移到 `web/`：
+```bash
+cd /tmp/gospeak-web-setup
+git clone https://github.com/NoelOrin/GOSpeak-Web.git .
+mkdir -p web && git mv $(ls -A | grep -v '^\.git$' | grep -v '^web$') web/ 2>/dev/null || true
+```
+Expected: 仓库根只剩 `web/` 与 `.git`。
+
+- [ ] **Step 2: 添加 packages 嵌套 submodule**
+
+```bash
+git submodule add -b release https://github.com/NoelOrin/GOSpeak-Packages.git packages
+```
+Expected: `packages/` 出现且含四个包目录；`.gitmodules` 中 path 为 `packages`。
+
+- [ ] **Step 3: 配置 workspace 与根 package.json**
+
+`pnpm-workspace.yaml`：
+```yaml
+packages:
+  - "web"
+  - "packages/*"
+```
+
+根 `package.json` 保留 turbo/biome 等工具链依赖，scripts 指向 `web`。把原主仓库的 `turbo.json`、`biome.json`、`tsconfig` 基座同步过来。
+
+Expected: `pnpm install --frozen-lockfile` 可解析全部依赖。
+
+- [ ] **Step 4: 验证独立构建**
+
+```bash
+cd /tmp/gospeak-web-setup
+pnpm install --frozen-lockfile
+pnpm --filter @gospeak/web build
+pnpm --filter @gospeak/web test
+```
+Expected: 构建与测试通过，证明 `workspace:*` 已正确解析。
+
+- [ ] **Step 5: 提交并推送**
+
+```bash
+git add .gitmodules packages pnpm-workspace.yaml package.json turbo.json biome.json web
+git commit -m "refactor: nest packages submodule and configure workspace"
+git push origin release
+```
+Expected: 推送成功；`git submodule status` 显示 packages 指针。
+
+- [ ] **Step 6: 更新主仓库 gitlink**
+
+回到主仓库，把 `app/web` 的 gitlink 指向新的提交（目录布局变化后 commit 不同）：
+```bash
+cd /Users/noelorin/Projects/GOSpeak
+git submodule update --remote app/web
+git add app/web && git commit -m "chore: bump web submodule to nested packages layout"
+```
+Expected: 主仓库 `app/web` gitlink 更新。
+
+---
+
 ## Task 7: CI 按仓库归属拆分（各端 CI 迁回各自子仓库）
 
 **Files:**
@@ -366,7 +554,7 @@ Expected: 提交成功。
 - Delete: `.github/workflows/build-mobile.yml`（迁移到 GOSpeak-Mobile）
 - Modify: `.github/workflows/docker.yml`、`.github/workflows/docs.yml`、`.github/workflows/security.yml`、`.github/workflows/version-bump.yml`（checkout 加 submodules；移除三端相关步骤）
 - Create: `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`（CI 归属矩阵与触发规则）
-- 在三个子仓库中 Create: `.github/workflows/ci.yml`（各自独立 CI）与 `.github/workflows/release.yml`（各自独立发布；由 Task 3 的子仓库提交落地）
+- 在四个子仓库中 Create: `.github/workflows/ci.yml`（各自独立 CI）与 `.github/workflows/release.yml`（各自独立 Release；由 Task 3 的子仓库提交落地）
 
 **Interfaces:**
 - Consumes: Task 5 的 submodule 结构；现有 workflows 内容。
@@ -376,13 +564,16 @@ Expected: 提交成功。
 
 | 工作流 | 所属仓库 | 职责 |
 |---|---|---|
-| CI（server / Go / scripts / protocol / 集成测试） | GOSpeak 主仓库 | 只跑 `app/server`、`internal/*`、`scripts`、`test`、`packages/*`（workspace 包仍留主仓库） |
-| CI（lint / typecheck / test / build web） | GOSpeak-Web | 前端自身质量门禁；生成物 `dist/` 由本仓 release 打包 |
+| CI（server / Go / scripts / protocol / 集成测试） | GOSpeak 主仓库 | 只跑 `app/server`、`app/shared`、`scripts`、`test`、`deploy`；不再构建三端 |
+| CI（lint / typecheck / test / build web） | GOSpeak-Web | 前端与嵌套 packages 的质量门禁；生成物 `dist/` 由本仓 release 打包 |
+| CI（packages 单元测试） | GOSpeak-Packages | 四个 workspace 包自身的 test / typecheck / build |
 | CI（Go / mygo build / 安装包） | GOSpeak-Desktop | 桌面宿主自身门禁与安装包构建 |
 | CI（Capacitor sync / gradle / xcode） | GOSpeak-Mobile | 移动壳自身门禁与 APK/IPA 构建 |
-| Release（server / web 压缩包 / Docker） | GOSpeak 主仓库 | 按需 `workflow_call` 子仓库 release 产出，或消费其 Release 附件 |
-| Release（desktop） | GOSpeak-Desktop | 安装包与签名更新元数据的**构建**，产物供主仓库 Release 消费；不打独立 tag |
-| Release（mobile） | GOSpeak-Mobile | APK / IPA 的**构建**，产物供主仓库 Release 消费；不打独立 tag |
+| Release（server / Docker） | GOSpeak 主仓库 | 只发布 server 产物；消费 web 压缩包打进 `static/` |
+| Release（web 静态包） | GOSpeak-Web | 独立 Release `gospeak-web-v*`，产物为前端压缩包 |
+| Release（desktop 安装包） | GOSpeak-Desktop | **独立 Release** `gospeak-desktop-v*`，产物为 dmg/deb/exe/install.sh |
+| Release（mobile 安装包） | GOSpeak-Mobile | **独立 Release** `gospeak-mobile-v*`，产物为 APK/IPA |
+| Release（packages module） | GOSpeak 主仓库 | 只打 Go module tag `app/shared/proxyrules/v*`；packages 无独立 Release |
 
 - [ ] **Step 1: 改造 ci.yml 的 checkout**
 
@@ -438,21 +629,34 @@ Expected: `grep -r "checkout@v7" .github/workflows/` 的每项都有 `submodules
 
 - [ ] **Step 5: 从主仓库 CI 移除三端专属 job**
 
-从 `ci.yml` 删除 `build-js`（`@gospeak/web` 构建）、`test-web`、`desktop-go` 中前端/桌面构建相关步骤；`lint` 的路径参数去掉 `./app/web` / `./app/desktop` / `./app/mobile`；`typecheck` 只保留主仓库 workspace 包。从 `release.yml` 删除 `build-web`、`build-desktop-macos`、`build-desktop-others`、`desktop-checksums` 及所有向 `webui/dist` 拷贝前端产物的步骤；删除 `build-mobile.yml`。这些 job 全部迁到各自子仓库。
+从 `ci.yml` 删除 `build-js`、`test-web`、`test-packages`、`desktop-go` 三端专属 job 及 `gate` 中对应 needs；`lint` 的 biome 路径去掉 `./app/web` / `./app/desktop` / `./app/mobile` / `./packages`；`typecheck` 只保留主仓库 `scripts`。从 `release.yml` 删除 `build-web`、`build-desktop-macos`、`build-desktop-others`、`desktop-checksums` 及所有向 `webui/dist` 拷贝前端产物的步骤；删除 `build-mobile.yml`。
 
-Expected: `grep -r "app/web\|app/desktop\|app/mobile" .github/workflows/` 仅剩 gitlink 路径与 checkout 配置，不含具体源码构建步骤。
+同时清理主仓库工具链配置中对已拆出目录的引用：
+- `pnpm-workspace.yaml`：`app/*` / `packages/*` 改为只剩 `test`（主仓库不再有前端包）
+- `turbo.json`：`globalDependencies` 移除 `app/*/tsconfig*.json`、`packages/*/tsconfig*.json`
+- `lefthook.yml` / `biome.json`：移除 `./app/web`、`./app/desktop`、`./app/mobile`、`./packages` 路径
+- `scripts/check-desktop-commands.mjs`、`check-mobile-bridge.mjs`、`mobile-version.mjs`：迁移到对应子仓库，主仓库删除
 
-- [ ] **Step 6: 在三个子仓库建立独立 CI / Release**
+Expected: `grep -rn "app/web\|app/desktop\|app/mobile\|packages/" .github/workflows/ pnpm-workspace.yaml turbo.json lefthook.yml biome.json` 仅剩 gitlink 路径与 checkout 配置。
 
-在 GOSpeak-Web 创建 `.github/workflows/ci.yml`（lint / typecheck / vitest / build 前端产物）与 `release.yml`（前端静态压缩包构建，产物以 workflow artifact / `workflow_call` 输出形式供主仓库消费）。在 GOSpeak-Desktop 创建 `.github/workflows/ci.yml`（go vet + go test + mygo build）与 `release.yml`（安装包构建，产物同样供主仓库消费）。在 GOSpeak-Mobile 创建 `.github/workflows/ci.yml`（capacitor sync + gradle/xcode 构建）与 `release.yml`（APK/IPA 构建）。**子仓库 Release 不自己打发布 tag、不自己创建 GitHub Release**；发布 tag 统一在主仓库（四组件 `gospeak-<component>-v<semver>`），子仓库 workflow 由主仓库 `workflow_call` 或 gitlink 版本事件触发。这些 workflow 随 Task 3 的子仓库初始化提交落地，不放在主仓库。
+- [ ] **Step 6: 在四个子仓库建立独立 CI / Release**
 
-Expected: 三个子仓库各自的 `.github/workflows/` 有 ci.yml 与 release.yml；主仓库无 `build-mobile.yml`。
+各子仓库建立**独立 CI 与独立 Release**（这是本次拆分的核心目标：产物分开管理）：
+
+- **GOSpeak-Web**：`ci.yml`（lint / typecheck / vitest / build）；`release.yml` 由 tag `gospeak-web-v*` 触发，构建并发布前端静态压缩包到**自己的 Release**。
+- **GOSpeak-Packages**：`ci.yml`（四包 test / typecheck / build），无 Release。
+- **GOSpeak-Desktop**：`ci.yml`（go vet / go test / mygo build）；`release.yml` 由 tag `gospeak-desktop-v*` 触发，发布安装包到**自己的 Release**。
+- **GOSpeak-Mobile**：`ci.yml`（capacitor sync / gradle / xcode）；`release.yml` 由 tag `gospeak-mobile-v*` 触发，发布 APK/IPA 到**自己的 Release**。
+
+**发布 tag 归属（修订）**：每个子仓库打自己的发布 tag（`gospeak-web-v*` / `gospeak-desktop-v*` / `gospeak-mobile-v*`）并创建自己的 Release。主仓库只保留 server 的 tag 与 Release。各仓 tag 格式统一为 `gospeak-<component>-v<semver>`，由 `release-naming.mjs` 派生。这样 Releases 页面按仓库天然分开，不再挤在一起。
+
+Expected: 四个子仓库各自的 `.github/workflows/` 有 ci.yml 与 release.yml；主仓库无 `build-mobile.yml`。
 
 - [ ] **Step 7: 建立 CI 归属设计文档**
 
-创建 `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`，写入上文「CI 归属矩阵」、触发规则（子仓库 push/tag 触发自身 CI/Release；主仓库靠 gitlink 更新触发自身 CI）、主仓库不再承担三端构建、子仓库 release 产物由主仓库按需消费的规则。
+创建 `docs/superpowers/specs/2026-11-25-submodule-ci-design.md`，写入「CI 归属矩阵」、触发规则（子仓库 push/tag 触发自身 CI/Release；主仓库靠 gitlink 更新触发自身 CI）、主仓库不再承担三端构建、**各仓独立 Release 使产物天然分开**。
 
-Expected: 文档存在且包含归属矩阵四条核心行。
+Expected: 文档存在且包含归属矩阵全部核心行，明确写出「各端 Release 独立、产物不再混在同一 Release 条目」。
 
 - [ ] **Step 8: 提交 CI 改造**
 
@@ -480,40 +684,61 @@ Expected: 无错误输出。
 - Consumes: Task 5/6 的提交。
 - Produces: 验证结论；若失败回到对应任务修复。
 
-- [ ] **Step 1: 校验 submodule 状态**
+- [ ] **Step 1: 校验 submodule 状态（含嵌套层）**
 
 ```bash
 cd /Users/noelorin/Projects/GOSpeak
 git submodule status
+cd app/web && git submodule status
 ```
-Expected: 三行均以空格开头（无 `+` 或 `-` 前缀），表示 checkout 与 gitlink 一致。
+Expected: 主仓库四行、web 内一行，均以空格开头（无 `+` / `-` 前缀）。
 
-- [ ] **Step 2: 前端门禁**
+- [ ] **Step 2: 主仓库门禁**
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
+pnpm test:scripts
+node --test scripts/*.test.mjs
 ```
 Expected: 全部退出码 0。
 
-- [ ] **Step 3: 三目标构建**
+- [ ] **Step 3: GOSpeak-Web 独立验证**
 
 ```bash
+cd /tmp/gospeak-web-verify
+pnpm install --frozen-lockfile
+pnpm --filter @gospeak/web typecheck
+pnpm --filter @gospeak/web test
 pnpm --filter @gospeak/web build
 pnpm --filter @gospeak/web build:desktop
 pnpm --filter @gospeak/web build:mobile
 ```
-Expected: 三个目标均构建成功。
+Expected: 独立 clone 后 `workspace:*` 正常解析，三个目标均构建成功。
 
-- [ ] **Step 4: Go 门禁与服务端测试**
+- [ ] **Step 4: GOSpeak-Packages 独立验证**
 
 ```bash
-go vet ./app/server/... ./app/desktop/...
+cd /tmp/gospeak-packages-verify
+pnpm install --frozen-lockfile
+pnpm -r test
+pnpm -r typecheck
+```
+Expected: 四包测试与类型检查通过。
+
+- [ ] **Step 5: Go 门禁与服务端测试**
+
+```bash
+cd /Users/noelorin/Projects/GOSpeak
+go vet ./app/server/... ./app/shared/...
 pnpm test:server:go
 ```
 Expected: 全部成功。
+
+- [ ] **Step 6: 跨仓依赖验证**
+
+```bash
+cd /tmp/gospeak-desktop-verify && go mod download && go build ./...
+```
+Expected: desktop 能从公开 proxy 拉到 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`；构建通过。
 
 - [ ] **Step 5: 全新 clone 复现**
 
@@ -547,7 +772,7 @@ Expected: 计划状态块存在。
 
 **Files:**
 - Create: `metadata.yaml`（主仓库总控）
-- Create: `metadata.yaml`（三个子仓库各自一份，通过 Task 3 的子仓库提交落地）
+- Create: `metadata.yaml`（四个子仓库各自一份，通过 Task 3 的子仓库提交落地；packages 无 release 但保留 version）
 - Modify: `scripts/check-version.mjs` + `scripts/check-version.test.mjs`（改读 metadata.yaml + submodule 守卫）
 - Modify: `scripts/release-naming.mjs` + `scripts/release-naming.test.mjs`（mobile 与 web 组件）
 - Modify: `scripts/build-changelog.mjs` / `release-notes.mjs` + 各自 test（按组件生成）
@@ -591,8 +816,23 @@ components:
     source: app/mobile         # git submodule
     metadata_ref: app/mobile/metadata.yaml
     tag: gospeak-mobile-v0.9.0
-    release: true              # 产物由 build-mobile.yml 发布
+    release: true              # 产物由 GOSpeak-Mobile 自己的 release.yml 发布
+  packages:
+    version: 1.0.0
+    source: packages           # git submodule
+    metadata_ref: packages/metadata.yaml
+    release: false             # 仅作为 web 的 workspace 依赖，不单独发 Release
 ```
+
+**Release 归属（四仓模型）：**
+
+| 组件 | 发布仓库 | Release tag | 产物 |
+|---|---|---|---|
+| server | GOSpeak | `gospeak-server-v*` | 二进制 + `static/` |
+| web | GOSpeak-Web | `gospeak-web-v*` | 前端静态压缩包 |
+| desktop | GOSpeak-Desktop | `gospeak-desktop-v*` | dmg / deb / exe / install.sh |
+| mobile | GOSpeak-Mobile | `gospeak-mobile-v*` | APK / IPA |
+| packages | —（不发 Release） | — | 仅 workspace 依赖 |
 
 `metadata.yaml`（子仓库根，以 desktop 为例）：
 ```yaml
@@ -624,9 +864,9 @@ metadata:
 - 主仓库总控的 `components.<name>.version` 是最终事实源；子仓库 `version` 必须与之一致，由 CI 校验。
 - `metadata_ref` 指向子仓库 metadata 文件，check-version 会读取并比对版本。
 - 元数据字段（name/description/platforms/artifact_type/changelog）供 release-notes 与 build-changelog 消费。
-- **版本号不统一发布**：server / web / desktop / mobile 四组件各自独立 SemVer，互不跟随。
+- **版本号不统一发布**：server / web / desktop / mobile 四组件各自独立 SemVer，互不跟随；packages 有独立 version 但不发布。
 - 版本 bump 只针对发生变更的组件：先改该子仓库 `metadata.yaml` 与版本文件并 commit/push，再更新主仓库总控 `metadata.yaml` 的 `version` 与 `tag`，最后更新 gitlink 并打 tag。
-- 每个组件独立 tag / 独立 Release / 独立 changelog；不再「一版一个 Release、两端共用 server 版本号」。
+- 每个组件独立 tag / **独立 Release（在自己的仓库里）** / 独立 changelog；彻底消除「一版一个 Release、产物挤在一起」的旧模型。
 - 子仓库 commit message 约定：`chore(<component>): bump version to <semver>`，gitlink bump 与版本发布解耦。
 
 - [ ] **Step 1: 写 release-naming 增加 mobile 与 web 组件的测试**
@@ -741,7 +981,7 @@ Expected: 旧「一版含两端」断言改为按组件断言后 PASS。
 
 - [ ] **Step 11: 落地子仓库 metadata.yaml**
 
-在 Task 3 抽取后、Task 5 接入前，把子仓库 `metadata.yaml` 作为子仓库首提交的一部分（或单独提交）推送。三个子仓库各自文件见上方结构。
+在 Task 3 抽取后、Task 5 接入前，把子仓库 `metadata.yaml` 作为子仓库首提交的一部分（或单独提交）推送。四个子仓库各自文件见上方结构。
 
 Expected: 每个子仓库根目录有 `metadata.yaml` 且 `component` 字段正确。
 
@@ -757,11 +997,13 @@ Expected: 文档存在且包含上述七点。
 
 Expected: `grep -n "metadata.yaml" scripts/AGENTS.md AGENTS.md` 有命中；`grep -n "STATIC_DIR" docs/superpowers/specs/2026-11-25-submodule-release-design.md` 有命中。
 
-- [ ] **Step 14: release.yml 增加 web 静态压缩包构建与发布**
+- [ ] **Step 14: web 静态压缩包构建落在 GOSpeak-Web 自己的 release.yml**
 
-在 `release.yml` 的按组件构建阶段增加 web 分支：当 tag component 为 `web` 时，checkout 主仓库并 `git submodule update --init app/web`，执行 `pnpm install --frozen-lockfile` 与 `pnpm --filter @gospeak/web build`，把 `app/web/dist/` 打包为 `gospeak-web-v<version>.tar.gz`（保留目录结构，含 `index.html` 与带 hash 的 assets），作为该组件 Release 的下载产物。产物命名走 `release-naming.mjs` 派生，不手写版本号。
+**不在主仓库构建 web 产物。** 在 `GOSpeak-Web` 仓库的 `release.yml` 中：由 tag `gospeak-web-v*` 触发，`pnpm install --frozen-lockfile` → `pnpm --filter @gospeak/web build`，把 `web/dist/` 打包为 `gospeak-web-v<version>.tar.gz`，上传到**该仓库自己的 Release**。产物命名走 `release-naming.mjs` 派生。
 
-Expected: 手动触发 web tag 事件后 Release 附件出现 `gospeak-web-v<version>.tar.gz`；actionlint 通过。
+主仓库的 `release.yml` 只在构建 server 产物时需要前端：从 `gospeak-web-v<对应版本>` 的 Release 下载压缩包，解压进 `static/`。
+
+Expected: GOSpeak-Web 打 tag 后，**在 GOSpeak-Web 仓库的 Releases 页**出现 `gospeak-web-v<version>` 条目与压缩包附件；主仓库 Releases 页无 web 条目。
 
 - [ ] **Step 15: serveSPA 补 index.html no-store 响应头**
 
@@ -913,7 +1155,7 @@ git add app/server/internal/service app/server/internal/handler app/server/inter
 ```
 Expected: 提交成功。
 
-## Task 12: 发布链路优化（统一入口与产物绑定）
+## Task 12: 发布链路改造为一组件一 Release（各在自己仓库）
 
 **Files:**
 - Modify: `.github/workflows/release.yml`（resolve-tag 解析四组件；统一 Release 入口；按组件消费子仓库产物）
@@ -927,28 +1169,32 @@ Expected: 提交成功。
 - Produces: 统一的发布入口与可追溯的产物版本绑定；消除「子仓库 tag 触发发布」与「发布 tag 只在主仓库」的冲突。
 
 **现状问题（执行前必须确认并修正）：**
-- `release.yml` 的 `resolve-tag` 用 `grep -E '^gospeak-(server|desktop)-v[0-9]'` 写死两个组件，需改为四组件；
-- `release.yml` 中「一个版本一个 Release：服务端二进制与桌面安装包都上传到它」的旧注释与「一组件一 Release」决策冲突，必须删除；
-- Task 9 原写「子仓库 tag 不触发发布，发布 tag 只在主仓库」与 Task 7 原写「子仓库 release.yml 按自己 tag 发布」相互矛盾，已在 Task 7 / Task 9 修正为「子仓库只构建产物，主仓库统一打 tag 并创建 Release」。
+- `release.yml:126-129` 的注释「一个版本只创建一个 GitHub Release：tag 固定为服务端 tag，服务端二进制与桌面端安装包都上传到它」——**这正是「产物挤在一起」的病根，必须删除并改为各仓独立 Release**；
+- `create-release` 的 `release_tag` 硬编码 `release-naming.mjs tag server`（`release.yml:157`），导致任何组件触发都建到 server tag 上；
+- `desktop_included` 逻辑（`release.yml:204-214`）把桌面下载表格塞进 server Release 正文，拆分后应删除；
+- 产物上传目标用的是 `needs.create-release.outputs.release_tag`（`release.yml:592/759/824`），拆分后应改为各自仓库自己的 tag。
 
-**发布顺序（单一入口）：**
+**目标模型：一组件一 Release，各在自己仓库。**
 
 ```
-主仓库 version-bump 检测四组件版本变化
-→ 打对应 annotated tag（gospeak-<component>-v<semver>）
-→ 触发主仓库 release.yml（唯一创建 GitHub Release 的地方）
-→ release.yml 按 component：
-    server    → workflow_call GOSpeak-Web 的 release.yml 取前端压缩包；打包「二进制 + static/」
-    web       → workflow_call GOSpeak-Web 的 release.yml 取前端压缩包，作为独立 Release 附件
-    desktop   → workflow_call GOSpeak-Desktop 的 release.yml 取安装包
-    mobile    → workflow_call GOSpeak-Mobile 的 release.yml 取 APK/IPA
-→ 上传产物到该组件 Release；生成 checksums；发布说明由 metadata 驱动
+主仓库（GOSpeak）
+  server tag gospeak-server-v*  → 主仓库 release.yml → 主仓库 Release（二进制 + static/）
+  proxyrules module tag          → 仅 Go module，无 Release
+
+GOSpeak-Web
+  web tag gospeak-web-v*        → 本仓 release.yml → 本仓 Release（前端压缩包）
+
+GOSpeak-Desktop
+  desktop tag gospeak-desktop-v* → 本仓 release.yml → 本仓 Release（dmg/deb/exe/install.sh）
+
+GOSpeak-Mobile
+  mobile tag gospeak-mobile-v*  → 本仓 release.yml → 本仓 Release（APK/IPA）
 ```
 
-**产物版本绑定（必须写入发布说明）：**
-- server Release 的 `static/` 必须来自**同一次版本 bump 对应的 web gitlink 版本**；release.yml 从 tag 对应 commit 读取 `app/web` gitlink，传给 GOSpeak-Web workflow，禁止 `main` / `release` 分支浮动引用。
-- 若 web 版本未变化但 server 版本变化，server 包复用当前 gitlink 对应的 web 版本，并在 Release 正文标注 `bundled-web: <version>`。
-- 若 web 版本变化但 server 未变化，只发布 web 独立包；server 包不重发，运维可单独热更新前端。
+**产物版本绑定：**
+- server 包的 `static/` 来自 tag commit 上的 `app/web` gitlink 所指版本；release.yml 读 gitlink 的 commit，去 GOSpeak-Web 找对应 tag 的 Release 附件（`gospeak-web-v<version>.tar.gz`）下载解压，禁止浮动引用分支。
+- web 版本未变而 server 变：server 包复用当前 gitlink 对应的 web 版本，Release 正文标注 `bundled-web: <version>`。
+- web 变而 server 未变：只发 web 独立 Release；运维可单独热更新前端，无需动 server。
 
 **预发布 / rc 规则：**
 - 四组件 tag 允许 `-rc.N` 预发布段，**rc 直接进入 latest 推荐**（调整策略，见 Task 15）：`system_update_service` 不过滤 rc；`release.yml` 不传 `--prerelease`；`build-mobile.yml` 去掉 `--prerelease`。
@@ -963,25 +1209,39 @@ Expected: 提交成功。
 Run: `node --test scripts/release-naming.test.mjs scripts/check-version.test.mjs`
 Expected: FAIL（当前只识别两组件）。
 
-- [ ] **Step 2: 修正 resolve-tag 与旧注释**
+- [ ] **Step 2: 删除「统一 Release」逻辑，改为按组件建 Release**
 
-把 `release.yml` 的 `grep -E '^gospeak-(server|desktop)-v[0-9]'` 改为匹配四组件；删除「一个版本一个 Release」旧注释；确认 `create-release` 按 component 一组件一 Release。
+关键改动（`release.yml`）：
+1. 删除 `release.yml:126-129` 的统一 Release 注释；
+2. `create-release` 的 `release_tag` 改为 `${{ needs.resolve-tag.outputs.tag }}`（哪个组件触发就用哪个 tag），删除硬编码的 `tag server`；
+3. 删除 `desktop_included` 相关逻辑（`release.yml:204-214`）与 `--desktop-included` / `--desktop-notes-file` 参数；
+4. 主仓库 `release.yml` 只保留 `if: needs.resolve-tag.outputs.component == 'server'` 的构建分支；web/desktop/mobile 的构建与发布**整体迁移到各自仓库的 `release.yml`**；
+5. `resolve-tag` 的 `grep -E '^gospeak-(server|desktop)-v[0-9]'` 改为只匹配 `^gospeak-server-v[0-9]`（主仓库只管 server）。
 
-Expected: `grep -n "server|desktop" .github/workflows/release.yml` 无命中（或仅保留合法组合）；actionlint 通过。
+Expected: 主仓库 `release.yml` 中不再出现 desktop/mobile 构建 job；`grep -n "desktop_included" .github/workflows/release.yml` 无命中。
 
-- [ ] **Step 3: 实现产物版本绑定与跨仓库调用**
+- [ ] **Step 3: 子仓库各自建 Release**
 
-release.yml 在 server / web 分支中从 tag commit 读取 `app/web` gitlink，通过 `workflow_call` inputs 传给对应子仓库 workflow；子仓库 checkout 到该 gitlink 的 commit 后构建，返回 artifact。禁止子仓库浮动引用分支。
+在三个有 Release 的子仓库（Web / Desktop / Mobile）的 `release.yml` 中分别实现：
+- 触发：`on.push.tags: ['gospeak-web-v*']` / `['gospeak-desktop-v*']` / `['gospeak-mobile-v*']`
+- 创建 Release：`gh release create "$TAG" --title "..." --notes-file ...`（tag 即本仓 tag）
+- 上传产物：web 传 `.tar.gz`，desktop 传安装包 + SHA256SUMS，mobile 传 APK/IPA
 
-Expected: server Release 附件 `static/` 中的 `index.html` 与该 web 版本产物一致；发布说明含 `bundled-web` 字段。
+Expected: 三个子仓库各自 Releases 页出现本组件的独立条目，产物不再混入主仓库 Release。
 
-- [ ] **Step 4: 编写发布链路设计文档与提交**
+- [ ] **Step 4: server 包从 web Release 取前端产物**
 
-创建 `docs/superpowers/specs/2026-11-25-release-pipeline-design.md`，覆盖单一发布入口、四组件顺序、产物绑定、rc 规则、子仓库只构建不发布。
+主仓库 `release.yml` 构建 server 时：从 tag commit 读 `app/web` gitlink 的 commit SHA → 查 GOSpeak-Web 中该 commit 对应的 `gospeak-web-v<version>` tag → 用 `gh release download` 拉压缩包 → 解压进 `static/` 后打进 server 产物。
+
+Expected: server Release 附件 `static/index.html` 与该 web 版本产物一致；发布说明含 `bundled-web: <version>`。
+
+- [ ] **Step 5: 编写发布链路设计文档与提交**
+
+创建 `docs/superpowers/specs/2026-11-25-release-pipeline-design.md`，覆盖：**一组件一 Release（各在自己仓库）**、四个 Release 的触发与产物清单、server 包的前端产物绑定方式、rc 规则、以及「Releases 页面按仓库天然分开」的验证方法。
 
 ```bash
 git add .github/workflows/release.yml .github/workflows/version-bump.yml scripts/release-naming.mjs scripts/release-naming.test.mjs scripts/check-version.mjs scripts/check-version.test.mjs docs/superpowers/specs/2026-11-25-release-pipeline-design.md
- git commit -m "ci: unify release pipeline and bind frontend artifacts by gitlink"
+ git commit -m "ci: one release per component in its own repository"
 ```
 Expected: 提交成功。
 
@@ -1047,7 +1307,7 @@ Expected: 提交成功。
 cd /Users/noelorin/Projects/GOSpeak
 git revert <Task 5 commit sha>
 ```
-Expected: `.gitmodules` 删除，三个目录恢复为普通文件。
+Expected: `.gitmodules` 删除，四个目录恢复为普通文件。
 
 - [ ] **Step 2: 恢复 pre-split 工作区提交或 stash**
 
@@ -1057,6 +1317,6 @@ Expected: 工作区恢复到拆分前状态。
 
 - [ ] **Step 3: 删除远端子仓库（可选，谨慎）**
 
-仅在确认不再需要时，用 `gh repo delete` 删除三个子仓库。
+仅在确认不再需要时，用 `gh repo delete` 删除四个子仓库。
 
 Expected: 远端清理完成。
