@@ -47,9 +47,10 @@
 ## Task 1: 独立发版（删除 lockstep + 纳入 mobile）
 
 **Files:**
-- Modify: `.github/workflows/version-bump.yml`
-- Modify: `.github/versions/mobile.yaml`（补 release 触发所需字段，如有缺）
-- Modify: `.github/workflows/build-mobile.yml`（迁移到正式 tag，见 Step 4）
+- Modify: `.github/workflows/version-bump.yml`（删 lockstep、清理 released 语义、纳入 mobile）
+- Modify: `.github/workflows/build-mobile.yml`（加 tag 触发、正式/测试双路径，见 Step 5）
+- Modify: `scripts/release-naming.mjs` + `.test.mjs`（COMPONENTS 加 mobile，见 Step 3）
+- Modify: `.github/versions/mobile.yaml`（删除「未定义 mobile tag 前缀」的过时注释）
 
 **Interfaces:**
 - Consumes: 现状（server/desktop 强制同版本；mobile 完全不在 version-bump 流程内）。
@@ -101,11 +102,32 @@ done
 
 Expected: `grep -n "released" .github/workflows/version-bump.yml` 无输出（或仅注释）。
 
-- [ ] **Step 3: 把 mobile 纳入 version-bump**
+- [ ] **Step 3: 打通 mobile 的 tag 命名（前置阻塞）**
 
-1. 在 `Read declared versions` 步骤补读 `.github/versions/mobile.yaml`，输出 `mobile`；
-2. 在 `Detect published tags` 补 `check mobile "$MOBILE_VERSION"`；
-3. 新增 `Tag mobile release if version changed` step（照抄 server/desktop 的写法，`if: steps.tags.outputs.mobile_exists == 'false'`）；
+移动端当前**完全不在发布体系内**，有三个硬阻塞必须先解：
+
+| 阻塞 | 现状 | 处理 |
+|---|---|---|
+| `release-naming.mjs` 无 mobile | `COMPONENTS = ["server", "desktop"]`，传 mobile 直接抛错 | 扩为 `["server", "desktop", "mobile"]`（web 见 Task 3） |
+| `release.yml` 无 mobile 分支 | 全部构建 job 只有 `component == 'server'` / `'desktop'` | 见 Step 4 |
+| `mobile.yaml` 注释自述 | 「release-naming.mjs 未定义 mobile tag 前缀，检查时须显式传 component=mobile」 | 修完后删除该注释 |
+
+先改 `scripts/release-naming.mjs`：
+
+```js
+const COMPONENTS = ["server", "desktop", "mobile"];
+```
+
+补测试：`releaseTag("mobile", "1.2.0") === "gospeak-mobile-v1.2.0"`、`parseReleaseTag("gospeak-mobile-v1.2.0")` 返回 `{component:"mobile", version:"1.2.0"}`。
+
+Run: `node --test scripts/release-naming.test.mjs`
+Expected: PASS。
+
+- [ ] **Step 4: 把 mobile 纳入 version-bump 编排**
+
+1. `Read declared versions` 补读 `.github/versions/mobile.yaml`，输出 `mobile`；
+2. `Detect published tags` 补 `check mobile "$MOBILE_VERSION"`；
+3. 新增 `Tag mobile release if version changed` step（照抄 server/desktop，`if: steps.tags.outputs.mobile_exists == 'false'`）；
 4. 新增下游 job：
 
 ```yaml
@@ -115,44 +137,79 @@ release-mobile:
   if: needs.bump-tags.outputs.mobile_tag != ''
   permissions:
     contents: write
-  uses: ./.github/workflows/release.yml
+  uses: ./.github/workflows/build-mobile.yml
   with:
     tag: ${{ needs.bump-tags.outputs.mobile_tag }}
 ```
 
+**注意**：mobile 调用的是 `build-mobile.yml`（Capacitor/gradle 构建），不是 `release.yml`（Go 二进制构建）。两者构建环境不同。
+
 Expected: `grep -n "mobile" .github/workflows/version-bump.yml` 在版本读取、tag 检测、打 tag、下游 job 四处均有命中。
 
-- [ ] **Step 4: build-mobile 迁移到正式 Release**
+- [ ] **Step 5: build-mobile.yml 支持正式发版**
 
-当前 `build-mobile.yml` 把手动构建的 APK 上传到固定 pre-release `gospeak-mobile-test` 并 `--clobber` 覆盖（第 96-117 行），不是正式发版。
+当前状态（第 16-20、78-122 行）：
+- 只有 `workflow_dispatch` 触发，**没有 tag 触发**
+- 只构建 `assembleDebug`（debug APK），**无 release 签名产物**
+- 产物固定上传到 `gospeak-mobile-test` 并 `--clobber` 覆盖
+- iOS 构建整体注释禁用（第 149-166 行）
 
-改为：`gospeak-mobile-v*` tag 触发时创建正式 Release，产物以版本化文件名上传（不覆盖）。保留 `workflow_dispatch` 手动入口用于测试包，但测试包继续走 `gospeak-mobile-test`，与正式发版互不干扰。
+改造：
 
-Expected: 正式发版产物出现在 `gospeak-mobile-v<version>` 的独立 Release 中。
+1. **加 tag 触发**：
+   ```yaml
+   on:
+     push:
+       tags: ['gospeak-mobile-v*']
+     workflow_dispatch:
+       inputs:
+         tag: { description: "发布 tag（留空=只做测试包）", required: false }
+     workflow_call:
+       inputs:
+         tag: { type: string, required: true }
+   ```
 
-- [ ] **Step 5: 验证独立发版**
+2. **区分正式/测试两条路径**：
+   - 正式（有 tag）：`gh release create "$TAG"` 创建正式 Release，产物命名 `gospeak-mobile-v<version>-debug.apk`，**不 clobber**
+   - 测试（无 tag）：沿用 `gospeak-mobile-test` + `--clobber`，行为不变
 
-依次验证三种场景（可只改 yaml 里的 version 触发）：
+3. **产物说明**：当前只有 debug APK，正式 Release 需在正文明确标注「当前为 debug 构建，正式签名产物待补」。若要 release APK，需先配置 Android 签名密钥（keystore + secrets），这是独立前置工作。
 
+4. **iOS 保持禁用**：注释保留，正式 Release 只出 Android 产物。
+
+Expected:
 ```bash
-# 场景 A：只 bump desktop
-# 改 .github/versions/desktop.yaml 的 version → 合并
-# 期望：只有 gospeak-desktop-v* tag 被创建；release-server / docker / release-mobile 全部 skipped
-
-# 场景 B：只 bump server
-# 期望：只有 gospeak-server-v* tag；release-desktop / release-mobile skipped；docker 运行
-
-# 场景 C：只 bump mobile
-# 期望：只有 gospeak-mobile-v* tag；其余全部 skipped
+gh release view gospeak-mobile-v<version> --json assets -q '.assets[].name'
+# 输出形如 gospeak-mobile-v1.1.0-debug.apk
 ```
 
-Expected: `gh run view <run-id>` 显示三个场景下 skipped 的 job 与预期一致。
+- [ ] **Step 6: mobile 版本同步链路确认**
 
-- [ ] **Step 6: 提交**
+`scripts/mobile-version.mjs` 已把 `mobile.yaml` 的 version 同步到四处：`app/mobile/package.json`、Android `build.gradle`（versionName + versionCode）、iOS `project.pbxproj`、以及 `app/web/package.json`（供 `__APP_VERSION__`）。
+
+确认 bump mobile 版本时这条链路仍工作：
+
+Run: `node scripts/mobile-version.mjs --check`（或对应校验命令，见脚本内 usage）
+Expected: 四处版本一致，无漂移。
+
+- [ ] **Step 7: 验证独立发版（三场景）**
+
+依次验证（只改对应 yaml 的 version 后合并）：
+
+| 场景 | 改哪个文件 | 期望创建的 tag | 期望 skipped 的 job |
+|---|---|---|---|
+| A 只发桌面端 | `desktop.yaml` | `gospeak-desktop-v*` | release-server、docker、release-mobile |
+| B 只发服务端 | `server.yaml` | `gospeak-server-v*` | release-desktop、release-mobile |
+| C 只发移动端 | `mobile.yaml` | `gospeak-mobile-v*` | release-server、release-desktop、docker |
+
+Run: `gh run view <run-id>`
+Expected: 三种场景的 skipped job 与上表一致；对应 Release 只含本组件产物。
+
+- [ ] **Step 8: 提交**
 
 ```bash
-git add .github/workflows/version-bump.yml .github/workflows/build-mobile.yml .github/versions/
-git commit -m "ci: allow independent per-component releases"
+git add .github/workflows/version-bump.yml .github/workflows/build-mobile.yml .github/versions/ scripts/release-naming.mjs scripts/release-naming.test.mjs
+git commit -m "ci: allow independent per-component releases including mobile"
 ```
 
 ---
