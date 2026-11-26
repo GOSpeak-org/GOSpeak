@@ -13,19 +13,20 @@
 #
 #   校验和：SHA256SUMS-gospeak-<component>-v<version>.txt
 #
-# 发生什么：
-#   一个版本只创建一个 GitHub Release，tag 固定为服务端 tag
-#   （gospeak-server-v<version>）：两端产物都挂在同一个 Release 下，Releases
-#   页不会对同一版本出现两条同名条目。桌面端 tag 只做构建触发与版本门禁。
+# 发生什么（一组件一 Release）：
+#   每个组件的 tag 各自创建一个独立 Release，只上传该组件自己的产物。
+#   Releases 页按 tag 天然分开，不再出现「一个 Release 塞 20 个附件」。
+#   latest 只由 server Release 抢占（--latest），desktop/mobile 用 --latest=false。
 #
 #   gospeak-server-v*  → 服务端发布链：版本校验（以 server.yaml 为准）→
-#                        渲染统一 Release 正文（桌面端下载表格 + 两端 notes）
-#                        → 一次性 Web 构建 → 交叉编译 10 平台二进制 →
-#                        SHA256SUMS。Docker 镜像由 docker.yml 并行发布。
+#                        渲染服务端 Release 正文 → 一次性 Web 构建 →
+#                        交叉编译 10 平台二进制 → SHA256SUMS。
+#                        Docker 镜像由 docker.yml 并行发布。
 #   gospeak-desktop-v* → 桌面端发布链：版本校验（以 desktop.yaml 为准）→
-#                        确保统一 Release 存在 → GOSPEAK_TARGET=desktop
-#                        条件编译构建 Web → go:embed 进桌面宿主 →
-#                        5 平台安装包 → SHA256SUMS-desktop。
+#                        GOSPEAK_TARGET=desktop 条件编译构建 Web →
+#                        go:embed 进桌面宿主 → 5 平台安装包 → SHA256SUMS-desktop。
+#   gospeak-mobile-v*  → 由 build-mobile.yml 处理（Capacitor/gradle 构建），
+#                        不经过本 workflow。
 #
 # workflow_dispatch 支持手动补跑（tag 留空则取最新发布 tag），产物幂等覆盖（--clobber）。
 
@@ -153,7 +154,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # 统一 Release 的 tag 由 release-naming 派生，workflow 不手拼。
+          # Release tag 取自 resolve-tag（哪个组件触发就用哪个 tag），不手拼。
           release_tag="${{ needs.resolve-tag.outputs.tag }}"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
 
