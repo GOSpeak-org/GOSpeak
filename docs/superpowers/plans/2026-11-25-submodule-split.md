@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 两个目标：(1) 让每个组件拥有独立的 GitHub Release 条目，产物不再混在一起——当前 `gospeak-server-v1.3.0-rc.1` 一个 Release 里塞了 20 个附件（10 个 server 二进制 + 7 个桌面安装包 + install.sh + 2 个 SHA256SUMS）；(2) 允许任一组件独立发版，改自己的 `.github/versions/<component>.yaml` 即可，不必与其他端同步。
+**Goal:** 三个目标：(1) 让每个组件拥有独立的 GitHub Release 条目，产物不再混在一起——当前 `gospeak-server-v1.3.0-rc.1` 一个 Release 里塞了 20 个附件；(2) 允许任一组件独立发版，改自己的 `.github/versions/<component>.yaml` 即可；(3) 优化移动端 CI，把 Android 构建从 macOS runner 迁到 Linux，去掉重复步骤，减少不必要的阻塞。
 
 **Architecture:** 不拆仓库、不动目录结构。根因是 `release.yml` 里 `create-release` 硬编码了 server tag（第 157 行），导致任何组件触发都建到 server 的 Release 上；同时 `desktop_included` 逻辑（第 204-214 行）把桌面下载表格注入 server Release 正文。改为「哪个组件触发，就在哪个组件的 tag 上建 Release，只上传该组件产物」。配套删除 `version-bump.yml` 的 lockstep 同版本约束——它正是「产物挤在一个 Release」逼出来的。
 
@@ -21,11 +21,12 @@
 
 ## Review Focus
 
-- **产物仍混在一起**：验证方式是分别对 server 和 desktop 各跑一次 `workflow_dispatch`，检查两个 Release 条目的附件清单是否各自干净；Task 3 Step 3 钉住。
-- **正文渲染错误**：`release-notes.mjs` 的 `--component` 分支必须让 server Release 只含服务端表格、desktop Release 只含安装包表格；Task 2 Step 5 钉住。
-- **latest 语义漂移**：desktop Release 不能让 `/releases/latest` 指向它（文档下载卡与桌面端「前往下载页」依赖该语义）；Task 2 Step 6 用 `--latest=false` 钉住。
-- **文档站误部署**：`docs.yml` 由 release 事件触发，desktop Release 不应触发文档部署；Task 3 Step 2 钉住。
+- **产物仍混在一起**：验证方式是分别对 server 和 desktop 各跑一次 `workflow_dispatch`，检查两个 Release 条目的附件清单是否各自干净；Task 4 Step 3 钉住。
+- **正文渲染错误**：`release-notes.mjs` 的 `--component` 分支必须让 server Release 只含服务端表格、desktop Release 只含安装包表格；Task 3 Step 5 钉住。
+- **latest 语义漂移**：desktop Release 不能让 `/releases/latest` 指向它（文档下载卡与桌面端「前往下载页」依赖该语义）；Task 3 Step 6 用 `--latest=false` 钉住。
+- **文档站误部署**：`docs.yml` 由 release 事件触发，desktop Release 不应触发文档部署；Task 4 Step 2 钉住。
 - **lockstep 删除后版本漂移**：删除约束后 server 与 desktop 可各自独立发版，需确认 `version-bump.yml` 的 tag 存在性判断仍按组件独立工作；Task 1 Step 2 钉住。
+- **移动端 CI 未真正提速**：迁到 Linux 后需实测耗时对比，确认 macOS 分钟数归零；Task 2 Step 5 钉住。
 
 ---
 
@@ -108,7 +109,7 @@ Expected: `grep -n "released" .github/workflows/version-bump.yml` 无输出（�
 
 | 阻塞 | 现状 | 处理 |
 |---|---|---|
-| `release-naming.mjs` 无 mobile | `COMPONENTS = ["server", "desktop"]`，传 mobile 直接抛错 | 扩为 `["server", "desktop", "mobile"]`（web 见 Task 3） |
+| `release-naming.mjs` 无 mobile | `COMPONENTS = ["server", "desktop"]`，传 mobile 直接抛错 | 扩为 `["server", "desktop", "mobile"]`（web 见 Task 4） |
 | `release.yml` 无 mobile 分支 | 全部构建 job 只有 `component == 'server'` / `'desktop'` | 见 Step 4 |
 | `mobile.yaml` 注释自述 | 「release-naming.mjs 未定义 mobile tag 前缀，检查时须显式传 component=mobile」 | 修完后删除该注释 |
 
@@ -214,7 +215,123 @@ git commit -m "ci: allow independent per-component releases including mobile"
 
 ---
 
-## Task 2: 一组件一 Release
+## Task 2: 移动端 CI 优化（减少阻塞）
+
+**Files:**
+- Modify: `.github/workflows/build-mobile.yml`
+- Modify: `app/mobile/package.json`（新增 `sync:no-bind` 脚本）
+
+**Interfaces:**
+- Consumes: Task 1 的 mobile 发版链路。
+- Produces: Android 构建从 macOS runner 迁到 Linux，耗时与成本大幅下降；iOS 保持独立可恢复。
+
+**现状问题（已核实）：**
+
+| 问题 | 证据 | 影响 |
+|---|---|---|
+| Android 跑在 `macos-latest` | `build-mobile.yml:36` | macOS runner 成本约为 Linux 10 倍且排队久；iOS 已整体注释禁用（145-166 行），无步骤真正需要 macOS |
+| `sync` 重复 bind | `app/mobile/package.json:13` 的 `sync` 含 `bind:rules`，而 CI 第 73 行已单独跑 `mobile-bind-proxyrules.mjs` | gomobile 编译跑两遍 |
+| `--no-daemon` 放弃增量 | `build-mobile.yml:79` | 配合 `setup-gradle@v6` 缓存时反而更慢 |
+| 不取消旧构建 | `build-mobile.yml:31` `cancel-in-progress: false` | 连续触发时浪费 runner |
+
+- [ ] **Step 1: 拆分 Android 与 iOS job**
+
+把单 job 拆成两个：
+
+```yaml
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest          # ← 从 macos-latest 改过来
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/pnpm-install
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: app/shared/proxyrules/go.mod
+          cache: false
+      - uses: ./.github/actions/go-build-cache
+        with:
+          go-sum-path: app/shared/proxyrules/go.sum
+          cache-prefix: mobile-bind-android
+      - run: node scripts/mobile-bind-proxyrules.mjs --target=android
+      - run: pnpm --filter @gospeak/mobile sync:no-bind
+      - run: cd app/mobile/android && ./gradlew assembleDebug
+      # upload + publish 步骤照旧
+
+  ios:
+    name: Build iOS (disabled)
+    if: false                        # ← 保持禁用，解开时改条件
+    runs-on: macos-latest
+    steps: [... 原注释中的三段 ...]
+```
+
+**关键**：`gomobile bind --target=android` 在 Linux 上产 AAR，不需要 macOS。XCFramework 只在 iOS job 里需要。
+
+Expected: `grep -n "runs-on" .github/workflows/build-mobile.yml` 显示 android 用 `ubuntu-latest`、ios 用 `macos-latest`。
+
+- [ ] **Step 2: 新增 sync:no-bind 脚本**
+
+`app/mobile/package.json` 增加：
+
+```json
+"sync:no-bind": "pnpm run version:sync && pnpm run build:web && cap sync"
+```
+
+CI 用 `sync:no-bind`，避免与第 73 行/Step 1 的显式 bind 重复。
+
+Expected: `grep -n "sync:no-bind" app/mobile/package.json` 有命中。
+
+- [ ] **Step 3: 去掉 --no-daemon**
+
+```yaml
+- run: cd app/mobile/android && ./gradlew assembleDebug
+```
+
+配合 `gradle/actions/setup-gradle@v6` 的缓存，保留 daemon 能复用增量编译结果。
+
+Expected: `grep -c "no-daemon" .github/workflows/build-mobile.yml` 输出 0。
+
+- [ ] **Step 4: 允许取消旧构建**
+
+```yaml
+concurrency:
+  group: build-mobile-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+并在 publish 步骤加 `if: !cancelled()`，避免取消时留下半套 assets。
+
+Expected: `grep -n "cancel-in-progress" .github/workflows/build-mobile.yml` 显示 `true`。
+
+- [ ] **Step 5: 验证**
+
+```bash
+/tmp/actionlint -color .github/workflows/build-mobile.yml
+gh workflow run build-mobile.yml
+gh run view <run-id> --log
+```
+
+Expected:
+- actionlint 无错误
+- Android job 在 `ubuntu-latest` 上成功产出 APK
+- 总耗时相比改造前下降（记录改造前后耗时对比）
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add .github/workflows/build-mobile.yml app/mobile/package.json
+git commit -m "ci: move android build to linux runner and reduce redundant steps"
+```
+
+---
+
+## Task 3: 一组件一 Release
 
 **Files:**
 - Modify: `.github/workflows/release.yml`
@@ -285,14 +402,14 @@ git commit -m "ci: create one release per component with isolated artifacts"
 ```
 
 ---
-## Task 3: 扩展组件解析并验证产物分离
+## Task 4: 扩展组件解析并验证产物分离
 
 **Files:**
 - Modify: `scripts/release-naming.mjs` + `.test.mjs`
 - Modify: `.github/workflows/docs.yml`
 
 **Interfaces:**
-- Consumes: Task 2 的按组件 Release。
+- Consumes: Task 3 的按组件 Release。
 - Produces: 组件名解析完整；文档站不被桌面 Release 误触发。
 
 - [ ] **Step 1: 扩展 COMPONENTS**
@@ -341,14 +458,14 @@ git commit -m "ci: extend release components and guard docs deploy"
 
 ---
 
-## Task 4: 修复两个现存 bug
+## Task 5: 修复两个现存 bug
 
 **Files:**
 - Modify: `app/server/internal/service/system_update_service.go` + `_test.go`
 - Modify: `app/server/internal/router/router.go`
 
 **Interfaces:**
-- Consumes: 无（与 Task 1-3 独立）。
+- Consumes: 无（与 Task 1-4 独立）。
 - Produces: 更新检测恢复工作；前端首页不被缓存。
 
 - [ ] **Step 1: 修 mainTagPattern**
@@ -391,7 +508,7 @@ git commit -m "fix: update check tag pattern and index.html cache header"
 
 ---
 
-## Task 5: 文档同步
+## Task 6: 文档同步
 
 **Files:**
 - Modify: `app/docs/guide/desktop.md`
@@ -417,14 +534,14 @@ git commit -m "docs: reflect per-component release model"
 
 ---
 
-## Task 6: 回滚预案
+## Task 7: 回滚预案
 
 **Files:** 无（操作任务）
 
 - [ ] **Step 1: 撤销 workflow 改动**
 
 ```bash
-git revert <Task 1-3 commit sha>
+git revert <Task 1-5 commit sha>
 ```
 Expected: 回到「一版一个 Release」的旧行为；已存在的 Release 条目不受影响。
 
