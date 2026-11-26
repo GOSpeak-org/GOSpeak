@@ -1,0 +1,12 @@
+[submodule "server"]
+	path = server
+	url = https://github.com/GOSpeak-org/GOSpeak-Server.git
+	branch = release
+[submodule "client"]
+	path = client
+	url = https://github.com/GOSpeak-org/GOSpeak-Client.git
+	branch = release
+[submodule "docs"]
+	path = docs
+	url = https://github.com/GOSpeak-org/GOSpeak-Docs.git
+	branch = release
