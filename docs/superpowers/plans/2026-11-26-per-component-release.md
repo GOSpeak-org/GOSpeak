@@ -1,4 +1,11 @@
-# Release 产物分离 Implementation Plan
+# Release 产物分离与独立发版 Implementation Plan
+
+> **状态：推荐执行。** 本计划与 [`2026-11-26-submodule-split.md`](./2026-11-26-submodule-split.md) 是两条互斥路线，最终只走一条。
+>
+> - **本计划（Release 产物分离）**：不拆仓库，只改 `release.yml` 约 40 行。达成「各组件 Release 产物分开」+「任一组件独立发版」+「移动端 CI 提速」，CI 结构完全不变。
+> - **另一计划（Submodule 拆分）**：把四端拆成独立 Git 仓库，追求仓库级隔离，代价是 CI 慢 2-3 倍与大量跨仓机制。
+>
+> **两者关系**：本计划是另一计划的**严格前置子集**——任何拆仓方案都必须先做「一组件一 Release」，否则子仓 Release 也会建到错误的 tag 上。所以先执行本计划不会造成浪费。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,7 +15,7 @@
 
 **Tech Stack:** GitHub Actions · Node（scripts/*.mjs，零依赖）· Go 1.27
 
-**背景决策记录：** 本计划原为「四端拆成独立 Git 仓库」方案，经多 agent review 后放弃。核心理由：拆仓会让 CI 从并行 13 job 变成跨仓串行，一次前端改动需 2 轮 CI + 人工 bump gitlink，速度慢 2-3 倍；且跨仓依赖断点（proxyrules、gen-protocol、workspace:*、复合 action）需要大量额外机制。而 Release 产物分离这个真实痛点，改约 40 行 workflow 即可解决。
+**背景决策记录：** 原「四端拆成独立 Git 仓库」方案经多 agent review 后判定性价比过低（CI 从并行 13 job 变成跨仓串行，一次前端改动需 2 轮 CI + 人工 bump gitlink，慢 2-3 倍；且跨仓依赖断点需大量额外机制），已拆分为独立计划 [`2026-11-26-submodule-split.md`](./2026-11-26-submodule-split.md) 暂缓。本计划保留其中「Release 产物分离」「独立发版」「移动端 CI 优化」三项净收益，不拆任何目录。
 
 ## Global Constraints
 
