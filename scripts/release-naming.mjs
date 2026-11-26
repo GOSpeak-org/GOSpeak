@@ -19,7 +19,7 @@
 
 import { pathToFileURL } from "node:url";
 
-const COMPONENTS = ["server", "desktop"];
+const COMPONENTS = ["server", "desktop", "mobile"];
 
 const SEMVER_PATTERN =
 	/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;

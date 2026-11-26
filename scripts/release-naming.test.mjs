@@ -147,3 +147,12 @@ test("CLI emits the same values the module computes", () => {
 	const legacy = run("parse", "0.4.0");
 	assert.equal(legacy.status, 1);
 });
+
+test("mobile component is supported", () => {
+	assert.equal(releaseTag("mobile", "1.2.0"), "gospeak-mobile-v1.2.0");
+	assert.equal(tagPrefix("mobile"), "gospeak-mobile-v");
+	assert.deepEqual(parseReleaseTag("gospeak-mobile-v1.2.0"), {
+		component: "mobile",
+		version: "1.2.0",
+	});
+});
