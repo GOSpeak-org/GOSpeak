@@ -142,8 +142,20 @@ git push origin app/shared/proxyrules/v0.1.0
 ```
 然后把 `app/desktop/go.mod` 的 `require gospeak/proxyrules v0.0.0` 改为 `require github.com/NoelOrin/GOSpeak/app/shared/proxyrules v0.1.0`，删除 `replace` 行，执行 `go mod tidy`。
 
+**关于下载体积（已实测确认）**：Go 的 module proxy 对子目录 module **只打包该子目录**，不会拉整个仓库。以 `golang.org/x/tools/gopls`（x/tools 的子目录 module）为例，其 zip 为 2.4MB / 1204 文件，内容全部位于 `gopls@v<ver>/` 下，不含 x/tools 的其他目录。因此 `proxyrules`（4 个文件）的下载量可忽略。
+
 Run: `cd app/desktop && go mod tidy && go build ./...`
 Expected: 能从 `proxy.golang.org` 解析到该 module；构建通过。
+
+- [ ] **Step 2b: 确认 GOTOOLCHAIN 兼容**
+
+`proxyrules` 声明 `go 1.26.0`，desktop 声明 `go 1.27.4`，本机默认可能是更低版本。验证自动工具链切换生效：
+
+```bash
+go env GOTOOLCHAIN
+cd app/desktop && go version
+```
+Expected: `GOTOOLCHAIN` 为 `auto`（或 `local+auto`）；`go version` 在 desktop 目录下报告 ≥ 1.27。若不是，需在 CI 与本地显式设置 `GOTOOLCHAIN=auto` 并在设计文档记录。
 
 - [ ] **Step 3: gen-protocol 输出路径参数化**
 
@@ -487,13 +499,17 @@ Expected: 提交成功。
 
 - [ ] **Step 1: 在 GOSpeak-Web 中调整目录布局**
 
-把抽取出的内容从仓库根移到 `web/`：
+**不要用 `git mv` 批量移动**（不接受多个源路径，且 `|| true` 会吞掉失败）。用 `git filter-repo` 在临时 clone 中重写路径最可靠：
+
 ```bash
+rm -rf /tmp/gospeak-web-setup
+git clone https://github.com/NoelOrin/GOSpeak-Web.git /tmp/gospeak-web-setup
 cd /tmp/gospeak-web-setup
-git clone https://github.com/NoelOrin/GOSpeak-Web.git .
-mkdir -p web && git mv $(ls -A | grep -v '^\.git$' | grep -v '^web$') web/ 2>/dev/null || true
+git filter-repo --to-subdirectory-filter web --force
 ```
-Expected: 仓库根只剩 `web/` 与 `.git`。
+`--to-subdirectory-filter web` 会把所有文件移到 `web/` 下并重写历史路径。
+
+Expected: 仓库根只剩 `web/` 与 `.git`；`ls web/` 含 `src/`、`package.json`、`vite.config.ts`。
 
 - [ ] **Step 2: 添加 packages 嵌套 submodule**
 
