@@ -89,10 +89,11 @@ jobs:
             tag="${GITHUB_REF_NAME:-}"
           fi
           if [ -z "$tag" ]; then
-            # 最新发布 tag（两个组件混排，按创建时间取最新）
-            tag="$(git for-each-ref --sort=-creatordate \
-              --format='%(refname:short)' refs/tags \
-              | grep -E '^gospeak-(server|desktop)-v[0-9]' | head -n1 || true)"
+            # 一组件一 Release 后，三个组件的 tag 混排在同一 refs/tags 里，
+            # 按创建时间取「最新」会取到别的组件（甚至 mobile），构建分支就错了。
+            # 手动触发必须显式传 tag；不猜。
+            echo "::error::workflow_dispatch requires the tag input; refusing to guess among gospeak-{server,desktop,mobile}-v* tags"
+            exit 1
           fi
           parsed="$(node scripts/release-naming.mjs parse "$tag" || true)"
           if [ -z "$parsed" ]; then

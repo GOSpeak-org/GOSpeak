@@ -15,8 +15,8 @@
 //
 // 用法：
 //   node scripts/release-notes.mjs release --version 1.0.0 --repo o/r \
-//        [--desktop-version 1.0.0] [--desktop-included] \
-//        [--notes-file server-notes.md] [--desktop-notes-file desktop-notes.md]
+//        --component <server|desktop|mobile> --tag gospeak-<c>-v<ver> \
+//        [--notes-file component-notes.md]
 //
 // 输出写到 stdout。
 
@@ -42,9 +42,9 @@ function downloadUrl(repo, tag, asset) {
 	return `https://github.com/${repo}/releases/download/${tag}/${asset}`;
 }
 
-/** 本版本的统一 Release tag：服务端 tag 承载两端产物。 */
-export function releaseTagForVersion(version) {
-	return releaseTag("server", version);
+/** 服务端 Release tag（一组件一 Release 后，各组件用自己的 tag）。 */
+export function releaseTagForVersion(version, component = "server") {
+	return releaseTag(component, version);
 }
 
 /**
@@ -125,11 +125,11 @@ function renderChecksumCell(repo, tag, sums) {
 /**
  * 桌面端下载表格（Markdown）。
  *
- * `tag` 默认是本版本的统一 Release（服务端 tag）；桌面端安装包与校验和都在
- * 同一个 Release 的 Assets 里，因此下载直链必须指向它，而不是桌面端 tag。
+ * `tag` 是桌面端自己的 Release tag（gospeak-desktop-v<ver>）；安装包与校验和
+ * 都在该 Release 的 Assets 里。未传时回退到按版本派生的桌面端 tag。
  */
 export function renderDesktopTable(version, repo, tag) {
-	const releaseAnchor = tag ?? releaseTagForVersion(version);
+	const releaseAnchor = tag ?? releaseTagForVersion(version, "desktop");
 	const rows = desktopArtifacts(version).map((row) => {
 		const recommended = renderCell(
 			row.primary.ext,
@@ -300,12 +300,12 @@ function renderDeploySection(repo, tag, version) {
 }
 
 /**
- * 统一 Release 正文：服务端下载表格（含 Docker 行）→ 桌面端下载表格 →
- * 安装说明 → 桌面端 notes → 分隔线 → 服务端 notes。
+ * 按组件渲染 Release 正文（一组件一 Release）：
+ *   server  → 服务端下载表格（含 Docker 行）+ 部署说明 + notes
+ *   desktop → 桌面安装包表格 + 安装说明 + notes
+ *   mobile  → APK 说明
  *
- * 两个表格都在顶部：普通用户先看到客户端，运维先看到服务端二进制与镜像。
- * desktopIncluded=false（本版本没有桌面端产物）时桌面端表格换成 Releases 页
- * 链接，避免指向并不存在的附件造成 404。
+ * 每个正文只描述自己组件的产物，不再混装其他组件。
  */
 export function renderReleaseBody({
 	component,
@@ -371,10 +371,6 @@ function parseArgs(argv) {
 		const arg = rest[i];
 		if (!arg.startsWith("--")) continue;
 		const key = arg.slice(2);
-		if (key === "desktop-included") {
-			options.desktopIncluded = true;
-			continue;
-		}
 		const value = rest[i + 1];
 		if (value === undefined || value.startsWith("--")) {
 			throw new Error(`option --${key} requires a value`);
@@ -412,9 +408,7 @@ function main() {
 		version,
 		repo,
 		tag: options.tag,
-		desktopNotes: readNotes(
-			options["desktop-notes-file"] || options["notes-file"],
-		),
+		desktopNotes: readNotes(options["notes-file"]),
 		serverNotes: readNotes(options["notes-file"]),
 	});
 

@@ -34,11 +34,11 @@ permissions:
   contents: read
 
 concurrency:
-  # 按 ref 分组：不同分支/标签的构建互不阻塞；同 ref 的旧构建可被取消。
-  group: build-mobile-${{ github.ref }}
-  # 允许取消：Android 构建已迁到 ubuntu runner（成本低、速度快），
-  # 重复触发时取消旧构建可避免浪费；publish 步骤用 !cancelled() 兜底。
-  cancel-in-progress: true
+  # 正式发版（有 tag）与测试包分组隔离：正式发版绝不能被后来的测试构建取消。
+  # 测试包路径允许取消以节省 runner；正式路径串行等待。
+  group: build-mobile-${{ inputs.tag || github.ref }}
+  # 只在没有发布 tag 时允许取消（测试包场景）。
+  cancel-in-progress: ${{ !inputs.tag && github.event_name != 'push' }}
 
 jobs:
   android:
@@ -121,7 +121,15 @@ jobs:
 
           if [ -n "$tag" ]; then
             # ── 正式发版路径 ──
-            version="$(node scripts/release-naming.mjs parse "$tag" | awk '{print $2}')"
+            parsed="$(node scripts/release-naming.mjs parse "$tag" || true)"
+            component="${parsed%% *}"
+            version="${parsed##* }"
+            if [ "$component" != "mobile" ]; then
+              echo "::error::tag $tag is for component $component, not mobile"
+              exit 1
+            fi
+            # 版本一致性门禁：mobile.yaml / package.json / build.gradle / pbxproj 四路必须一致。
+            node scripts/check-version.mjs . "$tag" mobile
             asset="gospeak-mobile-v${version}-debug.apk"
             cp "$apk" "/tmp/$asset"
 
