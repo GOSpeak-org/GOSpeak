@@ -14,8 +14,8 @@
 
 ## 下载安装
 
-打开 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 页面，进入最新版本（一版一个
-Release，服务端与桌面端产物在同一页），正文顶部即下载表格，按平台点对应按钮：
+打开 [Releases](https://github.com/NoelOrin/GOSpeak/releases) 页面，找到 `gospeak-desktop-v<版本>`
+条目（一组件一 Release，桌面端安装包独立于服务端），正文顶部即下载表格，按平台点对应按钮：
 
 | 平台 | 文件 | 安装方式 |
 |------|------|----------|
