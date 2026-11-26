@@ -34,16 +34,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-mobile
-  # 不取消在跑的构建：避免上传中途被杀，留下半套 release assets。
-  cancel-in-progress: false
+  # 按 ref 分组：不同分支/标签的构建互不阻塞；同 ref 的旧构建可被取消。
+  group: build-mobile-${{ github.ref }}
+  # 允许取消：Android 构建已迁到 ubuntu runner（成本低、速度快），
+  # 重复触发时取消旧构建可避免浪费；publish 步骤用 !cancelled() 兜底。
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build Android debug APK
-    runs-on: macos-latest
+  android:
+    name: Build Android APK
+    # Android 构建只需 JDK + Android SDK，ubuntu-latest 均已预装；
+    # macOS runner 成本约为 Linux 的 10 倍且排队更久。
+    runs-on: ubuntu-latest
     permissions:
-      contents: write # 发布到固定 pre-release
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -64,7 +68,7 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          # macos-latest 镜像不自带 Go；绑定工具链需要 >= 1.26（模块 go 指令为 1.26.0）。
+          # ubuntu-latest 自带 Go，但版本可能低于绑定工具链要求（模块 go 指令为 1.26.0）。
           go-version-file: app/shared/proxyrules/go.mod
           cache: false
       # 模块缓存与编译缓存统一由 go-build-cache 接管并做完整性自愈；
@@ -72,19 +76,19 @@ jobs:
       - uses: ./.github/actions/go-build-cache
         with:
           go-sum-path: app/shared/proxyrules/go.sum
-          cache-prefix: mobile-bind
+          cache-prefix: mobile-bind-android
 
       - name: Verify proxyrules binding surface
         # gobind 断言绑定面；gomobile bind 顺带产出 AAR 与 XCFramework。
         # 缺平台工具链时脚本以 exit 0 报告下一步（已知且已文档化的降级）；绑定真坏了才 exit 1。
         # 这里不设 continue-on-error：真坏了必须红。
-        run: node scripts/mobile-bind-proxyrules.mjs --target=all
+        run: node scripts/mobile-bind-proxyrules.mjs --target=android
 
       - name: Sync native projects
-        run: pnpm --filter @gospeak/mobile sync
+        run: pnpm --filter @gospeak/mobile sync:no-bind
 
       - name: Build Android (assembleDebug)
-        run: cd app/mobile/android && ./gradlew assembleDebug --no-daemon
+        run: cd app/mobile/android && ./gradlew assembleDebug
 
       - name: Upload Android debug APK
         # 下面 iOS 步骤若将来恢复，仍应放在本步之后：iOS 失败时 APK 也能先上传成功。
@@ -95,6 +99,8 @@ jobs:
           retention-days: 7
 
       - name: Publish (official release or test package)
+        # 构建被取消时不发布，避免留下半套 assets。
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           REF: ${{ inputs.ref || github.ref_name }}
