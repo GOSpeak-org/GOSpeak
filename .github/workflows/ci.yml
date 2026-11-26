@@ -239,7 +239,7 @@ jobs:
       - name: Verify generated protocol is up to date
         working-directory: app/server
         run: |
-          go run ./cmd/gen-protocol
+          go run ./cmd/gen-protocol -out ../web/src/protocol/generated
           git diff --exit-code -- ../web/src/protocol/generated
 
   test-server:
