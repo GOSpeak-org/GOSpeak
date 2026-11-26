@@ -785,7 +785,7 @@ git commit -m "feat: metadata-driven versioning with independent releases"
 ```
 Expected: 提交成功。
 
-## Task 11: 前端去 embed，与二进制一起分发
+## Task 10: 前端去 embed，与二进制一起分发
 
 **Files:**
 - Modify: `app/server/internal/webui/embed.go` / `stub.go`（移除 go:embed，保留外部目录探测兼容层）
@@ -844,7 +844,7 @@ git add app/server/internal/webui app/server/internal/router Dockerfile deploy .
 ```
 Expected: 提交成功；`grep -r "go:embed" app/server app/desktop` 无命中。
 
-## Task 12: 更新检测链路改为多仓库模型并新增 web 检测
+## Task 11: 更新检测链路改为多仓库模型并新增 web 检测
 
 **Files:**
 - Modify: `app/server/internal/service/system_update_service.go` + `_test.go`
@@ -913,7 +913,7 @@ git add app/server/internal/service app/server/internal/handler app/server/inter
 ```
 Expected: 提交成功。
 
-## Task 13: 发布链路优化（统一入口与产物绑定）
+## Task 12: 发布链路优化（统一入口与产物绑定）
 
 **Files:**
 - Modify: `.github/workflows/release.yml`（resolve-tag 解析四组件；统一 Release 入口；按组件消费子仓库产物）
@@ -951,8 +951,10 @@ Expected: 提交成功。
 - 若 web 版本变化但 server 未变化，只发布 web 独立包；server 包不重发，运维可单独热更新前端。
 
 **预发布 / rc 规则：**
-- 四组件 tag 允许 `-rc.N` 预发布段；`resolve-tag` 能解析但默认不把 rc 标为 latest（GitHub Release 勾 prerelease），与现有 `compareVersion` 的稳定通道规则一致。
+- 四组件 tag 允许 `-rc.N` 预发布段，**rc 直接进入 latest 推荐**（调整策略，见 Task 15）：`system_update_service` 不过滤 rc；`release.yml` 不传 `--prerelease`；`build-mobile.yml` 去掉 `--prerelease`。
+- SemVer 比较规则不变：`compareVersion` 仍判定同版本正式版 > rc（`1.2.3 > 1.2.3-rc.1`）；当 rc 是最高版本（如 `2.0.0-rc.1` > `1.9.0`）时即成为 latest，正式版发布后自动让位。
 - 同一组件的 rc 与正式版可并存于 Releases 页，但 tag 唯一；正式版发布不删除 rc。
+- 文档站部署是否跟随 rc latest 由 `docs.yml` 独立决定（当前 rc 不部署文档，保持与推荐版本解耦）。
 
 - [ ] **Step 1: 写发布链路测试**
 
@@ -980,6 +982,54 @@ Expected: server Release 附件 `static/` 中的 `index.html` 与该 web 版本�
 ```bash
 git add .github/workflows/release.yml .github/workflows/version-bump.yml scripts/release-naming.mjs scripts/release-naming.test.mjs scripts/check-version.mjs scripts/check-version.test.mjs docs/superpowers/specs/2026-11-25-release-pipeline-design.md
  git commit -m "ci: unify release pipeline and bind frontend artifacts by gitlink"
+```
+Expected: 提交成功。
+
+## Task 13: rc 进入 latest 推荐
+
+**Files:**
+- Modify: `app/server/internal/service/system_update_service.go` + `_test.go`（去掉 rc 过滤）
+- Modify: `.github/workflows/release.yml`（删除误导性 latest 注释，确认不传 `--prerelease`）
+- Modify: `.github/workflows/build-mobile.yml`（去掉 `--prerelease`）
+- Modify: `docs/superpowers/specs/2026-11-25-submodule-release-design.md`（策略改为 rc 可 latest）
+
+**Interfaces:**
+- Consumes: Task 11（多仓库更新检测）、Task 12（发布链路统一）。
+- Produces: rc 版本可被更新检测推荐；GitHub latest 可指向 rc。
+
+**策略（与旧行为相反）：**
+- 更新检测：移除 `fetchLatest` 中 `pre != ""` 的过滤；rc 按 SemVer 参与比较。
+- 比较规则不变：`compareVersion` 仍保持「同版本正式版 > rc」，所以 `2.0.0-rc.1` 只在高于所有正式版（如 `1.9.0`）时成为 latest，`2.0.0` 发布后自动让位。
+- 发布：`release.yml` 不传 `--prerelease`（最新 tag 自动成为 GitHub latest），删除旧注释；`build-mobile.yml` 删除 `--prerelease`。
+- 文档站部署仍由 `docs.yml` 独立判断（rc 不部署文档），与 latest 推荐解耦。
+
+- [ ] **Step 1: 写 rc 检测测试**
+
+在 `system_update_service_test.go` 增加：只有 rc（如 `v2.0.0-rc.1`）时 `info.Latest` 应为 `2.0.0-rc.1`、`Available` 为 true；rc 与更高正式版并存时取最高正式版；同版本 rc 与正式版并存时取正式版。
+
+Run: `go test ./internal/service/... -run TestSystemUpdate`
+Expected: FAIL（当前过滤 rc）。
+
+- [ ] **Step 2: 移除 rc 过滤**
+
+删除 `fetchLatest` 中的 `if _, pre, ok := ...; !ok || pre != "" { continue }`，改为只校验版本可解析（`parseVersion` 返回 ok），保留 `compareVersion` 原逻辑。
+
+Run: `go test ./internal/service/... -run TestSystemUpdate`
+Expected: PASS。
+
+- [ ] **Step 3: 调整发布 workflow 的 prerelease 标记**
+
+`release.yml` 删除「Latest 只按发布先后决定」注释，改为明确「rc 与正式版都允许成为 latest」；确认 `gh release create` 未传 `--prerelease` / `--latest=false`。`build-mobile.yml` 删除 `--prerelease` 参数与相关注释。
+
+Expected: `grep -r "prerelease" .github/workflows/release.yml .github/workflows/build-mobile.yml` 无有效参数命中（仅注释允许）。
+
+- [ ] **Step 4: 更新文档并提交**
+
+在 `2026-11-25-submodule-release-design.md` 写明 rc/latest 新策略；更新 `AGENTS.md` 若有相关描述。
+
+```bash
+git add app/server/internal/service .github/workflows/release.yml .github/workflows/build-mobile.yml docs/superpowers/specs/2026-11-25-submodule-release-design.md
+ git commit -m "feat: allow release candidates to be recommended as latest"
 ```
 Expected: 提交成功。
 

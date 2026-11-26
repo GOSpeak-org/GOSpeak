@@ -16,7 +16,7 @@
 | [插件平台 03：管理面与插件能力](./2026-11-24-plugin-03-capabilities.md) | 待执行 | 4 个 Task；管理 API/页面 + 插件 API + Hook + 页面挂载；依赖 01/02 |
 | [插件平台 04：集成验证](./2026-11-24-plugin-04-integration.md) | 待执行 | 3 个 Task；指标 + E2E + 全量门禁；依赖 01/02/03 |
 | [插件平台 05：文档与文档站](./2026-11-24-plugin-05-docs.md) | 待执行 | 2 个 Task；AGENTS/部署文档 + VitePress 插件指南与 API 参考；依赖 01–04 |
-| [多平台仓库结构调整](./2026-11-25-submodule-split.md) | 待执行 | 14 个 Task；三端拆分为 submodule + 各端 CI 迁回子仓库 + metadata.yaml 四组件版本管理 + 前端去 embed 与 STATIC_DIR 热更新 + 多仓库更新检测 + 发布链路统一（按 gitlink 绑定前端产物）+ 全量门禁 + 回滚预案，决策点待确认 |
+| [多平台仓库结构调整](./2026-11-25-submodule-split.md) | 待执行 | 14 个 Task；三端拆分为 submodule + 各端 CI 迁回子仓库 + metadata.yaml 四组件版本管理 + 前端去 embed 与 STATIC_DIR 热更新 + 多仓库更新检测 + 发布链路统一（按 gitlink 绑定前端产物）+ rc 进入 latest 推荐 + 全量门禁 + 回滚预案，决策点待确认 |
 | [音频输出策略抽象与 Web Audio 优先 fallback](./2026-11-25-audio-output-strategy.md) | 待执行 | 6 个 Task；Web Audio 优先，media element fallback |
 
 > 关于页 GitHub 项目地址入口已交付并移出索引：`Browser.OpenExternal` 桥接与前端「项目地址」入口均已落地。

@@ -67,7 +67,7 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
 
 ## 发布链路
 
-发布 tag 只在主仓库创建（`gospeak-<component>-v<semver>`），子仓库只构建产物、不自己打 tag、不创建 Release。主仓库 `release.yml` 是唯一创建 GitHub Release 的入口，按组件 `workflow_call` 子仓库 workflow 获取产物。server 包中的 `static/` 必须来自该 tag commit 上的 `app/web` gitlink 版本（禁止浮动引用分支），发布说明标注 `bundled-web`；web 独立包可单独发布与热更新。四组件均支持 `-rc.N` 预发布段，默认不作为 latest 推荐。
+发布 tag 只在主仓库创建（`gospeak-<component>-v<semver>`），子仓库只构建产物、不自己打 tag、不创建 Release。主仓库 `release.yml` 是唯一创建 GitHub Release 的入口，按组件 `workflow_call` 子仓库 workflow 获取产物。server 包中的 `static/` 必须来自该 tag commit 上的 `app/web` gitlink 版本（禁止浮动引用分支），发布说明标注 `bundled-web`；web 独立包可单独发布与热更新。四组件均支持 `-rc.N` 预发布段，**rc 直接进入 latest 推荐**：更新检测不过滤 rc，GitHub latest 可指向 rc，移动端去除 `--prerelease` 标记；`compareVersion` 仍保持同版本正式版 > rc，因此 rc 仅在高于所有正式版时被推荐，正式版发布后自动让位。文档站是否部署 rc 由 docs.yml 独立决定。
 
 ## 非目标
 
