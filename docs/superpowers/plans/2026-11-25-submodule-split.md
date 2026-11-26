@@ -353,7 +353,37 @@ release_tag="$(node scripts/release-naming.mjs tag server "$RELEASE_VERSION")"
 release_tag="${{ needs.resolve-tag.outputs.tag }}"
 ```
 
-同时把 Release 标题从写死的 `GOSpeak v$RELEASE_VERSION` 改为按组件生成（如 `GOSpeak Server v1.3.0` / `GOSpeak Desktop v1.3.0`）。
+**同时修正 Release 标题**（第 252 行当前写死 `--title "GOSpeak v$RELEASE_VERSION"`）：
+
+```bash
+# 按组件生成
+case "$COMPONENT" in
+  server)  title="GOSpeak Server v$RELEASE_VERSION" ;;
+  desktop) title="GOSpeak Desktop v$RELEASE_VERSION" ;;
+  mobile)  title="GOSpeak Mobile v$RELEASE_VERSION" ;;
+esac
+args=( "$release_tag" --target "$target_sha" --title "$title" --notes-file /tmp/release-notes.md )
+```
+
+Expected: 两个 Release 的标题分别显示 Server / Desktop，不再都是 "GOSpeak v..."。
+
+- [ ] **Step 1b: 修正 resolve-tag 的默认回退**
+
+`release.yml` 第 92-95 行在无 `INPUT_TAG` 时按创建时间取「最新 tag」，但 `grep -E '^gospeak-(server|desktop)-v[0-9]'` 会把两个组件混在一起取——可能取到 desktop tag 却按 server 流程构建。
+
+改为显式要求 tag（手动触发必须传）：
+
+```bash
+# 手动触发必须传 tag，避免歧义
+if [ -z "$tag" ]; then
+  echo "::error::workflow_dispatch requires tag input; refusing to guess"
+  exit 1
+fi
+```
+
+保留 `push` 事件从 `GITHUB_REF_NAME` 取 tag 的路径（tag 推送天然明确）。
+
+Expected: 手动触发不传 tag 时明确报错，不会误用其他组件的 tag。
 
 - [ ] **Step 2: 删除 desktop_included 注入逻辑**
 
@@ -373,11 +403,36 @@ TAG: ${{ needs.resolve-tag.outputs.tag }}
 
 - [ ] **Step 4: release-notes.mjs 增加 --component**
 
-给 `scripts/release-notes.mjs` 的 `release` 子命令加 `--component <server|desktop>`：
-- `server`：只渲染服务端产物表格 + Docker/部署说明
-- `desktop`：只渲染安装包表格 + 系统要求说明
+**现状问题（已核实）：**
 
-复用现有 `renderServerTable` / `renderDesktopTable`，不再拼接两者。
+`renderReleaseBody`（第 310-340 行）里有两处会破坏一组件一 Release：
+
+1. `const tag = releaseTagForVersion(version)` —— 硬编码为 **server tag**（第 46 行 `releaseTagForVersion` 只返回 `gospeak-server-v*`），导致 desktop Release 的下载链接指向 server tag；
+2. 第 322-326 行的 TIP 文案写死「服务端二进制、容器镜像与桌面端安装包**同属** `${tag}`」，与拆分后的模型矛盾。
+
+改造：
+
+```js
+export function renderReleaseBody({ component, version, repo, tag, serverNotes, desktopNotes }) {
+  const parts = [];
+  if (component === "server") {
+    parts.push("## 下载 GOSpeak Server");
+    parts.push(renderServerTable(version, repo, tag));
+    parts.push(renderDeploySection(repo, tag, version));
+  } else if (component === "desktop") {
+    parts.push("## 下载 GOSpeak Desktop");
+    parts.push(renderDesktopTable(version, repo, tag));
+    parts.push(renderDesktopRequirements());   // 新增：系统要求说明
+  }
+  return parts.join("\n");
+}
+```
+
+`parseArgs`（第 366 行）加 `--component`（必填）与 `--tag`（由 workflow 传入实际 tag，不再从 version 推导）。
+
+删除 `releaseTagForVersion` 在 body 渲染中的使用；保留该函数供 `checksums` 命名使用。
+
+Expected: `grep -n "同属" scripts/release-notes.mjs` 无输出（旧文案已删）。
 
 - [ ] **Step 5: 写测试**
 
@@ -468,7 +523,7 @@ git commit -m "ci: extend release components and guard docs deploy"
 - Consumes: 无（与 Task 1-4 独立）。
 - Produces: 更新检测恢复工作；前端首页不被缓存。
 
-- [ ] **Step 1: 修 mainTagPattern**
+- [ ] **Step 1: 修 mainTagPattern 与全部 TrimPrefix**
 
 `system_update_service.go` 第 31 行：
 
@@ -480,7 +535,17 @@ var mainTagPattern = regexp.MustCompile(`^v[0-9]`)
 var mainTagPattern = regexp.MustCompile(`^gospeak-server-v[0-9]`)
 ```
 
-同时把 `fetchLatest` 里 `strings.TrimPrefix(r.TagName, "v")` 改为 `strings.TrimPrefix(r.TagName, "gospeak-server-v")`（第 117 / 173 行附近）。
+**必须同步改全部 4 处 `TrimPrefix`**（漏一处就会出现 `Latest` 变成 `gospeak-server-v1.3.0` 导致 `parseVersion` 失败、`Available` 恒 false）：
+
+| 行号 | 当前 | 改为 |
+|---|---|---|
+| 117 | `strings.TrimPrefix(release.TagName, "v")` | `strings.TrimPrefix(release.TagName, "gospeak-server-v")` |
+| 171 | `strings.TrimPrefix(r.TagName, "v")` | 同上 |
+| 174（两处） | `strings.TrimPrefix(r.TagName, "v")` / `strings.TrimPrefix(latest.TagName, "v")` | 同上 |
+
+**保留不改**：第 225 行 `parseVersion` 里的 `TrimPrefix(v, "v")` 是通用解析，继续兼容带 v 前缀的输入。
+
+Expected: `grep -n 'TrimPrefix.*"v"' app/server/internal/service/system_update_service.go` 只剩第 225 行一处。
 
 - [ ] **Step 2: 写测试**
 
@@ -491,7 +556,7 @@ Expected: PASS。
 
 - [ ] **Step 3: serveSPA 补 no-store**
 
-`router.go` 的 `serveSPA` 中，两个 `serveIndex` 实现（外部目录分支与 embed 分支）在返回前各加一行：
+`router.go` 的 `serveSPA` 中，两个 `serveIndex` 实现（第 197 行外部目录分支、第 214 行 embed 分支）在返回前各加一行：
 
 ```go
 c.Header("Cache-Control", "no-store")
