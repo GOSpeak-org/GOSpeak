@@ -29,16 +29,11 @@ func TestCompareReleaseVersion(t *testing.T) {
 	}
 }
 
-type testAsset struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
-}
+// testAsset 是 releaseAsset 的别名，保持测试可读。
+type testAsset = releaseAsset
 
 func TestPickDesktopAsset(t *testing.T) {
-	assets := []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	}{
+	assets := []releaseAsset{
 		{Name: "gospeak-desktop-v1.1.0-rc.1-linux-amd64.deb", BrowserDownloadURL: "https://github.com/a/b.deb"},
 		{Name: "gospeak-desktop-v1.1.0-rc.1-darwin-arm64.dmg", BrowserDownloadURL: "https://github.com/a/b.dmg"},
 		{Name: "gospeak-desktop-v1.1.0-rc.1-darwin-amd64.dmg", BrowserDownloadURL: "https://github.com/a/c.dmg"},
@@ -82,5 +77,42 @@ func TestTruncateRunes(t *testing.T) {
 	got := truncateRunes(strings.Repeat("汉", 10), 5)
 	if []rune(got)[5] != '…' {
 		t.Errorf("truncateRunes wrong suffix: %q", got)
+	}
+}
+
+// 回归：一组件一 Release 后，desktop 产物不再挂在 /releases/latest（那是 server 的）。
+// 必须能从一个 Release 列表里挑出 gospeak-desktop-v* 的那一条。
+func TestPickDesktopRelease(t *testing.T) {
+	releases := []githubReleaseSummary{
+		{TagName: "gospeak-server-v1.3.0", Assets: []testAsset{{Name: "gospeak-server-v1.3.0-linux-amd64"}}},
+		{TagName: "gospeak-mobile-v1.1.0", Assets: []testAsset{{Name: "gospeak-mobile-v1.1.0-debug.apk"}}},
+		{TagName: "gospeak-desktop-v1.4.0", Assets: []testAsset{{Name: "gospeak-desktop-v1.4.0-darwin-arm64.dmg"}}},
+	}
+	got, ok := pickDesktopRelease(releases)
+	if !ok {
+		t.Fatal("expected to find a desktop release")
+	}
+	if got.TagName != "gospeak-desktop-v1.4.0" {
+		t.Errorf("picked %q, want gospeak-desktop-v1.4.0", got.TagName)
+	}
+}
+
+func TestPickDesktopReleaseSkipsPrerelease(t *testing.T) {
+	releases := []githubReleaseSummary{
+		{TagName: "gospeak-desktop-v1.5.0-rc.1", Prerelease: true},
+		{TagName: "gospeak-desktop-v1.4.0"},
+	}
+	got, ok := pickDesktopRelease(releases)
+	if !ok {
+		t.Fatal("expected a stable desktop release")
+	}
+	if got.TagName != "gospeak-desktop-v1.4.0" {
+		t.Errorf("picked %q, want the stable one", got.TagName)
+	}
+}
+
+func TestPickDesktopReleaseEmpty(t *testing.T) {
+	if _, ok := pickDesktopRelease(nil); ok {
+		t.Fatal("empty list must not yield a release")
 	}
 }

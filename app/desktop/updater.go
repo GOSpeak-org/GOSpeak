@@ -34,7 +34,9 @@ var updaterProgressEvent = mygo.NewEvent[float64](eventUpdaterProgress)
 
 // releasePageURL is where users download releases when the running build
 // cannot self-update (dev builds, package-manager installs).
-const releasePageURL = "https://github.com/NoelOrin/GOSpeak/releases/latest"
+// 一组件一 Release 后 /releases/latest 指向 server Release，里面没有桌面安装包；
+// 这里改用按 tag 过滤的 Releases 列表页，用户直接看到 gospeak-desktop-v* 条目。
+const releasePageURL = "https://github.com/NoelOrin/GOSpeak/releases?q=gospeak-desktop-v"
 
 // pendingUpdate holds the *mygo.Update returned by the last Check, so a
 // later Install can download it. MyGo binds Updater{} by value, so the state

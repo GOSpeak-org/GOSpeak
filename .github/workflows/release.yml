@@ -138,6 +138,8 @@ jobs:
       release_tag: ${{ steps.body.outputs.release_tag }}
     env:
       RELEASE_VERSION: ${{ needs.resolve-tag.outputs.version }}
+      # 一组件一 Release：标题、正文渲染、latest 分流都依赖当前组件。
+      COMPONENT: ${{ needs.resolve-tag.outputs.component }}
     steps:
       - uses: actions/checkout@v7
         with:

@@ -131,6 +131,7 @@ jobs:
               gh release create "$tag" \
                 --target "$commit" \
                 --title "GOSpeak Mobile v${version}" \
+                --latest=false \
                 --notes "移动端 v${version}。当前为 debug 构建（assembleDebug），正式签名产物待补。iOS 构建暂未启用。"
             fi
             gh release upload "$tag" "/tmp/$asset" --clobber

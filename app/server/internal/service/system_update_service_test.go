@@ -281,4 +281,3 @@ func TestSystemUpdateService_Check_RealTagFormat(t *testing.T) {
 	// 桌面端发布必须被忽略
 	assert.NotEqual(t, "1.5.0", info.Latest)
 }
-

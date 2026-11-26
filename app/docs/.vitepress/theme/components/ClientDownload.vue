@@ -4,8 +4,10 @@ import { withBase } from 'vitepress'
 
 const REPO = 'NoelOrin/GOSpeak'
 const RELEASES_URL = `https://github.com/${REPO}/releases`
-const LATEST_RELEASE_URL = `${RELEASES_URL}/latest`
-const LATEST_RELEASE_API = `https://api.github.com/repos/${REPO}/releases/latest`
+const DESKTOP_RELEASES_URL = `${RELEASES_URL}?q=gospeak-desktop-v`
+// 一组件一 Release 后 /releases/latest 指向 server Release，里面没有桌面安装包。
+// 改为拉列表再按 gospeak-desktop-v* 前缀筛选。
+const RELEASES_API = `https://api.github.com/repos/${REPO}/releases?per_page=30`
 
 interface AssetEntry {
   url: string
@@ -56,7 +58,7 @@ function button(label: string, ext: string, entry?: AssetEntry) {
   return {
     label,
     ext,
-    href: entry?.url ?? LATEST_RELEASE_URL,
+    href: entry?.url ?? DESKTOP_RELEASES_URL,
     size: formatSize(entry?.size),
     available: Boolean(entry),
   }
@@ -115,24 +117,67 @@ function collectDesktopAssets(release: { assets?: { name?: string; browser_downl
   return map.darwinArm || map.darwinIntel || map.windows || map.linuxDeb || map.linuxTar ? map : null
 }
 
+
+interface ReleaseSummary {
+  tag_name?: string
+  published_at?: string
+  prerelease?: boolean
+  draft?: boolean
+  assets?: { name?: string; browser_download_url?: string; size?: number }[]
+}
+
+// pickDesktopRelease 从 Release 列表里挑最新的稳定 desktop 发布。
+function pickDesktopRelease(releases: ReleaseSummary[]): ReleaseSummary | null {
+  let best: ReleaseSummary | null = null
+  let bestVer = ''
+  for (const r of releases) {
+    if (r.draft || r.prerelease) continue
+    const name = r.tag_name ?? ''
+    if (!name.startsWith('gospeak-desktop-v')) continue
+    const ver = name.slice('gospeak-desktop-v'.length)
+    if (!best || compareVer(ver, bestVer) > 0) {
+      best = r
+      bestVer = ver
+    }
+  }
+  return best
+}
+
+// compareVer 简化版 SemVer 比较（只处理 x.y.z 与 -pre 后缀）。
+function compareVer(a: string, b: string): number {
+  const pa = a.split('-')[0].split('.').map(Number)
+  const pb = b.split('-')[0].split('.').map(Number)
+  for (let i = 0; i < 3; i += 1) {
+    const x = pa[i] ?? 0
+    const y = pb[i] ?? 0
+    if (x !== y) return x > y ? 1 : -1
+  }
+  const apre = a.includes('-')
+  const bpre = b.includes('-')
+  if (apre !== bpre) return apre ? -1 : 1
+  return 0
+}
 async function fetchLatestRelease() {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 8000)
   try {
-    // 只取 /releases/latest：预发布候选版本（-rc.N）不抢 latest，因此这里
-    // 天然拿到最近一个正式版，不会把未定稿的候选版推荐给访客。
-    const res = await fetch(LATEST_RELEASE_API, {
+    const res = await fetch(RELEASES_API, {
       headers: { Accept: 'application/vnd.github+json' },
       signal: controller.signal,
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const release = await res.json()
-    const map = collectDesktopAssets(release ?? {})
+    const list = (await res.json()) as ReleaseSummary[]
+    const release = pickDesktopRelease(list)
+    if (!release) {
+      failed.value = true
+      return
+    }
+    const map = collectDesktopAssets(release)
     if (!map) {
       failed.value = true
       return
     }
-    tag.value = release.tag_name
+    tag.value = release.tag_name ?? ''
     publishedAt.value = release.published_at ?? ''
     assets.value = map
   } catch {
@@ -154,12 +199,12 @@ onMounted(() => {
       <h2 class="title">下载客户端</h2>
       <p class="release" :class="{ failed }">
         <template v-if="failed">
-          未能获取最新版本，请<a :href="LATEST_RELEASE_URL" target="_blank" rel="noreferrer">前往 Releases 页面</a>下载。
+          未能获取最新版本，请<a :href="DESKTOP_RELEASES_URL" target="_blank" rel="noreferrer">前往 Releases 页面</a>下载。
         </template>
         <template v-else-if="!assets">正在获取最新版本…</template>
         <template v-else>
           最新版本
-          <a class="tag" :href="LATEST_RELEASE_URL" target="_blank" rel="noreferrer">{{ tag }}</a>
+          <a class="tag" :href="DESKTOP_RELEASES_URL" target="_blank" rel="noreferrer">{{ tag }}</a>
           <template v-if="dateText"> · 发布于 {{ dateText }}</template>
         </template>
       </p>

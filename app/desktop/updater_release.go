@@ -28,26 +28,66 @@ type releaseInfo struct {
 }
 
 const (
-	githubAPILatest = "https://api.github.com/repos/NoelOrin/GOSpeak/releases/latest"
-	releaseNotesMax = 2000
+	// 一组件一 Release 后，desktop 产物不再挂在 /releases/latest（那是 server 的）。
+	// 改为拉列表再按 gospeak-desktop-v* 前缀筛选。
+	githubAPIReleases = "https://api.github.com/repos/NoelOrin/GOSpeak/releases?per_page=30"
+	releaseNotesMax   = 2000
 )
 
 // allowedDownloadHosts is the only set of hosts we will stream a file from.
 // CheckRelease hands the URL to the frontend; a tampered bridge message must
 // not be able to make the host write an arbitrary remote file to disk.
 var allowedDownloadHosts = map[string]bool{
-	"github.com":                         true,
-	"objects.githubusercontent.com":      true,
+	"github.com":                            true,
+	"objects.githubusercontent.com":         true,
 	"github-releases.githubusercontent.com": true,
 }
 
-// CheckRelease fetches the newest GitHub release and picks the installer that
+// releaseAsset 是 Release 附件的最小字段集。
+type releaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+// githubReleaseSummary 是 /releases 列表接口的条目（本文件只关心这几个字段）。
+type githubReleaseSummary struct {
+	TagName    string         `json:"tag_name"`
+	Body       string         `json:"body"`
+	Prerelease bool           `json:"prerelease"`
+	Draft      bool           `json:"draft"`
+	Assets     []releaseAsset `json:"assets"`
+}
+
+// pickDesktopRelease 从 Release 列表里挑出最新的稳定 desktop 发布。
+// 跳过 draft / prerelease，以及任何非 gospeak-desktop-v* 的条目。
+func pickDesktopRelease(releases []githubReleaseSummary) (githubReleaseSummary, bool) {
+	var best githubReleaseSummary
+	var bestVer string
+	found := false
+	for _, r := range releases {
+		if r.Draft || r.Prerelease {
+			continue
+		}
+		ver, ok := strings.CutPrefix(r.TagName, "gospeak-desktop-v")
+		if !ok {
+			continue
+		}
+		if !found || compareReleaseVersion(ver, bestVer) > 0 {
+			best = r
+			bestVer = ver
+			found = true
+		}
+	}
+	return best, found
+}
+
+// CheckRelease fetches the newest desktop release and picks the installer that
 // matches the running OS/arch. Unlike Check() it does not depend on the MyGo
 // updates feed, so it works on every build (including dev and packaged ones).
 func (Updater) CheckRelease(ctx context.Context) (*releaseInfo, error) {
 	info := &releaseInfo{Current: version}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPILatest, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPIReleases, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -64,29 +104,28 @@ func (Updater) CheckRelease(ctx context.Context) (*releaseInfo, error) {
 		return nil, fmt.Errorf("GitHub Releases 返回 %s", resp.Status)
 	}
 
-	var body struct {
-		TagName string `json:"tag_name"`
-		Body    string `json:"body"`
-		Assets  []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&body); err != nil {
+	var releases []githubReleaseSummary
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&releases); err != nil {
 		return nil, fmt.Errorf("解析 GitHub Releases 失败: %w", err)
 	}
 
-	latest := strings.TrimPrefix(body.TagName, "gospeak-server-v")
+	release, ok := pickDesktopRelease(releases)
+	if !ok {
+		// 还没有任何 desktop 正式发布：返回当前版本，不报错。
+		return info, nil
+	}
+
+	latest, _ := strings.CutPrefix(release.TagName, "gospeak-desktop-v")
 	info.Version = latest
 	info.Available = compareReleaseVersion(latest, version) > 0
 
-	asset, ok := pickDesktopAsset(body.Assets, latest)
+	asset, ok := pickDesktopAsset(release.Assets, latest)
 	if !ok {
 		return info, nil
 	}
 	info.AssetName = asset.Name
 	info.URL = asset.BrowserDownloadURL
-	info.Notes = truncateRunes(body.Body, releaseNotesMax)
+	info.Notes = truncateRunes(release.Body, releaseNotesMax)
 	return info, nil
 }
 
@@ -173,17 +212,8 @@ func (Updater) DownloadRelease(ctx context.Context, rawURL string) error {
 }
 
 // pickDesktopAsset chooses the installer for the running platform.
-func pickDesktopAsset(assets []struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
-}, ver string) (struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
-}, bool) {
-	var zero struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	}
+func pickDesktopAsset(assets []releaseAsset, ver string) (releaseAsset, bool) {
+	var zero releaseAsset
 	prefix := "gospeak-desktop-v" + ver + "-" + platformAssetTag() + "."
 	for _, a := range assets {
 		if strings.HasPrefix(a.Name, prefix) && a.BrowserDownloadURL != "" {
