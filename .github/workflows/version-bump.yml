@@ -1,8 +1,8 @@
 # GOSpeak Version Bump —— push 触发的发版守门员 + 发布编排。
 #
-# 版本号在 .github/versions/server.yaml 与 .github/versions/desktop.yaml 中
-# 显式声明，两端必须一致：一版只产出一个 GitHub Release（挂在服务端 tag 上），
-# 桌面端 tag 只做构建触发与版本门禁。
+# 版本号在 .github/versions/{server,desktop,mobile}.yaml 中各自显式声明。
+# 三端互相独立：改哪个 yaml 就只发哪一端，其余组件的 tag 已存在则自动跳过。
+# 每个组件在自己的 tag 上创建独立 Release，产物不混装。
 #
 # **每次 push 到 release 都会触发本 workflow**，但对每个组件判断
 # 「声明的版本号是否已经发布过」：
