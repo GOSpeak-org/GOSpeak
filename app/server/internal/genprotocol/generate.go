@@ -382,7 +382,7 @@ func tsEventsKey(goConst string) string {
 	return strings.ToUpper(b.String())
 }
 
-const generatedHeader = "// GENERATED — 手改无效，跑 pnpm gen:protocol\n"
+const generatedHeader = "// GENERATED — 手改无效，跑 go run ./cmd/gen-protocol -out <dir>\n"
 
 func (g *gen) emitEvents() string {
 	var b bytes.Buffer

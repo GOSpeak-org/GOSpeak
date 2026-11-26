@@ -11,12 +11,19 @@ import (
 
 func main() {
 	var updateGolden bool
-	flag.BoolVar(&updateGolden, "update-golden", false, "overwrite testdata/golden instead of app/web/src/protocol/generated")
+	var out string
+	flag.BoolVar(&updateGolden, "update-golden", false, "overwrite internal/genprotocol/testdata/golden instead of the requested output directory")
+	flag.StringVar(&out, "out", "", "output directory for generated TypeScript files (required unless -update-golden)")
 	flag.Parse()
 
-	// go run 的 cwd 是 app/server（模块根），路径以此为基准
+	if !updateGolden && out == "" {
+		fmt.Fprintln(os.Stderr, "gen-protocol: -out is required (or use -update-golden)")
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	pkgDir := filepath.Join("internal", "protocol")
-	outDir := filepath.Join("..", "web", "src", "protocol", "generated")
+	outDir := out
 	if updateGolden {
 		outDir = filepath.Join("internal", "genprotocol", "testdata", "golden")
 	}

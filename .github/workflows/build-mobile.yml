@@ -38,7 +38,7 @@ concurrency:
   # 测试包路径允许取消以节省 runner；正式路径串行等待。
   group: build-mobile-${{ inputs.tag || github.ref }}
   # 只在没有发布 tag 时允许取消（测试包场景）。
-  cancel-in-progress: ${{ !inputs.tag && github.event_name != 'push' }}
+  cancel-in-progress: ${{ inputs.tag == '' && github.event_name != 'push' }}
 
 jobs:
   android:

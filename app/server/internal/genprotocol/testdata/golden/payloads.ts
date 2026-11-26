@@ -1,4 +1,4 @@
-// GENERATED — 手改无效，跑 pnpm gen:protocol
+// GENERATED — 手改无效，跑 go run ./cmd/gen-protocol -out <dir>
 // WS 事件 payload 类型：来源 app/server/internal/protocol/payloads.go
 export interface AnnouncementPayload {
 	uuid: string;

@@ -19,7 +19,7 @@
 		"test:server": "pnpm --filter @gospeak/test test",
 		"test:integration": "pnpm --filter @gospeak/test test",
 		"test:server:go": "cd app/server && go test ./...",
-		"gen:protocol": "cd app/server && go run ./cmd/gen-protocol",
+		"gen:protocol": "cd app/server && go run ./cmd/gen-protocol -out ../web/src/protocol/generated",
 		"lint": "turbo run lint",
 		"check": "turbo run check",
 		"typecheck": "turbo run typecheck",
