@@ -1,6 +1,6 @@
 # Plans 索引 — 状态总览
 
-> 更新于 2026-11-25。仅保留仍在跟进中的计划；已交付、已取代或失效的计划一律删除，历史见 git log。
+> 更新于 2026-11-26。仅保留仍在跟进中的计划；已交付、已取代或失效的计划一律删除，历史见 git log。
 > 状态以本文标注为准；部分计划尚未补写 Status 块。
 
 ## 进行中 / 待跟进
@@ -16,8 +16,9 @@
 | [插件平台 03：管理面与插件能力](./2026-11-24-plugin-03-capabilities.md) | 待执行 | 4 个 Task；管理 API/页面 + 插件 API + Hook + 页面挂载；依赖 01/02 |
 | [插件平台 04：集成验证](./2026-11-24-plugin-04-integration.md) | 待执行 | 3 个 Task；指标 + E2E + 全量门禁；依赖 01/02/03 |
 | [插件平台 05：文档与文档站](./2026-11-24-plugin-05-docs.md) | 待执行 | 2 个 Task；AGENTS/部署文档 + VitePress 插件指南与 API 参考；依赖 01–04 |
-| [Release 产物分离与独立发版](./2026-11-26-per-component-release.md) | **推荐执行** | 7 个 Task；一组件一 Release（各在自己的 tag 上）+ 任一组件独立发版（删 lockstep、纳入 mobile）+ 移动端 CI 优化（Android 迁 Linux runner、去重复 bind、去 --no-daemon、允许取消旧构建）+ release-notes 按组件渲染 + 修两个现存 bug。不拆目录，CI 结构不变 |
-| [多平台仓库结构调整（Submodule 拆分）](./2026-11-26-submodule-split.md) | **暂缓，待决策** | 15 个 Task；四端拆成独立 Git 仓库 + 嵌套 packages + 各仓独立 CI 与 Release + metadata 版本管理 + 去 embed + 多仓更新检测。与上一行互斥，仅当需要仓库级隔离时才走。代价：CI 跨仓串行慢 2-3 倍、复合 action 复制 4 份、跨仓依赖需额外机制 |
+| [Release 产物分离与独立发版](./2026-11-26-per-component-release.md) | **已交付（前置子集）** | 一组件一 Release、独立发版、移动端 CI 优化均已落地；作为 Submodule 拆分的 Task 12 前置 |
+| [三仓拆分：Server / Client / Docs](./2026-11-26-three-repo-split.md) | **待执行（取代 submodule 方案）** | 14 个 Task（Task 0 / 0.5 / 1–12）；**聚合壳 `GOSpeak` + 三个平级子仓**（Server / Client / Docs），全部在 **`GOSpeak-org` 组织**下。仅 3 条平级 submodule、无嵌套；客户端内部零 submodule，`proxyrules` 提到仓根 |
+| [多平台仓库结构调整（Submodule 拆分）](./2026-11-26-submodule-split.md) | **已废止（被三仓拆分取代）** | Task 0–14 + 6B/6C；**已定稿：五仓全 public + 挂载方案 β/β1/β-a（6 个挂载点）**。五仓（Web/Desktop/Mobile/Packages/Proxyrules）未创建、Task 0 未开始。已完成 6 角度多 agent review（59 条，含 7 节补丁章节）。残留待定：β 的两处门禁缺口（check-version / check-desktop-commands）需选子选项 |
 | [音频输出策略抽象与 Web Audio 优先 fallback](./2026-11-25-audio-output-strategy.md) | 待执行 | 6 个 Task；Web Audio 优先，media element fallback |
 
 > 关于页 GitHub 项目地址入口已交付并移出索引：`Browser.OpenExternal` 桥接与前端「项目地址」入口均已落地。

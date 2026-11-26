@@ -1,11 +1,10 @@
 # Release 产物分离与独立发版 Implementation Plan
 
-> **状态：推荐执行。** 本计划与 [`2026-11-26-submodule-split.md`](./2026-11-26-submodule-split.md) 是两条互斥路线，最终只走一条。
+> **状态：已交付（作为 Submodule 拆分的前置子集）。** 本计划已完成主要改造并已合入 `release`：每个组件在自己的 tag 上建独立 Release、`desktop_included` 已删、`--latest` / `--latest=false` 分流、`docs.yml` 组件守卫、`mainTagPattern` 修正、`index.html` no-store 均已落地。
 >
-> - **本计划（Release 产物分离）**：不拆仓库，只改 `release.yml` 约 40 行。达成「各组件 Release 产物分开」+「任一组件独立发版」+「移动端 CI 提速」，CI 结构完全不变。
-> - **另一计划（Submodule 拆分）**：把四端拆成独立 Git 仓库，追求仓库级隔离，代价是 CI 慢 2-3 倍与大量跨仓机制。
+> **路线关系**：本计划是 [`2026-11-26-submodule-split.md`](./2026-11-26-submodule-split.md)（四仓 Submodule 拆分，**当前执行路线**）的**严格前置子集**——拆仓后的子仓 Release 必须已经具备「一组件一 Release」能力，否则会建到错误的 tag 上。因此本计划已先落地，Submodule 计划在此基础上继续。
 >
-> **两者关系**：本计划是另一计划的**严格前置子集**——任何拆仓方案都必须先做「一组件一 Release」，否则子仓 Release 也会建到错误的 tag 上。所以先执行本计划不会造成浪费。
+> 保留本文作为该前置改造的实现记录与回归基线。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -15,7 +14,7 @@
 
 **Tech Stack:** GitHub Actions · Node（scripts/*.mjs，零依赖）· Go 1.27
 
-**背景决策记录：** 原「四端拆成独立 Git 仓库」方案经多 agent review 后判定性价比过低（CI 从并行 13 job 变成跨仓串行，一次前端改动需 2 轮 CI + 人工 bump gitlink，慢 2-3 倍；且跨仓依赖断点需大量额外机制），已拆分为独立计划 [`2026-11-26-submodule-split.md`](./2026-11-26-submodule-split.md) 暂缓。本计划保留其中「Release 产物分离」「独立发版」「移动端 CI 优化」三项净收益，不拆任何目录。
+**背景决策记录：** 原「四端拆成独立 Git 仓库」方案一度被判定性价比过低而暂缓，其三项净收益（Release 产物分离、独立发版、移动端 CI 优化）先在本计划落地。**后续已确认继续执行仓库级拆分**，见 [`2026-11-26-submodule-split.md`](./2026-11-26-submodule-split.md)；本计划完成的部分正是其 Task 12 的前置条件。
 
 ## Global Constraints
 
