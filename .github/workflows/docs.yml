@@ -103,6 +103,18 @@ jobs:
               should_deploy=true
             fi
           elif [ "$EVENT" = "release" ]; then
+            # 只有 server Release 触发文档部署：desktop / mobile 的 Release
+            # 与文档站版本无关，不应产生新的文档构建。
+            case "$TAG" in
+              gospeak-server-v*) : ;;
+              *)
+                echo "::notice::release $TAG is not a server release; skipping docs"
+                echo "should_build=false" >> "$GITHUB_OUTPUT"
+                echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+                echo "source_ref=" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+            esac
             git fetch --tags --force origin 2>/dev/null || true
 
             prev="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
