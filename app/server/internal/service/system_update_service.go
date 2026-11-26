@@ -27,8 +27,13 @@ const (
 	defaultNegativeCacheTTL = time.Minute
 )
 
-// mainTagPattern 匹配主体服务端发布 tag（v1.2.3），排除桌面端 desktop-v*。
-var mainTagPattern = regexp.MustCompile(`^v[0-9]`)
+// serverTagPrefix 是服务端发布 tag 的固定前缀（与 scripts/release-naming.mjs 一致）。
+const serverTagPrefix = "gospeak-server-v"
+
+// mainTagPattern 匹配主体服务端发布 tag（gospeak-server-v1.2.3），排除桌面端/移动端。
+// 历史上曾用 ^v[0-9] 匹配裸版本号 tag，但现网 tag 一律为 gospeak-server-v<semver>，
+// 旧正则匹配不到任何真实 tag，导致 Latest 恒为空。
+var mainTagPattern = regexp.MustCompile(`^gospeak-server-v[0-9]`)
 
 // githubRelease 是 GitHub Releases API 返回条目中本服务关心的字段。
 type githubRelease struct {
@@ -114,7 +119,7 @@ func (s *SystemUpdateService) Check(ctx context.Context) (*ServerUpdateInfo, err
 
 	info := &ServerUpdateInfo{Current: buildinfo.Version}
 	if release != nil {
-		info.Latest = strings.TrimPrefix(release.TagName, "v")
+		info.Latest = strings.TrimPrefix(release.TagName, serverTagPrefix)
 		info.Notes = truncateNotes(release.Body)
 		info.URL = release.HTMLURL
 		info.Available = compareVersion(info.Latest, info.Current) > 0
@@ -168,10 +173,10 @@ func (s *SystemUpdateService) fetchLatest(ctx context.Context) (*githubRelease, 
 			continue
 		}
 		// 稳定通道：带预发布段的版本（v2.0.0-rc.1）不作为"最新版"推荐。
-		if _, pre, ok := parseVersion(strings.TrimPrefix(r.TagName, "v")); !ok || pre != "" {
+		if _, pre, ok := parseVersion(strings.TrimPrefix(r.TagName, serverTagPrefix)); !ok || pre != "" {
 			continue
 		}
-		if latest == nil || compareVersion(strings.TrimPrefix(r.TagName, "v"), strings.TrimPrefix(latest.TagName, "v")) > 0 {
+		if latest == nil || compareVersion(strings.TrimPrefix(r.TagName, serverTagPrefix), strings.TrimPrefix(latest.TagName, serverTagPrefix)) > 0 {
 			latest = r
 		}
 	}

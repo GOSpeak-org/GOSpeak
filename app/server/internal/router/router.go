@@ -194,7 +194,10 @@ func serveSPA(r *gin.Engine, cfg *config.Config) {
 				st, err := os.Stat(full)
 				return err == nil && !st.IsDir()
 			}
-			serveIndex = func(c *gin.Context) { c.File(index) }
+			serveIndex = func(c *gin.Context) {
+				c.Header("Cache-Control", "no-store")
+				c.File(index)
+			}
 		}
 	}
 
@@ -212,6 +215,7 @@ func serveSPA(r *gin.Engine, cfg *config.Config) {
 				return err == nil && !st.IsDir()
 			}
 			serveIndex = func(c *gin.Context) {
+				c.Header("Cache-Control", "no-store")
 				c.Request.URL.Path = "/"
 				fileServer.ServeHTTP(c.Writer, c.Request)
 			}

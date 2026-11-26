@@ -68,10 +68,10 @@ func stubGitHub(t *testing.T, releases []githubRelease) (*httptest.Server, *atom
 
 func TestSystemUpdateService_Check_FindsNewerMainRelease(t *testing.T) {
 	srv, _ := stubGitHub(t, []githubRelease{
-		{TagName: "desktop-v1.5.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/desktop-v1.5.0"}, // 桌面端发布应被忽略
-		{TagName: "v1.1.0", Body: "server release notes", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.1.0"},
-		{TagName: "v0.9.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v0.9.0"},
-		{TagName: "v2.0.0-rc.1", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v2.0.0-rc.1"}, // rc 不算最新正式版
+		{TagName: "gospeak-desktop-v1.5.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-desktop-v1.5.0"}, // 桌面端发布应被忽略
+		{TagName: "gospeak-server-v1.1.0", Body: "server release notes", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v1.1.0"},
+		{TagName: "gospeak-server-v0.9.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v0.9.0"},
+		{TagName: "gospeak-server-v2.0.0-rc.1", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v2.0.0-rc.1"}, // rc 不算最新正式版
 	})
 	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 0}
 
@@ -81,12 +81,12 @@ func TestSystemUpdateService_Check_FindsNewerMainRelease(t *testing.T) {
 	assert.Equal(t, "server release notes", info.Notes)
 	// 当前版本为 dev（不可比较），available 兜底为 false，但最新版信息照常返回
 	assert.False(t, info.Available)
-	assert.Equal(t, "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.1.0", info.URL)
+	assert.Equal(t, "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v1.1.0", info.URL)
 }
 
 func TestSystemUpdateService_Check_DevVersionNotAvailable(t *testing.T) {
 	srv, _ := stubGitHub(t, []githubRelease{
-		{TagName: "v1.1.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.1.0"},
+		{TagName: "gospeak-server-v1.1.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v1.1.0"},
 	})
 	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 0}
 	// buildinfo.Version 默认 dev，不可比较 → available=false，但仍展示最新版
@@ -103,7 +103,7 @@ func TestSystemUpdateService_Check_UpToDate(t *testing.T) {
 	t.Cleanup(func() { buildinfo.Version = prev })
 
 	srv, _ := stubGitHub(t, []githubRelease{
-		{TagName: "v1.2.3", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.2.3"},
+		{TagName: "gospeak-server-v1.2.3", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v1.2.3"},
 	})
 	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 0}
 	info, err := svc.Check(context.Background())
@@ -111,7 +111,7 @@ func TestSystemUpdateService_Check_UpToDate(t *testing.T) {
 	assert.Equal(t, "1.2.3", info.Current)
 	assert.Equal(t, "1.2.3", info.Latest)
 	assert.False(t, info.Available)
-	assert.Equal(t, "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.2.3", info.URL)
+	assert.Equal(t, "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v1.2.3", info.URL)
 }
 
 func TestSystemUpdateService_Check_NoReleases(t *testing.T) {
@@ -126,7 +126,7 @@ func TestSystemUpdateService_Check_NoReleases(t *testing.T) {
 
 func TestSystemUpdateService_Check_Cache(t *testing.T) {
 	srv, calls := stubGitHub(t, []githubRelease{
-		{TagName: "v1.1.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/v1.1.0"},
+		{TagName: "gospeak-server-v1.1.0", HTMLURL: "https://github.com/NoelOrin/GOSpeak/releases/tag/gospeak-server-v1.1.0"},
 	})
 	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 5 * time.Minute}
 	ctx := context.Background()
@@ -201,7 +201,7 @@ func TestSystemUpdateService_Check_NegativeCacheExpires(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode([]githubRelease{{TagName: "v1.1.0"}})
+		_ = json.NewEncoder(w).Encode([]githubRelease{{TagName: "gospeak-server-v1.1.0"}})
 	}))
 	t.Cleanup(srv.Close)
 	svc := &SystemUpdateService{
@@ -263,3 +263,22 @@ func TestTruncateNotes_ShortPassthrough(t *testing.T) {
 	assert.Equal(t, "短说明", truncateNotes("  短说明  "))
 	assert.Equal(t, "", truncateNotes("   "))
 }
+
+// 回归：现网 tag 格式是 gospeak-server-v<semver>，不是 v<semver>。
+// 旧 mainTagPattern(^v[0-9]) 匹配不到任何真实 tag，导致 Latest 恒为空。
+func TestSystemUpdateService_Check_RealTagFormat(t *testing.T) {
+	srv, _ := stubGitHub(t, []githubRelease{
+		{TagName: "gospeak-desktop-v1.5.0", HTMLURL: "https://example.com/desktop"},
+		{TagName: "gospeak-server-v1.3.0", Body: "real server release", HTMLURL: "https://example.com/server"},
+		{TagName: "gospeak-server-v1.2.0", HTMLURL: "https://example.com/older"},
+	})
+	svc := &SystemUpdateService{client: srv.Client(), apiURL: srv.URL, cacheTTL: 0}
+
+	info, err := svc.Check(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "1.3.0", info.Latest, "must strip the full gospeak-server-v prefix")
+	assert.Equal(t, "real server release", info.Notes)
+	// 桌面端发布必须被忽略
+	assert.NotEqual(t, "1.5.0", info.Latest)
+}
+
