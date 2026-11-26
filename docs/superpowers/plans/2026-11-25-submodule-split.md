@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- 工作目录：`/Users/noelorin/Projects/GOSpeak`；主仓库远端：`https://github.com/NoelOrin/GOSpeak.git`；当前分支 `dev-1124`。
+- 工作目录：`/Users/noelorin/Projects/GOSpeak`；主仓库远端：`https://github.com/NoelOrin/GOSpeak.git`；计划编写时当前分支 `dev-1124`，执行时在 `origin/release` 签出的短期工作分支上进行（本轮为 `feature/multiplatform-repo-restructure`）。
 - 分支策略：从最新 `origin/release` 签出工作分支；唯一常驻分支为 `release`。
 - 子仓库默认地址（可替换，但一旦确定必须全程一致）：
   - `https://github.com/NoelOrin/GOSpeak-Web.git`
@@ -381,8 +381,8 @@ Expected: 提交成功。
 | CI（Go / mygo build / 安装包） | GOSpeak-Desktop | 桌面宿主自身门禁与安装包构建 |
 | CI（Capacitor sync / gradle / xcode） | GOSpeak-Mobile | 移动壳自身门禁与 APK/IPA 构建 |
 | Release（server / web 压缩包 / Docker） | GOSpeak 主仓库 | 按需 `workflow_call` 子仓库 release 产出，或消费其 Release 附件 |
-| Release（desktop） | GOSpeak-Desktop | 安装包与签名更新元数据 |
-| Release（mobile） | GOSpeak-Mobile | APK / IPA 产物 |
+| Release（desktop） | GOSpeak-Desktop | 安装包与签名更新元数据的**构建**，产物供主仓库 Release 消费；不打独立 tag |
+| Release（mobile） | GOSpeak-Mobile | APK / IPA 的**构建**，产物供主仓库 Release 消费；不打独立 tag |
 
 - [ ] **Step 1: 改造 ci.yml 的 checkout**
 
@@ -444,7 +444,7 @@ Expected: `grep -r "app/web\|app/desktop\|app/mobile" .github/workflows/` 仅剩
 
 - [ ] **Step 6: 在三个子仓库建立独立 CI / Release**
 
-在 GOSpeak-Web 创建 `.github/workflows/ci.yml`（lint / typecheck / vitest / build 前端产物）与 `release.yml`（前端静态压缩包发布，tag `gospeak-web-v*`）。在 GOSpeak-Desktop 创建 `.github/workflows/ci.yml`（go vet + go test + mygo build）与 `release.yml`（安装包与 tag `gospeak-desktop-v*`）。在 GOSpeak-Mobile 创建 `.github/workflows/ci.yml`（capacitor sync + gradle/xcode 构建）与 `release.yml`（APK/IPA，tag `gospeak-mobile-v*`）。这些 workflow 随 Task 3 的子仓库初始化提交落地，不放在主仓库。
+在 GOSpeak-Web 创建 `.github/workflows/ci.yml`（lint / typecheck / vitest / build 前端产物）与 `release.yml`（前端静态压缩包构建，产物以 workflow artifact / `workflow_call` 输出形式供主仓库消费）。在 GOSpeak-Desktop 创建 `.github/workflows/ci.yml`（go vet + go test + mygo build）与 `release.yml`（安装包构建，产物同样供主仓库消费）。在 GOSpeak-Mobile 创建 `.github/workflows/ci.yml`（capacitor sync + gradle/xcode 构建）与 `release.yml`（APK/IPA 构建）。**子仓库 Release 不自己打发布 tag、不自己创建 GitHub Release**；发布 tag 统一在主仓库（四组件 `gospeak-<component>-v<semver>`），子仓库 workflow 由主仓库 `workflow_call` 或 gitlink 版本事件触发。这些 workflow 随 Task 3 的子仓库初始化提交落地，不放在主仓库。
 
 Expected: 三个子仓库各自的 `.github/workflows/` 有 ci.yml 与 release.yml；主仓库无 `build-mobile.yml`。
 
@@ -685,7 +685,7 @@ Expected: PASS（测试 fixture 改为 metadata.yaml）。
 - **子仓库 metadata 协同**：子仓库 `metadata.yaml` 的 `version` 必须与主仓库总控一致；不一致时 version-bump 拒绝打 tag（CI 门禁）。
 - **删除 lockstep 约束**：现有 `version-bump.yml` 第 78–89 行 `Require lockstep component versions` 强制 server/desktop 同版本，与独立发布冲突，必须删除；改为每组件独立判断 tag 存在性。
 - **tag 指向的 commit**：annotated tag 打在主仓库「更新 metadata + gitlink 的那次提交」上，保证 tag 对应的 tree 中 submodule 指针就是该组件版本的文件状态。
-- **子仓库 tag（可选）**：子仓库自身可打 `v<version>` 轻量 tag 标记版本提交，但**不触发发布**；发布 tag 只在主仓库。
+- **发布 tag 归属（修正）**：发布 tag 只在主仓库（四组件统一 `gospeak-<component>-v<semver>`）；子仓库不打发布 tag，避免双源冲突。子仓库自身 CI/Release 由主仓库通过 `workflow_call` 或 GitHub Release 事件触发，消费主仓库 tag 对应的 gitlink 版本，而不是自己打 tag 触发。子仓库可用轻量 tag 做内部标记，但 CI 不得以其触发发布。
 
 - [ ] **Step 6: 写 metadata ↔ tag 协同测试**
 
@@ -913,7 +913,77 @@ git add app/server/internal/service app/server/internal/handler app/server/inter
 ```
 Expected: 提交成功。
 
-## Task 13: 回滚预案（仅在失败时执行）
+## Task 13: 发布链路优化（统一入口与产物绑定）
+
+**Files:**
+- Modify: `.github/workflows/release.yml`（resolve-tag 解析四组件；统一 Release 入口；按组件消费子仓库产物）
+- Modify: `.github/workflows/version-bump.yml`（发布顺序 / 依赖编排）
+- Modify: `scripts/release-naming.mjs` + test（保留四组件解析；禁止子仓库 tag 参与）
+- Modify: `scripts/check-version.mjs` + test（tag 事件校验发布 tag 只来自主仓库）
+- Create: `docs/superpowers/specs/2026-11-25-release-pipeline-design.md`
+
+**Interfaces:**
+- Consumes: Task 7（CI 归属）、Task 9（metadata + tag 规则）、Task 11（去 embed 产物布局）、Task 12（更新检测 tag 映射）。
+- Produces: 统一的发布入口与可追溯的产物版本绑定；消除「子仓库 tag 触发发布」与「发布 tag 只在主仓库」的冲突。
+
+**现状问题（执行前必须确认并修正）：**
+- `release.yml` 的 `resolve-tag` 用 `grep -E '^gospeak-(server|desktop)-v[0-9]'` 写死两个组件，需改为四组件；
+- `release.yml` 中「一个版本一个 Release：服务端二进制与桌面安装包都上传到它」的旧注释与「一组件一 Release」决策冲突，必须删除；
+- Task 9 原写「子仓库 tag 不触发发布，发布 tag 只在主仓库」与 Task 7 原写「子仓库 release.yml 按自己 tag 发布」相互矛盾，已在 Task 7 / Task 9 修正为「子仓库只构建产物，主仓库统一打 tag 并创建 Release」。
+
+**发布顺序（单一入口）：**
+
+```
+主仓库 version-bump 检测四组件版本变化
+→ 打对应 annotated tag（gospeak-<component>-v<semver>）
+→ 触发主仓库 release.yml（唯一创建 GitHub Release 的地方）
+→ release.yml 按 component：
+    server    → workflow_call GOSpeak-Web 的 release.yml 取前端压缩包；打包「二进制 + static/」
+    web       → workflow_call GOSpeak-Web 的 release.yml 取前端压缩包，作为独立 Release 附件
+    desktop   → workflow_call GOSpeak-Desktop 的 release.yml 取安装包
+    mobile    → workflow_call GOSpeak-Mobile 的 release.yml 取 APK/IPA
+→ 上传产物到该组件 Release；生成 checksums；发布说明由 metadata 驱动
+```
+
+**产物版本绑定（必须写入发布说明）：**
+- server Release 的 `static/` 必须来自**同一次版本 bump 对应的 web gitlink 版本**；release.yml 从 tag 对应 commit 读取 `app/web` gitlink，传给 GOSpeak-Web workflow，禁止 `main` / `release` 分支浮动引用。
+- 若 web 版本未变化但 server 版本变化，server 包复用当前 gitlink 对应的 web 版本，并在 Release 正文标注 `bundled-web: <version>`。
+- 若 web 版本变化但 server 未变化，只发布 web 独立包；server 包不重发，运维可单独热更新前端。
+
+**预发布 / rc 规则：**
+- 四组件 tag 允许 `-rc.N` 预发布段；`resolve-tag` 能解析但默认不把 rc 标为 latest（GitHub Release 勾 prerelease），与现有 `compareVersion` 的稳定通道规则一致。
+- 同一组件的 rc 与正式版可并存于 Releases 页，但 tag 唯一；正式版发布不删除 rc。
+
+- [ ] **Step 1: 写发布链路测试**
+
+在 `scripts/release-naming.test.mjs` / `check-version.test.mjs` 增加：四组件 tag 解析（server/web/desktop/mobile）、子仓库 tag（如 `v1.0.0` 在 GOSpeak-Web 内）被拒绝作为发布 tag、`resolve-tag` 默认取最新 tag 时四组件均被识别。
+
+Run: `node --test scripts/release-naming.test.mjs scripts/check-version.test.mjs`
+Expected: FAIL（当前只识别两组件）。
+
+- [ ] **Step 2: 修正 resolve-tag 与旧注释**
+
+把 `release.yml` 的 `grep -E '^gospeak-(server|desktop)-v[0-9]'` 改为匹配四组件；删除「一个版本一个 Release」旧注释；确认 `create-release` 按 component 一组件一 Release。
+
+Expected: `grep -n "server|desktop" .github/workflows/release.yml` 无命中（或仅保留合法组合）；actionlint 通过。
+
+- [ ] **Step 3: 实现产物版本绑定与跨仓库调用**
+
+release.yml 在 server / web 分支中从 tag commit 读取 `app/web` gitlink，通过 `workflow_call` inputs 传给对应子仓库 workflow；子仓库 checkout 到该 gitlink 的 commit 后构建，返回 artifact。禁止子仓库浮动引用分支。
+
+Expected: server Release 附件 `static/` 中的 `index.html` 与该 web 版本产物一致；发布说明含 `bundled-web` 字段。
+
+- [ ] **Step 4: 编写发布链路设计文档与提交**
+
+创建 `docs/superpowers/specs/2026-11-25-release-pipeline-design.md`，覆盖单一发布入口、四组件顺序、产物绑定、rc 规则、子仓库只构建不发布。
+
+```bash
+git add .github/workflows/release.yml .github/workflows/version-bump.yml scripts/release-naming.mjs scripts/release-naming.test.mjs scripts/check-version.mjs scripts/check-version.test.mjs docs/superpowers/specs/2026-11-25-release-pipeline-design.md
+ git commit -m "ci: unify release pipeline and bind frontend artifacts by gitlink"
+```
+Expected: 提交成功。
+
+## Task 14: 回滚预案（仅在失败时执行）
 
 **Files:** 无（操作任务）
 

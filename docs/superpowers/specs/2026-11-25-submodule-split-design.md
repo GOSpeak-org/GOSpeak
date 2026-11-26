@@ -65,6 +65,10 @@ server / web / desktop / mobile 各自去对应仓库检查最新 Release，不�
 
 各组件独立缓存与负缓存，避免互相污染；前端「关于」页新增 web 前端更新检测入口，桌面 updater 改查 GOSpeak-Desktop 仓库。
 
+## 发布链路
+
+发布 tag 只在主仓库创建（`gospeak-<component>-v<semver>`），子仓库只构建产物、不自己打 tag、不创建 Release。主仓库 `release.yml` 是唯一创建 GitHub Release 的入口，按组件 `workflow_call` 子仓库 workflow 获取产物。server 包中的 `static/` 必须来自该 tag commit 上的 `app/web` gitlink 版本（禁止浮动引用分支），发布说明标注 `bundled-web`；web 独立包可单独发布与热更新。四组件均支持 `-rc.N` 预发布段，默认不作为 latest 推荐。
+
 ## 非目标
 
 - 不把 `packages/components`、`packages/sfu-client`、`packages/desktop`、`packages/mobile-capabilities` 拆成 submodule；它们继续作为 workspace 包留在主仓库。
