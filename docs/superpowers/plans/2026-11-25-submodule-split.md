@@ -6,7 +6,7 @@
 
 **Architecture:** 在临时 clone 中用 `git filter-repo` 从主仓库历史抽取每个目录为独立仓库（子仓库根即原目录内容），推送到四个新远端仓库的 `release` 分支；主仓库 `git rm -r --cached` 四个目录后 `git submodule add` 回相同路径。`GOSpeak-Web` 内部再嵌套挂载 `packages/` submodule（`GOSpeak-Packages`），使 `workspace:*` 与源码直连保持不变；`app/shared/proxyrules` 留主仓库，module 路径改为 `github.com/NoelOrin/GOSpeak/app/shared/proxyrules`，desktop 通过公开 Go module proxy 依赖。CI/发布 workflow 按仓库归属拆分，各子仓库独立 CI 与 Release；主仓库只负责 server、packages 的 module tag 与整体协调。版本声明改为分层 `metadata.yaml`，版本 bump 采用「子仓库改 metadata → 主仓库更新 metadata 与 gitlink」两阶段流程；`server`、`web`、`desktop`、`mobile` 各自独立 SemVer 与 tag，各自创建独立 GitHub Release。前端不再 `go:embed`：服务端只通过 `STATIC_DIR` / `/app/static` / `./static` 消费外部前端；桌面安装包内含外部前端目录。更新检测改为多仓库模型：`server` 查 GOSpeak 主仓库 `v*`，`web` 查 GOSpeak-Web `gospeak-web-v*`，`desktop` 查 GOSpeak-Desktop `gospeak-desktop-v*`，`mobile` 查 GOSpeak-Mobile `gospeak-mobile-v*`，各自独立缓存与降级。`serveSPA` 对 `index.html` 补 `Cache-Control: no-store`。
 
-**Tech Stack:** Git 2.x · git-filter-repo（或 git subtree split 退化）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
+**Tech Stack:** Git 2.x · git-filter-repo（必须安装，本机无 subtree 退化路径）· GitHub · pnpm 10 · Turbo · Biome · Vitest 5 · Go 1.27 · Gin（静态托管）
 
 **Specs:**
 - `docs/superpowers/specs/2026-11-25-submodule-split-design.md`
@@ -266,18 +266,28 @@ Expected: 四条命令均成功（空仓库无输出或仅 HEAD）。
 
 ## Task 3: 抽取四个目录历史到子仓库
 
-**Files:** 临时目录 `/tmp/gospeak-submodule-extract/{web,desktop,mobile}`（由 filter-repo 创建）
+**Files:** 临时目录 `/tmp/gospeak-submodule-extract/{web,desktop,mobile,packages}`（由 filter-repo 创建）
 
 **Interfaces:**
 - Consumes: Task 1 的工作分支基准；Task 2 的远端。
-- Produces: 三个远端 `release` 分支，各自包含对应目录历史；供 Task 4 接入。
+- Produces: 四个远端 `release` 分支，各自包含对应目录历史；供 Task 4 接入。
 
-- [ ] **Step 1: 确认 git-filter-repo 可用**
+- [ ] **Step 1: 安装并确认 git-filter-repo 可用**
+
+本机实测 `git filter-repo` **默认不可用**（`fatal: 'filter-repo' appears to be a git command, but we were not able to execute it`），且 `git subtree` **同样不可用**，因此没有退化路径——必须先安装成功才能继续。
 
 ```bash
-git filter-repo --version || python3 -m pip install --user git-filter-repo
+git filter-repo --version 2>/dev/null && echo "already installed" || {
+  # 方式 A（推荐，pip3 实测存在）
+  python3 -m pip install --user git-filter-repo
+  # 方式 B（brew 实测存在）
+  # brew install git-filter-repo
+}
+git filter-repo --version
 ```
-Expected: 输出版本号。若安装失败，改用 `git subtree split` 退化路径并在设计文档标注。
+Expected: 输出版本号（如 `2.47.0`）。
+
+**若两种安装方式都失败，中止 Task 3 并向用户报告**——不要尝试 `git subtree split`（本机无该命令），也不要在未安装的情况下手工搬移历史。
 
 - [ ] **Step 2: 抽取 app/web**
 
@@ -1188,7 +1198,9 @@ Expected: 提交成功。
 - `release.yml:126-129` 的注释「一个版本只创建一个 GitHub Release：tag 固定为服务端 tag，服务端二进制与桌面端安装包都上传到它」——**这正是「产物挤在一起」的病根，必须删除并改为各仓独立 Release**；
 - `create-release` 的 `release_tag` 硬编码 `release-naming.mjs tag server`（`release.yml:157`），导致任何组件触发都建到 server tag 上；
 - `desktop_included` 逻辑（`release.yml:204-214`）把桌面下载表格塞进 server Release 正文，拆分后应删除；
-- 产物上传目标用的是 `needs.create-release.outputs.release_tag`（`release.yml:592/759/824`），拆分后应改为各自仓库自己的 tag。
+- 产物上传目标用的是 `needs.create-release.outputs.release_tag`（`release.yml:592/759/824`），拆分后应改为各自仓库自己的 tag；
+- **`version-bump.yml:78-89` 的 lockstep 校验必须删除**：当前强制 `server.yaml` 与 `desktop.yaml` 版本相同（报错文案「一版一个 Release 要求两端同版本」），这是「产物挤在一起」逼出来的约束。拆分为独立 Release 后该约束失去依据，且会阻止两端独立发版；
+- **`build-mobile.yml` 的固定 pre-release 必须迁移**：当前移动产物上传到固定 tag `gospeak-mobile-test` 并 `--clobber` 覆盖（`build-mobile.yml:102-117`），不是正式 Release。拆分后改为由 `gospeak-mobile-v*` tag 触发、发布到 GOSpeak-Mobile 自己的 Release。
 
 **目标模型：一组件一 Release，各在自己仓库。**
 
@@ -1244,6 +1256,19 @@ Expected: 主仓库 `release.yml` 中不再出现 desktop/mobile 构建 job；`g
 - 上传产物：web 传 `.tar.gz`，desktop 传安装包 + SHA256SUMS，mobile 传 APK/IPA
 
 Expected: 三个子仓库各自 Releases 页出现本组件的独立条目，产物不再混入主仓库 Release。
+
+- [ ] **Step 3b: 删除 version-bump 的 lockstep 校验**
+
+删除 `version-bump.yml` 的 `Require lockstep component versions` 步骤（第 78-89 行）及其 `SERVER_VERSION` / `DESKTOP_VERSION` 比对逻辑；`Detect published tags` 改为对每个组件独立判断 tag 是否存在。
+
+Run: `grep -n "lockstep" .github/workflows/version-bump.yml`
+Expected: 无命中。
+
+- [ ] **Step 3c: 迁移 build-mobile 到正式 Release**
+
+把 `build-mobile.yml` 的「固定 pre-release `gospeak-mobile-test` + `--clobber` 覆盖」改为：由 `gospeak-mobile-v*` tag 触发，`gh release create "$TAG"` 创建正式 Release，产物以版本化文件名上传（不覆盖）。该 workflow 迁移到 GOSpeak-Mobile 仓库。
+
+Expected: 移动产物出现在 `gospeak-mobile-v<version>` 的独立 Release 中；不再有 `gospeak-mobile-test` 固定 tag 写入。
 
 - [ ] **Step 4: server 包从 web Release 取前端产物**
 
