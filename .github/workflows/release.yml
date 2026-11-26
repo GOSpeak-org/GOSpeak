@@ -154,7 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           # 统一 Release 的 tag 由 release-naming 派生，workflow 不手拼。
-          release_tag="$(node scripts/release-naming.mjs tag server "$RELEASE_VERSION")"
+          release_tag="${{ needs.resolve-tag.outputs.tag }}"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
 
           # notes 优先取版本声明 yaml 的 notes 字段（显式声明，支持块标量多行）；
@@ -198,30 +198,18 @@ jobs:
             fi
           }
 
-          component_notes server /tmp/server-notes.md
-          component_notes desktop /tmp/desktop-notes.md
-
-          # 桌面端下载表格只在「同版本 + 桌面端 tag 已存在」时渲染，避免死链 404。
-          desktop_version="$(declared .github/versions/desktop.yaml)"
-          desktop_args=()
-          desktop_included=false
-          if [ -n "$desktop_version" ] && [ "$desktop_version" = "$RELEASE_VERSION" ]; then
-            desktop_tag="$(node scripts/release-naming.mjs tag desktop "$desktop_version")"
-            if git ls-remote --tags origin "refs/tags/$desktop_tag" | grep -q .; then
-              desktop_args+=("--desktop-version" "$desktop_version" "--desktop-included")
-              desktop_included=true
-            fi
-          fi
+          # 只生成当前组件的 release notes：一组件一 Release，正文不再混装。
+          component_notes "$COMPONENT" "/tmp/${COMPONENT}-notes.md"
 
           node scripts/release-notes.mjs release \
+            --component "$COMPONENT" \
             --version "$RELEASE_VERSION" \
             --repo "$GITHUB_REPOSITORY" \
-            ${desktop_args[@]+"${desktop_args[@]}"} \
-            --notes-file /tmp/server-notes.md \
-            --desktop-notes-file /tmp/desktop-notes.md \
+            --tag "$release_tag" \
+            --notes-file "/tmp/${COMPONENT}-notes.md" \
             > /tmp/release-notes.md
           test -s /tmp/release-notes.md
-          echo "::notice::release_tag=$release_tag desktop_included=$desktop_included"
+          echo "::notice::release_tag=$release_tag component=$COMPONENT"
           head -20 /tmp/release-notes.md
 
       - name: Create or refresh GitHub Release
@@ -246,15 +234,26 @@ jobs:
           fi
 
           target_sha="$(git rev-parse "${release_tag}^{commit}")"
+          case "$COMPONENT" in
+            server)  title="GOSpeak Server v$RELEASE_VERSION" ;;
+            desktop) title="GOSpeak Desktop v$RELEASE_VERSION" ;;
+            mobile)  title="GOSpeak Mobile v$RELEASE_VERSION" ;;
+            *)       title="GOSpeak v$RELEASE_VERSION" ;;
+          esac
           args=(
             "$release_tag"
             --target "$target_sha"
-            --title "GOSpeak v$RELEASE_VERSION"
+            --title "$title"
             --notes-file /tmp/release-notes.md
           )
-          # Latest 只按发布先后决定：不传 --prerelease、也不传 --latest=false，
-          # GitHub 自动把「最近一次发布的非草稿 release」标成 Latest，
-          # /releases/latest、文档下载卡与桌面端「前往下载页」都跟着走。
+          # Latest 语义：只有 server Release 抢占 /releases/latest。
+          # 文档下载卡与桌面端「前往下载页」都依赖 latest 指向服务端版本；
+          # desktop / mobile Release 显式 --latest=false，避免覆盖。
+          if [ "$COMPONENT" = "server" ]; then
+            args+=(--latest)
+          else
+            args+=(--latest=false)
+          fi
           if ! gh release create "${args[@]}" 2>/tmp/create-err.txt; then
             # 两条发布链同时创建时的竞态：对方先建好了，按「已存在」处理，
             # 正文由下面的对齐逻辑保证。
@@ -589,7 +588,7 @@ jobs:
       - name: Upload to release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.create-release.outputs.release_tag }}
+          TAG: ${{ needs.resolve-tag.outputs.tag }}
         run: |
           set -euo pipefail
           if ! gh release view "$TAG" >/dev/null 2>&1; then
@@ -756,7 +755,7 @@ jobs:
       - name: Upload to release assets
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.create-release.outputs.release_tag }}
+          TAG: ${{ needs.resolve-tag.outputs.tag }}
           GOOS: ${{ matrix.goos }}
         run: |
           if ! gh release view "$TAG" >/dev/null 2>&1; then
@@ -821,7 +820,7 @@ jobs:
       - name: Upload desktop SHA256SUMS to release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.create-release.outputs.release_tag }}
+          TAG: ${{ needs.resolve-tag.outputs.tag }}
           SUMS: ${{ steps.sums.outputs.checksum_file }}
         run: |
           if ! gh release view "$TAG" >/dev/null 2>&1; then

@@ -308,54 +308,55 @@ function renderDeploySection(repo, tag, version) {
  * 链接，避免指向并不存在的附件造成 404。
  */
 export function renderReleaseBody({
+	component,
 	version,
 	repo,
-	desktopVersion,
-	desktopIncluded,
+	tag,
 	desktopNotes,
 	serverNotes,
 }) {
-	const tag = releaseTagForVersion(version);
+	// tag 由调用方（workflow）传入实际发布 tag；未传时按 component 派生。
+	const bodyTag = tag || releaseTag(component, version);
 	const parts = [];
 
-	parts.push("## 下载 GOSpeak");
-	parts.push("");
-	parts.push("> [!TIP]");
-	parts.push(
-		`> 本版本的服务端二进制、容器镜像与桌面端安装包同属 ${tag}，无需另找发布页。`,
-	);
-	parts.push("");
+	if (component === "desktop") {
+		parts.push("## 下载 GOSpeak Desktop");
+		parts.push("");
+		parts.push(renderDesktopTable(version, repo, bodyTag));
+		parts.push("");
+		parts.push(renderInstallNotes());
+		if ((desktopNotes ?? "").trim()) {
+			parts.push("");
+			parts.push("## release notes");
+			parts.push("");
+			parts.push(desktopNotes.trim());
+		} else {
+			parts.push("");
+			parts.push("* 本次发布无额外说明。*");
+		}
+		return parts.join("\n");
+	}
 
-	parts.push("### 服务端");
-	parts.push("");
-	parts.push(renderServerTable(version, repo, tag));
-	parts.push("");
-
-	parts.push("### 桌面端");
-	parts.push("");
-	if (desktopIncluded && desktopVersion) {
-		parts.push(renderDesktopTable(desktopVersion, repo, tag));
-	} else {
+	if (component === "mobile") {
+		parts.push("## 下载 GOSpeak Mobile");
+		parts.push("");
 		parts.push(
-			`桌面端安装包见 [Releases](https://github.com/${repo}/releases) 页面中 \`gospeak-desktop-\` 前缀的产物。`,
+			`- Android APK：\`gospeak-mobile-${version}-debug.apk\`（当前为 debug 构建，正式签名产物待补）`,
 		);
-	}
-	parts.push("");
-	parts.push(renderInstallNotes());
-	parts.push("");
-	parts.push(renderDeploySection(repo, tag, version));
-
-	if (desktopIncluded && (desktopNotes ?? "").trim()) {
-		parts.push("");
-		parts.push("## 桌面端 release notes");
-		parts.push("");
-		parts.push(desktopNotes.trim());
+		parts.push("- iOS：构建暂未启用。");
+		return parts.join("\n");
 	}
 
+	// 默认 server
+	parts.push("## 下载 GOSpeak Server");
+	parts.push("");
+	parts.push(renderServerTable(version, repo, bodyTag));
+	parts.push("");
+	parts.push(renderDeploySection(repo, bodyTag, version));
 	parts.push("");
 	parts.push("---");
 	parts.push("");
-	parts.push("## 服务端 release notes");
+	parts.push("## release notes");
 	parts.push("");
 	parts.push((serverNotes ?? "").trim() || "* 本次发布无额外说明。");
 	parts.push("");
@@ -402,12 +403,18 @@ function main() {
 	if (!version) throw new Error("--version is required");
 	if (!repo) throw new Error("--repo is required");
 
+	const component = options.component || "server";
+	if (!["server", "desktop", "mobile"].includes(component)) {
+		throw new Error(`unknown --component ${JSON.stringify(component)}`);
+	}
 	const body = renderReleaseBody({
+		component,
 		version,
 		repo,
-		desktopVersion: options["desktop-version"],
-		desktopIncluded: options.desktopIncluded === true,
-		desktopNotes: readNotes(options["desktop-notes-file"]),
+		tag: options.tag,
+		desktopNotes: readNotes(
+			options["desktop-notes-file"] || options["notes-file"],
+		),
 		serverNotes: readNotes(options["notes-file"]),
 	});
 

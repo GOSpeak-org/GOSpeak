@@ -90,71 +90,83 @@ test("server table ends with a docker row before the checksum row", () => {
 	assert.doesNotMatch(lines[dockerIndex], /releases\/download/);
 });
 
-test("release body puts both download tables above the release notes", () => {
+test("server release body puts the download table above its notes", () => {
 	const body = renderReleaseBody({
+		component: "server",
 		version: "1.0.0",
 		repo: REPO,
-		desktopVersion: "1.0.0",
-		desktopIncluded: true,
-		desktopNotes: "桌面端变更内容",
+		tag: "gospeak-server-v1.0.0",
 		serverNotes: "服务端变更内容",
 	});
 
-	const downloads = body.indexOf("## 下载 GOSpeak");
-	const serverTable = body.indexOf("### 服务端");
-	const desktopTable = body.indexOf("### 桌面端");
-	const desktopNotes = body.indexOf("## 桌面端 release notes");
-	const serverNotes = body.indexOf("## 服务端 release notes");
+	const downloads = body.indexOf("## 下载 GOSpeak Server");
+	const serverTable = body.indexOf("gospeak-server-v1.0.0-linux-amd64");
+	const deploy = body.indexOf("## 部署 GOSpeak 服务端");
 	const divider = body.indexOf("\n---\n");
+	const notes = body.indexOf("## release notes");
 
 	assert.ok(downloads >= 0, "downloads section missing");
 	assert.ok(serverTable > downloads, "server table must follow the heading");
-	assert.ok(
-		desktopTable > serverTable,
-		"desktop table must follow the server table",
-	);
-	assert.ok(
-		desktopNotes > desktopTable,
-		"desktop notes must follow the tables",
-	);
-	assert.ok(divider > desktopNotes, "divider must follow desktop notes");
-	assert.ok(serverNotes > divider, "server notes must be after the divider");
+	assert.ok(deploy > serverTable, "deploy section must follow the table");
+	assert.ok(divider > deploy, "divider must follow deploy section");
+	assert.ok(notes > divider, "notes must be after the divider");
 	assert.ok(body.trimEnd().endsWith("服务端变更内容"));
 });
 
-test("downloads link to the unified release, not a desktop-only release", () => {
+test("desktop release body has no server or deploy sections", () => {
 	const body = renderReleaseBody({
+		component: "desktop",
 		version: "1.0.0",
 		repo: REPO,
-		desktopVersion: "1.0.0",
-		desktopIncluded: true,
-		desktopNotes: "",
-		serverNotes: "",
+		tag: "gospeak-desktop-v1.0.0",
+		desktopNotes: "桌面端变更内容",
 	});
+	assert.match(body, /## 下载 GOSpeak Desktop/);
+	assert.doesNotMatch(body, /## 部署 GOSpeak 服务端/);
+	assert.doesNotMatch(body, /docker pull/);
+	assert.doesNotMatch(body, /gospeak-server-v/);
+	assert.ok(body.trimEnd().endsWith("桌面端变更内容"));
+});
 
-	const tag = releaseTagForVersion("1.0.0");
+test("each component release links only its own artifacts", () => {
+	// desktop release：链接全部指向 gospeak-desktop-v* tag
+	const desktopBody = renderReleaseBody({
+		component: "desktop",
+		version: "1.0.0",
+		repo: REPO,
+		tag: "gospeak-desktop-v1.0.0",
+	});
 	for (const row of desktopArtifacts("1.0.0")) {
-		const url = `https://github.com/${REPO}/releases/download/${tag}/${row.primaryAsset}`;
+		const url = `https://github.com/${REPO}/releases/download/gospeak-desktop-v1.0.0/${row.primaryAsset}`;
 		assert.ok(
-			body.includes(url),
-			`missing download url for ${row.primaryAsset}`,
+			desktopBody.includes(url),
+			`missing desktop url for ${row.primaryAsset}`,
 		);
 	}
+	assert.ok(
+		desktopBody.includes(
+			`/releases/download/gospeak-desktop-v1.0.0/${checksumName("desktop", "1.0.0")}`,
+		),
+	);
+	assert.doesNotMatch(desktopBody, /releases\/download\/gospeak-server-v/);
+
+	// server release：链接全部指向 gospeak-server-v* tag
+	const serverBody = renderReleaseBody({
+		component: "server",
+		version: "1.0.0",
+		repo: REPO,
+		tag: "gospeak-server-v1.0.0",
+	});
 	for (const row of serverArtifacts("1.0.0")) {
-		const url = `https://github.com/${REPO}/releases/download/${tag}/${row.asset}`;
-		assert.ok(body.includes(url), `missing download url for ${row.asset}`);
+		const url = `https://github.com/${REPO}/releases/download/gospeak-server-v1.0.0/${row.asset}`;
+		assert.ok(serverBody.includes(url), `missing server url for ${row.asset}`);
 	}
 	assert.ok(
-		body.includes(
-			`/releases/download/${tag}/${checksumName("desktop", "1.0.0")}`,
+		serverBody.includes(
+			`/releases/download/gospeak-server-v1.0.0/${checksumName("server", "1.0.0")}`,
 		),
 	);
-	assert.ok(
-		body.includes(
-			`/releases/download/${tag}/${checksumName("server", "1.0.0")}`,
-		),
-	);
-	assert.doesNotMatch(body, /releases\/download\/gospeak-desktop-v/);
+	assert.doesNotMatch(serverBody, /releases\/download\/gospeak-desktop-v/);
 });
 
 test("each table only advertises its own artifacts", () => {
@@ -167,30 +179,28 @@ test("each table only advertises its own artifacts", () => {
 	assert.match(serverTable, /gospeak-server-v1\.0\.0-linux-amd64/);
 });
 
-test("release body falls back to the releases page when desktop is absent", () => {
+test("server release body never mentions desktop artifacts", () => {
 	const body = renderReleaseBody({
+		component: "server",
 		version: "1.0.0",
 		repo: REPO,
-		desktopVersion: undefined,
-		desktopIncluded: false,
-		desktopNotes: "",
+		tag: "gospeak-server-v1.0.0",
 		serverNotes: "",
 	});
 
-	// 服务端表格与 Docker 行始终在；桌面端退化成 Releases 页链接。
+	// 服务端表格与 Docker 行在；不再有桌面端表格或回退链接。
 	assert.match(body, /gospeak-server-v1\.0\.0-linux-amd64/);
 	assert.match(body, /docker pull ghcr\.io\/noelorin\/gospeak:1\.0\.0/);
-	assert.match(body, /https:\/\/github\.com\/NoelOrin\/GOSpeak\/releases\)/);
-	assert.doesNotMatch(body, /## 桌面端 release notes/);
+	assert.doesNotMatch(body, /gospeak-desktop-/);
+	assert.doesNotMatch(body, /\.dmg/);
 });
 
 test("desktop notes are omitted when the desktop did not ship", () => {
 	const body = renderReleaseBody({
+		component: "server",
 		version: "1.0.0",
 		repo: REPO,
-		desktopVersion: "1.0.0",
-		desktopIncluded: false,
-		desktopNotes: "桌面端变更内容",
+		tag: "gospeak-server-v1.0.0",
 		serverNotes: "服务端变更内容",
 	});
 
@@ -200,11 +210,10 @@ test("desktop notes are omitted when the desktop did not ship", () => {
 
 test("empty server notes degrade to a readable placeholder", () => {
 	const body = renderReleaseBody({
+		component: "server",
 		version: "1.0.0",
 		repo: REPO,
-		desktopVersion: "1.0.0",
-		desktopIncluded: true,
-		desktopNotes: "   ",
+		tag: "gospeak-server-v1.0.0",
 		serverNotes: "   ",
 	});
 	assert.match(body, /本次发布无额外说明/);
@@ -218,10 +227,9 @@ test("CLI renders a release body and requires --repo", () => {
 		{ encoding: "utf8" },
 	);
 	assert.equal(ok.status, 0, ok.stderr);
-	assert.match(ok.stdout, /## 下载 GOSpeak/);
-	assert.match(ok.stdout, /### 服务端/);
+	assert.match(ok.stdout, /## 下载 GOSpeak Server/);
 	assert.match(ok.stdout, /docker pull ghcr\.io\/noelorin\/gospeak:1\.0\.0/);
-	assert.match(ok.stdout, /## 服务端 release notes/);
+	assert.match(ok.stdout, /## release notes/);
 
 	const missing = spawnSync(
 		process.execPath,
@@ -240,4 +248,31 @@ test("CLI renders a release body and requires --repo", () => {
 	);
 	assert.equal(wrongMode.status, 1);
 	assert.match(wrongMode.stderr, /mode must be "release"/);
+});
+
+test("server release body excludes desktop artifacts", () => {
+	const body = renderReleaseBody({
+		component: "server",
+		version: "1.0.0",
+		repo: REPO,
+		tag: "gospeak-server-v1.0.0",
+		serverNotes: "server notes",
+	});
+	assert.ok(body.includes("gospeak-server-v1.0.0"), "contains server tag");
+	assert.ok(!body.includes(".dmg"), "no dmg");
+	assert.ok(!body.includes(".deb"), "no deb");
+	assert.ok(!body.includes("install.sh"), "no install.sh");
+});
+
+test("desktop release body excludes server binaries", () => {
+	const body = renderReleaseBody({
+		component: "desktop",
+		version: "1.0.0",
+		repo: REPO,
+		tag: "gospeak-desktop-v1.0.0",
+		desktopNotes: "desktop notes",
+	});
+	assert.ok(body.includes("gospeak-desktop-v1.0.0"), "contains desktop tag");
+	assert.ok(!body.includes("SHA256SUMS-gospeak-server"), "no server checksum");
+	assert.ok(!body.includes("docker pull"), "no docker line");
 });
