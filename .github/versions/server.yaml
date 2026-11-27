@@ -2,7 +2,8 @@
 #
 # 同步约束：submodule 内 server/VERSION 必须与本文件一致；
 #          server/server/package.json 的 version 仅告警（历史遗留 1.0.1，不阻塞发版）。
-version: "1.3.0-rc.1"
+version: "1.4.0-rc.1"
 
 notes: |
-  GOSpeak Server 1.3.0-rc.1 —— monorepo 编排层首个服务端版本。
+  GOSpeak Server 1.4.0-rc.1 —— monorepo 编排层首个四端统一版本。
+  子仓 `server/VERSION` 由发版线同步；本仓只做只读校验。

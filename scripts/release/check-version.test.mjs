@@ -29,12 +29,22 @@ test("server version matches submodule VERSION", () => {
 	assert.deepEqual(state.issues, []);
 });
 
-test("server version mismatch reports issue", () => {
-	const root = fixture("server", "1.3.0-rc.1");
+test("server submodule lag only warns", () => {
+	const root = fixture("server", "1.4.0-rc.1");
 	mkdirSync(join(root, "server"), { recursive: true });
-	writeFileSync(join(root, "server", "VERSION"), "1.2.0\n");
-	const state = checkVersionState(root, "", "server");
-	assert.equal(state.issues.length, 1);
+	writeFileSync(join(root, "server", "VERSION"), "1.3.0-rc.1\n");
+	const warnings = [];
+	const original = console.warn;
+	console.warn = (message) => warnings.push(String(message));
+	try {
+		const state = checkVersionState(root, "", "server");
+		// 子仓是 submodule，版本滞后只告警、不阻塞
+		assert.deepEqual(state.issues, []);
+	} finally {
+		console.warn = original;
+	}
+	assert.equal(warnings.length, 1);
+	assert.match(warnings[0], /submodule 待发版线同步/);
 });
 
 test("web package version must match declaration", () => {

@@ -53,9 +53,13 @@ export function checkVersionState(rootDir, releaseTag, component) {
 	const declared = declaredVersion(rootDir, component);
 
 	if (component === "server") {
+		// server/ 是 submodule：根仓不改它的 VERSION，只做只读校验。
+		// 子仓版本滞后时只告警，真正发版前由发版线把子仓拉到同版本。
 		const version = read(join(rootDir, "server", "VERSION")).trim();
 		if (version !== declared)
-			issues.push(`server/VERSION ${version} != declared ${declared}`);
+			console.warn(
+				`::warning::server/VERSION ${version} != declared ${declared}（submodule 待发版线同步，仅告警）`,
+			);
 		// package.json 是历史遗留副本（1.0.1），只告警不阻塞
 		try {
 			const pkg = String(

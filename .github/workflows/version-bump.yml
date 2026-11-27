@@ -17,6 +17,9 @@ concurrency:
 jobs:
   bump:
     name: Reconcile versions with tags
+    # 发版开关：仓库变量 RELEASE_ENABLED=true 时才打 tag 发版。
+    # 未开启时合并 release 只落地代码，不会创建任何 tag / Release。
+    if: vars.RELEASE_ENABLED == 'true'
     runs-on: ubuntu-latest
     outputs:
       server: ${{ steps.gate.outputs.server }}
