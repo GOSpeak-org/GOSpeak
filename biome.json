@@ -1,0 +1,27 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.9/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": false,
+		"defaultBranch": "release"
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"includes": [
+			"packages/**/*.{ts,tsx,js,mjs,cjs,json,jsonc,css,scss}",
+			"scripts/release/**/*.mjs"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineEnding": "lf"
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended"
+		}
+	}
+}

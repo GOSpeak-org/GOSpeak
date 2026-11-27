@@ -1,0 +1,117 @@
+name: Version Bump
+
+# 根仓 .github/versions/<component>.yaml 是四端发版单一事实源。
+# 每次 push 到 release：逐组件对账 tag，缺哪个补哪个，然后 workflow_call 发版。
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Reconcile versions with tags
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.gate.outputs.server }}
+      web: ${{ steps.gate.outputs.web }}
+      desktop: ${{ steps.gate.outputs.desktop }}
+      mobile: ${{ steps.gate.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Plan tags
+        id: gate
+        run: |
+          set -euo pipefail
+          git ls-remote --tags origin > "$RUNNER_TEMP/remote-tags.txt"
+          for component in server web desktop mobile; do
+            version="$(sed -n 's/^version:[[:space:]]*"\([^"]*\)".*/\1/p' ".github/versions/${component}.yaml")"
+            tag="$(node scripts/release/release-naming.mjs tag "$component" "$version")"
+            if grep -qE "refs/tags/${tag}(\^\{\})?$" "$RUNNER_TEMP/remote-tags.txt"; then
+              echo "::notice::$component $version 已发布（$tag），跳过。"
+              echo "${component}=" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::$component $version 未发布，将创建 $tag。"
+              echo "${component}=$tag" >> "$GITHUB_OUTPUT"
+            fi
+          done
+          echo "--- planned:"; cat "$GITHUB_OUTPUT"
+
+      - name: Create missing tags
+        env:
+          SERVER_TAG: ${{ steps.gate.outputs.server }}
+          WEB_TAG: ${{ steps.gate.outputs.web }}
+          DESKTOP_TAG: ${{ steps.gate.outputs.desktop }}
+          MOBILE_TAG: ${{ steps.gate.outputs.mobile }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          tags=()
+          for tag in "$SERVER_TAG" "$WEB_TAG" "$DESKTOP_TAG" "$MOBILE_TAG"; do
+            [ -n "$tag" ] || continue
+            git tag -a "$tag" -m "Release $tag" "$sha" || true
+            tags+=("$tag")
+          done
+          if [ "${#tags[@]}" -eq 0 ]; then echo "::notice::全部已发布，无需打 tag"; exit 0; fi
+          git push origin "${tags[@]}"
+
+  release-server:
+    needs: bump
+    if: needs.bump.outputs.server != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump.outputs.server }}
+
+  release-web:
+    needs: bump
+    if: needs.bump.outputs.web != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump.outputs.web }}
+
+  release-desktop:
+    needs: bump
+    if: needs.bump.outputs.desktop != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump.outputs.desktop }}
+
+  release-mobile:
+    needs: bump
+    if: needs.bump.outputs.mobile != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump.outputs.mobile }}
+
+  docker:
+    needs: bump
+    if: needs.bump.outputs.server != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml
+    with:
+      release_tag: ${{ needs.bump.outputs.server }}

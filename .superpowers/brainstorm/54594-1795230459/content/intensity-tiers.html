@@ -1,0 +1,156 @@
+<h2>三个预设档位：这样定「手感」对不对？</h2>
+<p class="subtitle">
+  一个旋钮控制「玻璃强度」，三档预设（非自由滑杆）。每档是一组固定常量：面板不透明度 + backdrop-blur 半径一起变。
+  点击你希望作为<b>默认档</b>的那个（新用户开启背景时的初始手感）。
+</p>
+
+<div class="section">
+  <div class="cards">
+
+    <!-- 档1 轻透 -->
+    <div class="card" data-choice="tier1" onclick="toggleSelect(this)">
+      <div class="card-image" style="position:relative;height:250px;overflow:hidden;background:#cfe3d4;">
+        <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">
+          <defs>
+            <linearGradient id="skyT" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#8ec9e8"/><stop offset="0.6" stop-color="#c9e6ef"/><stop offset="1" stop-color="#f2ecd8"/>
+            </linearGradient>
+          </defs>
+          <rect width="400" height="250" fill="url(#skyT)"/>
+          <circle cx="318" cy="55" r="24" fill="#ffd97a" opacity="0.9"/>
+          <path d="M0 185 L90 105 L170 185 Z" fill="#5e9e77"/>
+          <path d="M110 195 L220 85 L340 195 Z" fill="#3f7d63"/>
+          <path d="M260 190 L340 125 L410 190 Z" fill="#6cab84"/>
+          <rect y="186" width="400" height="64" fill="#4a8a6a"/>
+          <path d="M0 200 Q100 190 200 202 T400 196 V250 H0 Z" fill="#3c7560"/>
+        </svg>
+        <div style="position:absolute;inset:10px;display:flex;gap:8px;">
+          <div style="width:42px;border-radius:10px;background:rgba(255,255,255,0.72);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px;">
+            <div style="width:20px;height:20px;border-radius:7px;background:#84cc16;"></div>
+            <div style="width:18px;height:18px;border-radius:6px;background:rgba(0,0,0,0.12);"></div>
+            <div style="width:18px;height:18px;border-radius:6px;background:rgba(0,0,0,0.12);"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div style="height:28px;border-radius:10px;background:rgba(255,255,255,0.86);backdrop-filter:blur(6px);display:flex;align-items:center;padding:0 10px;">
+              <div style="width:66px;height:8px;border-radius:4px;background:rgba(0,0,0,0.26);"></div>
+            </div>
+            <div style="flex:1;display:flex;gap:8px;">
+              <div style="flex:1.1;border-radius:10px;background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);padding:10px;">
+                <div style="width:55%;height:9px;border-radius:4px;background:rgba(0,0,0,0.3);margin-bottom:8px;"></div>
+                <div style="height:7px;border-radius:4px;background:rgba(0,0,0,0.11);margin-bottom:6px;"></div>
+                <div style="width:80%;height:7px;border-radius:4px;background:rgba(0,0,0,0.11);margin-bottom:6px;"></div>
+                <div style="width:65%;height:7px;border-radius:4px;background:rgba(0,0,0,0.11);"></div>
+              </div>
+              <div style="flex:0.8;display:flex;flex-direction:column;gap:8px;">
+                <div style="flex:1;border-radius:10px;background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);"></div>
+                <div style="flex:1;border-radius:10px;background:rgba(255,255,255,0.85);backdrop-filter:blur(6px);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;padding:3px 8px;border-radius:999px;">85% · blur 6px</div>
+      </div>
+      <div class="card-body">
+        <h3>档 1 · 轻透</h3>
+        <p>图几乎只是「隐约可见」，最接近现状。给不想太花哨但想要一点氛围的人。</p>
+      </div>
+    </div>
+
+    <!-- 档2 均衡 -->
+    <div class="card" data-choice="tier2" onclick="toggleSelect(this)">
+      <div class="card-image" style="position:relative;height:250px;overflow:hidden;background:#cfe3d4;">
+        <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">
+          <rect width="400" height="250" fill="url(#skyT)"/>
+          <circle cx="318" cy="55" r="24" fill="#ffd97a" opacity="0.9"/>
+          <path d="M0 185 L90 105 L170 185 Z" fill="#5e9e77"/>
+          <path d="M110 195 L220 85 L340 195 Z" fill="#3f7d63"/>
+          <path d="M260 190 L340 125 L410 190 Z" fill="#6cab84"/>
+          <rect y="186" width="400" height="64" fill="#4a8a6a"/>
+          <path d="M0 200 Q100 190 200 202 T400 196 V250 H0 Z" fill="#3c7560"/>
+        </svg>
+        <div style="position:absolute;inset:10px;display:flex;gap:8px;">
+          <div style="width:42px;border-radius:10px;background:rgba(255,255,255,0.5);backdrop-filter:blur(14px);display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px;">
+            <div style="width:20px;height:20px;border-radius:7px;background:#84cc16;"></div>
+            <div style="width:18px;height:18px;border-radius:6px;background:rgba(0,0,0,0.14);"></div>
+            <div style="width:18px;height:18px;border-radius:6px;background:rgba(0,0,0,0.14);"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div style="height:28px;border-radius:10px;background:rgba(255,255,255,0.6);backdrop-filter:blur(14px);display:flex;align-items:center;padding:0 10px;">
+              <div style="width:66px;height:8px;border-radius:4px;background:rgba(0,0,0,0.3);"></div>
+            </div>
+            <div style="flex:1;display:flex;gap:8px;">
+              <div style="flex:1.1;border-radius:10px;background:rgba(255,255,255,0.68);backdrop-filter:blur(14px);padding:10px;">
+                <div style="width:55%;height:9px;border-radius:4px;background:rgba(0,0,0,0.34);margin-bottom:8px;"></div>
+                <div style="height:7px;border-radius:4px;background:rgba(0,0,0,0.14);margin-bottom:6px;"></div>
+                <div style="width:80%;height:7px;border-radius:4px;background:rgba(0,0,0,0.14);margin-bottom:6px;"></div>
+                <div style="width:65%;height:7px;border-radius:4px;background:rgba(0,0,0,0.14);"></div>
+              </div>
+              <div style="flex:0.8;display:flex;flex-direction:column;gap:8px;">
+                <div style="flex:1;border-radius:10px;background:rgba(255,255,255,0.68);backdrop-filter:blur(14px);"></div>
+                <div style="flex:1;border-radius:10px;background:rgba(255,255,255,0.68);backdrop-filter:blur(14px);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;top:12px;right:12px;background:rgba(132,204,22,0.9);color:#fff;font-size:11px;padding:3px 8px;border-radius:999px;">65% · blur 14px · 建议默认</div>
+      </div>
+      <div class="card-body">
+        <h3>档 2 · 均衡</h3>
+        <p>图的色彩轮廓清楚透出，文字仍清晰。大多数图在这一档都好看。</p>
+      </div>
+    </div>
+
+    <!-- 档3 沉浸 -->
+    <div class="card" data-choice="tier3" onclick="toggleSelect(this)">
+      <div class="card-image" style="position:relative;height:250px;overflow:hidden;background:#cfe3d4;">
+        <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">
+          <rect width="400" height="250" fill="url(#skyT)"/>
+          <circle cx="318" cy="55" r="24" fill="#ffd97a" opacity="0.9"/>
+          <path d="M0 185 L90 105 L170 185 Z" fill="#5e9e77"/>
+          <path d="M110 195 L220 85 L340 195 Z" fill="#3f7d63"/>
+          <path d="M260 190 L340 125 L410 190 Z" fill="#6cab84"/>
+          <rect y="186" width="400" height="64" fill="#4a8a6a"/>
+          <path d="M0 200 Q100 190 200 202 T400 196 V250 H0 Z" fill="#3c7560"/>
+        </svg>
+        <div style="position:absolute;inset:10px;display:flex;gap:8px;">
+          <div style="width:42px;border-radius:10px;background:rgba(255,255,255,0.26);backdrop-filter:blur(20px) saturate(1.3);display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px;">
+            <div style="width:20px;height:20px;border-radius:7px;background:#84cc16;"></div>
+            <div style="width:18px;height:18px;border-radius:6px;background:rgba(0,0,0,0.18);"></div>
+            <div style="width:18px;height:18px;border-radius:6px;background:rgba(0,0,0,0.18);"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+            <div style="height:28px;border-radius:10px;background:rgba(255,255,255,0.35);backdrop-filter:blur(20px) saturate(1.3);display:flex;align-items:center;padding:0 10px;">
+              <div style="width:66px;height:8px;border-radius:4px;background:rgba(0,0,0,0.4);"></div>
+            </div>
+            <div style="flex:1;display:flex;gap:8px;">
+              <div style="flex:1.1;border-radius:10px;background:rgba(255,255,255,0.4);backdrop-filter:blur(20px) saturate(1.3);padding:10px;">
+                <div style="width:55%;height:9px;border-radius:4px;background:rgba(0,0,0,0.44);margin-bottom:8px;"></div>
+                <div style="height:7px;border-radius:4px;background:rgba(0,0,0,0.2);margin-bottom:6px;"></div>
+                <div style="width:80%;height:7px;border-radius:4px;background:rgba(0,0,0,0.2);margin-bottom:6px;"></div>
+                <div style="width:65%;height:7px;border-radius:4px;background:rgba(0,0,0,0.2);"></div>
+              </div>
+              <div style="flex:0.8;display:flex;flex-direction:column;gap:8px;">
+                <div style="flex:1;border-radius:10px;background:rgba(255,255,255,0.4);backdrop-filter:blur(20px) saturate(1.3);"></div>
+                <div style="flex:1;border-radius:10px;background:rgba(255,255,255,0.4);backdrop-filter:blur(20px) saturate(1.3);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;padding:3px 8px;border-radius:999px;">40% · blur 20px</div>
+      </div>
+      <div class="card-body">
+        <h3>档 3 · 沉浸</h3>
+        <p>整窗像玻璃浮在图上，图最鲜艳。配鲜艳大图最好看，浅色小字场景可读性靠磨砂兜底。</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <p class="subtitle">
+    说明：档位只定义「玻璃强度」这一组常量，深浅色模式共用同一档位定义（深色下换成深色玻璃的对应值）；
+    关闭背景时完全不启用透明 token，界面回到现状。三档都会提供，这里只是确认数值手感 + 默认档。
+    下一屏：外观设置里「背景图区块」的控件形态。
+  </p>
+</div>

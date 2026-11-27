@@ -1,38 +1,85 @@
 name: CI
+
 on:
   pull_request:
   push:
     branches: [release]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  detect-changes:
-    name: Detect Changes
+  root:
+    name: Root · workspace / release scripts
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo"
-  lint:
-    name: Lint (Biome + go vet)
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Biome
+        run: pnpm exec biome ci --files-ignore-unknown=true --no-errors-on-unmatched ./packages ./scripts/release
+      - name: Release script tests
+        run: node --test scripts/release/*.test.mjs
+      - name: Version consistency
+        run: node scripts/release/check-version.mjs . "" all
+      - name: Submodule pins
+        run: git submodule status --recursive
+
+  server:
+    name: Server · vet / build / test
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo has no source to lint"
-  typecheck:
-    name: Typecheck
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/server/go.mod
+          cache-dependency-path: server/server/go.sum
+      - run: cd server/server && go vet ./...
+      - run: cd server/server && go build -o /tmp/gospeak main.go
+      - run: cd server/server && go test ./...
+
+  client:
+    name: Client · typecheck
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo has no source to typecheck"
-  build-js:
-    name: Build JS (turbo)
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+      - run: cd client && pnpm install --frozen-lockfile
+      - run: cd client && pnpm -r typecheck
+
+  docs:
+    name: Docs · build
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo has no JS to build"
-  build-server:
-    name: Build Server (Go)
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "shell repo has no Go to build"
-  test-server:
-    name: Test Server (Go)
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "shell repo has no Go tests"
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+      - run: cd docs && pnpm install --frozen-lockfile
+      - run: cd docs && pnpm build
