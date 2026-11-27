@@ -5,6 +5,7 @@
 > - 精简起步：`deploy/docker-compose.yml`（仅 `gospeak` + `livekit`，无 profiles、无 Caddy；SQLite + 本地存储）  
 > - 全档位：`deploy/docker-compose.standard.yml`（含 `edge` / `postgres` / `rustfs` / `observability` profiles）  
 > `COMPOSE_PROFILES` 只对 `docker-compose.standard.yml` 生效；精简版不读它。  
+> 两版共用 `deploy/docker-compose.base.yml`（`gospeak` + `livekit` 的公共定义，靠 Compose `include` 引入），差异只写在各自入口文件里。面板部署（Dokploy / 宝塔等只能贴单文件）先 `cd deploy && docker compose -f docker-compose.standard.yml config > /tmp/gospeak.yml`，把展开后的整份内容贴进面板。  
 > 配置文件：`deploy/.env`（唯一配置文件，compose 插值与应用环境变量共用）  
 > 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/gospeak-org/gospeak-server:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/gospeak-org/gospeak-server:1`，要固定版本用 `ghcr.io/gospeak-org/gospeak-server:1.1.0` 这类精确标签。compose 默认 `pull_policy: always`（每次 `up -d` 都会拉取最新镜像，避免停留在旧版本；如需关闭在 `.env` 设 `GOSPEAK_PULL_POLICY=missing`）。要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
 

@@ -115,16 +115,18 @@ check_consistency() {
     echo "  [ok] $CADDYFILE 存在且按 {\$GOSPEAK_DOMAIN 生成站点地址"
   fi
 
-  # 所有 compose 文件都必须按 .env 的键名注入 LiveKit 密钥，
-  # 避免新增的部署变体漏掉注入。
-  #
+  # ── A1. 公共骨架必须按 .env 的键名注入 LiveKit 密钥 ──
+  # 注入点唯一：docker-compose.base.yml。入口文件只写差异，不重复注入。
   # 注意：Dokploy 部署时会重写 compose 文件（剥离注释、去引号、展开数组、
   # 注入 labels），所以这里只做语义校验——检查键名与变量引用是否出现，
   # 不依赖引号、缩进或行内格式，否则在 Dokploy 托管的环境里会误报。
-  local compose_files=(docker-compose*.yml)
+  local base_compose="docker-compose.base.yml"
+  local simple_compose="docker-compose.yml" std_compose="docker-compose.standard.yml"
   local compose_ok=1
-  for cf in "${compose_files[@]}"; do
-    [[ -f "$cf" ]] || continue
+  if [[ ! -f "$base_compose" ]]; then
+    echo "  [x] 缺少 $base_compose：LiveKit 密钥注入与公共定义没有落点" >&2
+    compose_ok=0
+  else
     local has_keys=0 has_webhook=0
     # LIVEKIT_KEYS 的值必须同时引用 LIVEKIT_KEY 与 LIVEKIT_SECRET
     if awk '
@@ -132,61 +134,85 @@ check_consistency() {
         if ($0 ~ /LIVEKIT_KEY/ && $0 ~ /LIVEKIT_SECRET/) { found=1 }
       }
       END { exit(found ? 0 : 1) }
-    ' "$cf"; then has_keys=1; fi
+    ' "$base_compose"; then has_keys=1; fi
     # LIVEKIT_WEBHOOK_API_KEY 的值必须引用 LIVEKIT_KEY
     if awk '
       /^[[:space:]]*LIVEKIT_WEBHOOK_API_KEY:/ {
         if ($0 ~ /LIVEKIT_KEY/) { found=1 }
       }
       END { exit(found ? 0 : 1) }
-    ' "$cf"; then has_webhook=1; fi
+    ' "$base_compose"; then has_webhook=1; fi
 
     if [[ $has_keys -eq 1 && $has_webhook -eq 1 ]]; then
-      echo "  [ok] $cf 已按 .env 的键名注入 LiveKit 密钥"
+      echo "  [ok] $base_compose 已按 .env 的键名注入 LiveKit 密钥"
     else
-      [[ $has_keys -eq 0 ]] && echo "  [x] $cf 缺少 LIVEKIT_KEYS 注入（需引用 LIVEKIT_KEY 与 LIVEKIT_SECRET）" >&2
-      [[ $has_webhook -eq 0 ]] && echo "  [x] $cf 缺少 LIVEKIT_WEBHOOK_API_KEY 注入（需引用 LIVEKIT_KEY）" >&2
+      [[ $has_keys -eq 0 ]] && echo "  [x] $base_compose 缺少 LIVEKIT_KEYS 注入（需引用 LIVEKIT_KEY 与 LIVEKIT_SECRET）" >&2
+      [[ $has_webhook -eq 0 ]] && echo "  [x] $base_compose 缺少 LIVEKIT_WEBHOOK_API_KEY 注入（需引用 LIVEKIT_KEY）" >&2
       compose_ok=0
     fi
-  done
+  fi
   [[ $compose_ok -eq 1 ]] || rc=1
 
-  # ── A2. 两版 compose 的公共骨架检查 ──
+  # ── A2. 公共骨架的持久化 / 健康检查 / 信令端口 ──
   # 内嵌 NATS 的 KV（JWT 签名密钥 / 黑名单 / refresh family）默认落在 DB 同级的
-  # nats/ 目录 —— 只要 `gospeak-db:/app/db` 挂着就自带持久化，不需要额外卷。
+  # nats/ 目录 —— 只要 \`gospeak-db:/app/db\` 挂着就自带持久化，不需要额外卷。
   # 显式设置 NATS_STORE_DIR 把 KV 挪走时，才必须同时挂对应卷。
-  local simple_compose="docker-compose.yml" std_compose="docker-compose.standard.yml" parity_ok=1 cf2
-  if [[ -f "$simple_compose" && -f "$std_compose" ]]; then
-    for cf2 in "$simple_compose" "$std_compose"; do
-      # 1) DB 卷：既是 SQLite 数据，也是 NATS KV 默认目录的持久化来源
-      grep -qE '^[[:space:]]*-[[:space:]]*gospeak-db:/app/db' "$cf2" || {
-        echo "  [x] $cf2 缺少 gospeak-db:/app/db 卷：DB 与默认 NATS KV 目录都会落进容器层" >&2
-        parity_ok=0
-      }
-      # 2) 显式改 KV 目录就必须挂卷，否则数据写进容器层、重建即丢
-      if grep -qE '^[[:space:]]*NATS_STORE_DIR:' "$cf2" && ! grep -qE '^[[:space:]]*-[[:space:]]*gospeak-nats:/app/nats' "$cf2"; then
-        echo "  [x] $cf2 设置了 NATS_STORE_DIR 却没有挂 gospeak-nats:/app/nats：KV 会落进容器层" >&2
-        parity_ok=0
-      fi
-      # 3) 健康检查与信令端口策略两版一致
-      grep -qE 'test:.*127\.0\.0\.1:8998/ping' "$cf2" || {
-        echo "  [x] $cf2 缺少 /ping 健康检查" >&2
-        parity_ok=0
-      }
-      grep -qE '^[[:space:]]*-[[:space:]]*"?7880:7880' "$cf2" && {
-        echo "  [x] $cf2 把 LiveKit 7880 绑到了所有网卡：应为 127.0.0.1:7880:7880" >&2
-        parity_ok=0
-      }
-      grep -qE '^[[:space:]]*-[[:space:]]*"?7881:7881' "$cf2" && {
-        echo "  [x] $cf2 仍发布 7881：信令走应用同源反代，不需要对公网暴露" >&2
-        parity_ok=0
-      }
-    done
-    [[ $parity_ok -eq 1 ]] && echo "  [ok] 两版 compose 公共骨架一致（DB 卷 / KV 落盘 / 健康检查 / 信令端口）"
-  else
-    echo "  [-] 未找到两版 compose，跳过骨架一致性检查"
+  local skeleton_ok=1 cf2
+  if [[ -f "$base_compose" ]]; then
+    grep -qE '^[[:space:]]*-[[:space:]]*gospeak-db:/app/db' "$base_compose" || {
+      echo "  [x] $base_compose 缺少 gospeak-db:/app/db 卷：DB 与默认 NATS KV 目录都会落进容器层" >&2
+      skeleton_ok=0
+    }
+    grep -qE 'test:.*127\.0\.0\.1:8998/ping' "$base_compose" || {
+      echo "  [x] $base_compose 缺少 /ping 健康检查" >&2
+      skeleton_ok=0
+    }
+    grep -qE '^[[:space:]]*-[[:space:]]*"?7880:7880' "$base_compose" && {
+      echo "  [x] $base_compose 把 LiveKit 7880 绑到了所有网卡：应为 127.0.0.1:7880:7880" >&2
+      skeleton_ok=0
+    }
+    grep -qE '^[[:space:]]*-[[:space:]]*"?7881:7881' "$base_compose" && {
+      echo "  [x] $base_compose 仍发布 7881：信令走应用同源反代，不需要对公网暴露" >&2
+      skeleton_ok=0
+    }
   fi
-  [[ $parity_ok -eq 1 ]] || rc=1
+  # 显式改 KV 落盘目录的文件，必须自己挂上对应卷
+  for cf2 in docker-compose*.yml; do
+    [[ -f "$cf2" ]] || continue
+    if grep -qE '^[[:space:]]*NATS_STORE_DIR:' "$cf2" && ! grep -qE '^[[:space:]]*-[[:space:]]*gospeak-nats:/app/nats' "$cf2"; then
+      echo "  [x] $cf2 设置了 NATS_STORE_DIR 却没有挂 gospeak-nats:/app/nats：KV 会落进容器层" >&2
+      skeleton_ok=0
+    fi
+  done
+  [[ $skeleton_ok -eq 1 ]] && echo "  [ok] 公共骨架：DB 卷 / 健康检查 / 信令端口 / KV 落盘正确"
+  [[ $skeleton_ok -eq 1 ]] || rc=1
+
+  # ── A3. 编排入口必须 include 公共骨架 ──
+  # gospeak/livekit 的公共定义只留一份（docker-compose.base.yml），入口文件只写差异；
+  # 任何一版把公共段抄回自己文件里，就会重新开始漂移。
+  local base_compose="docker-compose.base.yml" inc_ok=1 cf3
+  if [[ -f "$base_compose" ]]; then
+    for cf3 in "$simple_compose" "$std_compose"; do
+      [[ -f "$cf3" ]] || continue
+      if ! grep -qE '^[[:space:]]*include:' "$cf3" || ! grep -qF "$base_compose" "$cf3"; then
+        echo "  [x] $cf3 没有 include $base_compose：公共骨架必须单点维护" >&2
+        inc_ok=0
+      fi
+    done
+    # 有 docker 且已生成 .env 时，顺手让 compose 真正解析一遍（include 展开 + 变量插值）
+    if [[ $inc_ok -eq 1 ]] && command -v docker >/dev/null 2>&1 && [[ -f "$ENV_FILE" ]]; then
+      docker compose -f "$simple_compose" config -q 2>/dev/null || {
+        echo "  [x] $simple_compose 解析失败（include / 变量插值）" >&2; inc_ok=0
+      }
+      COMPOSE_PROFILES=app,livekit docker compose -f "$std_compose" config -q 2>/dev/null || {
+        echo "  [x] $std_compose 解析失败（include / 变量插值）" >&2; inc_ok=0
+      }
+    fi
+  else
+    echo "  [x] 缺少 $base_compose：两版编排的公共段已无处安放" >&2; inc_ok=0
+  fi
+  [[ $inc_ok -eq 1 ]] && echo "  [ok] 两版入口都 include $base_compose"
+  [[ $inc_ok -eq 1 ]] || rc=1
 
   # ── B. 本地部署就绪（CI 无 .env，跳过）──
   if [[ ! -f "$ENV_FILE" ]]; then

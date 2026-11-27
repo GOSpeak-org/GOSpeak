@@ -1,8 +1,10 @@
 # =============================================================================
-# GOSpeak 简化部署（app + LiveKit）
+# GOSpeak 简化部署入口（app + LiveKit）
 # =============================================================================
-# 只保留跑通语音所需的两个服务，不含 PostgreSQL / RustFS / 可观测性栈。
+# 只保留跑通语音所需的两个服务，不含 PostgreSQL / RustFS / Caddy / 可观测性栈。
 # 数据库用 SQLite，存储用本地磁盘，开箱即用。
+#
+# 公共定义在 docker-compose.base.yml（同目录），本文件只声明档位差异。
 #
 # 用法（在仓库根目录执行）:
 #   docker compose -f deploy/docker-compose.yml up -d
@@ -11,80 +13,15 @@
 #
 # 配置来源与全档位版一致：deploy/.env（用 deploy/init.sh 生成）
 #
-# 与全档位版的差异只在服务集与可选项，app/livekit 的端口发布策略必须一致
-# （`./init.sh --check` 会断言 7880 只绑回环、不发布 7881、/ping 健康检查与 DB 卷）：
-#   - 无 profiles，up 即起，不需要 COMPOSE_PROFILES
-#   - 去掉 postgres / rustfs / caddy / prometheus / alertmanager / grafana / loki / promtail
-#   - 同名 volume（gospeak-db / logs / uploads / plugins），可与全档位版互相切换
-#
-# 内嵌 NATS 的 KV（JWT 签名密钥 / 黑名单 / refresh family）默认落在 DB 同级的
-# nats/ 目录，也就是 `gospeak-db` 卷里的 /app/db/nats，容器重建不丢；
-# 全档位版改用独立卷 `gospeak-nats`（显式 NATS_STORE_DIR），两种都不落容器层。
+# 与全档位版的区别：
+#   - 无 profiles，up 即起，不读 COMPOSE_PROFILES
+#   - 没有 postgres / rustfs / caddy / prometheus / alertmanager / grafana / loki / promtail
+#   - 没有 NATS 独立卷（KV 落在 gospeak-db 卷内的 /app/db/nats）
 #
 # 需要 PostgreSQL、对象存储或监控时，改用 docker-compose.standard.yml。
 # =============================================================================
 
 name: gospeak
 
-services:
-  # ── 应用（内置前端 SPA + Go API）──────────────────────────────────────────
-  gospeak:
-    restart: unless-stopped
-    # 直接使用 GHCR 发布镜像（免构建）；自建镜像时用 GOSPEAK_IMAGE 覆盖
-    # 默认 latest 跟随最近一次发布（含 -rc 预发布）；生产稳妥选版本线标签 :1，
-    # 固定版本用 :1.1.0 这类精确标签
-    image: ${GOSPEAK_IMAGE:-ghcr.io/gospeak-org/gospeak-server:latest}
-    pull_policy: ${GOSPEAK_PULL_POLICY:-always}
-    container_name: gospeak-app
-    # 唯一配置来源：deploy/.env（compose 插值与应用 env 共用）
-    env_file:
-      - .env
-    environment:
-      SERVER_PORT: "8998"
-      STATIC_DIR: /app/static
-      DB_PATH: ${DB_PATH:-/app/db/app.db}
-    ports:
-      - "${GOSPEAK_PORT:-8998}:8998"
-    volumes:
-      - gospeak-db:/app/db
-      - gospeak-logs:/app/logs
-      - gospeak-uploads:/app/uploads
-      - gospeak-plugins:/app/plugins
-    depends_on:
-      livekit:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8998/ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  # ── LiveKit（音视频 SFU）──────────────────────────────────────────────────
-  livekit:
-    restart: unless-stopped
-    # 固定 tag：升级 SFU 是显式改动（latest 会随 pull 漂移，且 1.13 起默认 codec 与资源上限有变化）。
-    image: livekit/livekit-server:v1.13.11
-    container_name: gospeak-livekit
-    ports:
-      # 信令 7880 只绑宿主机回环：浏览器走应用同源反代 /livekit 接入，
-      # LiveKit 不需要域名/证书，也就不需要对公网发布 7880（与全档位版一致）。
-      - "127.0.0.1:7880:7880"
-      - "7882:7882"        # RTC over TCP（UDP 不通时的媒体兜底）
-      - "7882:7882/udp"    # RTC over UDP（媒体主通道）
-      - "3478:3478/udp"    # TURN
-    volumes:
-      - ./livekit/livekit.yaml:/etc/livekit.yaml:ro
-    environment:
-      # 密钥只从 deploy/.env 注入，livekit.yaml 里不含任何凭据。
-      # LIVEKIT_KEYS 覆盖 keys，LIVEKIT_WEBHOOK_API_KEY 覆盖 webhook 签名 key
-      # （LiveKit 1.13 起必填，否则启动报 "api_key is required to use webhooks"）。
-      LIVEKIT_KEYS: "${LIVEKIT_KEY}: ${LIVEKIT_SECRET}"
-      LIVEKIT_WEBHOOK_API_KEY: "${LIVEKIT_KEY}"
-    command: --config /etc/livekit.yaml
-
-volumes:
-  gospeak-db:
-  gospeak-logs:
-  gospeak-uploads:
-  gospeak-plugins:
+include:
+  - docker-compose.base.yml

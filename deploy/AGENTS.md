@@ -6,8 +6,9 @@
 
 | 文件 | 用途 |
 |------|------|
-| `docker-compose.yml` | 精简档位（app + LiveKit，无 profiles，开箱即用） |
-| `docker-compose.standard.yml` | 全档位编排（app/livekit/edge/postgres/rustfs/observability） |
+| `docker-compose.base.yml` | 公共骨架：两版**完全相同**的 gospeak + livekit（镜像/环境/卷/健康检查/端口），只做 include 源 |
+| `docker-compose.yml` | 精简档位：`include` 公共骨架，无 profiles，开箱即用 |
+| `docker-compose.standard.yml` | 全档位编排：`include` 公共骨架 + profiles（app/livekit/edge/postgres/rustfs/observability） |
 | `.env.example` | 统一配置模板（生成 `deploy/.env`） |
 | `init.sh` | 生成 `.env`（含随机密钥）、归一 `livekit.yaml`、一致性校验 |
 | `install-binary.sh` | curl 直跑的单二进制安装脚本：下载当前平台最新的 GOSpeak + LiveKit 发行包、校验、生成配置与 systemd 单元 |
