@@ -20,3 +20,8 @@ deploy/observability/prometheus/metrics_token
 
 # 本地工具
 .local/
+
+# 本地 AI 工具数据（运行时临时文件 / 会话记忆，非项目文件）
+.superpowers/
+.workbuddy/
+.claude/
