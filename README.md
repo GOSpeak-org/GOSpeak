@@ -1,27 +1,41 @@
-# GOSpeak
+<div align="center">
+  <img src=".github/assets/logo.png" alt="GOSpeak" width="128" height="128" />
 
-> **仓库结构说明**：本仓库目前是**聚合壳**，只通过 submodule 锚定三个子仓。开发请直接 clone 对应子仓，不要在壳里的 `server/` `client/` `docs/` 目录改代码（它们处于游离 HEAD，提交会丢）。
+  <h1>GOSpeak</h1>
 
-| 目录 | 仓库 | 说明 |
-|---|---|---|
-| `server/` | GOSpeak-Server | Go 后端、集成测试、部署与工程文档 |
-| `client/` | GOSpeak-Client | Web / 桌面 / 移动 / 共享规则 |
-| `docs/` | GOSpeak-Docs | VitePress 文档站 |
-
-一次拉取全部：`git clone --recursive https://github.com/GOSpeak-org/GOSpeak.git`
-
-以下为 GOSpeak 项目介绍与原有快速开始说明；其中的路径与命令以各子仓 `release` 分支为准。
-
-<p>
+  <p>
     <a href="https://go.dev" target="_blank"><img src="https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go&logoColor=white" alt="Go" /></a>
     <a href="https://react.dev" target="_blank"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://www.livekit.io" target="_blank"><img src="https://img.shields.io/badge/SFU-LiveKit-0fa5ab?logo=livekit" alt="LiveKit" /></a>
     <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License" /></a>
     <br />
     <a href="https://awesomemygo.dev/apps/gospeak" target="_blank"><img src="https://awesomemygo.dev/badge.svg" alt="Listed on Awesome MyGo" /></a>
-</p>
+  </p>
+</div>
 
 GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频能力。单个二进制即可运行，前端内嵌，提供语音房间、发言检测、逐人音量控制、房间权限与原生桌面客户端。
+
+> **仓库结构**：本仓库是**聚合壳**，只用 submodule 把三个子仓锚定在一起，方便一次 `git clone --recursive` 拿全部。开发请直接 clone 对应子仓，不要在壳里的 `server/` `client/` `docs/` 目录改代码（它们是 submodule，默认处于游离 HEAD，提交会丢）。
+>
+> | 目录 | 仓库 | 说明 |
+> |---|---|---|
+> | `server/` | GOSpeak-Server | Go 后端、部署、文档 |
+> | `client/` | GOSpeak-Client | Web / 桌面 / 移动 / 共享规则 |
+> | `docs/` | GOSpeak-Docs | VitePress 文档站 |
+
+## 界面预览
+
+<div align="center">
+  <img src=".github/assets/screenshots/room.jpg" alt="语音房间" width="100%" />
+  <p><em>语音房间 — 频道树、发言检测、成员面板与逐人音量</em></p>
+</div>
+
+<table>
+  <tr>
+    <td width="50%"><img src=".github/assets/screenshots/login.jpg" alt="登录页" /><br /><em>登录页 — 自托管实例，无第三方鉴权依赖</em></td>
+    <td width="50%"><img src=".github/assets/screenshots/domains.jpg" alt="发现域" /><br /><em>发现域 — 公开域检索、邀请码加入与已加入域快捷入口</em></td>
+  </tr>
+</table>
 
 ## 特性
 
@@ -52,7 +66,7 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
 ```
 
-默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/deploy/binary.md)。
+默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/deploy/binary.md)。
 
 也可以手动从 [Releases](https://github.com/GOSpeak-org/GOSpeak-Server/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
 
@@ -65,19 +79,23 @@ chmod +x gospeak-server-v<VERSION>-linux-amd64
 
 ### 源码开发
 
-需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。
+需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。前后端已拆到两个子仓，分别 clone：
 
 ```bash
 git clone https://github.com/GOSpeak-org/GOSpeak-Server.git
+git clone https://github.com/GOSpeak-org/GOSpeak-Client.git
+
+# 后端：生成 deploy/.env（含随机 LiveKit 凭证），起依赖后跑服务
 cd GOSpeak-Server
 pnpm install
-
 cd deploy && ./init.sh && cd ..
 docker compose -f deploy/docker-compose.yml up -d
 cd server && go run main.go server
 ```
 
-`./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。本地 LiveKit 容器的 7880 端口绑定到宿主机回环地址，后端直连即可。前端已拆到 [GOSpeak-Client](https://github.com/GOSpeak-org/GOSpeak-Client)，在该仓运行 `pnpm --filter @gospeak/web dev`。
+`./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。全档位版 `docker-compose.standard.yml` 把 7880 绑定到宿主机回环地址供本地直连调试；精简版 `docker-compose.yml` 则是 `7880:7880` 对公网发布，生产勿用。
+
+前端在 [GOSpeak-Client](https://github.com/GOSpeak-org/GOSpeak-Client)，在该仓运行 `pnpm install` 后 `pnpm --filter @gospeak/web dev`。
 
 ## 部署
 
@@ -113,7 +131,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 
 ### 端口
 
-放行 `80/443`（反向代理）、`7882/tcp+udp`（媒体）、`3478/udp`（TURN）。7880 仅绑定宿主机回环地址用于本地调试，信令经同源 `/livekit` 代理。
+放行 `80/443`（反向代理）、`7882/tcp+udp`（媒体）、`3478/udp`（TURN）。全档位版的 7880 仅绑定宿主机回环地址用于本地调试（精简版仍以 `7880:7880` 对公网发布），信令经同源 `/livekit` 代理。
 
 ### 可选组件
 
@@ -129,19 +147,19 @@ DB_TYPE="Turso"      TURSO_DATABASE_URL=...          # libSQL 远程数据库（
 
 ## 桌面客户端
 
-桌面客户端与网页版共用同一套前端，提供浏览器不具备的能力：关窗进托盘、全局快捷键（在游戏内生效）、开机自启、系统通知、游戏内覆盖层。构建与开发说明见 [app/desktop/README.md](https://github.com/GOSpeak-org/GOSpeak-Client/blob/release/desktop/README.md) 与 [桌面客户端文档](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)。
+桌面客户端与网页版共用同一套前端，提供浏览器不具备的能力：关窗进托盘、全局快捷键（在游戏内生效）、开机自启、系统通知、游戏内覆盖层。构建与开发说明见 [desktop/README.md](https://github.com/GOSpeak-org/GOSpeak-Client/blob/release/desktop/README.md) 与 [桌面客户端文档](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)。
 
 ## 文档
 
 - [部署指南](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/deployment-guide.md)
 - [桌面客户端](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)
 - [SFU 配置与成熟度](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/sfu-provider-maturity.md)
-- [架构设计](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/architecture/index.md)
+- [架构设计](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/architecture/index.md)
 - [开发者指南](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/AGENTS.md)
 
 ## 贡献
 
-欢迎提交 PR 与 Issue，较大的改动请先开 Issue 讨论。提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)，由 commitlint 与 lefthook 强制执行。
+欢迎提交 PR 与 Issue，较大的改动请先开 Issue 讨论。提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)，前端子仓由 commitlint 与 lefthook 强制执行。
 
 ## License
 
