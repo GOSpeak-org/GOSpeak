@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # 本地 LiveKit 开发启动脚本（宿主机二进制，不依赖 Docker）
 #
-#   ./scripts/dev-livekit.sh
+#   server/scripts/dev-livekit.sh
 #
 # 二进制来源：go build ./cmd/server（见 .local/bin/livekit-server）。
 # 如需用 Docker，见 deploy/livekit/livekit.docker.yaml 顶部注释里的 docker run 命令。
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 BIN=".local/bin/livekit-server"
 CONFIG="deploy/livekit/livekit.local.yaml"

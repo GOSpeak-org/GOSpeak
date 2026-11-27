@@ -27,5 +27,5 @@ pnpm --filter @gospeak/docs build    # 构建静态站
 - **新增页面必须同时改 `.vitepress/config.ts` 的 sidebar**，否则页面不可达。
 - 截图放 `public/screenshots/`，引用用绝对路径。
 - `reference/` 是对代码的镜像（错误码、事件、接口），**改代码要同步更新**；错误码以 `server/server/internal/pkg/errors.go` 为准。
-- 部署细节的**唯一权威是 `server/deploy/DEPLOY.md`**（位于 Server 子模块）；本站只做面向用户的转述，出现冲突以 DEPLOY.md 为准。
+- 部署细节的**唯一权威是仓库根的 `deploy/DEPLOY.md`**；本站只做面向用户的转述，出现冲突以 DEPLOY.md 为准。
 - 语言 zh-CN；不写与当前版本不符的历史方案。

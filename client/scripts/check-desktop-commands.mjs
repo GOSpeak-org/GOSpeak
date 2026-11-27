@@ -5,15 +5,15 @@
 // 大部分能力方法会静默吞掉错误，因此在 CI 阶段拦截。
 //
 // 同样校验跨进程事件名：Go 宿主用 mygo.NewEvent 发射、TS SDK 用 bridge.listen
-// 监听，字面量分别集中在 app/desktop/events.go 与 packages/desktop/src/events.ts。
+// 监听，字面量分别集中在 client/desktop/events.go 与 packages/desktop/src/events.ts。
 // 任一侧拼错都会让事件在运行期静默失效，所以这里做双向比对。
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DESKTOP_DIR = "desktop";
-const TS_DIR = "packages/desktop/src/capabilities";
-const TS_EVENTS_FILE = "packages/desktop/src/events.ts";
+const TS_DIR = "../packages/desktop/src/capabilities";
+const TS_EVENTS_FILE = "../packages/desktop/src/events.ts";
 
 /** 从 Go 源码里取出 `mygo.Bind(X{})` 绑定的类型名。 */
 export function extractBoundTypes(source) {

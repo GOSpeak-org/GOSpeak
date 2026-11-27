@@ -21,7 +21,7 @@ pre-push:
   parallel: true
   commands:
     "biome ci":
-      run: npx @biomejs/biome ci --files-ignore-unknown=true ./client/web ./client/packages ./client/scripts ./client/desktop ./client/mobile
+      run: npx @biomejs/biome ci --files-ignore-unknown=true ./client/web ./packages ./client/scripts ./client/desktop ./client/mobile
     "hook dependency ratchet":
       run: cd client && node scripts/check-hook-deps.mjs
     "protocol sync":

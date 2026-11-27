@@ -7,13 +7,13 @@ const packageRoot = resolve(here, "..");
 const repoRoot = resolve(packageRoot, "../..");
 const destination = resolve(packageRoot, "proto/plugin.proto");
 
-// 三仓拆分后 proto 单一事实源在 GOSpeak-Server 仓（旧路径 app/server → server/server）。
-// 优先用 GOSPEAK_SERVER_PROTO 显式指定的服务端检出，其次同级的 server 仓；
-// 两者都不在时退回本仓已版本化的快照，保证 CI 与无服务端检出时 test/build 可用。
+// proto 单一事实源是仓内 server/server（monorepo 后不再跨仓）。
+// 优先用 GOSPEAK_SERVER_PROTO 显式指定的检出，其次仓内路径，最后兼容分离部署的
+// 同级 server 仓；都不在时退回本仓已版本化的快照，保证 test/build 可用。
 const candidates = [
 	process.env.GOSPEAK_SERVER_PROTO,
+	resolve(repoRoot, "server/server/plugin/proto/plugin.proto"),
 	resolve(repoRoot, "../server/server/plugin/proto/plugin.proto"),
-	resolve(repoRoot, "../app/server/plugin/proto/plugin.proto"),
 ].filter((candidate) => typeof candidate === "string" && candidate.length > 0);
 
 const source = candidates.find((candidate) => existsSync(candidate));

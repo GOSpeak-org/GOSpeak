@@ -27,7 +27,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Biome
-        run: pnpm exec biome ci --files-ignore-unknown=true ./client/web ./client/packages ./client/scripts ./client/desktop ./client/mobile
+        run: pnpm exec biome ci --files-ignore-unknown=true ./client/web ./packages ./client/scripts ./client/desktop ./client/mobile
       - name: Typecheck
         run: pnpm typecheck
       - name: Web build

@@ -10,7 +10,7 @@
 | 后端测试 | ~60% | `test/` 多套集成套件（auth/oauth/signal/user/role/room/mute/domain/message/storage/sfu/email/system/announcement/conversation/invite/smoke 等，精确清单见 `test/`）+ Go 单测；前端测试已接入 CI（见工程闭环） |
 | 前端核心 | ~90% | React 19 全量迁移完成，房间/语音/文字/邀请落地/管理页可用；搜索/回复/线程/Markdown 已实现 |
 | 前端测试 | ~55% | Vitest 覆盖 stores/socket/api/components；Playwright 视觉基线与房间语音 E2E；`test-web` / `test-packages` 已进入 CI Gate |
-| 桌面端 | ~90% | MyGo 原生宿主（托盘/自启/覆盖层/自定义标题栏/回环代理/ Supervisor 自愈）+ 自动更新（`client/desktop/updater.go`、`client/packages/desktop/src/capabilities/updater.ts`） |
+| 桌面端 | ~90% | MyGo 原生宿主（托盘/自启/覆盖层/自定义标题栏/回环代理/ Supervisor 自愈）+ 自动更新（`client/desktop/updater.go`、`packages/desktop/src/capabilities/updater.ts`） |
 | 文档 | ~85% | 架构/部署/API/SFU/桌面端齐备；模块级 AGENTS 已补齐，规格/评审档案需按代码状态标注时效性 |
 
 ---
@@ -28,7 +28,7 @@ broadcast-first + JetStream async persist 架构，双槽 Hub (text/voice)。
 
 ### bot 模块 — ⚪ 已移除
 
-`client/packages/bot/` 已从仓库移除（未实现），相关计划一并清理。
+`packages/bot/` 已从仓库移除（未实现），相关计划一并清理。
 
 ### 访客体系 — ⚪ 已下线
 
@@ -42,7 +42,7 @@ guest 全链路（service/guard/表/前端入口）已删除；增长与治理�
 
 | 方向 | 代码依据 | 状态 |
 |------|----------|------|
-| 聊天附件上传 | `client/packages/desktop` 与 `internal/storage` 已具备上传能力，`Message` DTO 无 attachment 字段 | 未实现 |
+| 聊天附件上传 | `packages/desktop` 与 `internal/storage` 已具备上传能力，`Message` DTO 无 attachment 字段 | 未实现 |
 | WS 封禁实时策略 | `internal/ws/upgrader.go` 已接 `ConnectPolicy` 与 `PolicyGuard`，与 HTTP `BanCheck` 共用 `policy.Engine` | 已实现（历史 P0 关闭） |
 | NATS 状态持久化 | `config.NATStoreDirPath()` + `bus.Init.StoreDir` + compose `gospeak-nats` 卷；JWT 密钥/黑名单跨重启保留 | 已实现 |
 | `ListParticipants` 错误语义 | `handler/signal_handler.go` 通过 `pkg.HandleError` 返回非 0 code，测试 `TestListParticipants_SFUError` 覆盖 | 已修复（历史 B05 回归） |
@@ -97,6 +97,6 @@ React 19 迁移时已全部重写，下列旧占位文件均已不存在：
 ### AGENTS.md 已同步
 
 1. ✅ 路由表、模型与事件单一事实源指针已建立（见根 `AGENTS.md` §2）
-2. ✅ `hooks/livekit/` 引用已替换为 `client/packages/sfu-client`
+2. ✅ `hooks/livekit/` 引用已替换为 `packages/sfu-client`
 3. ✅ `useSubcribeTrack.ts` / `useTitle.ts` 已随 React 迁移移除，标题逻辑迁至 `components/titleBar/`
 4. ✅ 桌面端能力边界与自定义标题栏规范已补入「Web / 桌面能力边界」小节

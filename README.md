@@ -19,8 +19,10 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 >
 > | 目录 | 内容 |
 > |---|---|
-> | `server/` | `server/`（Go 后端）· `test/`（集成测试）· `deploy/`（compose / Caddy / LiveKit）· `docs/`（设计文档） |
-> | `client/` | `web/` · `packages/*` · `plugins/*` · `desktop/`（Go + MyGo）· `mobile/`（Capacitor）· `proxyrules/` |
+> | `server/` | `server/`（Go 后端）· `test/`（集成测试）· `docs/`（设计文档） |
+> | `client/` | `web/` · `plugins/*` · `desktop/`（Go + MyGo）· `mobile/`（Capacitor）· `proxyrules/` · `scripts/` |
+> | `packages/` | `components` · `sfu-client` · `desktop` · `mobile-capabilities` · `plugin-sdk`（workspace 共享包） |
+> | `deploy/` | compose · Caddy · LiveKit · 可观测 · 部署脚本 |
 > | `docs/` | VitePress 文档站 |
 >
 > 仓库根一条命令跑通全栈：`pnpm install` → `pnpm dev`（后端 + Web）→ `pnpm build` / `pnpm test` / `pnpm typecheck`。
@@ -117,9 +119,9 @@ git clone https://github.com/GOSpeak-org/GOSpeak.git
 cd GOSpeak
 pnpm install
 
-# 后端：生成 server/deploy/.env（含随机 LiveKit 凭证），起依赖后跑服务
-cd server/deploy && ./init.sh && cd ../..
-docker compose -f server/deploy/docker-compose.yml up -d
+# 后端：生成 deploy/.env（含随机 LiveKit 凭证），起依赖后跑服务
+cd deploy && ./init.sh && cd ../..
+docker compose -f deploy/docker-compose.yml up -d
 cd server/server && go run main.go server
 ```
 
@@ -129,15 +131,15 @@ cd server/server && go run main.go server
 
 ## 部署
 
-完整说明见 [server/deploy/DEPLOY.md](./server/deploy/DEPLOY.md)。部署只需要一个域名与一个上游。
+完整说明见 [deploy/DEPLOY.md](./deploy/DEPLOY.md)。部署只需要一个域名与一个上游。
 
 ### 使用域名
 
 ```bash
-cd server/deploy
+cd deploy
 ./init.sh --domain voice.example.com
 cd ../..
-docker compose -f server/deploy/docker-compose.standard.yml up -d --build
+docker compose -f deploy/docker-compose.standard.yml up -d --build
 ```
 
 `--domain` 将 `edge` 加入 `COMPOSE_PROFILES`；只有全档位版 `docker-compose.standard.yml` 会读取该变量并启动内置 Caddy 自动申请 HTTPS 证书。浏览器打开 `https://voice.example.com`。精简版 `docker-compose.yml` 不含 Caddy，裸 `docker compose up -d` 不会启用 HTTPS。
@@ -145,15 +147,15 @@ docker compose -f server/deploy/docker-compose.standard.yml up -d --build
 ### 使用已有反向代理
 
 ```bash
-cd server/deploy
+cd deploy
 ./init.sh
 cd ../..
-docker compose -f server/deploy/docker-compose.yml up -d --build
+docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
 不传 `--domain`，用精简版即可。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。
 
-内置入口是 Caddy（`server/deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [反向代理文档](./docs/deploy/reverse-proxy.md)。
+内置入口是 Caddy（`deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [反向代理文档](./docs/deploy/reverse-proxy.md)。
 
 ### 局域网
 

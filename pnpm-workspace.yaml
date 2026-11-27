@@ -1,6 +1,6 @@
 packages:
   - "client/web"
-  - "client/packages/*"
+  - "packages/*"
   - "client/plugins/*"
   - "client/desktop"
   - "client/mobile"

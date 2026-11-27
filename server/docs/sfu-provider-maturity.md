@@ -1,6 +1,6 @@
 ## LiveKit Provider 实现完整度
 
-**评估时间**: 2026-11-24（对照当前 `server/internal/sfu/` 与 `client/packages/sfu-client/` 源码核实）
+**评估时间**: 2026-11-24（对照当前 `server/internal/sfu/` 与 `packages/sfu-client/` 源码核实）
 **接口**: `sfu.Provider`（`server/internal/sfu/provider.go`）
 
 > 图例：✅ 完整 / ⚠️ 降级 / ❌ 返回 `ErrSFUNotSupported` 或静默空操作
@@ -41,7 +41,7 @@
 |----------|------|----------|
 | LiveKit | `internal/sfu/providers/livekit/` | 全部 ✅；`MuteParticipant` 支持按 trackSid 精确静音或按 identity 批量静音；`ProviderName()` = `livekit` |
 
-### 4. 前端 SFU 客户端（`client/packages/sfu-client`）
+### 4. 前端 SFU 客户端（`packages/sfu-client`）
 
 LiveKit 客户端已完整实现，无已知标记。通过 `livekit-client.ts` 接入，按房间/参与者订阅媒体与事件。
 包内保留 `speaking-meter` / `speaking-detector` / `speaking-meter-worklet`（本地麦克风 AudioWorklet 事件检测），但当前生产链路未调用：LiveKit 使用 SFU 原生 `onActiveSpeakers`。该底座可作为未来"本地发言检测"选项，但不是当前高亮来源。

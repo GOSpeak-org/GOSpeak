@@ -73,5 +73,5 @@ artifacts/
 server/test/.runtime/
 
 # 部署运行时密钥
-server/deploy/.env
-server/deploy/env/*.local.env
+deploy/.env
+deploy/env/*.local.env

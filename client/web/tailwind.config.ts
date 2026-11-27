@@ -6,7 +6,7 @@ module.exports = {
   // 变体类（如 data-[orientation=vertical]:flex-col）永远不生成，表现为样式莫名失效。
   content: [
     "./src/**/*.{html,tsx}",
-    "../packages/components/src/**/*.{ts,tsx}",
+    "../../packages/components/src/**/*.{ts,tsx}",
   ],
   plugins: [],
 }
