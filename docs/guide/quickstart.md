@@ -17,8 +17,8 @@
 ## 第一步：获取代码并安装依赖
 
 ```bash
-git clone https://github.com/GOSpeak-org/GOSpeak-Server.git
-cd GOSpeak-Server
+git clone https://github.com/GOSpeak-org/GOSpeak.git
+cd GOSpeak
 pnpm install
 ```
 

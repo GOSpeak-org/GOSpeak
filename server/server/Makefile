@@ -18,19 +18,25 @@
 #   make freebsd            # freebsd/amd64 + arm64
 #   make windows-arm64      # windows/arm64 (Snapdragon X)
 
-VERSION   ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
-BUILDDIR  ?= build
-LDFLAGS   := -ldflags="-s -w -X main.version=$(VERSION)"
-
+# monorepo 布局（在仓库根执行 make -C server/server …）：
+#   前端      client/web
+#   共享包    client/packages（workspace 名 @gospeak/*）
+#   部署      deploy/（含 Dockerfile，构建上下文＝仓库根）
 REPO_ROOT := $(abspath $(CURDIR)/../..)
-WEB_DIR   := $(REPO_ROOT)/app/web
+WEB_DIR   := $(REPO_ROOT)/client/web
 WEB_DIST  := $(WEB_DIR)/dist
 EMBED_DIR := internal/webui/dist
+
+# 版本：优先取服务端 tag，其次 server/VERSION，最后 dev
+VERSION   ?= $(shell v=$$(git describe --tags --match 'gospeak-server-v*' --abbrev=0 2>/dev/null); if [ -n "$$v" ]; then printf '%s' "$$v" | sed 's/^gospeak-server-v//'; elif [ -f $(REPO_ROOT)/server/VERSION ]; then tr -d '[:space:]' < $(REPO_ROOT)/server/VERSION; else printf dev; fi)
+COMMIT    ?= $(shell git rev-parse --short HEAD 2>/dev/null || printf unknown)
+BUILDDIR  ?= build
+LDFLAGS   := -ldflags="-s -w -X GOSpeak/internal/buildinfo.Version=$(VERSION) -X GOSpeak/internal/buildinfo.Commit=$(COMMIT)"
 
 # ── 同步前端到 go:embed 目录 ──────────────────────────────────
 define sync_web
 	@if [ ! -f "$(WEB_DIST)/index.html" ]; then \
-		echo "ERROR: $(WEB_DIST)/index.html missing; run 'make web' first"; \
+		echo "ERROR: $(WEB_DIST)/index.html missing; run 'make web' first (前端在 client/web)"; \
 		exit 1; \
 	fi
 	@rm -rf "$(EMBED_DIR)"
@@ -54,7 +60,7 @@ clean:
 	mkdir -p $(EMBED_DIR)
 	printf '%s\n' \
 		'This file keeps go:embed valid when frontend assets are not synced yet.' \
-		'Release/Docker builds replace this directory with app/web/dist contents.' \
+		'Release/Docker builds replace this directory with client/web/dist contents.' \
 		> $(EMBED_DIR)/EMBED_PLACEHOLDER
 
 $(BUILDDIR):
@@ -62,9 +68,9 @@ $(BUILDDIR):
 
 # ── 前端 ──────────────────────────────────────────────────────
 web:
-	@echo ">> Building web frontend …"
+	@echo ">> Building web frontend (client/web) …"
 	cd $(REPO_ROOT) && pnpm install --frozen-lockfile
-	cd $(REPO_ROOT) && pnpm --filter @gospeak/web build
+	cd $(REPO_ROOT) && GOSPEAK_TARGET=web pnpm --filter @gospeak/web build
 	$(call sync_web)
 	@echo "✓  $(WEB_DIST) → $(EMBED_DIR)"
 

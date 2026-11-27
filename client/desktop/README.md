@@ -89,7 +89,7 @@ pnpm --filter @gospeak/desktop-app build
 
 mygo 的原始文件名由 `mygo.config.ts` 的 `version` 与 mygo 内部规则决定，不受本项目控制。
 release.yml 在发布前会统一重命名为 `gospeak-desktop-v<ver>-<os>-<arch>.<ext>`
-（命名规则单一来源：`scripts/release-naming.mjs`），保证 tag、产物、校验和三者前缀一致。
+（命名规则单一来源：`scripts/release/release-naming.mjs`），保证 tag、产物、校验和三者前缀一致。
 
 产物落在 `dist/` 下（已被 gitignore）。只想出一个平台：
 

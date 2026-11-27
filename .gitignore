@@ -8,6 +8,9 @@ node_modules
 .vscode
 *.log
 
+# CI 发布工作区（release.yml 的 stage 目录）
+release-assets/
+
 # 工具缓存 / agent 产物
 .pnpm-store/
 .superpowers/

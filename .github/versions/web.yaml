@@ -1,12 +1,28 @@
-# GOSpeak Web（web/）发布版本 —— 显式声明，是 Web Release 的单一事实来源。
+# GOSpeak Web（client/web）发布版本 —— 显式声明，是 Web Release 的单一事实来源。
 #
 # 发版流程：修改本文件的 version 并合入 release 后，version-bump.yml 打上
 # `gospeak-web-v<version>` tag；release.yml 的 web job 构建 dist 并上传到该 tag 的 Release。
 #
-# 命名规范（scripts/release-naming.mjs）：
+# 命名规范（scripts/release/release-naming.mjs）：
 #   tag        gospeak-web-v<version>
 #   产物       gospeak-web-<version>-dist.tar.gz
-version: "1.4.0-rc.1"
+#
+# 同步约束（scripts/release/check-version.mjs 会校验）：
+#   client/web/package.json 的 version 必须与本文件一致。
+version: "1.4.1"
 
+# 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 notes: |
-  GOSpeak Web 1.4.0-rc.1 —— 客户端拆分后的首个 Web Release。
+  GOSpeak Web 1.4.1 —— monorepo 合并后本仓的首个 Web 版本。
+
+  内容与旧仓 GOSpeak-Client 的同名版本一致：本次顺延只换仓库与发版链路，
+  前端代码没有功能变化。
+
+  ## 功能
+  - 屏幕共享按需订阅：仅在点击成员卡片后订阅远端音视频，切换客户端时中断过期订阅
+  - 静音与成员管理流程迁移到 user_uuid 跨层标识
+  - 成员操作菜单图标尺寸遵循设计 token
+
+  ## 修复
+  - 共享包引用改走 workspace 名（@gospeak/*）与 client/ 相对路径，修正迁移后的构建路径
+  - 协议生成与前端同步解耦：产物固定生成到 client/web/src/protocol/generated

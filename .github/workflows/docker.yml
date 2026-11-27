@@ -1,0 +1,167 @@
+# GOSpeak Server Docker 镜像 —— 源码内构建。
+#
+# 上下文＝仓库根，Dockerfile＝deploy/Dockerfile：镜像构建阶段自己构建前端并嵌进
+# 服务端二进制（go:embed），不再从 web Release 下载 dist.tar.gz，因此也没有
+# CLIENT_WEB_URL / CLIENT_WEB_SHA256 两个 build-arg。
+#
+# 触发：
+#   push.tags gospeak-server-v*  → 人工 push tag 时直接发版
+#   workflow_call(release_tag)   → version-bump 打 tag 后显式调用（GITHUB_TOKEN 推的
+#                                  tag 不会派生 push workflow，必须显式调）
+#   workflow_dispatch            → release_tag 留空 = 只构建验证、不推送
+name: Docker
+
+on:
+  push:
+    tags: ["gospeak-server-v*"]
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "gospeak-server-v* tag，由 version-bump 在打 tag 后传入"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "发布模式：填 gospeak-server-v* tag；留空 = 仅构建验证（不推送）"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ inputs.release_tag || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build image (no push)
+    # 只有「手动 dispatch 且不填 tag」走验证路径；tag push 与 workflow_call 走 publish。
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag == ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check declared versions
+        run: |
+          set -euo pipefail
+          node scripts/release/check-version.mjs . "" server
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image without pushing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: false
+          tags: gospeak:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  publish:
+    name: Publish image
+    # reusable workflow 里 github.event_name / github.ref 属于调用方上下文，所以两条
+    # 判据都要留：tag push（自身事件）与 inputs.release_tag（version-bump 显式调用）。
+    if: >-
+      (github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/gospeak-server-v'))
+      || startsWith(inputs.release_tag, 'gospeak-server-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Resolve release tag
+        id: ref
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_RELEASE_TAG:-}" ]; then
+            tag="$INPUT_RELEASE_TAG"
+          else
+            tag="$GITHUB_REF_NAME"
+          fi
+          if [ -z "$tag" ]; then
+            echo "::error::could not resolve a release tag"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "::notice::image release tag $tag"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.ref.outputs.tag }}
+
+      - name: Resolve commit and version
+        id: meta
+        env:
+          TAG: ${{ steps.ref.outputs.tag }}
+        run: |
+          set -euo pipefail
+          parsed="$(node scripts/release/release-naming.mjs parse "$TAG")"
+          echo "version=${parsed##* }" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Check release versions
+        env:
+          TAG: ${{ steps.ref.outputs.tag }}
+        run: |
+          set -euo pipefail
+          node scripts/release/check-version.mjs . "$TAG" server
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: image
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/gospeak-org/gospeak-server
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.meta.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.meta.outputs.version }}
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.image.outputs.tags }}
+          labels: ${{ steps.image.outputs.labels }}
+          cache-from: type=gha
+          # 不在发布链导出 GHA 缓存：mode=max 要把双平台全部中间层传回 GitHub，
+          # 而发布构建的 ldflags 含 VERSION/COMMIT，每次都会变、命中不了。
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            COMMIT=${{ steps.meta.outputs.commit }}
+
+      - name: Job summary
+        env:
+          TAG: ${{ steps.ref.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Docker image"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| tag | $TAG |"
+            echo "| version | $VERSION |"
+            echo "| image | ghcr.io/gospeak-org/gospeak-server |"
+          } >> "$GITHUB_STEP_SUMMARY"

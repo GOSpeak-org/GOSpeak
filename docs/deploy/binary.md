@@ -23,7 +23,7 @@ GOSpeak 支持编译为单文件二进制部署形态：前端资源已内嵌其
 仓库的 `deploy/install-binary.sh` 会自动识别当前平台的系统与架构，从 GitHub Releases 拉取最新版本的 GOSpeak 与 LiveKit，校验 SHA256 后落地为可直接运行的服务：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash
 ```
 
 默认安装到 `/opt/gospeak`，包含：
@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/
 先看要装什么，不下载：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash -s -- --dry-run
 ```
 
 常用参数：
@@ -64,7 +64,7 @@ curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/
 
 ## 下载
 
-从 [Releases](https://github.com/GOSpeak-org/GOSpeak-Server/releases) 页面下载 `gospeak-server-v` 开头的版本：对应二进制位于各 release 页面底部的 **Assets** 列表中，文件名形如 `gospeak-server-v<版本>-<系统>-<架构>`：
+从本仓 [Releases](https://github.com/GOSpeak-org/GOSpeak/releases) 页面下载 `gospeak-server-v` 开头的版本：对应二进制位于各 release 页面底部的 **Assets** 列表中，文件名形如 `gospeak-server-v<版本>-<系统>-<架构>`：
 
 | 文件 | 平台 |
 |------|------|
@@ -171,10 +171,10 @@ STATIC_DIR=/var/www/gospeak ./gospeak-server-v<VERSION>-linux-amd64 server -e pr
 
 ## 自行编译
 
-以下命令在 GOSpeak-Server 仓库根目录执行（Go 模块位于 `server/`）：
+以下命令在本仓根目录执行（Go 模块位于 `server/server/`）：
 
 ```bash
-cd server
+cd server/server
 
 # 先构建前端（会同步到 internal/webui/dist）
 make web
@@ -191,7 +191,7 @@ make windows
 make all
 ```
 
-编译产物位于 `server/build/`。
+编译产物位于 `server/server/build/`。
 
 ## 常见问题
 

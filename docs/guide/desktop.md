@@ -14,7 +14,7 @@
 
 ## 下载安装
 
-打开 [Releases](https://github.com/GOSpeak-org/GOSpeak-Client/releases) 页面，找到 `gospeak-desktop-v<版本>`
+打开本仓 [Releases](https://github.com/GOSpeak-org/GOSpeak/releases) 页面，筛出 `gospeak-desktop-v<版本>`
 条目（一组件一 Release，桌面端安装包独立于服务端），正文顶部即下载表格，按平台点对应按钮：
 
 | 平台 | 文件 | 安装方式 |
@@ -133,11 +133,11 @@ https://voice.example.com
 
 桌面宿主与后端均要求 Go 1.27.4+（MyGo 0.8.3 要求），二者版本要求一致。
 
-以下命令在 GOSpeak-Client 仓库根目录执行（`web/` 与 `desktop/` 为同级目录）：
+以下命令在本仓根目录执行（前端在 `client/web`，宿主在 `client/desktop`）：
 
 ```bash
 pnpm install
-cd desktop && go mod download && cd ..
+cd client/desktop && go mod download && cd ../..
 
 # 开发模式：先启动前端，再启动宿主
 pnpm --filter @gospeak/web dev              # 前端在 localhost:3000
@@ -145,16 +145,16 @@ pnpm --filter @gospeak/desktop-app dev      # 宿主指向上述地址
 
 # 打包
 GOSPEAK_TARGET=desktop pnpm --filter @gospeak/web build
-rm -rf desktop/webui/dist && mkdir -p desktop/webui/dist
-cp -R web/dist/. desktop/webui/dist/
+rm -rf client/desktop/webui/dist && mkdir -p client/desktop/webui/dist
+cp -R client/web/dist/. client/desktop/webui/dist/
 pnpm --filter @gospeak/desktop-app build
 ```
 
-打包时 `cp` 命令不可省略——前端产物需拷入 `desktop/webui/dist/`，由 Go 的 `go:embed` 打进二进制。
+打包时 `cp` 命令不可省略——前端产物需拷入 `client/desktop/webui/dist/`，由 Go 的 `go:embed` 打进二进制。
 
 ### 新增原生能力
 
-1. 在 GOSpeak-Client 的 [`desktop/`](https://github.com/GOSpeak-org/GOSpeak-Client/tree/release/desktop) 中找到对应的 `*.go`，为已绑定的结构体添加方法（第一个参数为 `context.Context`，通过 `mygo.CallerWindow(ctx)` 获取调用窗口）
+1. 在本仓的 [`client/desktop/`](https://github.com/GOSpeak-org/GOSpeak/tree/release/client/desktop) 中找到对应的 `*.go`，为已绑定的结构体添加方法（第一个参数为 `context.Context`，通过 `mygo.CallerWindow(ctx)` 获取调用窗口）
 2. 在 `packages/desktop/src/capabilities/` 添加封装：一个接口、一个原生实现、一个浏览器兜底
 3. 运行 `node scripts/check-desktop-commands.mjs` 校验命令名
 

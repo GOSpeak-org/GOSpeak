@@ -1,0 +1,114 @@
+# GOSpeak Security —— 依赖与漏洞检查。
+#
+# 三个 job 都是「报告模式」（continue-on-error）：上游每周都会披露新 advisory，
+# 硬阻断会让历史 PR 与定时任务一起变红、且失败原因与本次改动无关。结果写进
+# Job Summary 存档，解禁时去掉 continue-on-error 即可。
+name: Security
+
+on:
+  pull_request:
+    branches: [release, dev]
+    paths:
+      - "**/package.json"
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - server/server/go.mod
+      - server/server/go.sum
+      - ".github/workflows/**"
+  push:
+    branches: [release, dev]
+    paths:
+      - "**/package.json"
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - server/server/go.mod
+      - server/server/go.sum
+      - ".github/workflows/**"
+  schedule:
+    - cron: "30 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    # 仓库未启用 Dependency graph 时该 action 必然报 "not supported"，与代码无关
+    # 却让每个依赖 PR 变红。用 API 探测后再决定是否运行。
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check dependency graph availability
+        id: graph
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$REPO/dependency-graph/sbom" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Dependency graph disabled, skipping dependency review"
+          fi
+
+      - uses: actions/dependency-review-action@v5
+        if: steps.graph.outputs.enabled == 'true'
+        with:
+          fail-on-severity: moderate
+
+  pnpm-audit:
+    name: pnpm Audit (prod, critical)
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Audit production dependencies
+        env:
+          npm_config_registry: https://registry.npmjs.org
+        run: |
+          set -euo pipefail
+          set +e
+          pnpm audit --prod --audit-level=critical 2>&1 | tee "$RUNNER_TEMP/audit-report.txt"
+          status="${PIPESTATUS[0]}"
+          set -e
+          {
+            echo "## pnpm audit (prod, critical)"
+            echo ""
+            echo "~~~"
+            cat "$RUNNER_TEMP/audit-report.txt"
+            echo "~~~"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+  go-vulncheck:
+    name: Go Vulnerability Check (Baseline)
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/server/go.mod
+          cache-dependency-path: server/server/go.sum
+
+      - name: Run govulncheck
+        working-directory: server/server
+        env:
+          # 固定版本：@latest 会让门禁结果随上游发版无声变化，无法复现历史结论；
+          # 旧版（<= v1.3.0）依赖的 x/tools 不兼容 Go 1.27 的 go/types，会 panic。
+          GOVULNCHECK_VERSION: v1.10.0
+        run: |
+          set -euo pipefail
+          go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...

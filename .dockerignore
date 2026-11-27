@@ -1,0 +1,45 @@
+# 构建上下文＝仓库根（docker build -f deploy/Dockerfile .）
+# 只保留构建真正需要的东西：pnpm 清单、client/web 源码、共享包源码、server/server 源码。
+.git
+.github
+.idea
+.vscode
+.DS_Store
+*.log
+
+# 依赖与缓存
+**/node_modules
+**/.turbo
+**/.pnpm-store
+**/dist
+**/dist-desktop
+**/dist-mobile
+**/tsconfig.tsbuildinfo
+**/routeTree.gen.ts
+docs/.vitepress/cache
+docs/.vitepress/dist
+
+# 文档站：只留 package.json（workspace 成员清单）
+docs/**
+!docs/package.json
+
+# 部署编排：只留 Dockerfile 自身
+deploy/**
+!deploy/Dockerfile
+
+# 桌面端 / 移动端：只留 package.json（镜像不分发它们，只参与 workspace 解析）
+client/desktop/**
+!client/desktop/package.json
+client/mobile/**
+!client/mobile/package.json
+
+# 服务端测试与设计档案：只留 test 的 package.json
+server/docs/**
+server/test/**
+!server/test/package.json
+
+# 杂项
+scripts/**
+.local
+.worktrees
+**/agent_test_logs

@@ -40,7 +40,7 @@ Node.js 运行时由独立的 runtime 插件提供，采用**零自动下载**�
 - 管理员在「管理 → 插件 → 运行时版本 → Node.js」填写版本号（如 `v20.19.0`），可选填写镜像地址，点「安装版本」完成下载与校验；在已安装列表中点「切换」选择当前使用版本。切换后相关插件会重启。
 - **Python 仅预留入口**，页面显示但提示暂未开放。
 
-Docker 部署时，插件根目录由 `gospeak-plugins` 卷持久化到 `/app/plugins`，镜像已预置 PATH，不需要也不应该配置插件相关环境变量。详见部署文档的插件节（部署细节以 GOSpeak-Server 仓库的 [`deploy/DEPLOY.md`](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/deploy/DEPLOY.md) 为准）。
+Docker 部署时，插件根目录由 `gospeak-plugins` 卷持久化到 `/app/plugins`，镜像已预置 PATH，不需要也不应该配置插件相关环境变量。详见部署文档的插件节（部署细节以本仓 [`deploy/DEPLOY.md`](https://github.com/GOSpeak-org/GOSpeak/blob/release/deploy/DEPLOY.md) 为准）。
 
 ## 插件页面挂载
 

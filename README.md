@@ -96,12 +96,12 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 一条命令装好应用与 LiveKit（自动识别平台、取最新发行包、校验 SHA256）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash
 ```
 
-默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/deploy/binary.md)。
+默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](./docs/deploy/binary.md)。
 
-也可以手动从 [Releases](https://github.com/GOSpeak-org/GOSpeak-Server/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
+也可以手动从本仓服务端 Release（`gospeak-server-v*`）下载对应平台的 `gospeak-server-v<版本>-<os>-<arch>` 文件，前端已内嵌，无需其他依赖。
 
 ```bash
 chmod +x gospeak-server-v<VERSION>-linux-amd64
@@ -128,6 +128,23 @@ cd server/server && go run main.go server
 `./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。全档位版 `docker-compose.standard.yml` 把 7880 绑定到宿主机回环地址供本地直连调试；精简版 `docker-compose.yml` 则是 `7880:7880` 对公网发布，生产勿用。
 
 前端就在同一个仓里：仓库根 `pnpm dev` 同时起前后端，或 `pnpm --filter @gospeak/web dev` 只起 Web；文档站是 `pnpm --filter @gospeak/docs dev`。
+
+## 版本与发行
+
+四端各自独立发版：各有自己的版本真源、tag 与 GitHub Release，互不跟随。版本号只认 `.github/versions/<component>.yaml`，其余副本（`server/VERSION`、各端 `package.json`、`mygo.config.ts`、Android / iOS 原生工程）由 `scripts/release/check-version.mjs` 校验一致性。
+
+| 端 | 版本真源 | Release tag | 主要产物 |
+|---|---|---|---|
+| 服务端 | `.github/versions/server.yaml` | `gospeak-server-v<版本>` | `gospeak-server-v<版本>-<os>-<arch>` 二进制 + `SHA256SUMS-*.txt` |
+| Web | `.github/versions/web.yaml` | `gospeak-web-v<版本>` | `gospeak-web-v<版本>-dist.tar.gz` |
+| 桌面端 | `.github/versions/desktop.yaml` | `gospeak-desktop-v<版本>` | dmg / deb / tar.gz / exe 安装包 |
+| 移动端 | `.github/versions/mobile.yaml` | `gospeak-mobile-v<版本>` | Android APK |
+
+发版流程：改对应 yaml 的 `version` 与 `notes` → 合入 `release` 分支 → 根 `.github/workflows/` 的发版编排自动打 tag、构建并上传到该端 Release，同时把该端更新日志写进对应的 `CHANGELOG.md`（服务端 `server/CHANGELOG.md`，客户端 `client/{web,desktop,mobile}/CHANGELOG.md`）。
+
+除四端 Release 外，每个发版日主仓还会生成一个按日期命名的**聚合 Release**：tag 形如 `GOSpeak-YYMMDD`（例：`GOSpeak-261128`），正文汇总当次四端各自的产物直链与更新摘要，一次拿齐整套版本。
+
+本仓首次全仓发版：服务端 `1.3.1`，Web / 桌面端 / 移动端 `1.4.1`；更早的 1.x 历史版本入口见各端 `CHANGELOG.md`。
 
 ## 部署
 

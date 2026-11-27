@@ -1,5 +1,7 @@
 # Changelog / 更新日志
 
+> 本仓自 1.3.1 起在此累积；1.x 历史版本见旧仓 https://github.com/GOSpeak-org/GOSpeak-Server/releases
+
 > 本文件为历史发布记录（最新条目 v0.4.0，2026-09-04），当前版本见 `VERSION`。条目中涉及 guest / cluster / 多 SFU（SRS / Agora / mediasoup / Cloudflare）/ Redis / SolidJS 的能力均已从当前代码移除，现状请以 `AGENTS.md` §1.1 与 `git log` / GitHub Releases 为准。
 
 ## [0.4.0](https://github.com/NoelOrin/GOSpeak/compare/v0.3.1...0.4.0) (2026-09-04)

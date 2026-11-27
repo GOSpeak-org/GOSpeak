@@ -7,7 +7,7 @@
 > `COMPOSE_PROFILES` 只对 `docker-compose.standard.yml` 生效；精简版不读它。  
 > 两版共用 `deploy/docker-compose.base.yml`（`gospeak` + `livekit` 的公共定义，靠 Compose `include` 引入），差异只写在各自入口文件里。面板部署（Dokploy / 宝塔等只能贴单文件）先 `cd deploy && docker compose -f docker-compose.standard.yml config > /tmp/gospeak.yml`，把展开后的整份内容贴进面板。  
 > 配置文件：`deploy/.env`（唯一配置文件，compose 插值与应用环境变量共用）  
-> 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/gospeak-org/gospeak-server:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/gospeak-org/gospeak-server:1`，要固定版本用 `ghcr.io/gospeak-org/gospeak-server:1.1.0` 这类精确标签。compose 默认 `pull_policy: always`（每次 `up -d` 都会拉取最新镜像，避免停留在旧版本；如需关闭在 `.env` 设 `GOSPEAK_PULL_POLICY=missing`）。要自建时用仓库根 `Dockerfile`（Go API + 前端 SPA），构建命令见 `docker-compose.yml` 内注释
+> 镜像：默认拉取 GHCR 发布镜像 `ghcr.io/gospeak-org/gospeak-server:latest`（免构建，可用 `GOSPEAK_IMAGE` 换版本）。**`latest` 跟随最近一次发布，包括 `-rc` 预发布**；想留在稳定版用版本线 `ghcr.io/gospeak-org/gospeak-server:1`，要固定版本用 `ghcr.io/gospeak-org/gospeak-server:1.1.0` 这类精确标签。compose 默认 `pull_policy: always`（每次 `up -d` 都会拉取最新镜像，避免停留在旧版本；如需关闭在 `.env` 设 `GOSPEAK_PULL_POLICY=missing`）。要自建时用 `deploy/Dockerfile`（构建上下文＝仓库根，镜像内从源码构建并内嵌前端），构建命令：`docker build -f deploy/Dockerfile -t gospeak:local .`
 
 核心结论先放在前面：
 
@@ -95,7 +95,7 @@ docker compose -f deploy/docker-compose.yml logs -f gospeak
 目标机器没有 Docker 时，用 `deploy/install-binary.sh` 一条命令装好应用与 LiveKit：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash
 ```
 
 脚本自动识别系统与架构，从 Releases 取当前平台**最新**的 GOSpeak 与 LiveKit 发行包，校验 SHA256 后安装到 `/opt/gospeak`，并生成：
@@ -452,7 +452,7 @@ COMPOSE_PROFILES=app,livekit,edge,observability
 GOSpeak 支持以子进程运行的能力插件（市场/GitHub/本地文件安装），通过本地 TCP 回环 gRPC 与宿主通信。涉及部署的三件事：
 
 1. **持久化卷**：两个 compose 文件都为应用容器挂载 `gospeak-plugins:/app/plugins`。插件代码、运行时版本与插件数据都在这个卷里；备份时一并备份该卷，不要删除。单二进制部署时需保证运行用户对“根卷”（默认 `/app/plugins`）有读写权限。
-2. **镜像 PATH**：仓库根 `Dockerfile` 已预置 `ENV PATH=/app/plugins/runtime/bin:$PATH`，使 runtime 安装的 Node 版本软链全局可用。**不要**自行从镜像里删除 Node 的 PATH 配置，也不要把 Node 钉死进镜像——版本由管理员在管理页面选择。
+2. **镜像 PATH**：`deploy/Dockerfile` 已预置 `ENV PATH=/app/plugins/runtime/bin:$PATH`，使 runtime 安装的 Node 版本软链全局可用。**不要**自行从镜像里删除 Node 的 PATH 配置，也不要把 Node 钉死进镜像——版本由管理员在管理页面选择。
 3. **运行时探测与人工选版**：服务启动时先检查插件根的 Node.js（管理员在页面选装），不存在则复用系统 PATH 中的 Node.js；两者都没有时服务仍正常启动，插件被跳过并告警，不会 panic。runtime **不自动下载**任何版本；需要固定版本时，管理员登录后进入「管理 → 插件 → 运行时版本」选择版本（可指定镜像地址）完成下载与切换。Python 仅预留入口，暂未开放。
 
 > **安全警告 — 拉取即信任**：插件从插件市场、GitHub 仓库或本地文件拉取安装后即被完全信任，**没有审核、签名校验、沙箱或运行期权限边界**，插件直接拥有宿主能力。请只安装你信任的来源；插件代码等同于在你服务器上以应用权限运行的代码。

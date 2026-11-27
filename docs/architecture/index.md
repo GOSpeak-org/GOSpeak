@@ -58,7 +58,7 @@
 ## 目录结构
 
 ```
-server/                      Go 后端（Server 仓）
+server/                      Go 后端（Go 模块在 server/server）
 └── server/
     ├── main.go              入口（cobra）
     ├── gin.go               依赖注入，组装所有层
@@ -76,7 +76,7 @@ server/                      Go 后端（Server 仓）
         ├── authstate/       令牌黑名单、密钥轮换
         └── pkg/             错误、响应、JWT、OAuth
 
-client/                      客户端（Client 仓）
+client/                      客户端（web / desktop / mobile / 共享包）
 ├── web/                     React 19 前端
 │   └── src/
 │       ├── pages/           文件路由，自动生成 routeTree
@@ -96,7 +96,7 @@ client/                      客户端（Client 仓）
 ├── plugins/                 内置示例插件
 └── proxyrules/              代理规则（与服务端副本同步）
 
-docs/                        文档站（Docs 仓）
+docs/                        文档站
 ```
 
 ## 语音抽象层
@@ -121,7 +121,7 @@ type Provider interface {
     StreamInfo(room, identity string) (stream, token string, err error)
     ClientInfo() map[string]interface{}
 }
-// 精确签名以 GOSpeak-Server 的 server/internal/sfu/provider.go 为准
+// 精确签名以本仓 server/server/internal/sfu/provider.go 为准
 ```
 
 当前仅有 LiveKit 一个实现。接口的意义在于：业务层不依赖具体的底层实现，将来接入其他服务时无需修改业务代码。

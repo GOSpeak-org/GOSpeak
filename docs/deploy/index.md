@@ -32,8 +32,8 @@
 ### 第一步：获取代码
 
 ```bash
-git clone https://github.com/GOSpeak-org/GOSpeak-Server.git
-cd GOSpeak-Server/deploy
+git clone https://github.com/GOSpeak-org/GOSpeak.git
+cd GOSpeak/deploy
 ```
 
 ### 第二步：生成配置
@@ -230,7 +230,7 @@ docker compose -f docker-compose.standard.yml start gospeak
 ## 升级
 
 ```bash
-cd GOSpeak-Server
+cd GOSpeak
 git pull
 cd deploy
 docker compose -f docker-compose.standard.yml up -d --build
@@ -243,7 +243,7 @@ docker compose -f docker-compose.standard.yml up -d --build
 **一键安装（推荐）**：自动识别平台，从 Releases 取最新的 GOSpeak 与 LiveKit，校验 SHA256 后装到 `/opt/gospeak`，并生成 `.env` 与 systemd 服务。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash
 ```
 
 重复执行即升级，已存在的 `.env` 不会被覆盖。

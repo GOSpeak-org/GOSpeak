@@ -2,12 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 
-const REPO = 'GOSpeak-org/GOSpeak-Client'
+const REPO = 'GOSpeak-org/GOSpeak'
 const RELEASES_URL = `https://github.com/${REPO}/releases`
 const DESKTOP_RELEASES_URL = `${RELEASES_URL}?q=gospeak-desktop-v`
-// 一组件一 Release 后 /releases/latest 指向 server Release，里面没有桌面安装包。
-// 改为拉列表再按 gospeak-desktop-v* 前缀筛选。
-const RELEASES_API = `https://api.github.com/repos/${REPO}/releases?per_page=30`
+// 本仓一组件一 Release，另有按日期的聚合 Release，/releases/latest 可能指向任意一端，
+// 里面不一定有桌面安装包。改为拉列表再按 gospeak-desktop-v* 前缀筛选。
+// per_page=100：四端发版 + 聚合页会让 release 列表增长很快，取满一页避免漏掉最新桌面版。
+const RELEASES_API = `https://api.github.com/repos/${REPO}/releases?per_page=100`
 
 interface AssetEntry {
   url: string

@@ -137,7 +137,7 @@ Docker 部署需要使用 `docker compose -f docker-compose.standard.yml up -d`�
 
 ### 能否修改界面文字？
 
-前端代码位于 GOSpeak-Client 仓库的 [`web/`](https://github.com/GOSpeak-org/GOSpeak-Client/tree/release/web)，修改后重新构建。系统未内置多语言切换。
+前端代码位于本仓的 [`client/web/`](https://github.com/GOSpeak-org/GOSpeak/tree/release/client/web)，修改后重新构建。系统未内置多语言切换。
 
 ## 账号相关
 

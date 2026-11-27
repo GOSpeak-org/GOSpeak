@@ -1,7 +1,9 @@
 import { defineConfig } from 'vitepress'
 
 const isProd = process.env.NODE_ENV === 'production'
-const base = isProd ? '/GOSpeak-Docs/' : '/'
+// monorepo 主仓的 GitHub Pages 子路径是 /GOSpeak/（原独立文档仓已合并进本仓）；
+// 本地 dev 仍用根路径。
+const base = isProd ? '/GOSpeak/' : '/'
 
 export default defineConfig({
   title: 'GOSpeak',

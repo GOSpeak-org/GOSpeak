@@ -1,0 +1,226 @@
+# GOSpeak Version Bump —— 唯一的版本对账与发布编排入口。
+#
+# 版本号在 .github/versions/{server,web,desktop,mobile}.yaml 中各自显式声明。
+# 四端互相独立：改哪个 yaml 就只发哪一端，其余组件 tag 已存在则自动跳过。
+# 每次 push 到 release 都会触发本 workflow，逐个组件判断：
+#
+#   gospeak-<component>-v<version> 已存在
+#     → 版本号没变 → 不创建 tag，本组件跳过；
+#   tag 不存在（新版本号 / 版本回退到未发布过的值）
+#     → 打 annotated tag，四个组件的新 tag 一次性 push；
+#     → 用 workflow_call 显式调用 release.yml（server 另加 docker.yml）。
+#
+# 为什么要显式调用：GitHub 会抑制由 GITHUB_TOKEN 推送所派生的 workflow（防递归）。
+# 只推 tag 的话，release.yml / docker.yml 的 on.push.tags 根本不会触发，发布得靠
+# 人工 dispatch 补跑。workflow_call 是 job 级调用，不受该限制，也不需要额外 PAT。
+#
+# tag 名字一律由 scripts/release/release-naming.mjs 派生，本文件不手拼字符串。
+# workflow_dispatch 用于手动对账：只补缺失的 tag，不覆盖/移动已存在的 tag。
+#
+# 聚合页不需要在这里单独编排：每个 release.yml 调用都在自己的依赖链末尾跑
+# aggregate，并由 aggregate-release 并发组串行化、幂等重建。
+
+name: Version Bump
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bump-tags:
+    name: Reconcile declared versions with tags
+    runs-on: ubuntu-latest
+    outputs:
+      server_tag: ${{ steps.gate.outputs.server_tag }}
+      web_tag: ${{ steps.gate.outputs.web_tag }}
+      desktop_tag: ${{ steps.gate.outputs.desktop_tag }}
+      mobile_tag: ${{ steps.gate.outputs.mobile_tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        # git tag -a 创建 annotated tag，必须有 committer 身份；runner 默认没有配置，
+        # 缺失时会以 "empty ident name" 直接失败。
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Read declared versions
+        id: versions
+        run: |
+          set -euo pipefail
+          read_version() {
+            node -e '
+              const { readFileSync } = require("node:fs");
+              const src = readFileSync(process.argv[1], "utf8");
+              const m = src.match(/^version:[ \t]*["'"'"']?([^\s#"'"'"']+)["'"'"']?[ \t]*(?:#.*)?$/m);
+              if (!m) { console.error("missing version in " + process.argv[1]); process.exit(1); }
+              console.log(m[1]);
+            ' "$1"
+          }
+          for component in server web desktop mobile; do
+            version="$(read_version ".github/versions/${component}.yaml")"
+            echo "${component}_version=${version}" >> "$GITHUB_OUTPUT"
+            echo "::notice::declared ${component} version ${version}"
+          done
+
+      - name: Detect published tags and plan
+        id: gate
+        env:
+          SERVER_VERSION: ${{ steps.versions.outputs.server_version }}
+          WEB_VERSION: ${{ steps.versions.outputs.web_version }}
+          DESKTOP_VERSION: ${{ steps.versions.outputs.desktop_version }}
+          MOBILE_VERSION: ${{ steps.versions.outputs.mobile_version }}
+        run: |
+          set -euo pipefail
+          # 一次性探测远端全部 tag，避免逐个 ls-remote。
+          git ls-remote --tags origin > "$RUNNER_TEMP/remote-tags.txt"
+          plan() {
+            component="$1"
+            version="$2"
+            tag="$(node scripts/release/release-naming.mjs tag "$component" "$version")"
+            if grep -qE "refs/tags/${tag}(\\^\\{\\})?$" "$RUNNER_TEMP/remote-tags.txt"; then
+              echo "${component}_tag=" >> "$GITHUB_OUTPUT"
+              echo "::notice::${component} ${version} 已发布（tag ${tag} 存在），跳过。"
+            else
+              echo "${component}_tag=${tag}" >> "$GITHUB_OUTPUT"
+              echo "::notice::${component} ${version} 尚未发布，将创建 tag ${tag}。"
+            fi
+          }
+          plan server "$SERVER_VERSION"
+          plan web "$WEB_VERSION"
+          plan desktop "$DESKTOP_VERSION"
+          plan mobile "$MOBILE_VERSION"
+
+      - name: Create missing tags and push once
+        env:
+          SERVER_TAG: ${{ steps.gate.outputs.server_tag }}
+          WEB_TAG: ${{ steps.gate.outputs.web_tag }}
+          DESKTOP_TAG: ${{ steps.gate.outputs.desktop_tag }}
+          MOBILE_TAG: ${{ steps.gate.outputs.mobile_tag }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          : > "$RUNNER_TEMP/new-tags.txt"
+          add_tag() {
+            component="$1"
+            tag="$2"
+            if [ -z "$tag" ]; then
+              return 0
+            fi
+            if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+              echo "::notice::tag $tag already exists locally; leaving it untouched"
+              return 0
+            fi
+            git tag -a "$tag" -m "Release $tag (declared in .github/versions/$component.yaml)" "$sha"
+            printf '%s\n' "$tag" >> "$RUNNER_TEMP/new-tags.txt"
+          }
+          add_tag server "$SERVER_TAG"
+          add_tag web "$WEB_TAG"
+          add_tag desktop "$DESKTOP_TAG"
+          add_tag mobile "$MOBILE_TAG"
+          if [ ! -s "$RUNNER_TEMP/new-tags.txt" ]; then
+            echo "::notice::所有组件 tag 均已存在，本次不创建任何 tag。"
+            exit 0
+          fi
+          mapfile -t new_tags < "$RUNNER_TEMP/new-tags.txt"
+          # 一次 push 全部新 tag：要么都推上去，要么都失败，不会留半个发版。
+          git push origin "${new_tags[@]}"
+          printf '%s\n' "${new_tags[@]}" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::pushed tags: ${new_tags[*]}"
+
+      - name: Summary
+        env:
+          SERVER_VERSION: ${{ steps.versions.outputs.server_version }}
+          SERVER_TAG: ${{ steps.gate.outputs.server_tag }}
+          WEB_VERSION: ${{ steps.versions.outputs.web_version }}
+          WEB_TAG: ${{ steps.gate.outputs.web_tag }}
+          DESKTOP_VERSION: ${{ steps.versions.outputs.desktop_version }}
+          DESKTOP_TAG: ${{ steps.gate.outputs.desktop_tag }}
+          MOBILE_VERSION: ${{ steps.versions.outputs.mobile_version }}
+          MOBILE_TAG: ${{ steps.gate.outputs.mobile_tag }}
+        run: |
+          set -euo pipefail
+          status() {
+            if [ -n "$1" ]; then
+              echo "released（已打 tag 并触发发布）"
+            else
+              echo "skipped（版本未变化，tag 已存在）"
+            fi
+          }
+          {
+            echo "## Version Bump"
+            echo ""
+            echo "| 组件 | 声明版本 | tag | 结果 |"
+            echo "| --- | --- | --- | --- |"
+            echo "| 服务端 (server) | $SERVER_VERSION | $SERVER_TAG | $(status "$SERVER_TAG") |"
+            echo "| Web (web) | $WEB_VERSION | $WEB_TAG | $(status "$WEB_TAG") |"
+            echo "| 桌面端 (desktop) | $DESKTOP_VERSION | $DESKTOP_TAG | $(status "$DESKTOP_TAG") |"
+            echo "| 移动端 (mobile) | $MOBILE_VERSION | $MOBILE_TAG | $(status "$MOBILE_TAG") |"
+            echo ""
+            echo "发布的 Release 正文与 SHA256SUMS、聚合页都由 release.yml 负责。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 发布编排：四个静态 job，各自按 tag 是否为空跳过 ──────────────────────
+  # 不能靠 tag push 派生 workflow（GITHUB_TOKEN 推送被抑制），只能 workflow_call。
+  release-server:
+    name: Publish server release
+    needs: [bump-tags]
+    if: needs.bump-tags.outputs.server_tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump-tags.outputs.server_tag }}
+
+  release-web:
+    name: Publish web release
+    needs: [bump-tags]
+    if: needs.bump-tags.outputs.web_tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump-tags.outputs.web_tag }}
+
+  release-desktop:
+    name: Publish desktop release
+    needs: [bump-tags]
+    if: needs.bump-tags.outputs.desktop_tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump-tags.outputs.desktop_tag }}
+
+  release-mobile:
+    name: Publish mobile release
+    needs: [bump-tags]
+    if: needs.bump-tags.outputs.mobile_tag != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump-tags.outputs.mobile_tag }}
+
+  docker:
+    name: Publish server image
+    needs: [bump-tags]
+    if: needs.bump-tags.outputs.server_tag != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml
+    with:
+      release_tag: ${{ needs.bump-tags.outputs.server_tag }}

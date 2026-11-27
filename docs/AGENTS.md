@@ -1,4 +1,4 @@
-# GOSpeak-Docs — VitePress 文档站
+# GOSpeak 文档站 — VitePress
 
 面向**部署用户**的文档站（`@gospeak/docs`），与仓库根 `AGENTS.md`（面向开发者）分工不同。
 
@@ -23,7 +23,7 @@ pnpm --filter @gospeak/docs build    # 构建静态站
 
 ## 约定
 
-- `base`：开发 `/`，生产 `/GOSpeak-Docs/`（GitHub Pages 子路径，与 `.vitepress/config.ts` 一致）。
+- `base`：开发 `/`，生产 `/GOSpeak/`（GitHub Pages 子路径，与 `.vitepress/config.ts` 一致）。
 - **新增页面必须同时改 `.vitepress/config.ts` 的 sidebar**，否则页面不可达。
 - 截图放 `public/screenshots/`，引用用绝对路径。
 - `reference/` 是对代码的镜像（错误码、事件、接口），**改代码要同步更新**；错误码以 `server/server/internal/pkg/errors.go` 为准。

@@ -235,7 +235,7 @@ GOSPEAK_PULL_POLICY=always
 ## 更新版本
 
 ```bash
-cd GOSpeak-Server
+cd GOSpeak
 git pull
 docker compose -f deploy/docker-compose.standard.yml pull
 docker compose -f deploy/docker-compose.standard.yml up -d
@@ -247,7 +247,7 @@ docker compose -f deploy/docker-compose.standard.yml up -d
 
 插件以子进程运行在应用容器内，不新增任何服务。插件根目录默认 `/app/plugins`，由 `gospeak-plugins` 卷持久化——插件代码、Node.js 运行时版本与插件数据都保存在其中，重建或升级容器不会丢失；**备份数据时请连同该卷一起备份**，也不要用 `down -v` 顺手清理。
 
-镜像已预置插件运行时所需的 `PATH`，**不需要也不应配置任何插件相关环境变量**（`.env` 中没有插件项）；插件端口与一次性凭据由宿主启动插件时自动分配。安全边界（拉取即信任）见 [插件系统](/guide/plugin)，部署细节以 GOSpeak-Server 仓库的 [deploy/DEPLOY.md](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/deploy/DEPLOY.md) 为准。
+镜像已预置插件运行时所需的 `PATH`，**不需要也不应配置任何插件相关环境变量**（`.env` 中没有插件项）；插件端口与一次性凭据由宿主启动插件时自动分配。安全边界（拉取即信任）见 [插件系统](/guide/plugin)，部署细节以本仓 [deploy/DEPLOY.md](https://github.com/GOSpeak-org/GOSpeak/blob/release/deploy/DEPLOY.md) 为准。
 
 ## 端口一览
 

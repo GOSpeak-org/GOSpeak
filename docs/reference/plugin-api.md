@@ -1,6 +1,6 @@
 # 插件 API 参考
 
-本页面向插件作者，描述插件进程与宿主之间的 gRPC 接口与 JS SDK 用法。**协议单一事实源是** [`server/plugin/proto/plugin.proto`](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/plugin/proto/plugin.proto)；页面只是转述，接口以 proto 为准。
+本页面向插件作者，描述插件进程与宿主之间的 gRPC 接口与 JS SDK 用法。**协议单一事实源是** [`server/server/plugin/proto/plugin.proto`](https://github.com/GOSpeak-org/GOSpeak/blob/release/server/server/plugin/proto/plugin.proto)；页面只是转述，接口以 proto 为准。
 
 > [!WARNING]
 > **拉取即信任**：插件注册后即拥有宿主全部能力，没有 token、能力点、运行期权限边界或沙箱。本页所有读写接口都以系统身份委托宿主 service 执行，写操作会产生 `ActorKind=plugin` 审计。请只开发/安装可信插件。
@@ -123,11 +123,11 @@ SDK 返回对象的能力：
 | `reportError(message, details?)` | 结构化错误上报（写日志） |
 | `close()` | 关闭 Hook 服务与 API 连接 |
 
-SDK 内置 proto 副本由 GOSpeak-Client 的 [`packages/plugin-sdk/scripts/copy-proto.mjs`](https://github.com/GOSpeak-org/GOSpeak-Client/blob/release/packages/plugin-sdk/scripts/copy-proto.mjs) 从权威 proto 同步，**不要手改副本**。
+SDK 内置 proto 副本由本仓的 [`client/packages/plugin-sdk/scripts/copy-proto.mjs`](https://github.com/GOSpeak-org/GOSpeak/blob/release/client/packages/plugin-sdk/scripts/copy-proto.mjs) 从权威 proto 同步，**不要手改副本**。
 
 ## 错误码映射
 
-插件 API 返回 gRPC 标准状态码（详见 proto 与 [`server/internal/plugin/api.go`](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/internal/plugin/api.go)）：
+插件 API 返回 gRPC 标准状态码（详见 proto 与 [`server/server/internal/plugin/api.go`](https://github.com/GOSpeak-org/GOSpeak/blob/release/server/server/internal/plugin/api.go)）：
 
 | gRPC code | 触发场景 |
 |-----------|----------|
@@ -136,11 +136,11 @@ SDK 内置 proto 副本由 GOSpeak-Client 的 [`packages/plugin-sdk/scripts/copy
 | `INTERNAL` | 宿主 service / 存储调用失败、幂等占位失败 |
 | `UNAVAILABLE` | 宿主依赖未初始化 |
 
-这些 **gRPC 码与平台 HTTP 的业务错误码不是同一套**。平台 HTTP 接口的业务码（如 `1001` 未登录、`2001` 参数错误、`3001` 资源不存在、`5001` 内部错误等）以 [`server/internal/pkg/errors.go`](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/internal/pkg/errors.go) 为唯一事实源，完整表见 [错误码](/reference/errors)。管理 API（`/api/v1/plugin/*`）返回统一 JSON 外壳 `{ code, msg, data }`，其 `code` 就是该文件中的业务码；插件 gRPC 接口不返回这些业务码。
+这些 **gRPC 码与平台 HTTP 的业务错误码不是同一套**。平台 HTTP 接口的业务码（如 `1001` 未登录、`2001` 参数错误、`3001` 资源不存在、`5001` 内部错误等）以 [`server/server/internal/pkg/errors.go`](https://github.com/GOSpeak-org/GOSpeak/blob/release/server/server/internal/pkg/errors.go) 为唯一事实源，完整表见 [错误码](/reference/errors)。管理 API（`/api/v1/plugin/*`）返回统一 JSON 外壳 `{ code, msg, data }`，其 `code` 就是该文件中的业务码；插件 gRPC 接口不返回这些业务码。
 
 ## 插件管理 HTTP API
 
-管理接口在受保护组内并要求管理员角色，路径为 `/api/v1/plugin/*`：安装、升级、重载、卸载、启用/停用、配置、运行时安装/切换/列表，以及页面代理与浏览器代理端点。**精确路由以** [`server/internal/router/routes/plugin/routes.go`](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/internal/router/routes/plugin/routes.go) **为准**，不在本页复述完整清单。
+管理接口在受保护组内并要求管理员角色，路径为 `/api/v1/plugin/*`：安装、升级、重载、卸载、启用/停用、配置、运行时安装/切换/列表，以及页面代理与浏览器代理端点。**精确路由以** [`server/server/internal/router/routes/plugin/routes.go`](https://github.com/GOSpeak-org/GOSpeak/blob/release/server/server/internal/router/routes/plugin/routes.go) **为准**，不在本页复述完整清单。
 
 ## 下一步
 

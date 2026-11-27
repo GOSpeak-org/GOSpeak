@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # 单二进制部署：自动下载当前平台最新的 GOSpeak 与 LiveKit 发行包并落地为可运行服务。
 #
-#   curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash
 #   curl -fsSL <上面的地址> | bash -s -- --dir /opt/gospeak --without-systemd
 #
 # 默认安装到 /opt/gospeak，已存在的 .env 不会被覆盖（重复运行即升级）。
+#
+# 前端已随源码构建内嵌进 gospeak 二进制（go:embed），无需另外下载/放置 web dist，
+# 也不需要配置静态资源目录；升级只需替换二进制。
 set -euo pipefail
 
-GOSPEAK_REPO="GOSpeak-org/GOSpeak-Server"
+GOSPEAK_REPO="GOSpeak-org/GOSpeak"
 LIVEKIT_REPO="livekit/livekit"
 INSTALL_DIR="${GOSPEAK_DIR:-/opt/gospeak}"
 RUN_USER=""
@@ -23,8 +26,9 @@ usage() {
 	cat <<EOF
 Usage: install-binary.sh [options]
 
-通过 GitHub Releases 下载当前平台最新的 GOSpeak 单二进制与 LiveKit Server，
-校验 SHA256 后安装为 systemd 服务。可重复运行用于升级，不会覆盖已有 .env。
+通过 GitHub Releases 下载当前平台最新的 GOSpeak 单二进制（已内嵌前端）与
+LiveKit Server，校验 SHA256 后安装为 systemd 服务。可重复运行用于升级，
+不会覆盖已有 .env。
 
 Options:
   --dir DIR              安装目录（默认 /opt/gospeak，或环境变量 GOSPEAK_DIR）
@@ -292,7 +296,7 @@ EOF
 }
 
 install_gospeak() {
-	local version="$1" asset sums url tmp
+	local version="$1" asset sums url
 	asset="gospeak-server-v${version}-${TARGET}"
 	sums="SHA256SUMS-gospeak-server-v${version}.txt"
 	url="https://github.com/$GOSPEAK_REPO/releases/download/gospeak-server-v${version}/${asset}"
@@ -402,6 +406,7 @@ EOF
   livekit-server   $([ -x "$INSTALL_DIR/livekit-server" ] && echo "$LIVEKIT_VERSION" || echo "未安装")
   配置             $INSTALL_DIR/.env
   数据             $INSTALL_DIR/data
+  前端             已内嵌于 gospeak 二进制（无需独立 web 目录）
 
 放行端口: 8998/TCP（Web）、7882/TCP+UDP（媒体）、3478/UDP（TURN）
 服务日志: journalctl -u gospeak -f

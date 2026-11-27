@@ -1,0 +1,229 @@
+# GOSpeak 移动端构建（Capacitor / Android）
+#
+# 两条路径，互不影响：
+#
+#   正式发布（workflow_call，由 release.yml 传入 gospeak-mobile-v<version>）
+#     → 版本门禁（check-version）→ assembleDebug → 以 release-naming 派生的名字
+#       上传 workflow artifact；Release 创建、正文、SHA256SUMS 由 release.yml 的
+#       publish job 统一做（与 server/web/desktop 三端同一套规则）。
+#
+#   测试包（workflow_dispatch，tag 留空）
+#     → 构建 Android debug APK 并发布到固定 pre-release：
+#         tag: gospeak-mobile-test（同名覆盖，始终指向最新一次测试包）
+#         --prerelease 让它不抢 /releases/latest，正式版下载页不受影响。
+#
+# 本文件不监听 push.tags：tag push 统一由 release.yml 接管，避免同一次发版重复构建。
+# 原生编译当前只做 Android（assembleDebug）。iOS 构建暂时禁用，命令以注释形式保留在
+# 本文件末尾；XCFramework 仍由绑定面步骤产出并随测试包上传。
+name: Build Mobile (Capacitor)
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "发布 tag（gospeak-mobile-v<version>）"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "要构建的 ref（分支 / tag / commit SHA，留空取默认分支）"
+        required: false
+        default: ""
+        type: string
+      tag:
+        description: "留空 = 构建并发布 gospeak-mobile-test 测试包（正式发布请走 Release workflow）"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # 正式发版与测试包分组隔离：正式发版绝不能被后来的测试构建取消。
+  group: build-mobile-${{ inputs.tag || github.ref }}
+  cancel-in-progress: ${{ inputs.tag == '' }}
+
+jobs:
+  android:
+    name: Build Android APK
+    # Android 构建只需 JDK + Android SDK，ubuntu-latest 均已预装；
+    # macOS runner 成本约为 Linux 的 10 倍且排队更久。
+    runs-on: ubuntu-latest
+    # 测试包路径要写 Release（gospeak-mobile-test）；正式路径只产 artifact，
+    # 被 release.yml 调用时按调用方给的更小权限执行。
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 正式发布必须检出 tag 指向的提交（reusable workflow 里 github.ref 是调用
+          # 方的分支 ref，不能拿来构建 tag）。
+          ref: ${{ inputs.ref || inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          # @capacitor/android 8.x 以 Java 21 为目标（sourceCompatibility VERSION_21），
+          # 用 17 会在 :capacitor-android:compileDebugJavaWithJavac 报 invalid source release。
+          java-version: "21"
+
+      # setup-gradle 一次覆盖 Gradle distribution、依赖 jar 和 local build cache。
+      # 缓存键由 action 基于 job id + git SHA 自动生成，无需手写 hashFiles。
+      - uses: gradle/actions/setup-gradle@v6
+
+      - uses: actions/setup-go@v7
+        with:
+          # ubuntu-latest 自带 Go，但版本可能低于绑定工具链要求，统一按模块 go 指令取。
+          go-version-file: client/proxyrules/go.mod
+          cache-dependency-path: client/proxyrules/go.sum
+
+      - name: Verify proxyrules binding surface
+        # 脚本自己定位仓库根（自身目录的上一级 = client/），从仓库根跑即可。
+        # gomobile bind 顺带产出 AAR / XCFramework；缺平台工具链时脚本以 exit 0 报告
+        # 下一步（已知且已文档化的降级），绑定真坏了才 exit 1。这里不设 continue-on-error。
+        run: |
+          set -euo pipefail
+          node client/scripts/mobile-bind-proxyrules.mjs --target=android
+
+      - name: Sync native projects
+        run: |
+          set -euo pipefail
+          pnpm --filter @gospeak/mobile sync:no-bind
+
+      - name: Build Android (assembleDebug)
+        run: |
+          set -euo pipefail
+          cd client/mobile/android
+          ./gradlew assembleDebug
+
+      - name: Stage release APK
+        id: stage
+        if: inputs.tag != ''
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          apk_dir="client/mobile/android/app/build/outputs/apk/debug"
+          apk="$(find "$apk_dir" -type f -name '*.apk' -print -quit)"
+          if [ -z "$apk" ]; then
+            echo "::error::APK not found under $apk_dir"
+            exit 1
+          fi
+          parsed="$(node scripts/release/release-naming.mjs parse "$INPUT_TAG")"
+          component="${parsed%% *}"
+          version="${parsed##* }"
+          if [ "$component" != "mobile" ]; then
+            echo "::error::tag $INPUT_TAG is for component $component, not mobile"
+            exit 1
+          fi
+          node scripts/release/check-version.mjs . "$INPUT_TAG" mobile
+          name="$(node scripts/release/release-naming.mjs artifact-target mobile "$version" android apk)"
+          cp "$apk" "$RUNNER_TEMP/$name"
+          upload_name="$(node scripts/release/release-naming.mjs upload-name mobile android)"
+          {
+            echo "name=$name"
+            echo "upload_name=$upload_name"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::mobile artifact $name"
+
+      - name: Upload release APK artifact
+        if: inputs.tag != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.stage.outputs.upload_name }}
+          path: ${{ runner.temp }}/${{ steps.stage.outputs.name }}
+          retention-days: 7
+
+      - name: Publish test package
+        if: inputs.tag == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          apk_dir="client/mobile/android/app/build/outputs/apk/debug"
+          apk="$(find "$apk_dir" -type f -name '*.apk' -print -quit)"
+          test -n "$apk" || { echo "::error::APK not found under $apk_dir"; exit 1; }
+          commit="$(git rev-parse HEAD)"
+          tag="gospeak-mobile-test"
+          base="$(node scripts/release/release-naming.mjs upload-name mobile debug)"
+          stable="$base.apk"
+          versioned="$base-${commit:0:7}.apk"
+          cp "$apk" "$RUNNER_TEMP/$stable"
+          cp "$apk" "$RUNNER_TEMP/$versioned"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::notice::release $tag exists; refreshing assets"
+          else
+            gh release create "$tag" \
+              --prerelease \
+              --target "$commit" \
+              --title "GOSpeak mobile test build" \
+              --notes "移动端测试包固定入口：每次手动构建后同名覆盖，始终指向最新一次测试包。本 release 标记为 pre-release，不抢占正式版的 Latest。"
+          fi
+          gh release upload "$tag" "$RUNNER_TEMP/$stable" "$RUNNER_TEMP/$versioned" --clobber
+          xc="client/mobile/build/proxyrules/Proxyrules.xcframework"
+          if [ -d "$xc" ]; then
+            ( cd "$(dirname "$xc")" && zip -qr "$RUNNER_TEMP/Proxyrules.xcframework.zip" "Proxyrules.xcframework" )
+            gh release upload "$tag" "$RUNNER_TEMP/Proxyrules.xcframework.zip" --clobber
+          else
+            echo "::notice::XCFramework 未产出（工具链缺失时脚本按已知路径降级），跳过上传。"
+          fi
+          {
+            echo "## 移动端测试包"
+            echo
+            echo "- 固定下载（永远最新）：https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$stable"
+            echo "- 本次快照：https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$versioned"
+            echo "- commit: $commit ($REF)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload debug APK artifact
+        if: inputs.tag == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: gospeak-android-debug
+          path: client/mobile/android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+      # ---------------------------------------------------------------
+      # iOS 构建：暂时禁用（按需求先关掉，命令原样保留在下面）。
+      #
+      # 为什么保留：iOS 原生接入（XCFramework + bridging header）已落地并实跑
+      # 通过一次，命令留着即可随时恢复；XCFramework 仍在绑定面步骤里产出。
+      #
+      # 恢复方式：把下面三段取消注释，并把它们的上传步骤放到发布步骤之前。
+      # ---------------------------------------------------------------
+      # - name: Build iOS (simulator, unsigned)
+      #   # iOS 工程走 SPM（App/CapApp-SPM/Package.swift），没有 CocoaPods 的
+      #   # .xcworkspace，因此必须用 -project 而不是 -workspace。
+      #   run: |
+      #     xcodebuild -project client/mobile/ios/App/App.xcodeproj \
+      #       -scheme App -configuration Debug \
+      #       -destination 'generic/platform=iOS Simulator' \
+      #       -derivedDataPath /tmp/gospeak-ios-derived \
+      #       CODE_SIGNING_ALLOWED=NO build
+      # - name: Package iOS simulator app
+      #   run: |
+      #     test -d /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
+      #       || { echo "iOS simulator App.app missing"; exit 1; }
+      #     ditto -c -k --sequesterRsrc --keepParent \
+      #       /tmp/gospeak-ios-derived/Build/Products/Debug-iphonesimulator/App.app \
+      #       /tmp/gospeak-ios-simulator.zip
+      # - name: Upload iOS simulator app
+      #   uses: actions/upload-artifact@v7
+      #   with:
+      #     name: gospeak-ios-simulator
+      #     path: /tmp/gospeak-ios-simulator.zip
+      #     retention-days: 7
