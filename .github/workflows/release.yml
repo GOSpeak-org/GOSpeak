@@ -86,9 +86,9 @@ jobs:
         run: |
           set -euo pipefail
           commit="$(git rev-parse --short=12 HEAD)"
-          go build -trimpath -ldflags="-s -w -X GOSpeak/internal/buildinfo.Version=${VERSION} -X GOSpeak/internal/buildinfo.Commit=${commit}" -o "$GITHUB_WORKSPACE/out/gospeak" main.go
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          mv "$GITHUB_WORKSPACE/out/gospeak" "$GITHUB_WORKSPACE/dist/gospeak-${{ matrix.target }}"
+          name="$(node "$GITHUB_WORKSPACE/scripts/release/release-naming.mjs" artifact-target server "$VERSION" "${{ matrix.target }}" "")"
+          go build -trimpath -ldflags="-s -w -X GOSpeak/internal/buildinfo.Version=${VERSION} -X GOSpeak/internal/buildinfo.Commit=${commit}" -o "$GITHUB_WORKSPACE/dist/$name" main.go
       - uses: actions/upload-artifact@v4
         with:
           name: server-${{ matrix.target }}
@@ -112,10 +112,13 @@ jobs:
       - run: cd client && pnpm install --frozen-lockfile
       - run: cd client && GOSPEAK_TARGET=web pnpm --filter @gospeak/web build
       - name: Package
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          tar -czf "dist/gospeak-web-v${{ needs.resolve.outputs.version }}-dist.tar.gz" -C client/web dist
+          name="$(node scripts/release/release-naming.mjs artifact-target web "$VERSION" dist tar.gz)"
+          tar -czf "dist/$name" -C client/web dist
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
@@ -141,9 +144,19 @@ jobs:
           go-version-file: client/desktop/go.mod
           cache-dependency-path: client/desktop/go.sum
       - run: cd client && pnpm install --frozen-lockfile
-      - name: Build
+      - name: Build desktop frontend
+        run: cd client && GOSPEAK_TARGET=desktop pnpm --filter @gospeak/web build:desktop
+      - name: Sync webui/dist (go:embed 需要文件存在)
+        run: |
+          set -euo pipefail
+          mkdir -p client/desktop/webui/dist
+          cp -R client/web/dist-desktop/. client/desktop/webui/dist/
+          touch client/desktop/webui/dist/.gitkeep
+          test -f client/desktop/webui/dist/index.html
+      - name: Build host
         run: cd client && pnpm --filter @gospeak/desktop-app build
-      - run: |
+      - name: Collect installers
+        run: |
           set -euo pipefail
           mkdir -p dist
           find client/desktop/dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.deb" \) -exec cp {} dist/ \;
@@ -172,16 +185,18 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - uses: android-actions/setup-android@v3
       - run: cd client && pnpm install --frozen-lockfile
-      - run: cd client && pnpm --filter @gospeak/web build:mobile
+      - name: Sync Capacitor project
+        run: cd client && pnpm --filter @gospeak/mobile sync:no-bind
       - name: Assemble debug APK
         run: |
           set -euo pipefail
           cd client/mobile/android
-          chmod +x ./gradlew || true
-          ./gradlew assembleDebug --no-daemon
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          cp app/build/outputs/apk/debug/*.apk "$GITHUB_WORKSPACE/dist/" || true
+          cp app/build/outputs/apk/debug/*.apk "$GITHUB_WORKSPACE/dist/"
           ls -la "$GITHUB_WORKSPACE/dist"
       - uses: actions/upload-artifact@v4
         with:
@@ -202,52 +217,33 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - name: Collect assets
-        id: assets
+          path: dist
+          merge-multiple: true
+      - name: Publish
         env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
           COMPONENT: ${{ needs.resolve.outputs.component }}
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          find artifacts -type f -exec cp {} dist/ \;
-          # 统一产物名：gospeak-<component>-v<version>-<target>[.ext]
-          cd dist
-          for f in *; do
-            case "$f" in
-              gospeak-*) ;;
-              *) continue ;;
-            esac
-          done
-          ls -la
-          sums="$(node "$GITHUB_WORKSPACE/scripts/release/release-naming.mjs" checksum "$COMPONENT" "$VERSION")"
-          (cd dist && shasum -a 256 * > "$GITHUB_WORKSPACE/$sums")
-          echo "sums=$sums" >> "$GITHUB_OUTPUT"
-      - name: Render notes
-        id: notes
-        env:
-          COMPONENT: ${{ needs.resolve.outputs.component }}
-        run: |
-          set -euo pipefail
+          if [ -z "$(ls -A dist)" ]; then
+            echo "::error::没有可发布产物（组件构建失败？）"
+            exit 1
+          fi
+          sums="$(node scripts/release/release-naming.mjs checksum "$COMPONENT" "$VERSION")"
+          (cd dist && shasum -a 256 * > "../$sums")
           node -e '
             const { readFileSync } = require("node:fs");
-            const component = process.env.COMPONENT;
-            const src = readFileSync(`.github/versions/${component}.yaml`, "utf8");
+            const src = readFileSync(`.github/versions/${process.env.COMPONENT}.yaml`, "utf8");
             const block = src.match(/^notes:[ \t]*\|[ \t]*\n([\s\S]*?)(?=^\S)/m);
             console.log(block ? block[1].replace(/^  /gm, "").trim() : "");
           ' > /tmp/notes.md
-          echo "::notice::notes bytes: $(wc -c < /tmp/notes.md)"
-      - name: Create or refresh release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.resolve.outputs.tag }}
-          COMPONENT: ${{ needs.resolve.outputs.component }}
-        run: |
-          set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --notes-file /tmp/notes.md
           else
-            gh release create "$TAG" --title "GOSpeak $COMPONENT $TAG" --notes-file /tmp/notes.md --latest=false
+            gh release create "$TAG" --title "GOSpeak $COMPONENT $VERSION" --notes-file /tmp/notes.md --latest=false
           fi
-          gh release upload "$TAG" dist/* "${{ steps.assets.outputs.sums }}" --clobber
+          gh release upload "$TAG" dist/* "$sums" --clobber
+          echo "::notice::published $TAG with $(ls dist | wc -l) assets"
