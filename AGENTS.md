@@ -50,7 +50,15 @@ GOSpeak/                     ← monorepo 根，唯一 workspace 根
 - **CI**：`.github/workflows/ci.yml`，与本地同源命令。
 - **改协议必须成对**：改 `server/server/internal/protocol` 后跑 `pnpm gen:protocol`，并把生成结果一起提交，否则 `check:protocol` 失败。
 
-## 5. 指针
+## 5. 发版（与 CI 解耦）
+
+- **版本真源**：`.github/versions/<component>.yaml`（`version` + `notes`），四端独立发版；一致性由 `scripts/release/check-version.mjs` 校验。
+- **链路**：改 yaml → 合入 `release` → `version-bump.yml` 对账打 tag（`gospeak-<c>-v<ver>`）→ `workflow_call` `release.yml` 构建发布该端 Release（`--latest=false`）与 `docker.yml` 推镜像。
+- **聚合页**：每次发布后 `aggregate` job 重建主仓按日期聚合 Release `GOSpeak-YYMMDD`（占住 `/releases/latest`），三张表（桌面/移动/服务端）直链到各端资产。
+- **脚本**：发版相关一切都在根 `scripts/release/`（命名 / 版本校验 / CHANGELOG / Release 正文 / 聚合页），旧副本已删除；门禁 `node --test "scripts/release/*.test.mjs"` 已在 CI 与 pre-push。
+- **变更日志**：`server/CHANGELOG.md`、`client/{web,desktop,mobile}/CHANGELOG.md`，由 `build-changelog.mjs` 幂等写入，1.x 历史留在旧仓 Release。
+
+## 6. 指针
 
 - 服务端模块约定：`server/server/AGENTS.md`；插件运行层：`server/server/internal/plugin/AGENTS.md`
 - 前端：`client/web/AGENTS.md`；客户端脚本门禁：`client/scripts/AGENTS.md`
