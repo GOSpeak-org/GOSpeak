@@ -1,0 +1,38 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "shell repo"
+  lint:
+    name: Lint (Biome + go vet)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "shell repo has no source to lint"
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "shell repo has no source to typecheck"
+  build-js:
+    name: Build JS (turbo)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "shell repo has no JS to build"
+  build-server:
+    name: Build Server (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "shell repo has no Go to build"
+  test-server:
+    name: Test Server (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "shell repo has no Go tests"
