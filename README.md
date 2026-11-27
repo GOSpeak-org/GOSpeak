@@ -69,15 +69,15 @@ chmod +x gospeak-server-v<VERSION>-linux-amd64
 
 ```bash
 git clone https://github.com/GOSpeak-org/GOSpeak-Server.git
-cd GOSpeak
+cd GOSpeak-Server
 pnpm install
 
 cd deploy && ./init.sh && cd ..
 docker compose -f deploy/docker-compose.yml up -d
-pnpm start:dev
+cd server && go run main.go server
 ```
 
-`./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。本地 LiveKit 容器的 7880 端口绑定到宿主机回环地址，后端直连即可。
+`./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。本地 LiveKit 容器的 7880 端口绑定到宿主机回环地址，后端直连即可。前端已拆到 [GOSpeak-Client](https://github.com/GOSpeak-org/GOSpeak-Client)，在该仓运行 `pnpm --filter @gospeak/web dev`。
 
 ## 部署
 
