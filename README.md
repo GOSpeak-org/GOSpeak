@@ -42,34 +42,9 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src=".github/assets/screenshots/invite.jpg" alt="邀请码" />
-      <p><em><strong>邀请码</strong> — 按域生成、可停用、附使用记录</em></p>
-    </td>
-    <td width="50%" valign="top">
+    <td colspan="2" valign="top">
       <img src=".github/assets/screenshots/chat.jpg" alt="文字消息" />
       <p><em><strong>文字消息</strong> — 频道与私聊会话列表，右侧显示在线成员</em></p>
-    </td>
-  </tr>
-</table>
-
-### 设置
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src=".github/assets/screenshots/settings-audio.jpg" alt="音频设置" />
-      <p><em><strong>音频</strong> — 设备热切换、麦克风电平测试、语音通话 / 音乐双模式、码率与采样率</em></p>
-    </td>
-    <td width="50%" valign="top">
-      <img src=".github/assets/screenshots/settings-voice.jpg" alt="语音设置" />
-      <p><em><strong>语音</strong> — 进房默认静音、进出房提示音、本机输入输出音量</em></p>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" valign="top">
-      <img src=".github/assets/screenshots/settings-appearance.jpg" alt="外观设置" />
-      <p><em><strong>外观</strong> — 浅色与深色主题分别保存，多套配色可选</em></p>
     </td>
   </tr>
 </table>
