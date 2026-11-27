@@ -12,7 +12,7 @@
 # 因此没有 CLIENT_WEB_URL / CLIENT_WEB_SHA256 构建参数。
 
 # ── 前端构建 ────────────────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM node:22-alpine AS web-builder
+FROM --platform=$BUILDPLATFORM node:26-alpine AS web-builder
 WORKDIR /src
 
 # pnpm 版本由根 package.json 的 packageManager 固定（10.11.0）
