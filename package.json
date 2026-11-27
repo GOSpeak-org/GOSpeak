@@ -1,0 +1,59 @@
+{
+	"name": "gospeak-monorepo",
+	"version": "1.3.0-rc.1",
+	"private": true,
+	"packageManager": "pnpm@10.11.0",
+	"scripts": {
+		"dev": "turbo run dev --filter=@gospeak/server --filter=@gospeak/web",
+		"dev:all": "turbo run dev",
+		"dev:web": "pnpm --filter @gospeak/web dev",
+		"dev:server": "pnpm --filter @gospeak/server dev",
+		"dev:docs": "pnpm --filter @gospeak/docs dev",
+		"build": "turbo run build",
+		"build:web": "turbo run build --filter=@gospeak/web",
+		"build:server": "pnpm --filter @gospeak/server build",
+		"build:docs": "pnpm --filter @gospeak/docs build",
+		"build:desktop": "pnpm --filter @gospeak/desktop-app build",
+		"build:mobile": "pnpm --filter @gospeak/web build:mobile",
+		"prod:server": "pnpm --filter @gospeak/server prod",
+		"start:dev": "turbo run dev --filter=@gospeak/server --filter=@gospeak/web",
+		"start:prod": "pnpm run prod:server",
+		"test": "turbo run test",
+		"test:web": "pnpm --filter @gospeak/web test",
+		"test:server": "pnpm --filter @gospeak/test test",
+		"test:integration": "pnpm --filter @gospeak/test test",
+		"test:server:go": "cd server/server && go test ./...",
+		"lint": "turbo run lint",
+		"check": "turbo run check",
+		"typecheck": "turbo run typecheck",
+		"format": "pnpm -r format",
+		"prepare": "lefthook install",
+		"gen:protocol": "cd server/server && go run ./cmd/gen-protocol -out ../../client/web/src/protocol/generated",
+		"check:protocol": "cd client && node scripts/check-protocol-sync.mjs",
+		"check:hook-deps": "cd client && node scripts/check-hook-deps.mjs",
+		"check:tokens": "cd client && node scripts/check-radius-tokens.mjs && node scripts/check-ui-tokens.mjs",
+		"check:desktop": "cd client && node scripts/check-desktop-commands.mjs",
+		"check:mobile": "cd client && node scripts/check-mobile-bridge.mjs",
+		"check:proxyrules": "cd server && node scripts/check-proxyrules-sync.mjs"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.8",
+		"@commitlint/cli": "^21.2.4",
+		"@commitlint/config-conventional": "^21.2.4",
+		"lefthook": "2.2.2",
+		"turbo": "^2.11.13"
+	},
+	"pnpm": {
+		"overrides": {
+			"proxy-addr": "^2.0.8",
+			"seroval": "^1.7.10",
+			"tldts-core": "^7.5.5",
+			"@testing-library/jest-dom": "6.9.1"
+		},
+		"peerDependencyRules": {
+			"allowedVersions": {
+				"typescript": "7.x"
+			}
+		}
+	}
+}

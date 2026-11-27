@@ -1,0 +1,85 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.9/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": false,
+		"defaultBranch": "release"
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"includes": [
+			"client/web/src/**/*.{ts,tsx,js,json,jsonc,css,scss}",
+			"client/packages/components/**/*.{ts,tsx,json,jsonc,css}",
+			"client/packages/sfu-client/**/*.{ts,tsx,json,jsonc,css}",
+			"client/packages/plugin-sdk/**/*.{ts,tsx,js,mjs,json,jsonc}",
+			"client/plugins/**/*.{js,json,jsonc}",
+			"client/packages/desktop/**/*.{ts,tsx,json,jsonc}",
+			"client/desktop/*.{ts,json,jsonc}",
+			"client/packages/mobile-capabilities/**/*.{ts,tsx,json,jsonc,css}",
+			"client/mobile/*.{ts,json,jsonc}",
+			"client/scripts/**/*.{js,mjs}",
+			"scripts/**/*.{js,mjs}",
+			"!client/web/src/routeTree.gen.ts",
+			"!client/desktop/mygo.ts",
+			"!client/web/public",
+			"!client/web/.vscode",
+			"!client/packages/components/.storybook",
+			"!client/packages/components/storybook-baseline",
+			"!client/packages/components/storybook-static",
+			"!client/packages/sfu-client/dist",
+			"!client/plugins/**/dist",
+			"!**/.worktrees"
+		]
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "off"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineEnding": "lf"
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true,
+			"cssModules": true
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"suspicious": {
+				"noExplicitAny": "off",
+				"useIterableCallbackReturn": "warn"
+			},
+			"correctness": {
+				"useExhaustiveDependencies": "warn",
+				"noUnusedImports": "error",
+				"noUnusedVariables": "warn",
+				"useHookAtTopLevel": "warn"
+			},
+			"a11y": {
+				"useKeyWithClickEvents": "off",
+				"noLabelWithoutControl": "off",
+				"noSvgWithoutTitle": "off",
+				"noStaticElementInteractions": "warn",
+				"useButtonType": "off",
+				"useSemanticElements": "off"
+			},
+			"style": {
+				"useSelfClosingElements": "off",
+				"useDefaultParameterLast": "off"
+			},
+			"complexity": {
+				"noStaticOnlyClass": "off",
+				"noImportantStyles": "off"
+			}
+		}
+	}
+}

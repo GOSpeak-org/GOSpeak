@@ -6,75 +6,53 @@ node_modules
 *.local
 .idea
 .vscode
+*.log
 
-# 本地工具缓存
+# 工具缓存 / agent 产物
 .pnpm-store/
 .superpowers/
 .cache/
 .turbo/
+.worktrees/
+.workbuddy/
+.claude/
+.zcode/
+tmp/
+build/
 
 # ========================
-# 前端 (app/web)
+# 前端（client/）
 # ========================
-# Vite/TS package build outputs (not go embed dir)
 **/dist/
-!app/server/internal/webui/dist/
-!app/server/internal/webui/dist/**
+!server/server/internal/webui/dist/
+!server/server/internal/webui/dist/**
 dist-ssr
-.nitro
 .tanstack
-.wrangler
 *.tsbuildinfo
-
-# 子包独立 lockfile（根 workspace 统一管理）
-app/web/pnpm-lock.yaml
-
-# 移动目标产物（与 dist 平级，避免被 web/desktop 构建清空）
-app/web/dist-mobile/
-
-# VitePress 构建缓存
-app/docs/.vitepress/cache/
-
-# TanStack Router 自动生成
-app/web/src/routeTree.gen.ts
-
-# MyGo 生成的类型化桥接客户端（`mygo generate` / `mygo dev` 产出，勿手改）
-app/desktop/mygo.ts
-
-# 桌面端本地构建产物（发布由 release.yml 产出安装包）
-app/desktop/gospeak-desktop
-app/desktop/webui/dist/
-
-# Vite 临时文件
+client/web/src/routeTree.gen.ts
+client/desktop/mygo.ts
+client/desktop/gospeak-desktop
+client/desktop/webui/dist/*
+!client/desktop/webui/dist/.gitkeep
+client/mobile/www/
+client/mobile/build/
 vite.config.ts.timestamp*
 
+# 子仓拆分期残留的独立 lockfile —— 根 workspace 只有一份
+client/pnpm-lock.yaml
+server/pnpm-lock.yaml
+docs/pnpm-lock.yaml
+
+# VitePress 构建产物与缓存
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
 # ========================
-# 后端 (app/server)
+# 后端（server/）
 # ========================
-
-# 环境变量（真实配置，模板 .env.example 保留追踪）
-app/server/.env
-app/server/.env.dev
-app/server/.env.prod
-
-# 编译输出
-app/server/tmp/
-app/server/build-errors.log
-
-# SQLite 数据库
-app/server/db/
-*.db
-*.db-shm
-*.db-wal
-
-# 日志
-app/server/logs/
-app/server/gin.log
-*.log
-
-# Go 编译产物（锚定根/服务端输出，避免误伤 Android Java 包名 dev/gospeak）
 /gospeak
-app/server/gospeak
+go.work
+go.work.sum
 *.exe
 *.exe~
 *.dll
@@ -83,74 +61,17 @@ app/server/gospeak
 *.test
 *.out
 
-# Go 工作区
-go.work
-go.work.sum
-
-# Swagger 自动生成（可选，如需保留则注释掉）
-# app/server/docs/docs.go
-# app/server/docs/swagger.json
-# app/server/docs/swagger.yaml
-
 # ========================
-# 测试日志
+# 测试 / agent 日志 / 产物
 # ========================
 agent_test_logs/*
 !agent_test_logs/AGENTS.md
-
-# Playwright/Vitest 运行产物
 test-results/
 .last-run.json
-
-# review 产物
 findings.json
-
-# 存储 handler 测试产生的上传文件
-app/server/internal/handler/uploads/
-
-# 本地存储落盘目录（STORAGE_LOCAL_DIR 默认值，运行时产物不入库）
-app/server/uploads/
-
-# ========================
-# Agents 配置
-# ========================
-.agents/*
-!.agents/skills/
-!.agents/AGENTS.md
-
-# 临时/构建目录
-tmp/
-build/
-
-# Vitest 集成测试运行目录
-test/.runtime/
-
-# ========================
-# 部署运行时密钥
-# ========================
-deploy/.env
-# prometheus 抓取 /metrics 用的令牌（deploy/init.sh 按 observability 档位生成）
-deploy/observability/prometheus/metrics_token
-deploy/env/app.srs.env
-deploy/env/app.livekit.env
-deploy/env/*.local.env
-
-# 顶层 dist 规则会忽略整个目录，需先反忽略目录再保留 .gitkeep
-!app/server/internal/webui/dist/
-
-# go:embed frontend bundle (build overwrites contents, keep placeholder tracked)
-app/server/internal/webui/dist/*
-!app/server/internal/webui/dist/EMBED_PLACEHOLDER
-!app/server/internal/webui/dist/.gitkeep
-.worktrees/
-.agents/skills/room-voice-e2e/scripts/artifacts
-app/server/docs/swagger.json
-app/server/docs/swagger.yaml
-
-# 下载的 CI 构建产物（APK / iOS .app 等）
 artifacts/
+server/test/.runtime/
 
-# agent
-.workbuddy/
-.claude/
-.zcode/
+# 部署运行时密钥
+server/deploy/.env
+server/deploy/env/*.local.env

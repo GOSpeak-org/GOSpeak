@@ -1,38 +1,65 @@
 name: CI
+
 on:
   pull_request:
   push:
     branches: [release]
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  detect-changes:
-    name: Detect Changes
+  js:
+    name: JS · Biome / Typecheck / Build / Test
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo"
-  lint:
-    name: Lint (Biome + go vet)
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Biome
+        run: pnpm exec biome ci --files-ignore-unknown=true ./client/web ./client/packages ./client/scripts ./client/desktop ./client/mobile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Web build
+        run: pnpm --filter @gospeak/web build
+      - name: Web tests
+        run: pnpm --filter @gospeak/web test
+
+  server:
+    name: Server · vet / build / test
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo has no source to lint"
-  typecheck:
-    name: Typecheck
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/server/go.mod
+          cache-dependency-path: server/server/go.sum
+      - name: Vet
+        run: cd server/server && go vet ./...
+      - name: Build
+        run: cd server/server && go build -o /tmp/gospeak main.go
+      - name: Test
+        run: cd server/server && go test ./...
+
+  docs:
+    name: Docs · build
     runs-on: ubuntu-latest
     steps:
-      - run: echo "shell repo has no source to typecheck"
-  build-js:
-    name: Build JS (turbo)
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "shell repo has no JS to build"
-  build-server:
-    name: Build Server (Go)
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "shell repo has no Go to build"
-  test-server:
-    name: Test Server (Go)
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "shell repo has no Go tests"
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @gospeak/docs build

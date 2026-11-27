@@ -15,13 +15,15 @@
 
 GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频能力。单个二进制即可运行，前端内嵌，提供语音房间、发言检测、逐人音量控制、房间权限与原生桌面客户端。
 
-> **仓库结构**：本仓库是**聚合壳**，只用 submodule 把三个子仓锚定在一起，方便一次 `git clone --recursive` 拿全部。开发请直接 clone 对应子仓，不要在壳里的 `server/` `client/` `docs/` 目录改代码（它们是 submodule，默认处于游离 HEAD，提交会丢）。
+> **仓库结构**：本仓库是 **monorepo 根** —— 一份 Git 仓库、一份 `pnpm-lock.yaml`、一套 turbo / biome / lefthook 工具链。`server/` `client/` `docs/` 都是仓内普通目录（不是 submodule），直接改、直接提交。
 >
-> | 目录 | 仓库 | 说明 |
-> |---|---|---|
-> | `server/` | GOSpeak-Server | Go 后端、部署、文档 |
-> | `client/` | GOSpeak-Client | Web / 桌面 / 移动 / 共享规则 |
-> | `docs/` | GOSpeak-Docs | VitePress 文档站 |
+> | 目录 | 内容 |
+> |---|---|
+> | `server/` | `server/`（Go 后端）· `test/`（集成测试）· `deploy/`（compose / Caddy / LiveKit）· `docs/`（设计文档） |
+> | `client/` | `web/` · `packages/*` · `plugins/*` · `desktop/`（Go + MyGo）· `mobile/`（Capacitor）· `proxyrules/` |
+> | `docs/` | VitePress 文档站 |
+>
+> 仓库根一条命令跑通全栈：`pnpm install` → `pnpm dev`（后端 + Web）→ `pnpm build` / `pnpm test` / `pnpm typecheck`。
 
 ## 界面预览
 
@@ -108,35 +110,34 @@ chmod +x gospeak-server-v<VERSION>-linux-amd64
 
 ### 源码开发
 
-需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。前后端已拆到两个子仓，分别 clone：
+需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。monorepo 一次 clone 拿全部：
 
 ```bash
-git clone https://github.com/GOSpeak-org/GOSpeak-Server.git
-git clone https://github.com/GOSpeak-org/GOSpeak-Client.git
-
-# 后端：生成 deploy/.env（含随机 LiveKit 凭证），起依赖后跑服务
-cd GOSpeak-Server
+git clone https://github.com/GOSpeak-org/GOSpeak.git
+cd GOSpeak
 pnpm install
-cd deploy && ./init.sh && cd ..
-docker compose -f deploy/docker-compose.yml up -d
-cd server && go run main.go server
+
+# 后端：生成 server/deploy/.env（含随机 LiveKit 凭证），起依赖后跑服务
+cd server/deploy && ./init.sh && cd ../..
+docker compose -f server/deploy/docker-compose.yml up -d
+cd server/server && go run main.go server
 ```
 
 `./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。全档位版 `docker-compose.standard.yml` 把 7880 绑定到宿主机回环地址供本地直连调试；精简版 `docker-compose.yml` 则是 `7880:7880` 对公网发布，生产勿用。
 
-前端在 [GOSpeak-Client](https://github.com/GOSpeak-org/GOSpeak-Client)，在该仓运行 `pnpm install` 后 `pnpm --filter @gospeak/web dev`。
+前端就在同一个仓里：仓库根 `pnpm dev` 同时起前后端，或 `pnpm --filter @gospeak/web dev` 只起 Web；文档站是 `pnpm --filter @gospeak/docs dev`。
 
 ## 部署
 
-完整说明见 [deploy/DEPLOY.md](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/deploy/DEPLOY.md)。部署只需要一个域名与一个上游。
+完整说明见 [server/deploy/DEPLOY.md](./server/deploy/DEPLOY.md)。部署只需要一个域名与一个上游。
 
 ### 使用域名
 
 ```bash
-cd deploy
+cd server/deploy
 ./init.sh --domain voice.example.com
-cd ..
-docker compose -f deploy/docker-compose.standard.yml up -d --build
+cd ../..
+docker compose -f server/deploy/docker-compose.standard.yml up -d --build
 ```
 
 `--domain` 将 `edge` 加入 `COMPOSE_PROFILES`；只有全档位版 `docker-compose.standard.yml` 会读取该变量并启动内置 Caddy 自动申请 HTTPS 证书。浏览器打开 `https://voice.example.com`。精简版 `docker-compose.yml` 不含 Caddy，裸 `docker compose up -d` 不会启用 HTTPS。
@@ -144,15 +145,15 @@ docker compose -f deploy/docker-compose.standard.yml up -d --build
 ### 使用已有反向代理
 
 ```bash
-cd deploy
+cd server/deploy
 ./init.sh
-cd ..
-docker compose -f deploy/docker-compose.yml up -d --build
+cd ../..
+docker compose -f server/deploy/docker-compose.yml up -d --build
 ```
 
 不传 `--domain`，用精简版即可。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。
 
-内置入口是 Caddy（`deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [反向代理文档](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/deploy/reverse-proxy.md)。
+内置入口是 Caddy（`server/deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [反向代理文档](./docs/deploy/reverse-proxy.md)。
 
 ### 局域网
 
@@ -176,19 +177,20 @@ DB_TYPE="Turso"      TURSO_DATABASE_URL=...          # libSQL 远程数据库（
 
 ## 桌面客户端
 
-桌面客户端与网页版共用同一套前端，提供浏览器不具备的能力：关窗进托盘、全局快捷键（在游戏内生效）、开机自启、系统通知、游戏内覆盖层。构建与开发说明见 [desktop/README.md](https://github.com/GOSpeak-org/GOSpeak-Client/blob/release/desktop/README.md) 与 [桌面客户端文档](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)。
+桌面客户端与网页版共用同一套前端，提供浏览器不具备的能力：关窗进托盘、全局快捷键（在游戏内生效）、开机自启、系统通知、游戏内覆盖层。构建与开发说明见 [client/desktop/README.md](./client/desktop/README.md) 与 [桌面客户端文档](./docs/guide/desktop.md)。
 
 ## 文档
 
-- [部署指南](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/deployment-guide.md)
-- [桌面客户端](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)
-- [SFU 配置与成熟度](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/sfu-provider-maturity.md)
-- [架构设计](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/architecture/index.md)
-- [开发者指南](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/AGENTS.md)
+- [部署指南](./server/docs/deployment-guide.md)
+- [桌面客户端](./docs/guide/desktop.md)
+- [SFU 配置与成熟度](./server/docs/sfu-provider-maturity.md)
+- [架构设计](./docs/architecture/index.md)
+- [开发者指南](./AGENTS.md) · [服务端模块约定](./server/server/AGENTS.md)
+- [文档站源码](./docs/)
 
 ## 贡献
 
-欢迎提交 PR 与 Issue，较大的改动请先开 Issue 讨论。提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)，前端子仓由 commitlint 与 lefthook 强制执行。
+欢迎提交 PR 与 Issue，较大的改动请先开 Issue 讨论。提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)，由根目录的 commitlint 与 lefthook 钩子强制执行。
 
 ## License
 
