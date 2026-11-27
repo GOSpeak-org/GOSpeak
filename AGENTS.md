@@ -11,8 +11,8 @@ GOSpeak/                     ← monorepo 根，唯一 workspace 根
 ├── pnpm-workspace.yaml      ← workspace 成员清单
 ├── turbo.json biome.json lefthook.yml commitlint.config.js .npmrc
 ├── pnpm-lock.yaml           ← 全仓唯一锁文件
-├── client/                  web · plugins/* · desktop · mobile · proxyrules · scripts
-├── packages/                components · sfu-client · desktop · mobile-capabilities · plugin-sdk（共享 workspace 包）
+├── client/                  web · packages/* · plugins/* · desktop · mobile · proxyrules · scripts
+├── packages/                （空，新包预留位；共享包仍在 client/packages）
 ├── server/                  server（Go）· test · docs · scripts
 ├── deploy/                  compose · Caddy · LiveKit · 可观测 · init.sh
 └── docs/                    VitePress 文档站
@@ -22,7 +22,8 @@ GOSpeak/                     ← monorepo 根，唯一 workspace 根
 
 - **只有根有 workspace 根**：不得在 `client/` `server/` `docs/` 下新建 `pnpm-workspace.yaml`、`pnpm-lock.yaml`、根级 `package.json`、`turbo.json`、`biome.json`、`lefthook.yml`。要改就改根上那一份。
 - **目录名固定**：根上 `packages/` `deploy/` `docs/` 与 `client/` `server/`，脚本、Go 配置与 CI 都按这些路径写死，不要重命名或搬回子目录。
-- **`packages/` 在仓根**：`client/web` 引用共享包用 workspace 名（`@gospeak/*`），纯路径引用必须写 `../packages/...`（相对 `client/`）或 `../../packages/...`（相对 `client/web`）。
+- **共享包在 `client/packages/`**：`client/web` 引用共享包用 workspace 名（`@gospeak/*`），纯路径引用写 `../packages/...`（相对 `client/`）、`../../packages/...`（相对 `client/web`）。
+- **根 `packages/` 是新包空位**：目前只有 `.gitkeep`，不给老包用。以后新建的包丢进根 `packages/` 会自动进 workspace 与 biome 覆盖；它不是 client 共享包的第二个家。
 - **`deploy/` 在仓根**：Go 端 `config.LoadEnvFiles` 从工作目录逐级向上找 `<dir>/deploy/.env`，所以 `deploy/.env` 只能呆在仓根。
 - **子目录脚本带 cwd 假设**：`client/scripts/*.mjs` 以 `client/` 为工作目录 → 根脚本一律 `cd client && node scripts/...`。
 - **两个 Go 模块**：`server/server`（后端，module `GOSpeak`）与 `client/proxyrules`，各自 `go.mod`，互不 import。

@@ -20,8 +20,8 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 > | 目录 | 内容 |
 > |---|---|
 > | `server/` | `server/`（Go 后端）· `test/`（集成测试）· `docs/`（设计文档） |
-> | `client/` | `web/` · `plugins/*` · `desktop/`（Go + MyGo）· `mobile/`（Capacitor）· `proxyrules/` · `scripts/` |
-> | `packages/` | `components` · `sfu-client` · `desktop` · `mobile-capabilities` · `plugin-sdk`（workspace 共享包） |
+> | `client/` | `web/` · `packages/*`（components / sfu-client / desktop / mobile-capabilities / plugin-sdk）· `plugins/*` · `desktop/`（Go + MyGo）· `mobile/`（Capacitor）· `proxyrules/` · `scripts/` |
+> | `packages/` | （空）新包预留位，当前只有 `.gitkeep` |
 > | `deploy/` | compose · Caddy · LiveKit · 可观测 · 部署脚本 |
 > | `docs/` | VitePress 文档站 |
 >

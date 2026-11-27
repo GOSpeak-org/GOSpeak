@@ -10,7 +10,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const TS_DIR = "../packages/mobile-capabilities/src/capabilities";
+const TS_DIR = "packages/mobile-capabilities/src/capabilities";
 const IOS_DIR = "mobile/ios/App/App";
 const IOS_PROJECT = "mobile/ios/App/App.xcodeproj/project.pbxproj";
 const ANDROID_DIR = "mobile/android/app/src/main/java/dev/gospeak/mobile";

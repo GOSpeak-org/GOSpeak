@@ -9,6 +9,6 @@
 		"start": "node index.js"
 	},
 	"dependencies": {
-		"@gospeak/plugin-sdk": "file:../../../packages/plugin-sdk"
+		"@gospeak/plugin-sdk": "file:../../packages/plugin-sdk"
 	}
 }

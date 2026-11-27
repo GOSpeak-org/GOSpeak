@@ -12,8 +12,8 @@ import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DESKTOP_DIR = "desktop";
-const TS_DIR = "../packages/desktop/src/capabilities";
-const TS_EVENTS_FILE = "../packages/desktop/src/events.ts";
+const TS_DIR = "packages/desktop/src/capabilities";
+const TS_EVENTS_FILE = "packages/desktop/src/events.ts";
 
 /** 从 Go 源码里取出 `mygo.Bind(X{})` 绑定的类型名。 */
 export function extractBoundTypes(source) {

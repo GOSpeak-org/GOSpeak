@@ -1,9 +1,11 @@
 packages:
   - "client/web"
-  - "packages/*"
+  - "client/packages/*"
   - "client/plugins/*"
   - "client/desktop"
   - "client/mobile"
+  # 根 packages/ 是给新包留的空位（当前只有 .gitkeep），新包放这里自动进 workspace
+  - "packages/*"
   - "server/server"
   - "server/test"
   - "docs"

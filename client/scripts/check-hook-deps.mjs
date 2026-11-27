@@ -19,7 +19,7 @@ const args = [
 	"--files-ignore-unknown=true",
 	"--reporter=json",
 	"./web",
-	"../packages",
+	"./packages",
 ];
 
 let raw = "";

@@ -2,9 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// 圆角必须走 packages/components/src/theme.css 的 token 档位（相对 client/ 为 ../packages），
+// 圆角必须走 packages/components/src/theme.css 的 token 档位，
 // 这里拦住任意值写法（rounded-[4px]）与 CSS 里的字面量（border-radius: 4px）。
-const SCAN_DIRS = ["web/src", "../packages/components/src"];
+const SCAN_DIRS = ["web/src", "packages/components/src"];
 const SKIP_DIRS = new Set(["node_modules", "dist", "_solid-legacy"]);
 const SCRIPT_EXTS = /\.(tsx?|jsx?)$/;
 const STYLE_EXTS = /\.css$/;
