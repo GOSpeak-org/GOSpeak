@@ -27,32 +27,86 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 
 <div align="center">
   <img src=".github/assets/screenshots/room.jpg" alt="语音房间" width="100%" />
-  <p><em>语音房间 — 频道树、发言检测、成员面板与逐人音量</em></p>
+  <p><em><strong>语音房间</strong> — 频道树与人数上限、发言检测光圈、成员面板、屏幕共享与分辨率切换</em></p>
 </div>
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/assets/screenshots/login.jpg" alt="登录页" /><br /><em>登录页 — 自托管实例，无第三方鉴权依赖</em></td>
-    <td width="50%"><img src=".github/assets/screenshots/domains.jpg" alt="发现域" /><br /><em>发现域 — 公开域检索、邀请码加入与已加入域快捷入口</em></td>
+    <td width="50%" valign="top">
+      <img src=".github/assets/screenshots/login.jpg" alt="登录页" />
+      <p><em><strong>登录页</strong> — 自托管实例，无第三方鉴权依赖</em></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src=".github/assets/screenshots/domains.jpg" alt="发现域" />
+      <p><em><strong>发现域</strong> — 公开域检索、邀请码加入、已加入域快捷入口</em></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src=".github/assets/screenshots/invite.jpg" alt="邀请码" />
+      <p><em><strong>邀请码</strong> — 按域生成、可停用、附使用记录</em></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src=".github/assets/screenshots/chat.jpg" alt="文字消息" />
+      <p><em><strong>文字消息</strong> — 频道与私聊会话列表，右侧显示在线成员</em></p>
+    </td>
+  </tr>
+</table>
+
+### 设置
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src=".github/assets/screenshots/settings-audio.jpg" alt="音频设置" />
+      <p><em><strong>音频</strong> — 设备热切换、麦克风电平测试、语音通话 / 音乐双模式、码率与采样率</em></p>
+    </td>
+    <td width="50%" valign="top">
+      <img src=".github/assets/screenshots/settings-voice.jpg" alt="语音设置" />
+      <p><em><strong>语音</strong> — 进房默认静音、进出房提示音、本机输入输出音量</em></p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <img src=".github/assets/screenshots/settings-appearance.jpg" alt="外观设置" />
+      <p><em><strong>外观</strong> — 浅色与深色主题分别保存，多套配色可选</em></p>
+    </td>
   </tr>
 </table>
 
 ## 特性
 
-- 文字消息：频道与私聊会话，支持提及与表情回应。
+**语音**
+
 - 语音房间：创建与加入，支持密码保护与人数上限。
 - 发言检测：实时语音活动指示，显示当前正在说话的成员。
 - 逐人音量：为每位成员单独调节输出音量，设置持久保存。
 - 麦克风与静音：一键闭麦、一键静音所有声音。
+- 屏幕共享：按需订阅，支持分辨率切换。
+- 同源 LiveKit：内置 `/livekit` 反向代理，信令走应用域名，媒体走 WebRTC UDP 直连。
+
+**文字**
+
+- 文字消息：频道与私聊会话，支持提及与表情回应。
+
+**域与权限**
+
+- 发现域：公开域检索、邀请码加入、已加入域快捷入口。
+- 邀请码：按域生成、可停用、附使用记录。
+- 角色权限：完整的角色权限体系。
 - 房间管理：创建者与管理员可强制静音、踢出成员、全员静音。
 - 用户禁言：管理员可全局禁言/解禁用户（定时或永久），含媒体层强制状态与实时事件通知。
-- 角色权限：完整的角色权限体系。
+
+**部署**
+
 - 单二进制部署：前端通过 `go:embed` 内嵌，下载即用。
-- 同源 LiveKit：内置 `/livekit` 反向代理，信令走应用域名，媒体走 WebRTC UDP 直连。
 - 内置 Caddy：传入域名即可自动申请 HTTPS 证书并处理 WebSocket 升级。
 - 渐进式数据库：SQLite、PostgreSQL、MySQL、Turso（libSQL），由 GORM 自动迁移。
 - 多种认证方式：JWT 与 OAuth2（GitHub、Google、QQ）。
 - 可选组件：对象存储（RustFS、R2）与可观测性（Prometheus、Grafana、Loki）。
+
+**客户端**
+
 - 原生桌面客户端：关窗进托盘、开机自启、全局快捷键、系统通知、游戏内覆盖层，与网页版共用同一套前端。
 - 前端错误边界：组件、页面、路由三层兜底与全局错误上报。
 
