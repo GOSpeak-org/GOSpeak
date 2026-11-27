@@ -1,0 +1,30 @@
+# 根仓只守根自有文件；子仓的门禁在各自仓库里跑。
+pre-commit:
+  parallel: true
+  commands:
+    "biome check":
+      glob: "packages/**/*.{js,ts,cjs,mjs,jsx,tsx,json,jsonc,css}"
+      run: npx @biomejs/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    "commitlint":
+      run: npx commitlint --edit {1}
+
+pre-push:
+  parallel: true
+  commands:
+    "biome ci":
+      run: npx @biomejs/biome ci --files-ignore-unknown=true --no-errors-on-unmatched ./packages ./scripts/release
+    "release scripts":
+      run: node --test scripts/release/*.test.mjs
+    "submodule pins":
+      run: git submodule status --recursive >/dev/null
+    "protect release branch":
+      run: |
+        branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
+        if [ "$branch" = "release" ] && [ "${GOSPEAK_ALLOW_RELEASE_PUSH:-0}" != "1" ]; then
+          echo "拒绝：当前在 release 分支，禁止直接 push。请通过 PR 合并；确需直推请设 GOSPEAK_ALLOW_RELEASE_PUSH=1。" >&2
+          exit 1
+        fi

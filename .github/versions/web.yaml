@@ -1,0 +1,6 @@
+# GOSpeak Web 版本声明 —— 根仓发版单一事实源（只读子仓校验）
+# 同步约束：client/web/package.json 的 version 必须与本文件一致。
+version: "1.4.0-rc.1"
+
+notes: |
+  GOSpeak Web 1.4.0-rc.1 —— monorepo 编排层首个 Web 版本。

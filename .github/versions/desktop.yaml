@@ -1,0 +1,6 @@
+# GOSpeak Desktop 版本声明 —— 根仓发版单一事实源（只读子仓校验）
+# 同步约束：client/desktop/package.json 与 client/desktop/mygo.config.ts 必须与本文件一致。
+version: "1.4.0-rc.1"
+
+notes: |
+  GOSpeak Desktop 1.4.0-rc.1 —— monorepo 编排层首个桌面端版本。

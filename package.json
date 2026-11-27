@@ -1,0 +1,21 @@
+{
+	"name": "gospeak-monorepo",
+	"version": "1.4.0-rc.1",
+	"private": true,
+	"packageManager": "pnpm@10.11.0",
+	"scripts": {
+		"prepare": "lefthook install",
+		"lint": "biome lint packages",
+		"format": "biome format --write packages",
+		"check": "biome check packages",
+		"release:check": "node scripts/release/check-version.mjs .",
+		"release:test": "node --test scripts/release/*.test.mjs",
+		"submodules:check": "git submodule status --recursive"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.8",
+		"@commitlint/cli": "^21.2.4",
+		"@commitlint/config-conventional": "^21.2.4",
+		"lefthook": "2.2.2"
+	}
+}

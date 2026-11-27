@@ -1,0 +1,23 @@
+# 根 workspace 只覆盖根自有目录：packages/（新包预留位）
+# client/ server/ docs/ 是 submodule，各自管自己的 workspace 与锁文件，根上不接管。
+packages:
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - esbuild
+  - lefthook
+
+supportedArchitectures:
+  os:
+    - current
+    - linux
+    - darwin
+    - win32
+  cpu:
+    - current
+    - x64
+    - arm64
+  libc:
+    - current
+    - glibc
+    - musl

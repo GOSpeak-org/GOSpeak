@@ -1,0 +1,253 @@
+name: Release
+
+# 一个 tag 只发一端：gospeak-<component>-v<version>。
+# 版本真源是根仓 .github/versions/<component>.yaml；子仓只提供构建产物。
+on:
+  push:
+    tags:
+      - "gospeak-server-v*"
+      - "gospeak-web-v*"
+      - "gospeak-desktop-v*"
+      - "gospeak-mobile-v*"
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag（gospeak-<component>-v<version>）"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag（gospeak-<component>-v<version>）"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.r.outputs.tag }}
+      component: ${{ steps.r.outputs.component }}
+      version: ${{ steps.r.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - id: r
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          parsed="$(node scripts/release/release-naming.mjs parse "$tag")"
+          component="${parsed%% *}"; version="${parsed##* }"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "component=$component" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          node scripts/release/check-version.mjs . "$tag" "$component"
+
+  server:
+    name: Server ${{ matrix.target }}
+    needs: resolve
+    if: needs.resolve.outputs.component == 'server'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, target: linux-amd64 }
+          - { goos: linux, goarch: arm64, target: linux-arm64 }
+          - { goos: darwin, goarch: amd64, target: darwin-amd64 }
+          - { goos: darwin, goarch: arm64, target: darwin-arm64 }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/server/go.mod
+          cache-dependency-path: server/server/go.sum
+      - name: Build
+        working-directory: server/server
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          commit="$(git rev-parse --short=12 HEAD)"
+          go build -trimpath -ldflags="-s -w -X GOSpeak/internal/buildinfo.Version=${VERSION} -X GOSpeak/internal/buildinfo.Commit=${commit}" -o "$GITHUB_WORKSPACE/out/gospeak" main.go
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          mv "$GITHUB_WORKSPACE/out/gospeak" "$GITHUB_WORKSPACE/dist/gospeak-${{ matrix.target }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.target }}
+          path: dist/*
+
+  web:
+    name: Web dist
+    needs: resolve
+    if: needs.resolve.outputs.component == 'web'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+      - run: cd client && pnpm install --frozen-lockfile
+      - run: cd client && GOSPEAK_TARGET=web pnpm --filter @gospeak/web build
+      - name: Package
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          tar -czf "dist/gospeak-web-v${{ needs.resolve.outputs.version }}-dist.tar.gz" -C client/web dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: dist/*
+
+  desktop:
+    name: Desktop installer
+    needs: resolve
+    if: needs.resolve.outputs.component == 'desktop'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: client/desktop/go.mod
+          cache-dependency-path: client/desktop/go.sum
+      - run: cd client && pnpm install --frozen-lockfile
+      - name: Build
+        run: cd client && pnpm --filter @gospeak/desktop-app build
+      - run: |
+          set -euo pipefail
+          mkdir -p dist
+          find client/desktop/dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.deb" \) -exec cp {} dist/ \;
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-installers
+          path: dist/*
+
+  mobile:
+    name: Mobile APK (debug)
+    needs: resolve
+    if: needs.resolve.outputs.component == 'mobile'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: cd client && pnpm install --frozen-lockfile
+      - run: cd client && pnpm --filter @gospeak/web build:mobile
+      - name: Assemble debug APK
+        run: |
+          set -euo pipefail
+          cd client/mobile/android
+          chmod +x ./gradlew || true
+          ./gradlew assembleDebug --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp app/build/outputs/apk/debug/*.apk "$GITHUB_WORKSPACE/dist/" || true
+          ls -la "$GITHUB_WORKSPACE/dist"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobile-apk
+          path: dist/*
+
+  publish:
+    name: Publish release
+    needs: [resolve, server, web, desktop, mobile]
+    if: always() && needs.resolve.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect assets
+        id: assets
+        env:
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find artifacts -type f -exec cp {} dist/ \;
+          # 统一产物名：gospeak-<component>-v<version>-<target>[.ext]
+          cd dist
+          for f in *; do
+            case "$f" in
+              gospeak-*) ;;
+              *) continue ;;
+            esac
+          done
+          ls -la
+          sums="$(node "$GITHUB_WORKSPACE/scripts/release/release-naming.mjs" checksum "$COMPONENT" "$VERSION")"
+          (cd dist && shasum -a 256 * > "$GITHUB_WORKSPACE/$sums")
+          echo "sums=$sums" >> "$GITHUB_OUTPUT"
+      - name: Render notes
+        id: notes
+        env:
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+        run: |
+          set -euo pipefail
+          node -e '
+            const { readFileSync } = require("node:fs");
+            const component = process.env.COMPONENT;
+            const src = readFileSync(`.github/versions/${component}.yaml`, "utf8");
+            const block = src.match(/^notes:[ \t]*\|[ \t]*\n([\s\S]*?)(?=^\S)/m);
+            console.log(block ? block[1].replace(/^  /gm, "").trim() : "");
+          ' > /tmp/notes.md
+          echo "::notice::notes bytes: $(wc -c < /tmp/notes.md)"
+      - name: Create or refresh release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file /tmp/notes.md
+          else
+            gh release create "$TAG" --title "GOSpeak $COMPONENT $TAG" --notes-file /tmp/notes.md --latest=false
+          fi
+          gh release upload "$TAG" dist/* "${{ steps.assets.outputs.sums }}" --clobber

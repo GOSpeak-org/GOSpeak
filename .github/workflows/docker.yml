@@ -1,0 +1,73 @@
+name: Docker Image
+
+# 镜像只由根仓 deploy/Dockerfile 构建（上下文=仓根，需子模块）。
+on:
+  push:
+    tags: ["gospeak-server-v*"]
+  workflow_call:
+    inputs:
+      release_tag:
+        description: "gospeak-server-v* tag"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "gospeak-server-v* tag；留空 = 仅构建验证"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: ref
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-${GITHUB_REF_NAME:-}}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ -n "$tag" ]; then
+            version="$(node -e 'const t=process.argv[1]; const m=t.match(/-v(.+)$/); console.log(m?m[1]:"")' "$tag")"
+          else
+            version=""
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ steps.ref.outputs.tag || github.sha }}
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Check version
+        if: steps.ref.outputs.tag != ''
+        run: node scripts/release/check-version.mjs . "${{ steps.ref.outputs.tag }}" server
+      - uses: docker/login-action@v3
+        if: steps.ref.outputs.tag != ''
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (and push on tag)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ steps.ref.outputs.tag != '' }}
+          tags: |
+            ghcr.io/gospeak-org/gospeak-server:latest
+            ghcr.io/gospeak-org/gospeak-server:${{ steps.ref.outputs.version }}
+          build-args: |
+            VERSION=${{ steps.ref.outputs.version }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
