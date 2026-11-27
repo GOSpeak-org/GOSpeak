@@ -11,11 +11,15 @@
 #
 # 配置来源与全档位版一致：deploy/.env（用 deploy/init.sh 生成）
 #
-# 与全档位版 docker-compose.standard.yml 的区别（**只允许差在服务集，不许差在
-# app/livekit 的卷、环境变量与端口发布策略**，`./init.sh --check` 会断言）：
+# 与全档位版的差异只在服务集与可选项，app/livekit 的端口发布策略必须一致
+# （`./init.sh --check` 会断言 7880 只绑回环、不发布 7881、/ping 健康检查与 DB 卷）：
 #   - 无 profiles，up 即起，不需要 COMPOSE_PROFILES
 #   - 去掉 postgres / rustfs / caddy / prometheus / alertmanager / grafana / loki / promtail
-#   - 保留同名 volume（含 gospeak-nats），可与全档位版互相切换而不丢数据
+#   - 同名 volume（gospeak-db / logs / uploads / plugins），可与全档位版互相切换
+#
+# 内嵌 NATS 的 KV（JWT 签名密钥 / 黑名单 / refresh family）默认落在 DB 同级的
+# nats/ 目录，也就是 `gospeak-db` 卷里的 /app/db/nats，容器重建不丢；
+# 全档位版改用独立卷 `gospeak-nats`（显式 NATS_STORE_DIR），两种都不落容器层。
 #
 # 需要 PostgreSQL、对象存储或监控时，改用 docker-compose.standard.yml。
 # =============================================================================
@@ -39,26 +43,16 @@ services:
       SERVER_PORT: "8998"
       STATIC_DIR: /app/static
       DB_PATH: ${DB_PATH:-/app/db/app.db}
-      # 前置 Caddy / 自有反代后，应用看到的客户端 IP 是代理的内网地址。
-      # 信任 Docker 私网段才能从 X-Forwarded-For 取回真实 IP（限流/审计依赖它）；
-      # 直接对外暴露时客户端是公网 IP，不会命中这段，因此默认值安全。
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
-      # 内嵌 NATS JetStream 数据目录（JWT 签名密钥 / 黑名单 / refresh family）。
-      # 必须挂独立卷：不挂的话容器重建即丢 KV，全员 refresh token 失效、被迫重登。
-      NATS_STORE_DIR: ${NATS_STORE_DIR:-/app/nats}
     ports:
       - "${GOSPEAK_PORT:-8998}:8998"
     volumes:
       - gospeak-db:/app/db
       - gospeak-logs:/app/logs
       - gospeak-uploads:/app/uploads
-      - gospeak-nats:/app/nats
       - gospeak-plugins:/app/plugins
     depends_on:
       livekit:
         condition: service_started
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8998/ping"]
       interval: 30s
@@ -76,7 +70,7 @@ services:
       # 信令 7880 只绑宿主机回环：浏览器走应用同源反代 /livekit 接入，
       # LiveKit 不需要域名/证书，也就不需要对公网发布 7880（与全档位版一致）。
       - "127.0.0.1:7880:7880"
-      - "7882:7882"        # RTC over TCP（UDP 不通时的兜底）
+      - "7882:7882"        # RTC over TCP（UDP 不通时的媒体兜底）
       - "7882:7882/udp"    # RTC over UDP（媒体主通道）
       - "3478:3478/udp"    # TURN
     volumes:
@@ -88,12 +82,9 @@ services:
       LIVEKIT_KEYS: "${LIVEKIT_KEY}: ${LIVEKIT_SECRET}"
       LIVEKIT_WEBHOOK_API_KEY: "${LIVEKIT_KEY}"
     command: --config /etc/livekit.yaml
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
 volumes:
   gospeak-db:
   gospeak-logs:
   gospeak-uploads:
-  gospeak-nats:
   gospeak-plugins:

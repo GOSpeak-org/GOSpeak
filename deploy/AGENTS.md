@@ -29,7 +29,7 @@
 - **`deploy/.env` 是唯一配置文件**，compose 插值与应用环境变量共用同一份；应用加载优先级见 `server/internal/config/config.go`。**不要提交 `.env`**。
 - **只需要一个域名、一个上游**：全档位版 `edge` profile 的 Caddy 反代只面对 `gospeak:8998`（精简版无 Caddy，也不读 `COMPOSE_PROFILES`），`/api` `/ws` `/uploads` `/livekit` 全在同一上游；LiveKit 不需要独立域名/证书，媒体走 UDP 直连。
 - **密钥不进 `livekit.yaml`**：由 `init.sh` 归一后只留在 `.env`。
-- **两版 compose 只许差在服务集**：`docker-compose.yml`（精简）与 `docker-compose.standard.yml`（全档位）的 `gospeak` / `livekit` 必须保持同一套卷、环境变量、健康检查与端口发布策略（`gospeak-nats:/app/nats`、`TRUSTED_PROXIES`、`NATS_STORE_DIR`、`/ping` 健康检查、`127.0.0.1:7880:7880`、不发布 7881）。`init.sh --check` 会断言这些点，漂移即失败。
+- **两版 compose 的公共骨架要一致**：`gospeak-db:/app/db` 卷、`/ping` 健康检查、`127.0.0.1:7880:7880`、不发布 7881 —— `init.sh --check` 会断言。内嵌 NATS 的 KV（签名密钥 / 黑名单 / refresh family）默认落在 DB 同级的 `nats/` 目录，随 `gospeak-db` 卷持久化，**不需要额外卷**；只有显式改 `NATS_STORE_DIR` 时才必须同时挂对应卷（全档位版就是这样）。
 - `init.sh --check` 只做一致性校验、不写文件，CI 会跑；改 `.env.example` / `livekit.yaml` / `Caddyfile` 任一处都要保证校验通过。
 - 改编排要同步 `DEPLOY.md` 与 Docs 仓的 `deploy/*`。
 

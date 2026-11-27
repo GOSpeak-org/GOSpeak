@@ -85,7 +85,7 @@ docker compose -f deploy/docker-compose.yml logs -f gospeak
 | 对象存储 | 本地磁盘 | 可选 RustFS/S3 |
 | 监控 | 无 | Prometheus/Grafana/Loki/Alertmanager |
 
-两个编排文件共用同一份 `deploy/.env` 和同名数据卷（`gospeak-db` / `gospeak-logs` / `gospeak-uploads` / `gospeak-nats` / `gospeak-plugins`），切换 `-f` 指向不会丢数据。`gospeak-nats` 放内嵌 NATS JetStream 的 KV（JWT 签名密钥、黑名单、refresh family），**两版都必须挂**，否则容器重建会丢会话状态。需要 edge 自动 HTTPS、PostgreSQL、对象存储或监控时，改用全档位版：`docker compose -f deploy/docker-compose.standard.yml up -d`。
+两个编排文件共用同一份 `deploy/.env` 和同名数据卷（`gospeak-db` / `gospeak-logs` / `gospeak-uploads` / `gospeak-plugins`；全档位版另有 `gospeak-nats`），切换 `-f` 指向不会丢数据。内嵌 NATS 的 KV（JWT 签名密钥、黑名单、refresh family）默认写在 DB 同级的 `nats/` 目录，也就是 `gospeak-db` 卷内的 `/app/db/nats`；全档位版显式改到独立卷 `gospeak-nats`。两种都不会落进容器层。需要 edge 自动 HTTPS、PostgreSQL、对象存储或监控时，改用全档位版：`docker compose -f deploy/docker-compose.standard.yml up -d`。
 
 ---
 

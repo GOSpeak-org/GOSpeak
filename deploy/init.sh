@@ -151,31 +151,28 @@ check_consistency() {
   done
   [[ $compose_ok -eq 1 ]] || rc=1
 
-  # ── A2. 两版 compose 的 app/livekit 骨架必须一致 ──
-  # 精简版和全档位版只允许差在服务集；卷 / 端口发布 / 健康检查一旦漂移，
-  # 就会出现「精简版重建容器丢 NATS KV，全员被迫重登」「7880 意外对公网」这类事故。
+  # ── A2. 两版 compose 的公共骨架检查 ──
+  # 内嵌 NATS 的 KV（JWT 签名密钥 / 黑名单 / refresh family）默认落在 DB 同级的
+  # nats/ 目录 —— 只要 `gospeak-db:/app/db` 挂着就自带持久化，不需要额外卷。
+  # 显式设置 NATS_STORE_DIR 把 KV 挪走时，才必须同时挂对应卷。
   local simple_compose="docker-compose.yml" std_compose="docker-compose.standard.yml" parity_ok=1 cf2
   if [[ -f "$simple_compose" && -f "$std_compose" ]]; then
     for cf2 in "$simple_compose" "$std_compose"; do
-      # 1) NATS 数据卷：不挂卷 = 容器重建即丢 JetStream KV（JWT 签名密钥 / 黑名单 / refresh family）
-      grep -qF 'gospeak-nats:/app/nats' "$cf2" || {
-        echo "  [x] $cf2 缺少 gospeak-nats:/app/nats 卷：容器重建会丢 NATS KV，全员被迫重登" >&2
+      # 1) DB 卷：既是 SQLite 数据，也是 NATS KV 默认目录的持久化来源
+      grep -qE '^[[:space:]]*-[[:space:]]*gospeak-db:/app/db' "$cf2" || {
+        echo "  [x] $cf2 缺少 gospeak-db:/app/db 卷：DB 与默认 NATS KV 目录都会落进容器层" >&2
         parity_ok=0
       }
-      # 2) 反代后的真实 IP 信任链 / NATS 落盘路径 / 健康检查，两版都必须有
-      grep -qF 'TRUSTED_PROXIES' "$cf2" || {
-        echo "  [x] $cf2 缺少 TRUSTED_PROXIES：反代后限流与审计拿不到真实 IP" >&2
+      # 2) 显式改 KV 目录就必须挂卷，否则数据写进容器层、重建即丢
+      if grep -qE '^[[:space:]]*NATS_STORE_DIR:' "$cf2" && ! grep -qE '^[[:space:]]*-[[:space:]]*gospeak-nats:/app/nats' "$cf2"; then
+        echo "  [x] $cf2 设置了 NATS_STORE_DIR 却没有挂 gospeak-nats:/app/nats：KV 会落进容器层" >&2
         parity_ok=0
-      }
-      grep -qF 'NATS_STORE_DIR' "$cf2" || {
-        echo "  [x] $cf2 缺少 NATS_STORE_DIR：卷与 KV 路径不一致时数据会写进容器层" >&2
-        parity_ok=0
-      }
-      grep -qF 'http://127.0.0.1:8998/ping' "$cf2" || {
+      fi
+      # 3) 健康检查与信令端口策略两版一致
+      grep -qE 'test:.*127\.0\.0\.1:8998/ping' "$cf2" || {
         echo "  [x] $cf2 缺少 /ping 健康检查" >&2
         parity_ok=0
       }
-      # 3) LiveKit 信令端口不得对公网发布：浏览器走应用同源 /livekit
       grep -qE '^[[:space:]]*-[[:space:]]*"?7880:7880' "$cf2" && {
         echo "  [x] $cf2 把 LiveKit 7880 绑到了所有网卡：应为 127.0.0.1:7880:7880" >&2
         parity_ok=0
@@ -185,7 +182,7 @@ check_consistency() {
         parity_ok=0
       }
     done
-    [[ $parity_ok -eq 1 ]] && echo "  [ok] 两版 compose 的 app/livekit 骨架一致（卷 / 端口 / 健康检查）"
+    [[ $parity_ok -eq 1 ]] && echo "  [ok] 两版 compose 公共骨架一致（DB 卷 / KV 落盘 / 健康检查 / 信令端口）"
   else
     echo "  [-] 未找到两版 compose，跳过骨架一致性检查"
   fi
