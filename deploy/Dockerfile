@@ -61,7 +61,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="$TARGETARCH" go build -trimpath \
       -o /gospeak main.go
 
 # ── 运行镜像 ────────────────────────────────────────────────────────────────
-FROM alpine:3.21
+FROM alpine:3.24
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN apk add --no-cache ca-certificates tzdata wget \
