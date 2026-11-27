@@ -15,7 +15,7 @@ require (
 	github.com/livekit/protocol v1.54.1
 	github.com/livekit/server-sdk-go/v2 v2.19.0
 	github.com/nats-io/nats-server/v2 v2.15.3
-	github.com/nats-io/nats.go v1.55.0
+	github.com/nats-io/nats.go v1.56.0
 	github.com/nrednav/cuid2 v1.1.1
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/prometheus/client_golang v1.25.0
