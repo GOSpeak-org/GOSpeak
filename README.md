@@ -15,7 +15,7 @@
 
 GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频能力。单个二进制即可运行，前端内嵌，提供语音房间、发言检测、逐人音量控制、房间权限与原生桌面客户端。
 
-> **仓库结构**：本仓库是**聚合壳**，只用 submodule 把三个子仓锚定在一起，方便一次 `git clone --recursive` 拿全部。开发请直接 clone 对应子仓，不要在壳里的 `server/` `client/` `docs/` 目录改代码（它们是 submodule，默认处于游离 HEAD，提交会丢）。
+> **仓库结构**：本仓库是**聚合壳**，只用 submodule 把三个子仓锚定在一起，方便一次 `git clone --recursive` 拿全部。
 >
 > | 目录 | 仓库 | 说明 |
 > |---|---|---|
@@ -39,12 +39,6 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
     <td width="50%" valign="top">
       <img src=".github/assets/screenshots/domains.jpg" alt="发现域" />
       <p><em><strong>发现域</strong> — 公开域检索、邀请码加入、已加入域快捷入口</em></p>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" valign="top">
-      <img src=".github/assets/screenshots/chat.jpg" alt="文字消息" />
-      <p><em><strong>文字消息</strong> — 频道与私聊会话列表，右侧显示在线成员</em></p>
     </td>
   </tr>
 </table>
