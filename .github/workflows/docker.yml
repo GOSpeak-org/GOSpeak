@@ -44,7 +44,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ steps.ref.outputs.tag || github.sha }}
+          # 构建流水线跟触发这次运行的 ref（release 分支），不跟 tag：
+          # tag 锁的是应用源码，Dockerfile 属于流水线，修好即可补发旧 tag 的镜像。
+          ref: ${{ github.ref_name }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Check version

@@ -185,6 +185,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: client/proxyrules/go.mod
+          cache-dependency-path: client/proxyrules/go.sum
       - name: Accept Android SDK licenses
         run: |
           set -euo pipefail
@@ -195,8 +199,20 @@ jobs:
           yes | "$SDKM" --licenses >/dev/null 2>&1 || true
           "$SDKM" --list_installed 2>/dev/null | head -10 || true
       - run: cd client && pnpm install --frozen-lockfile
+      - name: Install Android NDK + gomobile
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$(command -v sdkmanager || echo "$SDK/cmdline-tools/latest/bin/sdkmanager")"
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          "$SDKM" "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0" >/dev/null
+          echo "ANDROID_NDK_HOME=$SDK/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          "$(go env GOPATH)/bin/gomobile" init
       - name: Sync Capacitor project
         run: cd client && pnpm --filter @gospeak/mobile sync:no-bind
+      - name: Bind proxyrules AAR
+        run: cd client && pnpm --filter @gospeak/mobile bind:rules:android
       - name: Assemble debug APK
         run: |
           set -euo pipefail
