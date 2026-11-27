@@ -155,8 +155,8 @@ pnpm --filter @gospeak/desktop-app build
 ### 新增原生能力
 
 1. 在本仓的 [`client/desktop/`](https://github.com/GOSpeak-org/GOSpeak/tree/release/client/desktop) 中找到对应的 `*.go`，为已绑定的结构体添加方法（第一个参数为 `context.Context`，通过 `mygo.CallerWindow(ctx)` 获取调用窗口）
-2. 在 `packages/desktop/src/capabilities/` 添加封装：一个接口、一个原生实现、一个浏览器兜底
-3. 运行 `node scripts/check-desktop-commands.mjs` 校验命令名
+2. 在 `client/packages/desktop/src/capabilities/` 添加封装：一个接口、一个原生实现、一个浏览器兜底
+3. 运行 `pnpm check:desktop` 校验命令名（等价于 `cd client && node scripts/check-desktop-commands.mjs`）
 
 第三步不可跳过。命令名错误时 MyGo 仅返回 rejected Promise，多数封装会静默吞掉错误，表现为「功能无反应且不报错」。
 

@@ -97,12 +97,13 @@ LiveKit Cloud 的节点主要在境外。国内用户连接可能出现：
 
 ## 迁移
 
-Cloud 与自建互切只需修改三个环境变量：
+Cloud 与自建互切需要同时修改四个环境变量（含 `LIVEKIT_PUBLIC_URL`）：
 
 ```ini
 LIVEKIT_HOST=...
 LIVEKIT_KEY=...
 LIVEKIT_SECRET=...
+LIVEKIT_PUBLIC_URL=...   # 自建→Cloud 填 Cloud 地址；Cloud→自建 清空（留空走同源 /livekit）
 ```
 
 重启后生效。已建立的连接会中断，用户重新进入频道即可。

@@ -15,20 +15,20 @@
 #   client/desktop/package.json 的 version
 #   client/desktop/mygo.config.ts 的 version（决定安装包文件名）
 # 两者都必须与本文件一致。
-version: "1.4.1"
+version: "1.4.0-rc.1"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时由 scripts/release/build-changelog.mjs 以本组件历史 tag 为基线生成。
 notes: |
-  GOSpeak Desktop 1.4.1 —— monorepo 合并后本仓的首个桌面端版本。
+  GOSpeak Desktop 1.4.0-rc.1 —— monorepo 合并后首个四端统一的版本。
 
-  内容与旧仓 GOSpeak-Client 的同名版本一致：内嵌前端跟随 Web 1.4.1，
+  内容与旧仓 GOSpeak-Client 的同名版本一致：内嵌前端跟随 Web 1.4.0-rc.1，
   桌面宿主代码与安装包构建方式未变，只是搬进 monorepo 并统一了 tag 命名。
 
   ## 功能
-  - 内嵌前端跟随 Web 1.4.1：屏幕共享按需订阅、user_uuid 跨层标识、成员菜单图标 token
+  - 内嵌前端跟随 Web 1.4.0-rc.1：屏幕共享按需订阅、user_uuid 跨层标识、成员菜单图标 token
   - 关窗进托盘、开机自启、全局快捷键、系统通知、游戏内覆盖层保持不变
 
   ## 修复
-  - 版本号三处对齐：mygo.config.ts / package.json / 本文件统一到 1.4.1
+  - 版本号三处对齐：mygo.config.ts / package.json / 本文件统一到 1.4.0-rc.1
   - 迁移到 client/desktop 后的前端产物同步路径修正（webui/dist 与 .gz 边车）

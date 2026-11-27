@@ -1,6 +1,6 @@
 {
 	"name": "@gospeak/mobile",
-	"version": "1.4.1",
+	"version": "1.4.0-rc.1",
 	"private": true,
 	"description": "GOSpeak mobile client host (Capacitor).",
 	"type": "module",

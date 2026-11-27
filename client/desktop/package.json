@@ -1,6 +1,6 @@
 {
 	"name": "@gospeak/desktop-app",
-	"version": "1.4.1",
+	"version": "1.4.0-rc.1",
 	"private": true,
 	"description": "GOSpeak desktop client host (Go + MyGo).",
 	"scripts": {

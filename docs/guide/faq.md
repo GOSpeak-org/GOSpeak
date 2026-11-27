@@ -31,7 +31,7 @@
 - `7882/tcp` 媒体兜底
 - `3478/udp` TURN
 
-媒体端口未开放时语音无法正常工作。**全档位（`-f deploy/docker-compose.standard.yml`）下 7880 / 7881 不需要对公网开放**：7880 只绑宿主机回环供本机调试，LiveKit 信令对外走应用内置的同源反向代理 `/livekit`。注意精简版 `deploy/docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产务必使用全档位或自配防火墙。云服务器上需要在系统防火墙和云厂商安全组中同时放行媒体端口。
+媒体端口未开放时语音无法正常工作。**两版 compose 都不需要将 7880 / 7881 对公网开放**：两版共用基础编排，7880 只绑宿主机回环供本机 `pnpm dev` 调试，LiveKit 信令对外走应用内置的同源反向代理 `/livekit`；7881 两版都不再发布。云服务器上需要在系统防火墙和云厂商安全组中同时放行媒体端口。
 
 ### 能否部署到群晖 NAS？
 
@@ -164,7 +164,7 @@ Docker 部署需要使用 `docker compose -f docker-compose.standard.yml up -d`�
 ```bash
 git pull
 cd deploy
-docker compose -f docker-compose.standard.yml up -d --build
+docker compose -f docker-compose.standard.yml up -d
 ```
 
 数据库表结构自动迁移，升级前应先备份。

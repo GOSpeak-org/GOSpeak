@@ -2,7 +2,10 @@
 
 ## 基本约定
 
-所有接口均以 `/api/v1` 为前缀。
+除健康检查、WebSocket、Swagger 等根路径端点外，业务接口均以 `/api/v1` 为前缀。
+
+> [!NOTE]
+> 本页列出常用业务接口；部分内部端点（推送令牌注册、OAuth 账号绑定、域布局读写等）未逐一列出，完整路由以服务端 `server/server/internal/router/routes/` 为准。
 
 ### 响应格式
 

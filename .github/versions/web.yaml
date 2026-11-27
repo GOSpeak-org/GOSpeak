@@ -9,11 +9,11 @@
 #
 # 同步约束（scripts/release/check-version.mjs 会校验）：
 #   client/web/package.json 的 version 必须与本文件一致。
-version: "1.4.1"
+version: "1.4.0-rc.1"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 notes: |
-  GOSpeak Web 1.4.1 —— monorepo 合并后本仓的首个 Web 版本。
+  GOSpeak Web 1.4.0-rc.1 —— monorepo 合并后首个四端统一的版本。
 
   内容与旧仓 GOSpeak-Client 的同名版本一致：本次顺延只换仓库与发版链路，
   前端代码没有功能变化。

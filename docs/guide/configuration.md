@@ -32,7 +32,7 @@ GOSpeak 全部靠环境变量配置，没有独立的配置文件。改完重启
 | `DB_TYPE` | `SQLite` | `SQLite` / `PostgreSQL` / `MySQL` |
 | `DB_PATH` | `db/app.db` | SQLite 文件位置，其他类型忽略 |
 | `DB_WAL` | `false` | SQLite 开启 WAL 模式，提升并发读性能，建议开启 |
-| `DB_HOST` | — | 非 SQLite 必填 |
+| `DB_HOST` | `localhost` | 非 SQLite 且未填 `DB_DSN` 时生效 |
 | `DB_PORT` | — | 空则按 `DB_TYPE` 回退：PostgreSQL 5432 / MySQL 3306 |
 | `DB_USER` | — | 空则按 `DB_TYPE` 回退：postgres / root |
 | `DB_PASSWORD` | — | 数据库密码 |
@@ -197,7 +197,7 @@ LIVEKIT_SECRET="xxxxxxxx"
 
 ## 配置不生效的排查
 
-- Docker 部署：`docker compose -f docker-compose.standard.yml up -d`（或显式对应的 `-f` 编排）重建容器以读取新环境变量，仅 `restart` 无效
+- Docker 部署：`docker compose -f deploy/docker-compose.standard.yml up -d`（或显式对应的 `-f` 编排）重建容器以读取新环境变量，仅 `restart` 无效
 - 二进制运行：须重启进程
 - SFU 后台配置存 DB，但非空 env 优先（`LIVEKIT_*` 非空时 DB 仅作回退）；存储后台配置（DB）优先于 env
 

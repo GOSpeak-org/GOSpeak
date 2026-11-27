@@ -58,46 +58,45 @@
 ## 目录结构
 
 ```
-server/                      Go 后端（Go 模块在 server/server）
-└── server/
-    ├── main.go              入口（cobra）
-    ├── gin.go               依赖注入，组装所有层
-    └── internal/
-        ├── config/          环境变量
-        ├── model/           GORM 实体
-        ├── repository/      数据访问
-        ├── service/         业务逻辑
-        ├── handler/         HTTP 控制器
-        ├── middleware/      认证、权限、限流
-        ├── router/          路由注册（按模块分组）
-        ├── signal/          WebSocket 信令
-        ├── sfu/             语音服务抽象层
-        ├── storage/         对象存储抽象
-        ├── authstate/       令牌黑名单、密钥轮换
-        └── pkg/             错误、响应、JWT、OAuth
-
-client/                      客户端（web / desktop / mobile / 共享包）
-├── web/                     React 19 前端
-│   └── src/
-│       ├── pages/           文件路由，自动生成 routeTree
-│       ├── api/             HTTP 客户端
-│       ├── socket/          WebSocket 客户端
-│       ├── stores/          zustand 状态
-│       ├── components/      业务组件
-│       ├── layouts/         布局
-│       └── hooks/           React hooks
-├── desktop/                 桌面端宿主（Go + MyGo）
-├── packages/
-│   ├── components/          UI 组件库（Radix + Tailwind）
-│   ├── sfu-client/          前端语音客户端抽象
-│   ├── desktop/             桌面能力 SDK
-│   ├── mobile-capabilities/ 移动端能力
-│   └── plugin-sdk/          插件 JS SDK
-├── plugins/                 内置示例插件
-└── proxyrules/              代理规则（与服务端副本同步）
-
-docs/                        文档站
+GOSpeak/                     monorepo 根（唯一 workspace、单一 pnpm-lock.yaml）
+├── package.json             根脚本 + 工具链（turbo / biome / lefthook / commitlint）
+├── pnpm-workspace.yaml      workspace 成员清单
+├── turbo.json biome.json lefthook.yml commitlint.config.js
+├── scripts/release/         发版脚本（命名 / 版本校验 / CHANGELOG / 聚合页）
+├── server/                  后端
+│   ├── server/              Go 模块（module GOSpeak）
+│   │   ├── main.go          入口
+│   │   ├── cmd/             cobra 子命令（server / version / reset_password / gen-protocol）
+│   │   ├── server/          依赖装配（gin.go、bootstrap.go、后台任务、收尾）
+│   │   ├── internal/        分层实现（见下方说明）
+│   │   ├── plugin/          插件运行层与权威 proto
+│   │   ├── docs/            Swagger 产物
+│   │   └── Makefile         构建与协议生成
+│   ├── docs/                设计、实施档案与部署指南
+│   └── test/                集成测试
+├── client/                  客户端
+│   ├── web/                 React 19 前端
+│   │   └── src/
+│   │       ├── pages/       文件路由，自动生成 routeTree
+│   │       ├── api/         HTTP 客户端
+│   │       ├── socket/      WebSocket 客户端
+│   │       ├── stores/      zustand 状态
+│   │       ├── protocol/generated/  由服务端协议生成的 TS 产物
+│   │       ├── components/  业务组件
+│   │       ├── layouts/     布局
+│   │       └── hooks/       React hooks
+│   ├── packages/            共享包（components / sfu-client / desktop / mobile-capabilities / plugin-sdk）
+│   ├── desktop/             桌面端宿主（Go + MyGo）
+│   ├── mobile/              移动端（Capacitor）
+│   ├── plugins/             示例插件
+│   ├── proxyrules/          代理规则（与服务端副本同步）
+│   └── scripts/             客户端脚本与契约门禁
+├── packages/                （空）新包预留位，当前只有 .gitkeep
+├── deploy/                  compose / Caddy / LiveKit / 可观测 / 部署脚本
+└── docs/                    VitePress 文档站
 ```
+
+Go 模块的 `internal/` 按职责分层：`config`（环境变量）、`model` / `repository`（实体与数据访问）、`service` / `handler` / `middleware` / `router`（业务与 HTTP）、`policy`（HTTP 与 WS 共用的访问策略）、`signal` / `ws`（信令 Hub 与基础设施）、`bus`（内嵌 NATS 事件总线与 KV）、`protocol` / `genprotocol`（事件单一事实源与 TS 生成器）、`sfu`（Provider 抽象、能力表、factory 与 LiveKit 实现）、`authstate`（令牌黑名单与密钥轮换）、`jobs`（后台任务）、`notify`、`livekitproxy`（同源反代）、`storage`、`metrics`、`webui`（内嵌前端）、`buildinfo`、`permcode`、`audit` / `logger` / `pkg`。
 
 ## 语音抽象层
 
@@ -125,6 +124,8 @@ type Provider interface {
 ```
 
 当前仅有 LiveKit 一个实现。接口的意义在于：业务层不依赖具体的底层实现，将来接入其他服务时无需修改业务代码。
+
+**能力降级契约**：`GenerateTokenWithPublish`、`MuteParticipantTimed`、`SupportsStream`、`StreamInfo`、`ClientInfo` 等能力方法已统一收敛到 `Provider` 主接口，调用方直接调用，不再散落类型断言探测。不支持某项能力的实现返回 `ErrSFUNotSupported`，调用方据此降级（例如定时禁言退回普通禁言、发布控制退回普通签发 token）；配置缺失则返回 `SFU_NOT_CONFIGURED`，二者不能混用。`Capabilities()` 是声明式能力表，必须与真实方法行为一致。
 
 `sfu.NewDynamicProvider()` 仅在唯一的 livekit provider 内按配置指纹重建实例；当前不支持在管理后台切换到第二个 provider。
 

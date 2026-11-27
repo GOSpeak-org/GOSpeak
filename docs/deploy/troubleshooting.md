@@ -65,7 +65,7 @@ proxy_set_header X-Forwarded-Proto $scheme;
 ```bash
 docker compose exec gospeak sh
 # 或进入数据库容器
-docker compose exec postgres psql -U gospeak -d gospeak
+docker compose -f docker-compose.standard.yml exec postgres psql -U gospeak -d gospeak  # 需全档位版
 ```
 
 上述方式均无法恢复时，可删除数据库重新初始化（数据将丢失）。
@@ -115,7 +115,7 @@ UDP 端口未开放是语音不可用最常见的原因。云服务器在系统�
 - `7882/tcp` 媒体兜底
 - `3478/udp` TURN
 
-**全档位下 7880 / 7881 无需开放。** 全档位 compose 中 7880 只绑定宿主机回环（`127.0.0.1:7880`）供本机调试，信令对外走应用同源的 `/livekit`；7881 不再发布。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布。
+**两版均无需开放 7880 / 7881。** 两版共用基础编排，7880 只绑定宿主机回环（`127.0.0.1:7880`）供本机调试，信令对外走应用同源的 `/livekit`；7881 两版都不再发布。
 
 ### 第四步：确认 ICE 候选地址
 

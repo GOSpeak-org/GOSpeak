@@ -106,7 +106,7 @@ CREATE DATABASE gospeak CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 ```bash
 # 1. 停止服务
-docker compose -f docker-compose.standard.yml down
+docker compose -f deploy/docker-compose.standard.yml down
 
 # 2. 导出 SQLite
 sqlite3 db/app.db .dump > backup.sql
@@ -115,7 +115,7 @@ sqlite3 db/app.db .dump > backup.sql
 #    DB_TYPE=PostgreSQL 等
 
 # 4. 启动服务（GORM 自动建表）
-docker compose -f docker-compose.standard.yml up -d
+docker compose -f deploy/docker-compose.standard.yml up -d
 
 # 5. 手动将数据导入新库
 ```
@@ -159,13 +159,13 @@ docker run --rm -v gospeak-db:/data -v $(pwd):/backup alpine \
 ### PostgreSQL
 
 ```bash
-docker compose exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(date +%F).sql.gz
+docker compose -f deploy/docker-compose.standard.yml exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(date +%F).sql.gz
 ```
 
 恢复：
 
 ```bash
-gunzip -c backup-2026-11-08.sql.gz | docker compose exec -T postgres psql -U gospeak gospeak
+gunzip -c backup-2026-11-08.sql.gz | docker compose -f deploy/docker-compose.standard.yml exec -T postgres psql -U gospeak gospeak
 ```
 
 ## 常见问题
@@ -175,7 +175,7 @@ SQLite 并发写冲突。开启 `DB_WAL=true`，问题仍然存在则更换 Post
 
 **无法连接 PostgreSQL**
 ```bash
-docker compose exec postgres pg_isready -U gospeak
+docker compose -f deploy/docker-compose.standard.yml exec postgres pg_isready -U gospeak
 ```
 不通时查看 postgres 容器日志，原因多为密码不一致或数据库未创建。
 

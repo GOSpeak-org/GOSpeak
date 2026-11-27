@@ -29,7 +29,7 @@ GOSPEAK_DOMAIN=voice.example.com
 然后：
 
 ```bash
-docker compose -f docker-compose.standard.yml up -d --build
+docker compose -f deploy/docker-compose.standard.yml up -d
 ```
 
 Caddy 会自动完成以下工作：
@@ -39,7 +39,7 @@ Caddy 会自动完成以下工作：
 - 为 `/ws`、`/livekit` 完成 WebSocket 升级（`reverse_proxy` 默认行为，无需额外指令）
 - 启用 zstd / gzip 压缩
 
-`deploy/Caddyfile` 的全部内容就是：
+`deploy/Caddyfile` 去掉注释后的核心配置块为：
 
 ```
 {$GOSPEAK_DOMAIN::80} {

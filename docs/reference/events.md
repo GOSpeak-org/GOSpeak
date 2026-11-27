@@ -10,7 +10,7 @@ ws(s)://你的域名/ws
 
 握手鉴权由 HttpOnly access cookie 自动携带；子协议只传协议名 `gospeak`，不携带 token。
 
-事件协议的单一事实源在后端 `internal/protocol`（Catalog 声明事件名 / 方向 / ACK / payload 类型），由生成器产出前端 `src/protocol/generated/`；payload 字段一律 snake_case。
+事件协议的单一事实源在后端 [`server/server/internal/protocol`](https://github.com/GOSpeak-org/GOSpeak/tree/release/server/server/internal/protocol)（Catalog 声明事件名 / 方向 / ACK / payload 类型），由生成器产出前端 [`client/web/src/protocol/generated/`](https://github.com/GOSpeak-org/GOSpeak/tree/release/client/web/src/protocol/generated)；payload 字段一律 snake_case。
 
 ## 事件表
 
@@ -40,7 +40,7 @@ ws(s)://你的域名/ws
 | `member:joined` | S→C | | 成员加入 |
 | `member:left` | S→C | | 成员离开 |
 | `member:updated` | S→C | | 成员信息变更 |
-| `member:speaking` | C→S | | 上报本端发言状态（协议与服务端 handler 已就位，但当前前端不发送；发言高亮实际来自 SFU 原生 `onActiveSpeakers` 与 `room:active-speakers` 双源，勿依赖本事件） |
+| `member:speaking` | C→S | | 本端发言状态由 SFU meter（`onLocalSpeakingChange`）采集后上报，服务端聚合后经 `room:active-speakers` 广播；前端发言高亮同时消费 SFU 原生 `onActiveSpeakers` 与 `room:active-speakers` 双源 |
 | `member:mic-state` | C→S | | 上报本端麦克风开关状态 |
 | `member:muted` | S→C | | 成员麦克风被服务端静音 |
 | `member:unmuted` | S→C | | 成员麦克风恢复 |

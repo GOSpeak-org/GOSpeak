@@ -78,7 +78,7 @@ docker compose -f deploy/docker-compose.yml up -d
 `init.sh` 完成以下工作：
 
 1. 生成 `deploy/.env`（已存在时报错，加 `--force` 覆盖）
-2. 随机生成 `JWT_KEY`、`LIVEKIT_KEY`、`LIVEKIT_SECRET`、`STORAGE_ENCRYPT_KEY`
+2. 随机生成 `JWT_KEY`、`LIVEKIT_KEY`、`LIVEKIT_SECRET`、`STORAGE_ENCRYPT_KEY`、`METRICS_TOKEN` 与 `POSTGRES_PASSWORD`
 3. 归一 `livekit/livekit.yaml`：剥离硬编码 `keys` 与 `webhook.api_key`
 4. 校验 `.env` / `livekit.yaml` / `Caddyfile` 的一致性，不一致时直接退出
 
@@ -124,7 +124,7 @@ docker compose -f deploy/docker-compose.yml up -d
 - **单一上游。** `/api`、`/ws`、`/uploads`、`/livekit` 全部由 `gospeak:8998` 提供，反向代理层只需对接这一个地址。
 - **LiveKit 不需要域名或证书。** 浏览器访问 `https://<域名>/livekit`，应用内部转发到 `ws://livekit:7880`，WebSocket 升级由应用处理。
 - **媒体流量不经过应用和反代。** 浏览器与 LiveKit 之间直接建立 WebRTC 连接（以 7882/udp 为主），应用只负责签发令牌。应用因此不会被音频流量拖垮。
-- **全档位下 7880 端口不对公网开放。** 全档位 compose 中该端口只绑定宿主机回环地址（`127.0.0.1:7880`）供本机调试；对外信令走应用同源反代。精简版 `docker-compose.yml` 则以 `7880:7880` 对公网发布。
+- **两版均不将 7880 对公网发布。** 两版共用基础编排，7880 只绑定宿主机回环地址（`127.0.0.1:7880`）供本机 `pnpm dev` 调试；对外信令走应用同源反代，无需为该端口配置防火墙规则。
 
 ## 仅启动依赖服务，应用在本地运行
 
@@ -193,8 +193,8 @@ RustFS 控制台运行在 9001 端口，可用于确认桶是否已创建。
 # 起（以下以全档位版为例，精简版把 -f 换成 deploy/docker-compose.yml）
 docker compose -f deploy/docker-compose.standard.yml up -d
 
-# 改了代码或配置后重建
-docker compose -f deploy/docker-compose.standard.yml up -d --build
+# 修改配置或更新镜像后重建（自建镜像需先 docker build -f deploy/Dockerfile ...）
+docker compose -f deploy/docker-compose.standard.yml up -d
 
 # 看日志（只跟应用）
 docker compose -f deploy/docker-compose.standard.yml logs -f gospeak
@@ -261,7 +261,7 @@ docker compose -f deploy/docker-compose.standard.yml up -d
 | 9000 / 9001 | rustfs | 可选，不要暴露公网 |
 | 9090 / 9093 / 3000 / 3100 | observability | 可选，不要暴露公网 |
 
-**全档位下 7880 / 7881 端口不对公网发布。** 全档位 compose 中 7880 只绑定宿主机回环地址（`127.0.0.1:7880`）供本机调试，信令对外走应用同源反代；7881 不再发布。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用。
+**两版均不将 7880 / 7881 对公网发布。** 两版共用基础编排，7880 只绑定宿主机回环地址（`127.0.0.1:7880`）供本机 `pnpm dev` 调试，信令对外走应用同源反代；7881 两版都不再发布。`init.sh --check` 会把旧的 `7880:7880` 写法判为错误。
 
 ## 常见问题
 

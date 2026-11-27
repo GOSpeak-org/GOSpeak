@@ -16,13 +16,13 @@
 #   server/VERSION
 #   server/server/package.json 的 version
 # 两者都必须与本文件一致；根 package.json 不承载版本，也不参与校验。
-version: "1.3.1"
+version: "1.4.0-rc.1"
 
 # 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
 # 留空时由 scripts/release/build-changelog.mjs 按 conventional commits 生成，
 # 基线只取本组件的历史 tag。
 notes: |
-  GOSpeak Server 1.3.1 —— monorepo 合并后本仓的首个服务端版本。
+  GOSpeak Server 1.4.0-rc.1 —— monorepo 合并后首个四端统一的版本。
 
   内容与旧仓 GOSpeak-Server 的同名版本一致：本次顺延只换仓库与发版链路，
   服务端代码、协议与内嵌前端产物都没有功能变化。
@@ -30,7 +30,7 @@ notes: |
   ## 功能
   - 屏幕共享按需订阅：仅在点击成员卡片后订阅远端音视频，切换客户端时中断过期订阅
   - 静音与成员管理流程迁移到 user_uuid 跨层标识
-  - Web 前端（1.4.1）产物内嵌进二进制，单文件即可完整运行
+  - Web 前端（1.4.0-rc.1）产物内嵌进二进制，单文件即可完整运行
 
   ## 修复
   - 精简版 docker-compose 的 NATS 卷与端口策略修正，撤销多余的 NATS 卷挂载

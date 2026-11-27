@@ -7,7 +7,7 @@
 | 工具 | 版本 | 用途 |
 |------|------|------|
 | Go | 1.27.4+ | 编译后端 |
-| Node.js | 20+ | 编译前端 |
+| Node.js | 22+ | 编译前端 |
 | pnpm | 10+ | 安装依赖（仓库为 pnpm 工作区） |
 | Docker | 最新 | 运行 LiveKit 语音服务 |
 | gcc | 任意 | SQLite 需编译 C 代码，Windows 安装 MinGW |
@@ -39,7 +39,7 @@ LIVEKIT_KEY="<init.sh 生成>"
 
 `LIVEKIT_KEY` / `LIVEKIT_SECRET` 已由 `init.sh` 随机生成并注入 compose 与 `.env`，本地开发无需手填；手动修改须同时同步 LiveKit 容器侧配置。
 
-> 本地开发时应用运行在宿主机，需连接 `localhost:7880`。**全档位** compose 中 `livekit` 的 7880 绑定宿主机回环（`127.0.0.1:7880`）；精简版 `deploy/docker-compose.yml` 则是 `7880:7880` 对公网发布，本地使用请注意防火墙。
+> 本地开发时应用运行在宿主机，需连接 `localhost:7880`。两版 compose 中 `livekit` 的 7880 都只绑定宿主机回环（`127.0.0.1:7880`），供本机调试直连，不对公网发布；浏览器仍经应用同源的 `/livekit` 访问。
 
 ## 第三步：启动语音服务
 
@@ -60,7 +60,7 @@ docker compose -f docker-compose.yml up -d
 docker compose ps livekit
 ```
 
-`Up` 状态表示 LiveKit 已运行。7880 为信令端口：全档位版绑定宿主机回环（`127.0.0.1:7880`），本机 `curl localhost:7880` 可通、公网无法访问；精简版（`docker-compose.yml`）则是 `7880:7880` 对公网发布，需注意防火墙。浏览器经应用同源的 `/livekit` 访问。
+`Up` 状态表示 LiveKit 已运行。7880 为信令端口：两版 compose 都只绑定宿主机回环（`127.0.0.1:7880`），本机 `curl localhost:7880` 可通、公网无法访问；浏览器经应用同源的 `/livekit` 访问。
 
 ## 第四步：启动应用
 

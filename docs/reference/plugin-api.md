@@ -36,7 +36,7 @@
 | `KVLoad` | `plugin_id`、`key` | `value_json`、`found` | 读 |
 | `ReportError` | `plugin_id`、`message`、`details_json`、`request_id` | 空 | 上报 |
 
-- **字段命名一律 snake_case，身份字段一律 `*_uuid`**（`user_uuid` / `room_uuid` / `domain_uuid` / `plugin_id`），不存在数字用户 ID 字段。
+- **字段命名一律 snake_case；业务实体身份字段用 `*_uuid`**（`user_uuid` / `room_uuid` / `domain_uuid`），插件自身标识用 `plugin_id`；不存在数字用户 ID 字段。
 - 写操作（`MuteUser` / `CreateRoom` / `KVSave`）必须传 `request_id` 做幂等；宿主按 `(plugin_id, request_id)` 去重，重复请求返回与首次一致的成功结果。SDK 会自动生成 UUID。
 - `MuteUser` / `CreateRoom` 由宿主以系统保留用户身份执行（该用户不可登录），不经过请求用户的权限判断。
 - 插件**不直接访问主数据库**；配置经 `GetConfig` 读取，结构化数据经 `KVSave` / `KVLoad` 存取。

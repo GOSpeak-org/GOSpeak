@@ -42,12 +42,12 @@ cd GOSpeak/deploy
 ./init.sh --domain voice.example.com     # 无域名时去掉 --domain
 ```
 
-`./init.sh --domain voice.example.com` 写入域名并将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。档位只在大写全档位版生效，必须显式 `docker compose -f docker-compose.standard.yml up -d --build`；裸 `docker compose up -d --build` 会选中精简版（`COMPOSE_PROFILES` 不生效）。
+`./init.sh --domain voice.example.com` 写入域名并将 `edge` 加入 `COMPOSE_PROFILES`（已有 `app,livekit` 时追加为 `app,livekit,edge`）。档位只在全档位版生效，必须显式 `docker compose -f docker-compose.standard.yml up -d`；裸 `docker compose up -d` 会选中精简版（`COMPOSE_PROFILES` 不生效）。
 
 该脚本执行以下操作：
 
 - 生成 `deploy/.env`
-- 随机生成 JWT 密钥、LiveKit 密钥、存储加密密钥
+- 随机生成 JWT 密钥、LiveKit 密钥、存储加密密钥、指标令牌（`METRICS_TOKEN`）与 PostgreSQL 密码（`POSTGRES_PASSWORD`）
 - 归一 `livekit/livekit.yaml`，使密钥仅保留在 `.env` 一处
 - 校验 `.env` / `livekit.yaml` / `Caddyfile` 一致性
 
@@ -68,10 +68,10 @@ COMPOSE_PROFILES=app,livekit,edge
 ### 第四步：启动
 
 ```bash
-docker compose -f docker-compose.standard.yml up -d --build
+docker compose -f docker-compose.standard.yml up -d
 ```
 
-首次构建镜像需数分钟，之后重启很快。
+首次启动会拉取 GHCR 发布镜像，免于构建；如需自建镜像，回到仓库根执行 `docker build -f deploy/Dockerfile -t gospeak:local .`。
 
 ### 第五步：验证
 
@@ -88,7 +88,7 @@ curl -s https://voice.example.com/ping  # 经 Caddy（有域名时）
 
 ```bash
 ./init.sh --domain voice.example.com
-docker compose -f docker-compose.standard.yml up -d --build
+docker compose -f docker-compose.standard.yml up -d
 ```
 
 Caddy 自动申请并续期证书、将 HTTP 重定向到 HTTPS、处理 WebSocket 升级。域名 A 记录指向本机公网 IP，防火墙放行 80/443。
@@ -171,7 +171,7 @@ POSTGRES_PASSWORD=<同一密码>
 | 8998 | TCP | 应用 | 仅自有反代场景需可达，不直接暴露公网 |
 | 5432 | TCP | PostgreSQL | 禁止开放 |
 
-**全档位下无需开放 7880 / 7881。** 全档位 compose 中 7880 仅绑定宿主机回环地址（`127.0.0.1:7880`）供本机 `pnpm dev` 调试直连，不对公网开放，浏览器经应用同源的 `/livekit` 访问；7881 不再发布。精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用。
+**两版均无需开放 7880 / 7881。** 两版 compose 共用同一份基础编排：7880 只绑定宿主机回环地址（`127.0.0.1:7880`）供本机 `pnpm dev` 调试直连，不对公网发布；7881 两版都不再发布。浏览器信令走应用同源的 `/livekit`，无需为 LiveKit 单独开端口或配证书（`init.sh --check` 会把旧的 `7880:7880` 写法判为错误）。
 
 防火墙示例（Ubuntu）：
 
@@ -209,7 +209,7 @@ docker run --rm -v gospeak_gospeak-db:/data -v $(pwd):/backup alpine \
 **PostgreSQL**：
 
 ```bash
-docker compose exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(date +%F).sql.gz
+docker compose -f docker-compose.standard.yml exec -T postgres pg_dump -U gospeak gospeak | gzip > backup-$(date +%F).sql.gz
 ```
 
 **内嵌 NATS JetStream**（JWT 签名密钥 / 登出黑名单 / refresh-token 重放保护）：
@@ -233,7 +233,7 @@ docker compose -f docker-compose.standard.yml start gospeak
 cd GOSpeak
 git pull
 cd deploy
-docker compose -f docker-compose.standard.yml up -d --build
+docker compose -f docker-compose.standard.yml up -d
 ```
 
 数据库表结构自动迁移，无需手动执行 SQL。升级前先备份。
