@@ -71,7 +71,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: pnpm
+          # 不开 pnpm store 缓存：本 job 只读 lockfile 做审计、不跑 install，
+          # 开了缓存会在 post-run 因 store 路径不存在而把整个 job 判失败。
 
       - name: Audit production dependencies
         env:
