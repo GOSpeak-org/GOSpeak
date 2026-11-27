@@ -5,7 +5,7 @@
 #
 # 首次部署: ./init.sh  （生成 deploy/.env，含随机密钥）
 # 之后所有命令（在 deploy/ 目录下，或任意目录 -f 指到本文件）:
-#   docker compose up -d --build     # 启动
+#   docker compose up -d     # 启动
 #   docker compose logs -f gospeak   # 日志
 #   docker compose pull && docker compose up -d   # 升级
 #

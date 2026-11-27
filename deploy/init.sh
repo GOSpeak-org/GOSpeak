@@ -151,6 +151,46 @@ check_consistency() {
   done
   [[ $compose_ok -eq 1 ]] || rc=1
 
+  # ── A2. 两版 compose 的 app/livekit 骨架必须一致 ──
+  # 精简版和全档位版只允许差在服务集；卷 / 端口发布 / 健康检查一旦漂移，
+  # 就会出现「精简版重建容器丢 NATS KV，全员被迫重登」「7880 意外对公网」这类事故。
+  local simple_compose="docker-compose.yml" std_compose="docker-compose.standard.yml" parity_ok=1 cf2
+  if [[ -f "$simple_compose" && -f "$std_compose" ]]; then
+    for cf2 in "$simple_compose" "$std_compose"; do
+      # 1) NATS 数据卷：不挂卷 = 容器重建即丢 JetStream KV（JWT 签名密钥 / 黑名单 / refresh family）
+      grep -qF 'gospeak-nats:/app/nats' "$cf2" || {
+        echo "  [x] $cf2 缺少 gospeak-nats:/app/nats 卷：容器重建会丢 NATS KV，全员被迫重登" >&2
+        parity_ok=0
+      }
+      # 2) 反代后的真实 IP 信任链 / NATS 落盘路径 / 健康检查，两版都必须有
+      grep -qF 'TRUSTED_PROXIES' "$cf2" || {
+        echo "  [x] $cf2 缺少 TRUSTED_PROXIES：反代后限流与审计拿不到真实 IP" >&2
+        parity_ok=0
+      }
+      grep -qF 'NATS_STORE_DIR' "$cf2" || {
+        echo "  [x] $cf2 缺少 NATS_STORE_DIR：卷与 KV 路径不一致时数据会写进容器层" >&2
+        parity_ok=0
+      }
+      grep -qF 'http://127.0.0.1:8998/ping' "$cf2" || {
+        echo "  [x] $cf2 缺少 /ping 健康检查" >&2
+        parity_ok=0
+      }
+      # 3) LiveKit 信令端口不得对公网发布：浏览器走应用同源 /livekit
+      grep -qE '^[[:space:]]*-[[:space:]]*"?7880:7880' "$cf2" && {
+        echo "  [x] $cf2 把 LiveKit 7880 绑到了所有网卡：应为 127.0.0.1:7880:7880" >&2
+        parity_ok=0
+      }
+      grep -qE '^[[:space:]]*-[[:space:]]*"?7881:7881' "$cf2" && {
+        echo "  [x] $cf2 仍发布 7881：信令走应用同源反代，不需要对公网暴露" >&2
+        parity_ok=0
+      }
+    done
+    [[ $parity_ok -eq 1 ]] && echo "  [ok] 两版 compose 的 app/livekit 骨架一致（卷 / 端口 / 健康检查）"
+  else
+    echo "  [-] 未找到两版 compose，跳过骨架一致性检查"
+  fi
+  [[ $parity_ok -eq 1 ]] || rc=1
+
   # ── B. 本地部署就绪（CI 无 .env，跳过）──
   if [[ ! -f "$ENV_FILE" ]]; then
     echo "  [-] 未找到 ${ENV_FILE}，跳过部署就绪检查（CI 场景正常）"
@@ -361,10 +401,10 @@ fi
 echo ""
 if has_profile observability; then
   echo "完成。当前 .env 启用了 observability 档位，用全档位编排启动:"
-  echo "  docker compose -f deploy/docker-compose.standard.yml up -d --build"
+  echo "  docker compose -f deploy/docker-compose.standard.yml up -d"
 else
   echo "完成。当前是精简档位（app + livekit）:"
-  echo "  docker compose -f deploy/docker-compose.yml up -d --build"
+  echo "  docker compose -f deploy/docker-compose.yml up -d"
 fi
 echo "其余命令一律显式带 -f（裸 up -d 只会选中精简版，不启用 edge/HTTPS）:"
 cat <<'EOF'
@@ -372,15 +412,15 @@ cat <<'EOF'
   # 有域名：填 GOSPEAK_DOMAIN，并启用内置 Caddy（自动 HTTPS）
   #   .env 中: COMPOSE_PROFILES=app,livekit,edge
   #            GOSPEAK_DOMAIN=voice.example.com
-  #   然后:    cd .. && docker compose -f deploy/docker-compose.standard.yml up -d --build
+  #   然后:    cd .. && docker compose -f deploy/docker-compose.standard.yml up -d
 
   # 已有反代（Nginx / Traefik / Dokploy）：不要开 edge
   #   .env 中: COMPOSE_PROFILES=app,livekit
   #   把反代指向宿主机 8998 即可
 
   cd ..
-  docker compose -f deploy/docker-compose.yml up -d --build     # 精简起步
-  # docker compose -f deploy/docker-compose.standard.yml up -d --build  # 全档位（含 edge 自动 HTTPS）
+  docker compose -f deploy/docker-compose.yml up -d     # 精简起步
+  # docker compose -f deploy/docker-compose.standard.yml up -d  # 全档位（含 edge 自动 HTTPS）
   docker compose -f deploy/docker-compose.yml logs -f gospeak   # 看日志
   curl http://localhost:8998/ping  # 健康检查
 

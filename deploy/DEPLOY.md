@@ -85,7 +85,7 @@ docker compose -f deploy/docker-compose.yml logs -f gospeak
 | 对象存储 | 本地磁盘 | 可选 RustFS/S3 |
 | 监控 | 无 | Prometheus/Grafana/Loki/Alertmanager |
 
-两个编排文件共用同一份 `deploy/.env` 和同名数据卷（`gospeak-db` / `gospeak-logs` / `gospeak-uploads`），切换 `-f` 指向不会丢数据。需要 edge 自动 HTTPS、PostgreSQL、对象存储或监控时，改用全档位版：`docker compose -f deploy/docker-compose.standard.yml up -d`。
+两个编排文件共用同一份 `deploy/.env` 和同名数据卷（`gospeak-db` / `gospeak-logs` / `gospeak-uploads` / `gospeak-nats` / `gospeak-plugins`），切换 `-f` 指向不会丢数据。`gospeak-nats` 放内嵌 NATS JetStream 的 KV（JWT 签名密钥、黑名单、refresh family），**两版都必须挂**，否则容器重建会丢会话状态。需要 edge 自动 HTTPS、PostgreSQL、对象存储或监控时，改用全档位版：`docker compose -f deploy/docker-compose.standard.yml up -d`。
 
 ---
 
@@ -211,7 +211,9 @@ docker compose -f deploy/docker-compose.standard.yml up -d   # 只有全档位�
 | 3478 | UDP | LiveKit | TURN 中继，NAT 严格时靠它 |
 | 8998 | TCP | gospeak | 应用端口，仅自有反代场景需要可达（不要直接暴露公网） |
 
-**全档位（`docker-compose.standard.yml`）下不需要再开 7880 / 7881。** 7880 是 LiveKit 信令，在全档位 compose 里只绑到宿主机回环（`127.0.0.1:7880`），供本机 `pnpm dev` 调试直连，**不对公网开放**；浏览器经应用同源的 `/livekit` 访问它，7881 不再发布。**注意精简版 `docker-compose.yml` 仍以 `7880:7880` / `7881:7881` 对公网发布，生产请勿使用精简版或直接暴露这两个端口。**
+**两版都不需要开 7880 / 7881。** 7880 是 LiveKit 信令，`docker-compose.yml` 与 `docker-compose.standard.yml` 都只把它绑到宿主机回环（`127.0.0.1:7880`），供本机 `pnpm dev` 直连调试，**不对公网开放**；浏览器经应用同源的 `/livekit` 访问它，7881 两版都不再发布。
+
+> 升级提醒：精简版早期写法是 `7880:7880` / `7881:7881`（对公网发布）。现在两版统一收窄为回环 + 不发布 7881，`./init.sh --check` 会把旧写法判成错误。如果你的非浏览器客户端曾直连公网 7880/7881，请改为走应用同源的 `/livekit`。
 
 Ubuntu 防火墙示例：
 
