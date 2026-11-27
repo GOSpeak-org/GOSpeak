@@ -17,6 +17,13 @@
 | `livekit/*.yaml` | LiveKit 配置（`livekit.yaml` / `livekit.docker.yaml` / `livekit.local.yaml`） |
 | `observability/` | prometheus / alertmanager / grafana / loki / promtail |
 
+## 维护边界
+
+- 本目录由**部署线**维护：三份 compose、`Dockerfile`、`init.sh`、`install-binary.sh`、`Caddyfile`、`livekit/*`、`observability/*`、`DEPLOY.md` 与本文。
+- **不在这里改**：`.github/workflows/*`、`scripts/release/*`、`client/*`、`server/*`、`docs/` —— 发版链路、CI 与站点由发版线负责。
+- 跨界约束（镜像构建参数、Release 资产名、tag 命名、镜像仓库名）**两边必须先对齐再动**：改动落在 `deploy/`，但消费方在 workflow 里。
+- 并发协作时提交前先 `git status -- deploy`，只 add 本目录，避免把另一条线的半成品卷进提交。
+
 ## 档位（`COMPOSE_PROFILES`）
 
 `app`（默认）、`livekit`（默认）、`edge`（内置 Caddy）、`postgres`、`rustfs`、`observability`。改档位就是改 `.env` 里的 `COMPOSE_PROFILES`。
