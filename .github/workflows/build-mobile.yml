@@ -62,7 +62,7 @@ jobs:
           # 方的分支 ref，不能拿来构建 tag）。
           ref: ${{ inputs.ref || inputs.tag || github.ref }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: 22
