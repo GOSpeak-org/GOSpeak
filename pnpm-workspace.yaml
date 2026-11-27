@@ -1,0 +1,33 @@
+packages:
+  - "client/web"
+  - "client/packages/*"
+  - "client/plugins/*"
+  - "client/desktop"
+  - "client/mobile"
+  # 根 packages/ 是给新包留的空位（当前只有 .gitkeep），新包放这里自动进 workspace
+  - "packages/*"
+  - "server/server"
+  - "server/test"
+  - "docs"
+
+# 需要执行安装脚本的原生依赖（pnpm 10 默认拒绝执行 postinstall）
+onlyBuiltDependencies:
+  - esbuild
+  - lefthook
+
+# lockfile 需记录全平台可选二进制（biome/esbuild 等），
+# 否则在 macOS 上解析的 lockfile 到 linux CI 会缺包。
+supportedArchitectures:
+  os:
+    - current
+    - linux
+    - darwin
+    - win32
+  cpu:
+    - current
+    - x64
+    - arm64
+  libc:
+    - current
+    - glibc
+    - musl

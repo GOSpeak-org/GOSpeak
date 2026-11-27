@@ -1,0 +1,647 @@
+# GOSpeak Release —— 单文件编排四端发布（方案 A）。
+#
+# 一个 tag 只发一端，四端互不牵连：
+#   gospeak-server-v*  -> 服务端二进制（10 平台）+ 内嵌 Web 前端产物
+#   gospeak-web-v*     -> Web dist 归档
+#   gospeak-desktop-v* -> 桌面端安装包（内嵌 desktop 目标前端）
+#   gospeak-mobile-v*  -> 移动端 APK（构建交给 build-mobile.yml，发布仍在下面 publish）
+#
+# tag 由 version-bump.yml 依据 .github/versions/<component>.yaml 的声明创建；也可
+# 手动 push tag 或 workflow_dispatch 补跑。所有产物名 / 校验和名 / workflow artifact
+# 名一律经 scripts/release/release-naming.mjs 的 CLI 派生，本文件不手拼字符串。
+#
+# 发布顺序（硬性）：先把本次组件的全部构建跑完 -> 一次性 create/update Release 并
+# 上传全部资产 -> 最后上传 SHA256SUMS-<tag>.txt。任一端构建失败都不会留下半个 Release。
+# 每端 Release 都显式 --latest=false；只有聚合页 GOSpeak-<YYMMDD>（aggregate job）
+# 抢 /releases/latest。aggregate 是幂等重建：读 GitHub 上真实存在的 tag/资产，
+# 某端失败只会在表里显示未发布，不会让聚合页停留在旧内容。
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "gospeak-server-v*"
+      - "gospeak-web-v*"
+      - "gospeak-desktop-v*"
+      - "gospeak-mobile-v*"
+  # version-bump.yml 打完 tag 后直接调用（GITHUB_TOKEN 推的 tag 不会派生 push workflow）。
+  workflow_call:
+    inputs:
+      tag:
+        description: "要发布的 tag（gospeak-<component>-v<version>）"
+        required: true
+        type: string
+      component:
+        description: "组件（可省略；省略时由 tag 推断，提供则校验与 tag 一致）"
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "发布组件（必须与 tag 的组件一致）"
+        required: true
+        type: choice
+        options:
+          - server
+          - web
+          - desktop
+          - mobile
+      tag:
+        description: "Release tag（gospeak-<component>-v<version>）"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # 按 tag 分组、不取消：同一端重复触发时串行等待，绝不在半途取消发布。
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ── 解析 tag ──────────────────────────────────────────────────────────────
+  resolve:
+    name: Resolve tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      component: ${{ steps.meta.outputs.component }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Derive tag, component and version
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_COMPONENT: ${{ inputs.component }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-}"
+          if [ -z "$tag" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+          fi
+          if [ -z "$tag" ]; then
+            echo "::error::no release tag; pass the tag input or push a gospeak-<component>-v<version> tag"
+            exit 1
+          fi
+          if ! parsed="$(node scripts/release/release-naming.mjs parse "$tag")"; then
+            echo "::error::tag '$tag' does not follow gospeak-<component>-v<semver>"
+            exit 1
+          fi
+          component="${parsed%% *}"
+          version="${parsed##* }"
+          if [ -n "${INPUT_COMPONENT:-}" ] && [ "$INPUT_COMPONENT" != "$component" ]; then
+            echo "::error::tag '$tag' belongs to component '$component', not '$INPUT_COMPONENT'"
+            exit 1
+          fi
+          if ! git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            echo "::error::tag '$tag' is not present in this repository"
+            exit 1
+          fi
+          {
+            echo "tag=$tag"
+            echo "component=$component"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::release $tag (component=$component, version=$version)"
+
+  # ── 版本一致性门禁（单一对账脚本）────────────────────────────────────────
+  validate:
+    name: Check declared versions
+    needs: [resolve]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+      - name: Validate version files against the tag
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+        run: |
+          set -euo pipefail
+          node scripts/release/check-version.mjs . "$TAG" "$COMPONENT"
+
+  # ── Web 前端产物（server 内嵌与 web Release 共用同一份）──────────────────
+  build-web:
+    name: Build web dist
+    needs: [resolve, validate]
+    if: needs.resolve.outputs.component == 'server' || needs.resolve.outputs.component == 'web'
+    runs-on: ubuntu-latest
+    outputs:
+      artifact: ${{ steps.name.outputs.artifact }}
+      upload_name: ${{ steps.name.outputs.upload_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Build web dist
+        run: |
+          set -euo pipefail
+          GOSPEAK_TARGET=web pnpm --filter @gospeak/web build
+
+      - name: Archive web dist
+        id: name
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          artifact="$(node scripts/release/release-naming.mjs artifact-target web "$VERSION" dist tar.gz)"
+          upload_name="$(node scripts/release/release-naming.mjs upload-name web dist)"
+          tar -czf "$RUNNER_TEMP/$artifact" -C client/web dist
+          test -s "$RUNNER_TEMP/$artifact"
+          {
+            echo "artifact=$artifact"
+            echo "upload_name=$upload_name"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::web artifact $artifact"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.name.outputs.upload_name }}
+          path: ${{ runner.temp }}/${{ steps.name.outputs.artifact }}
+          retention-days: 7
+
+  # ── 桌面端（desktop 目标前端 + MyGo 安装包）──────────────────────────────
+  build-web-desktop:
+    name: Build desktop installers (${{ matrix.slug }})
+    needs: [resolve, validate]
+    if: needs.resolve.outputs.component == 'desktop'
+    # 三平台各跑一遍：正文下载表按真实产物渲染，缺哪个平台就是真缺，
+    # 不会出现「正文写了 dmg/exe、Release 里却没有」的死链。
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            slug: linux
+          - runner: macos-latest
+            slug: macos
+          - runner: windows-latest
+            slug: windows
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        # windows runner 上是 git-bash：三条腿统一 bash，脚本只用可移植写法。
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-go@v7
+        with:
+          # mygo build 会编译桌面宿主（client/desktop 是独立 Go 模块，要求 go 1.27），
+          # 不能依赖 runner 预装的 Go 版本。
+          go-version-file: client/desktop/go.mod
+          cache-dependency-path: client/desktop/go.sum
+
+      - name: Install workspace
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+
+      - name: Build desktop frontend
+        run: |
+          set -euo pipefail
+          GOSPEAK_TARGET=desktop pnpm --filter @gospeak/web build
+
+      - name: Sync frontend into desktop embed dir
+        run: |
+          set -euo pipefail
+          rm -rf client/desktop/webui/dist
+          mkdir -p client/desktop/webui/dist
+          cp -R client/web/dist-desktop/. client/desktop/webui/dist/
+          test -f client/desktop/webui/dist/index.html
+
+      - name: Build installers with MyGo
+        working-directory: client/desktop
+        run: |
+          set -euo pipefail
+          pnpm exec mygo build
+
+      - name: Stage installers under release naming
+        id: stage
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          # 工作区内的相对目录：windows runner 的 $RUNNER_TEMP 是反斜杠原生路径，
+          # 在 git-bash 里不可靠；相对路径三平台一致。
+          stage="release-assets/desktop"
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          # MyGo 按 dist/<os>-<arch>/<app>-<version>-<arch>.<ext> 落盘；Release 资产
+          # 必须叫 gospeak-desktop-v<version>-<os>-<arch>.<ext>（桌面端更新器按此前缀
+          # 挑安装包），所以统一改名，且目标名全部由 release-naming CLI 派生。
+          count=0
+          while IFS= read -r -d '' file; do
+            target="$(basename "$(dirname "$file")")"
+            arch="${target#*-}"
+            base="$(basename "$file")"
+            ext="${base#gospeak-${VERSION}-${arch}.}"
+            if [ "$ext" = "$base" ]; then
+              echo "::warning::cannot derive extension from $base; keeping original name"
+              cp "$file" "$stage/"
+            else
+              name="$(node scripts/release/release-naming.mjs artifact-target desktop "$VERSION" "$target" "$ext")"
+              cp "$file" "$stage/$name"
+            fi
+            count=$((count + 1))
+          # find 只用 POSIX 选项（-type / -name / -print0），配合 read -d '' 的现有写法，
+          # 三平台 git-bash 都能跑；不用 GNU-only 的 -printf。
+          done < <(find client/desktop/dist -type f \( -name '*.dmg' -o -name '*.pkg' -o -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.msi' -o -name '*.zip' -o -name '*.tar.gz' \) -print0)
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no desktop installers found under client/desktop/dist"
+            exit 1
+          fi
+          upload_name="$(node scripts/release/release-naming.mjs upload-name desktop installers)"
+          echo "upload_name=$upload_name" >> "$GITHUB_OUTPUT"
+          ls -l "$stage"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          # 三条腿各自一个 artifact（名字带 slug 防冲突），publish 用 pattern 统一
+          # 下载并 merge-multiple。
+          name: ${{ steps.stage.outputs.upload_name }}-${{ matrix.slug }}
+          path: release-assets/desktop/*
+          retention-days: 7
+
+  # ── 服务端（10 平台交叉编译，内嵌 web dist）──────────────────────────────
+  server:
+    name: Build server ${{ matrix.target }}
+    needs: [resolve, validate, build-web]
+    if: needs.resolve.outputs.component == 'server'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+            ext: ""
+          - target: linux-arm64
+            goos: linux
+            goarch: arm64
+            ext: ""
+          - target: linux-armv7
+            goos: linux
+            goarch: arm
+            goarm: "7"
+            ext: ""
+          - target: darwin-amd64
+            goos: darwin
+            goarch: amd64
+            ext: ""
+          - target: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            ext: ""
+          - target: freebsd-amd64
+            goos: freebsd
+            goarch: amd64
+            ext: ""
+          - target: freebsd-arm64
+            goos: freebsd
+            goarch: arm64
+            ext: ""
+          - target: openbsd-amd64
+            goos: openbsd
+            goarch: amd64
+            ext: ""
+          - target: windows-amd64
+            goos: windows
+            goarch: amd64
+            ext: ".exe"
+          - target: windows-arm64
+            goos: windows
+            goarch: arm64
+            ext: ".exe"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+
+      - name: Download web dist
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-web.outputs.upload_name }}
+          path: ${{ runner.temp }}/web-dist
+
+      - name: Embed web dist into server
+        run: |
+          set -euo pipefail
+          archive="$(find "$RUNNER_TEMP/web-dist" -type f -name '*-dist.tar.gz' -print -quit)"
+          if [ -z "$archive" ]; then
+            echo "::error::web dist archive not found in downloaded artifact"
+            exit 1
+          fi
+          rm -rf server/server/internal/webui/dist
+          mkdir -p server/server/internal/webui/dist
+          tar -xzf "$archive" --strip-components=1 -C server/server/internal/webui/dist
+          test -f server/server/internal/webui/dist/index.html
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/server/go.mod
+          cache-dependency-path: server/server/go.sum
+
+      - name: Resolve checked out commit
+        id: source
+        run: |
+          set -euo pipefail
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve artifact names
+        id: name
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          TARGET: ${{ matrix.target }}
+          EXT: ${{ matrix.ext }}
+        run: |
+          set -euo pipefail
+          artifact="$(node scripts/release/release-naming.mjs artifact-target server "$VERSION" "$TARGET" "$EXT")"
+          upload_name="$(node scripts/release/release-naming.mjs upload-name server "$TARGET")"
+          {
+            echo "artifact=$artifact"
+            echo "upload_name=$upload_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        working-directory: server/server
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          COMMIT: ${{ steps.source.outputs.commit }}
+          ARTIFACT: ${{ steps.name.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          go build -trimpath \
+            -ldflags="-s -w -X 'GOSpeak/internal/buildinfo.Version=$VERSION' -X 'GOSpeak/internal/buildinfo.Commit=$COMMIT'" \
+            -o "$ARTIFACT" main.go
+          test -f "$ARTIFACT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.name.outputs.upload_name }}
+          path: server/server/${{ steps.name.outputs.artifact }}
+          retention-days: 7
+
+  # ── 移动端（构建在 build-mobile.yml，发布由下面的 publish 统一做）────────
+  mobile:
+    name: Build mobile packages
+    needs: [resolve, validate]
+    if: needs.resolve.outputs.component == 'mobile'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-mobile.yml
+    with:
+      tag: ${{ needs.resolve.outputs.tag }}
+
+  # ── 发布：构建全成功 → 生成校验和 → 渲染正文 → 建 Release → 一次性传资产 ──
+  publish:
+    name: Publish release
+    needs: [resolve, validate, build-web, build-web-desktop, server, mobile]
+    if: >-
+      always() && !cancelled()
+      && needs.resolve.result == 'success'
+      && needs.validate.result == 'success'
+      && (
+        (needs.resolve.outputs.component == 'server' && needs.server.result == 'success')
+        || (needs.resolve.outputs.component == 'web' && needs.build-web.result == 'success')
+        || (needs.resolve.outputs.component == 'desktop' && needs.build-web-desktop.result == 'success')
+        || (needs.resolve.outputs.component == 'mobile' && needs.mobile.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: gospeak-${{ needs.resolve.outputs.component }}-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        # 先落盘校验和，再渲染正文：--assets-dir 看到的是本次 Release 真实要上传的
+        # 文件集合（含校验和本身），正文里的「## 校验」段因此不会指向不存在的文件。
+        env:
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          sums="$(node scripts/release/release-naming.mjs checksum "$COMPONENT" "$VERSION")"
+          tmp="$RUNNER_TEMP/$sums"
+          (
+            cd dist
+            # 只用 bash 通配展开，不依赖 GNU find 的 -printf；目录项跳过。
+            for file in *; do
+              [ -f "$file" ] || continue
+              sha256sum "$file"
+            done
+          ) > "$tmp"
+          test -s "$tmp"
+          cp "$tmp" "dist/$sums"
+          echo "::notice::generated dist/$sums"
+          cat "dist/$sums"
+
+      - name: Render release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          changelog="$RUNNER_TEMP/changelog.md"
+          if ! node scripts/release/build-changelog.mjs \
+                --component "$COMPONENT" \
+                --version "$VERSION" \
+                --no-write > "$changelog" 2> "$RUNNER_TEMP/build-changelog.err"; then
+            echo "::warning::build-changelog.mjs failed; falling back to a placeholder section"
+            cat "$RUNNER_TEMP/build-changelog.err" >&2 || true
+          fi
+          if [ ! -s "$changelog" ]; then
+            echo "本次发布无自动生成的变更记录。" > "$changelog"
+          fi
+          # 手写 notes 由 release-notes.mjs 自己从 .github/versions/<component>.yaml
+          # 的 notes: 块读取；--changelog-file 提供「更新日志」整段（各端完整变更）。
+          node scripts/release/release-notes.mjs release \
+            --component "$COMPONENT" \
+            --version "$VERSION" \
+            --tag "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --changelog-file "$changelog" \
+            --assets-dir dist \
+            > "$RUNNER_TEMP/release-notes.md"
+          test -s "$RUNNER_TEMP/release-notes.md"
+          head -n 40 "$RUNNER_TEMP/release-notes.md"
+
+      - name: Create or refresh GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          case "$COMPONENT" in
+            server) title="GOSpeak Server v$VERSION" ;;
+            web) title="GOSpeak Web v$VERSION" ;;
+            desktop) title="GOSpeak Desktop v$VERSION" ;;
+            mobile) title="GOSpeak Mobile v$VERSION" ;;
+            *)
+              echo "::error::unknown component $COMPONENT"
+              exit 1
+              ;;
+          esac
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release view "$TAG" --json body -q .body > "$RUNNER_TEMP/live-notes.md" || true
+            if cmp -s "$RUNNER_TEMP/live-notes.md" "$RUNNER_TEMP/release-notes.md"; then
+              echo "::notice::release $TAG body already up to date"
+            else
+              echo "::notice::release $TAG exists; refreshing body"
+              gh release edit "$TAG" --title "$title" --notes-file "$RUNNER_TEMP/release-notes.md"
+            fi
+          else
+            # 各端 Release 一律 --latest=false：/releases/latest 归聚合页。
+            gh release create "$TAG" \
+              --target "$(git rev-parse HEAD)" \
+              --title "$title" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --latest=false
+          fi
+
+      - name: Upload release assets
+        # 一次性上传 dist 里的全部文件（含 SHA256SUMS-<tag>.txt），--clobber 保证幂等。
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find dist -maxdepth 1 -type f | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::no assets were built for $TAG"
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber
+          printf '%s\n' "${files[@]}" > "$RUNNER_TEMP/uploaded.txt"
+          while IFS= read -r file; do
+            echo "::notice::uploaded $file"
+          done < "$RUNNER_TEMP/uploaded.txt"
+
+      - name: Job summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          COMPONENT: ${{ needs.resolve.outputs.component }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          count="$(gh release view "$TAG" --json assets -q '.assets | length')"
+          {
+            echo "## Release $TAG"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "| --- | --- |"
+            echo "| 组件 | $COMPONENT |"
+            echo "| 版本 | $VERSION |"
+            echo "| Release | https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG |"
+            echo "| 资产数 | $count |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 聚合页：按北京时间当天重建 GOSpeak-<YYMMDD>，唯一拿 latest 的 Release ──
+  aggregate:
+    name: Aggregate release page
+    needs: [resolve, publish]
+    # 幂等重建：某端构建/发布失败也要刷新聚合页（缺哪端就少哪端），不让页面
+    # 停留在旧内容；串行组保证并发重建不打架。
+    if: always() && !cancelled() && needs.resolve.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: aggregate-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Beijing date
+        id: date
+        run: |
+          set -euo pipefail
+          iso="$(TZ=Asia/Shanghai date +%F)"
+          ymd="$(TZ=Asia/Shanghai date +%y%m%d)"
+          {
+            echo "iso=$iso"
+            echo "tag=GOSpeak-$ymd"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::aggregate release GOSpeak-$ymd ($iso, Asia/Shanghai)"
+
+      - name: Render aggregate page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # tag / 标题由脚本按 --date 内部派生；workflow 只把正文发到 Release。
+          node scripts/release/render-aggregate.mjs \
+            --repo "$GITHUB_REPOSITORY" \
+            --date "${{ steps.date.outputs.iso }}" \
+            --out "$RUNNER_TEMP/aggregate.md"
+          test -s "$RUNNER_TEMP/aggregate.md"
+          head -n 40 "$RUNNER_TEMP/aggregate.md"
+
+      - name: Create or refresh aggregate release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.date.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::notice::aggregate release $TAG exists; refreshing body"
+            gh release edit "$TAG" --title "$TAG" --notes-file "$RUNNER_TEMP/aggregate.md" --latest
+          else
+            echo "::notice::creating aggregate release $TAG"
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/aggregate.md" \
+              --latest
+          fi

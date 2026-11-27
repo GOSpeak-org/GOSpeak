@@ -15,13 +15,17 @@
 
 GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频能力。单个二进制即可运行，前端内嵌，提供语音房间、发言检测、逐人音量控制、房间权限与原生桌面客户端。
 
-> **仓库结构**：本仓库是**聚合壳**，只用 submodule 把三个子仓锚定在一起，方便一次 `git clone --recursive` 拿全部。
+> **仓库结构**：本仓库是 **monorepo 根** —— 一份 Git 仓库、一份 `pnpm-lock.yaml`、一套 turbo / biome / lefthook 工具链。`server/` `client/` `docs/` 都是仓内普通目录（不是 submodule），直接改、直接提交。
 >
-> | 目录 | 仓库 | 说明 |
-> |---|---|---|
-> | `server/` | GOSpeak-Server | Go 后端、部署、文档 |
-> | `client/` | GOSpeak-Client | Web / 桌面 / 移动 / 共享规则 |
-> | `docs/` | GOSpeak-Docs | VitePress 文档站 |
+> | 目录 | 内容 |
+> |---|---|
+> | `server/` | `server/`（Go 后端）· `test/`（集成测试）· `docs/`（设计文档） |
+> | `client/` | `web/` · `packages/*`（components / sfu-client / desktop / mobile-capabilities / plugin-sdk）· `plugins/*` · `desktop/`（Go + MyGo）· `mobile/`（Capacitor）· `proxyrules/` · `scripts/` |
+> | `packages/` | （空）新包预留位，当前只有 `.gitkeep` |
+> | `deploy/` | compose · Caddy · LiveKit · 可观测 · 部署脚本 |
+> | `docs/` | VitePress 文档站 |
+>
+> 仓库根一条命令跑通全栈：`pnpm install` → `pnpm dev`（后端 + Web）→ `pnpm build` / `pnpm test` / `pnpm typecheck`。
 
 ## 界面预览
 
@@ -86,12 +90,12 @@ GOSpeak 是一个自托管的游戏语音平台，基于 LiveKit 提供音视频
 一条命令装好应用与 LiveKit（自动识别平台、取最新发行包、校验 SHA256）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak-Server/release/deploy/install-binary.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GOSpeak-org/GOSpeak/release/deploy/install-binary.sh | bash
 ```
 
-默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/deploy/binary.md)。
+默认装到 `/opt/gospeak`，生成 `.env` 与 systemd 服务；重复执行即升级。加 `--dry-run` 只看要下载什么。详见 [单二进制部署](./docs/deploy/binary.md)。
 
-也可以手动从 [Releases](https://github.com/GOSpeak-org/GOSpeak-Server/releases) 下载对应平台的 `gospeak-*` 文件，前端已内嵌，无需其他依赖。
+也可以手动从本仓服务端 Release（`gospeak-server-v*`）下载对应平台的 `gospeak-server-v<版本>-<os>-<arch>` 文件，前端已内嵌，无需其他依赖。
 
 ```bash
 chmod +x gospeak-server-v<VERSION>-linux-amd64
@@ -102,34 +106,50 @@ chmod +x gospeak-server-v<VERSION>-linux-amd64
 
 ### 源码开发
 
-需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。前后端已拆到两个子仓，分别 clone：
+需要 Go 1.27.4+、Node.js 22+、pnpm 10+ 与 Docker。monorepo 一次 clone 拿全部：
 
 ```bash
-git clone https://github.com/GOSpeak-org/GOSpeak-Server.git
-git clone https://github.com/GOSpeak-org/GOSpeak-Client.git
+git clone https://github.com/GOSpeak-org/GOSpeak.git
+cd GOSpeak
+pnpm install
 
 # 后端：生成 deploy/.env（含随机 LiveKit 凭证），起依赖后跑服务
-cd GOSpeak-Server
-pnpm install
-cd deploy && ./init.sh && cd ..
+cd deploy && ./init.sh && cd ../..
 docker compose -f deploy/docker-compose.yml up -d
-cd server && go run main.go server
+cd server/server && go run main.go server
 ```
 
 `./init.sh` 生成唯一配置文件 `deploy/.env`，并随机写入 LiveKit 凭证。全档位版 `docker-compose.standard.yml` 把 7880 绑定到宿主机回环地址供本地直连调试；精简版 `docker-compose.yml` 则是 `7880:7880` 对公网发布，生产勿用。
 
-前端在 [GOSpeak-Client](https://github.com/GOSpeak-org/GOSpeak-Client)，在该仓运行 `pnpm install` 后 `pnpm --filter @gospeak/web dev`。
+前端就在同一个仓里：仓库根 `pnpm dev` 同时起前后端，或 `pnpm --filter @gospeak/web dev` 只起 Web；文档站是 `pnpm --filter @gospeak/docs dev`。
+
+## 版本与发行
+
+四端各自独立发版：各有自己的版本真源、tag 与 GitHub Release，互不跟随。版本号只认 `.github/versions/<component>.yaml`，其余副本（`server/VERSION`、各端 `package.json`、`mygo.config.ts`、Android / iOS 原生工程）由 `scripts/release/check-version.mjs` 校验一致性。
+
+| 端 | 版本真源 | Release tag | 主要产物 |
+|---|---|---|---|
+| 服务端 | `.github/versions/server.yaml` | `gospeak-server-v<版本>` | `gospeak-server-v<版本>-<os>-<arch>` 二进制 + `SHA256SUMS-*.txt` |
+| Web | `.github/versions/web.yaml` | `gospeak-web-v<版本>` | `gospeak-web-v<版本>-dist.tar.gz` |
+| 桌面端 | `.github/versions/desktop.yaml` | `gospeak-desktop-v<版本>` | dmg / deb / tar.gz / exe 安装包 |
+| 移动端 | `.github/versions/mobile.yaml` | `gospeak-mobile-v<版本>` | Android APK |
+
+发版流程：改对应 yaml 的 `version` 与 `notes` → 合入 `release` 分支 → 根 `.github/workflows/` 的发版编排自动打 tag、构建并上传到该端 Release，同时把该端更新日志写进对应的 `CHANGELOG.md`（服务端 `server/CHANGELOG.md`，客户端 `client/{web,desktop,mobile}/CHANGELOG.md`）。
+
+除四端 Release 外，每个发版日主仓还会生成一个按日期命名的**聚合 Release**：tag 形如 `GOSpeak-YYMMDD`（例：`GOSpeak-261128`），正文汇总当次四端各自的产物直链与更新摘要，一次拿齐整套版本。
+
+本仓首次全仓发版：服务端 `1.3.1`，Web / 桌面端 / 移动端 `1.4.1`；更早的 1.x 历史版本入口见各端 `CHANGELOG.md`。
 
 ## 部署
 
-完整说明见 [deploy/DEPLOY.md](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/deploy/DEPLOY.md)。部署只需要一个域名与一个上游。
+完整说明见 [deploy/DEPLOY.md](./deploy/DEPLOY.md)。部署只需要一个域名与一个上游。
 
 ### 使用域名
 
 ```bash
 cd deploy
 ./init.sh --domain voice.example.com
-cd ..
+cd ../..
 docker compose -f deploy/docker-compose.standard.yml up -d --build
 ```
 
@@ -140,13 +160,13 @@ docker compose -f deploy/docker-compose.standard.yml up -d --build
 ```bash
 cd deploy
 ./init.sh
-cd ..
+cd ../..
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
 不传 `--domain`，用精简版即可。将反向代理指向 `gospeak:8998` 这一个上游。`/api`、`/ws`、`/uploads`、`/livekit` 全部由应用提供，LiveKit 不需要单独的域名、证书或代理规则。
 
-内置入口是 Caddy（`deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [反向代理文档](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/deploy/reverse-proxy.md)。
+内置入口是 Caddy（`deploy/Caddyfile`）：填 `--domain` 时由 `edge` 档位自动签发证书并升级 WebSocket，留空则由你现有的 Nginx / Traefik 等反代接管。已有反代的接法与各类症状排查见 [反向代理文档](./docs/deploy/reverse-proxy.md)。
 
 ### 局域网
 
@@ -170,19 +190,20 @@ DB_TYPE="Turso"      TURSO_DATABASE_URL=...          # libSQL 远程数据库（
 
 ## 桌面客户端
 
-桌面客户端与网页版共用同一套前端，提供浏览器不具备的能力：关窗进托盘、全局快捷键（在游戏内生效）、开机自启、系统通知、游戏内覆盖层。构建与开发说明见 [desktop/README.md](https://github.com/GOSpeak-org/GOSpeak-Client/blob/release/desktop/README.md) 与 [桌面客户端文档](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)。
+桌面客户端与网页版共用同一套前端，提供浏览器不具备的能力：关窗进托盘、全局快捷键（在游戏内生效）、开机自启、系统通知、游戏内覆盖层。构建与开发说明见 [client/desktop/README.md](./client/desktop/README.md) 与 [桌面客户端文档](./docs/guide/desktop.md)。
 
 ## 文档
 
-- [部署指南](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/deployment-guide.md)
-- [桌面客户端](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/guide/desktop.md)
-- [SFU 配置与成熟度](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/docs/sfu-provider-maturity.md)
-- [架构设计](https://github.com/GOSpeak-org/GOSpeak-Docs/blob/release/architecture/index.md)
-- [开发者指南](https://github.com/GOSpeak-org/GOSpeak-Server/blob/release/server/AGENTS.md)
+- [部署指南](./server/docs/deployment-guide.md)
+- [桌面客户端](./docs/guide/desktop.md)
+- [SFU 配置与成熟度](./server/docs/sfu-provider-maturity.md)
+- [架构设计](./docs/architecture/index.md)
+- [开发者指南](./AGENTS.md) · [服务端模块约定](./server/server/AGENTS.md)
+- [文档站源码](./docs/)
 
 ## 贡献
 
-欢迎提交 PR 与 Issue，较大的改动请先开 Issue 讨论。提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)，前端子仓由 commitlint 与 lefthook 强制执行。
+欢迎提交 PR 与 Issue，较大的改动请先开 Issue 讨论。提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/)，由根目录的 commitlint 与 lefthook 钩子强制执行。
 
 ## License
 

@@ -1,0 +1,30 @@
+# GOSpeak 移动端（client/mobile，Capacitor）版本 —— 显式声明，版本门禁的单一事实来源。
+#
+# 发版流程：修改本文件的 version 并合入 release 后，version-bump.yml 会打上
+# `gospeak-mobile-v<version>` tag，build-mobile.yml 随之构建并发布 APK 到
+# 移动端自己的 Release。
+#
+# 同步约束（scripts/release/check-version.mjs 校验）：
+#   client/mobile/package.json、client/mobile/android/app/build.gradle
+#   （versionName + versionCode）、client/mobile/ios/App/App.xcodeproj/project.pbxproj
+#   （MARKETING_VERSION + CURRENT_PROJECT_VERSION）必须与本文件一致。
+# 原生工程不要手改：改完本文件后在仓库根跑 node client/scripts/mobile-version.mjs 同步（--check 只校验不写）。
+version: "1.4.0-rc.1"
+
+# 本次发版说明：优先作为 GitHub Release 的 release notes（块标量 | 多行）。
+notes: |
+  GOSpeak Mobile 1.4.0-rc.1 —— monorepo 合并后首个四端统一的版本。
+
+  内容与旧仓 GOSpeak-Client 的同名版本一致：Capacitor 壳内嵌 Web 1.4.0-rc.1 产物，
+  没有新增移动端专属能力。
+
+  ## 功能
+  - 内嵌前端跟随 Web 1.4.0-rc.1：屏幕共享按需订阅、user_uuid 跨层标识
+  - 代理规则绑定（bind:rules）随版本一起同步进原生工程
+
+  ## 修复
+  - Android versionCode 顺延到 10400，versionName 与 iOS MARKETING_VERSION 同步到 1.4.0-rc.1
+  - 原生工程版本改由 mobile-version 脚本统一写入，避免手改漂移
+
+  ## 说明
+  - 本次 APK 为 **debug 签名**构建，供内测与自部署验证使用；商店/正式签名链路尚未接入，请勿用于正式分发
