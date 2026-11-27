@@ -170,13 +170,13 @@ LiveKit 不需要独立域名或证书：应用内置同源反代 `/livekit/*` �
 ### 4.2 构建应用镜像
 
 ```bash
-docker build -t gospeak:latest .
+docker build -f deploy/Dockerfile -t gospeak:latest .
 ```
 
-三阶段构建（见根 `Dockerfile`）:
-1. `go-builder` — Go 后端 (CGO=1, 静态链接)
-2. `web-builder` — 前端 SPA (pnpm + Vite)
-3. 产出 Alpine 镜像，端口 8998，入口 `/app/gospeak`
+三阶段构建（见 `deploy/Dockerfile`，构建上下文必须是**仓库根**）:
+1. `web-builder` — 前端 SPA（pnpm + Vite，`GOSPEAK_TARGET=web`）
+2. `go-builder` — Go 后端（CGO=0，把前端 dist 内嵌进二进制）
+3. 产出 Alpine 运行镜像，端口 8998，入口 `/app/gospeak`
 
 ### 4.3 运行应用
 
@@ -238,7 +238,7 @@ cp deploy/.env.example deploy/.env
 docker compose -f deploy/docker-compose.yml up -d
 
 # 3. 构建应用
-docker build -t gospeak:latest .
+docker build -f deploy/Dockerfile -t gospeak:latest .
 
 # 4. 运行
 docker run -d \
@@ -295,7 +295,7 @@ docker logs -f gospeak
 
 ```bash
 git pull
-docker build -t gospeak:latest .
+docker build -f deploy/Dockerfile -t gospeak:latest .
 docker stop gospeak && docker rm gospeak
 docker run -d ... gospeak:latest  # 同 5.2 step 4
 ```

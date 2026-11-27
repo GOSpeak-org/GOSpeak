@@ -125,11 +125,11 @@ docker run -d \
 需要修改代码或不使用官方镜像时：
 
 ```bash
-# 仓库根目录
-docker build -t gospeak .
+# 仓库根目录（构建上下文是仓库根，不能改成 deploy/ 或 server/）
+docker build -f deploy/Dockerfile -t gospeak .
 ```
 
-该 Dockerfile 会在容器内构建前端并打包进 Go 二进制，最终镜像只包含一个可执行文件。
+`deploy/Dockerfile` 会在容器内构建前端并打包进 Go 二进制，最终镜像只包含一个可执行文件。
 
 运行时将镜像名替换为自建镜像：
 
@@ -178,7 +178,8 @@ sudo systemctl restart docker
 **自行构建**
 
 ```bash
-docker build -t gospeak .
+# 在仓库根执行；构建上下文是仓库根，Dockerfile 在 deploy/
+docker build -f deploy/Dockerfile -t gospeak .
 ```
 
 基础镜像能够拉取时，该方式即可成功。
