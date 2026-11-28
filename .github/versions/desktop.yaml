@@ -4,3 +4,8 @@ version: "1.4.0-rc.1"
 
 notes: |
   GOSpeak Desktop 1.4.0-rc.1 —— monorepo 编排层首个桌面端版本。
+
+  ## 产物
+  - macOS：darwin-arm64 / darwin-amd64（.dmg）
+  - Linux：linux-amd64 / linux-arm64（.deb / .tar.gz）
+  - Windows：windows-amd64（.exe）

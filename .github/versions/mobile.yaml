@@ -4,4 +4,7 @@
 version: "1.4.0-rc.1"
 
 notes: |
-  GOSpeak Mobile 1.4.0-rc.1 —— monorepo 编排层首个移动端版本（debug 签名，仅供内测）。
+  GOSpeak Mobile 1.4.0-rc.1 —— monorepo 编排层首个移动端版本。
+
+  **只提供 Android**：APK 为 debug 签名，仅供内测与自部署验证；
+  iOS 不发产物（原生工程只参与版本一致性校验）。

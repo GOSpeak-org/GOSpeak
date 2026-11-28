@@ -125,10 +125,19 @@ jobs:
           path: dist/*
 
   desktop:
-    name: Desktop installer
+    name: Desktop ${{ matrix.target }}
     needs: resolve
     if: needs.resolve.outputs.component == 'desktop'
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, target: darwin-arm64 }
+          - { os: macos-15-intel, target: darwin-amd64 }
+          - { os: ubuntu-latest, target: linux-amd64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+          - { os: windows-latest, target: windows-amd64 }
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -144,9 +153,12 @@ jobs:
           go-version-file: client/desktop/go.mod
           cache-dependency-path: client/desktop/go.sum
       - run: cd client && pnpm install --frozen-lockfile
+        shell: bash
       - name: Build desktop frontend
         run: cd client && GOSPEAK_TARGET=desktop pnpm --filter @gospeak/web build:desktop
+        shell: bash
       - name: Sync webui/dist (go:embed 需要文件存在)
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p client/desktop/webui/dist
@@ -155,15 +167,33 @@ jobs:
           test -f client/desktop/webui/dist/index.html
       - name: Build host
         run: cd client && pnpm --filter @gospeak/desktop-app build
+        shell: bash
       - name: Collect installers
+        shell: bash
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
           mkdir -p dist
-          find client/desktop/dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.deb" \) -exec cp {} dist/ \;
+          found=0
+          while IFS= read -r f; do
+            case "$f" in
+              *.exe) ext=".exe" ;;
+              *.dmg) ext=".dmg" ;;
+              *.deb) ext=".deb" ;;
+              *.tar.gz) ext=".tar.gz" ;;
+              *.AppImage) ext=".AppImage" ;;
+              *) continue ;;
+            esac
+            cp "$f" "dist/gospeak-desktop-v${VERSION}-${TARGET}${ext}"
+            found=1
+          done < <(find client/desktop/dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" \) 2>/dev/null || true)
+          [ "$found" -eq 1 ] || { echo "::error::没有找到安装包（client/desktop/dist 为空）"; exit 1; }
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-installers
+          name: desktop-${{ matrix.target }}
           path: dist/*
 
   mobile:
