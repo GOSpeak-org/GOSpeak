@@ -1,7 +1,7 @@
-name: Release
+name: Aggregate Release
 
-# 一个 tag 只发一端：gospeak-<component>-v<version>。
-# 版本真源是根仓 .github/versions/<component>.yaml；子仓只提供构建产物。
+# 根仓只发**一个**聚合 Release：GOSpeak-YYMMDD。
+# 实际产物与校验和都在三个子仓的 Release 里，这里只渲染表格直链过去。
 on:
   push:
     tags:
@@ -9,295 +9,56 @@ on:
       - "gospeak-web-v*"
       - "gospeak-desktop-v*"
       - "gospeak-mobile-v*"
-  workflow_call:
-    inputs:
-      tag:
-        description: "Release tag（gospeak-<component>-v<version>）"
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag（gospeak-<component>-v<version>）"
-        required: true
+      date:
+        description: "YYYYMMDD（留空 = 今天，Asia/Shanghai）"
+        required: false
+        default: ""
         type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: aggregate-release
   cancel-in-progress: false
 
 jobs:
-  resolve:
-    name: Resolve tag
+  aggregate:
+    name: Render GOSpeak-YYMMDD
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.r.outputs.tag }}
-      component: ${{ steps.r.outputs.component }}
-      version: ${{ steps.r.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - id: r
+
+      - name: Resolve date / tag
+        id: d
         env:
-          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_DATE: ${{ inputs.date }}
         run: |
           set -euo pipefail
-          tag="${INPUT_TAG:-${GITHUB_REF_NAME}}"
-          parsed="$(node scripts/release/release-naming.mjs parse "$tag")"
-          component="${parsed%% *}"; version="${parsed##* }"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "component=$component" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          node scripts/release/check-version.mjs . "$tag" "$component"
+          date="${INPUT_DATE:-}"
+          [ -n "$date" ] || date="$(TZ=Asia/Shanghai date +%Y%m%d)"
+          echo "date=$date" >> "$GITHUB_OUTPUT"
+          echo "tag=GOSpeak-$date" >> "$GITHUB_OUTPUT"
+          echo "::notice::aggregate tag = GOSpeak-$date"
 
-  server:
-    name: Server ${{ matrix.target }}
-    needs: resolve
-    if: needs.resolve.outputs.component == 'server'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { goos: linux, goarch: amd64, target: linux-amd64 }
-          - { goos: linux, goarch: arm64, target: linux-arm64 }
-          - { goos: darwin, goarch: amd64, target: darwin-amd64 }
-          - { goos: darwin, goarch: arm64, target: darwin-arm64 }
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: server/server/go.mod
-          cache-dependency-path: server/server/go.sum
-      - name: Build
-        working-directory: server/server
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-          VERSION: ${{ needs.resolve.outputs.version }}
-        run: |
-          set -euo pipefail
-          commit="$(git rev-parse --short=12 HEAD)"
-          mkdir -p "$GITHUB_WORKSPACE/dist"
-          name="$(node "$GITHUB_WORKSPACE/scripts/release/release-naming.mjs" artifact-target server "$VERSION" "${{ matrix.target }}" "")"
-          go build -trimpath -ldflags="-s -w -X GOSpeak/internal/buildinfo.Version=${VERSION} -X GOSpeak/internal/buildinfo.Commit=${commit}" -o "$GITHUB_WORKSPACE/dist/$name" main.go
-      - uses: actions/upload-artifact@v4
-        with:
-          name: server-${{ matrix.target }}
-          path: dist/*
-
-  web:
-    name: Web dist
-    needs: resolve
-    if: needs.resolve.outputs.component == 'web'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: client/pnpm-lock.yaml
-      - run: cd client && pnpm install --frozen-lockfile
-      - run: cd client && GOSPEAK_TARGET=web pnpm --filter @gospeak/web build
-      - name: Package
-        env:
-          VERSION: ${{ needs.resolve.outputs.version }}
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          name="$(node scripts/release/release-naming.mjs artifact-target web "$VERSION" dist tar.gz)"
-          tar -czf "dist/$name" -C client/web dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: web-dist
-          path: dist/*
-
-  desktop:
-    name: Desktop ${{ matrix.target }}
-    needs: resolve
-    if: needs.resolve.outputs.component == 'desktop'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: macos-14, target: darwin-arm64 }
-          - { os: macos-15-intel, target: darwin-amd64 }
-          - { os: ubuntu-latest, target: linux-amd64 }
-          - { os: ubuntu-24.04-arm, target: linux-arm64 }
-          - { os: windows-latest, target: windows-amd64 }
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: client/pnpm-lock.yaml
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: client/desktop/go.mod
-          cache-dependency-path: client/desktop/go.sum
-      - run: cd client && pnpm install --frozen-lockfile
-        shell: bash
-      - name: Build desktop frontend
-        run: cd client && GOSPEAK_TARGET=desktop pnpm --filter @gospeak/web build:desktop
-        shell: bash
-      - name: Sync webui/dist (go:embed 需要文件存在)
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p client/desktop/webui/dist
-          cp -R client/web/dist-desktop/. client/desktop/webui/dist/
-          touch client/desktop/webui/dist/.gitkeep
-          test -f client/desktop/webui/dist/index.html
-      - name: Build host
-        run: cd client && pnpm --filter @gospeak/desktop-app build
-        shell: bash
-      - name: Collect installers
-        shell: bash
-        env:
-          VERSION: ${{ needs.resolve.outputs.version }}
-          TARGET: ${{ matrix.target }}
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          found=0
-          while IFS= read -r f; do
-            case "$f" in
-              *.exe) ext=".exe" ;;
-              *.dmg) ext=".dmg" ;;
-              *.deb) ext=".deb" ;;
-              *.tar.gz) ext=".tar.gz" ;;
-              *.AppImage) ext=".AppImage" ;;
-              *) continue ;;
-            esac
-            cp "$f" "dist/gospeak-desktop-v${VERSION}-${TARGET}${ext}"
-            found=1
-          done < <(find client/desktop/dist -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.tar.gz" -o -name "*.deb" -o -name "*.AppImage" \) 2>/dev/null || true)
-          [ "$found" -eq 1 ] || { echo "::error::没有找到安装包（client/desktop/dist 为空）"; exit 1; }
-          ls -la dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: desktop-${{ matrix.target }}
-          path: dist/*
-
-  mobile:
-    name: Mobile APK (debug)
-    needs: resolve
-    if: needs.resolve.outputs.component == 'mobile'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: client/pnpm-lock.yaml
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: client/proxyrules/go.mod
-          cache-dependency-path: client/proxyrules/go.sum
-      - name: Accept Android SDK licenses
-        run: |
-          set -euo pipefail
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          echo "ANDROID_HOME=$SDK"
-          SDKM="$(command -v sdkmanager || true)"
-          [ -n "$SDKM" ] || SDKM="$SDK/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
-          "$SDKM" --list_installed 2>/dev/null | head -10 || true
-      - run: cd client && pnpm install --frozen-lockfile
-      - name: Install Android NDK + gomobile
-        run: |
-          set -euo pipefail
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          SDKM="$(command -v sdkmanager || echo "$SDK/cmdline-tools/latest/bin/sdkmanager")"
-          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
-          "$SDKM" "ndk;27.2.12479018" "platforms;android-35" "build-tools;35.0.0" >/dev/null
-          echo "ANDROID_NDK_HOME=$SDK/ndk/27.2.12479018" >> "$GITHUB_ENV"
-          go install golang.org/x/mobile/cmd/gomobile@latest
-          "$(go env GOPATH)/bin/gomobile" init
-      - name: Sync Capacitor project
-        run: cd client && pnpm --filter @gospeak/mobile sync:no-bind
-      - name: Bind proxyrules AAR
-        run: cd client && pnpm --filter @gospeak/mobile bind:rules:android
-      - name: Assemble debug APK
-        run: |
-          set -euo pipefail
-          cd client/mobile/android
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
-          mkdir -p "$GITHUB_WORKSPACE/dist"
-          cp app/build/outputs/apk/debug/*.apk "$GITHUB_WORKSPACE/dist/"
-          ls -la "$GITHUB_WORKSPACE/dist"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mobile-apk
-          path: dist/*
-
-  publish:
-    name: Publish release
-    needs: [resolve, server, web, desktop, mobile]
-    if: always() && needs.resolve.result == 'success'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: Publish
+      - name: Render notes from sub-repo releases
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.resolve.outputs.tag }}
-          COMPONENT: ${{ needs.resolve.outputs.component }}
-          VERSION: ${{ needs.resolve.outputs.version }}
+        run: node scripts/release/render-aggregate.mjs --date "${{ steps.d.outputs.date }}" > /tmp/notes.md
+
+      - name: Create or refresh aggregate release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p dist
-          if [ -z "$(ls -A dist)" ]; then
-            echo "::error::没有可发布产物（组件构建失败？）"
-            exit 1
-          fi
-          sums="$(node scripts/release/release-naming.mjs checksum "$COMPONENT" "$VERSION")"
-          (cd dist && shasum -a 256 * > "../$sums")
-          node -e '
-            const { readFileSync } = require("node:fs");
-            const src = readFileSync(`.github/versions/${process.env.COMPONENT}.yaml`, "utf8");
-            const block = src.match(/^notes:[ \t]*\|[ \t]*\n([\s\S]*?)(?=^\S)/m);
-            console.log(block ? block[1].replace(/^  /gm, "").trim() : "");
-          ' > /tmp/notes.md
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --notes-file /tmp/notes.md
+          tag="${{ steps.d.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes-file /tmp/notes.md --latest
+            echo "::notice::updated $tag"
           else
-            gh release create "$TAG" --title "GOSpeak $COMPONENT $VERSION" --notes-file /tmp/notes.md --latest=false
+            gh release create "$tag" --title "GOSpeak ${{ steps.d.outputs.date }}" --notes-file /tmp/notes.md --latest
+            echo "::notice::created $tag"
           fi
-          gh release upload "$TAG" dist/* "$sums" --clobber
-          echo "::notice::published $TAG with $(ls dist | wc -l) assets"
+          head -12 /tmp/notes.md

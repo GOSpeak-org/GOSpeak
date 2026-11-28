@@ -73,42 +73,6 @@ jobs:
           if [ "${#tags[@]}" -eq 0 ]; then echo "::notice::全部已发布，无需打 tag"; exit 0; fi
           git push origin "${tags[@]}"
 
-  release-server:
-    needs: bump
-    if: needs.bump.outputs.server != ''
-    permissions:
-      contents: write
-    uses: ./.github/workflows/release.yml
-    with:
-      tag: ${{ needs.bump.outputs.server }}
-
-  release-web:
-    needs: bump
-    if: needs.bump.outputs.web != ''
-    permissions:
-      contents: write
-    uses: ./.github/workflows/release.yml
-    with:
-      tag: ${{ needs.bump.outputs.web }}
-
-  release-desktop:
-    needs: bump
-    if: needs.bump.outputs.desktop != ''
-    permissions:
-      contents: write
-    uses: ./.github/workflows/release.yml
-    with:
-      tag: ${{ needs.bump.outputs.desktop }}
-
-  release-mobile:
-    needs: bump
-    if: needs.bump.outputs.mobile != ''
-    permissions:
-      contents: write
-    uses: ./.github/workflows/release.yml
-    with:
-      tag: ${{ needs.bump.outputs.mobile }}
-
   docker:
     needs: bump
     if: needs.bump.outputs.server != ''
